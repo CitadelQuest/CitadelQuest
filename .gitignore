@@ -8,3 +8,31 @@
 /var/
 /vendor/
 ###< symfony/framework-bundle ###
+
+# IDE specific files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
+# PHP CS Fixer
+.php-cs-fixer.cache
+
+# PHPUnit
+.phpunit.result.cache
+/phpunit.xml
+
