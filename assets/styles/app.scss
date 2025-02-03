@@ -1,0 +1,151 @@
+// Import Bootstrap
+@use "~bootstrap/scss/bootstrap" as *;
+
+// Variables
+$primary-color: #2196F3;
+$secondary-color: #00BCD4;
+$background-dark: #1a1a2e;
+$background-darker: #16213e;
+$text-light: #ffffff;
+
+// Global styles
+html, body {
+    min-height: 100vh;
+}
+
+body {
+    background: linear-gradient(135deg, $background-dark 0%, $background-darker 100%);
+    color: $text-light;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+// Navbar styles
+.navbar {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+
+    .navbar-brand {
+        font-weight: bold;
+        color: $text-light !important;
+        font-size: 1.4rem;
+
+        &:hover {
+            transform: translateY(-1px);
+        }
+    }
+
+    .nav-link {
+        color: rgba(255, 255, 255, 0.8) !important;
+        transition: all 0.3s ease;
+
+        &:hover {
+            color: $text-light !important;
+            transform: translateY(-1px);
+        }
+    }
+}
+
+// Hero section
+.hero {
+    padding: 4rem 0;
+    text-align: center;
+    
+    h1 {
+        font-size: 3.5rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(45deg, $primary-color, $secondary-color);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    p {
+        font-size: 1.2rem;
+        color: rgba(255, 255, 255, 0.8);
+        max-width: 800px;
+        margin: 0 auto 2rem;
+    }
+}
+
+// Features section
+.features {
+    padding: 4rem 0;
+}
+
+.feature-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+    transition: transform 0.3s;
+    
+    &:hover {
+        transform: translateY(-5px);
+    }
+    
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    h3 {
+        color: $primary-color;
+        margin-bottom: 1rem;
+    }
+    
+    p {
+        color: rgba(255, 255, 255, 0.8);
+    }
+}
+
+// Buttons
+.btn-primary {
+    background: linear-gradient(45deg, $primary-color, $secondary-color);
+    border: none;
+    padding: 0.8rem 2rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba($primary-color, 0.4);
+    }
+}
+
+.btn-outline-light {
+    border-width: 2px;
+    padding: 0.8rem 2rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    
+    &:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.1);
+    }
+}
+
+// Form styles
+.form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: $text-light;
+    
+    &:focus {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: $text-light;
+        box-shadow: 0 0 0 0.2rem rgba($primary-color, 0.25);
+    }
+}
+
+// Animations
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+}
