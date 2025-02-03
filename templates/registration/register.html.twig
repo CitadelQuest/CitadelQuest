@@ -1,0 +1,132 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Register - CitadelQuest{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/crypto.js') }}"></script>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .register-container {
+            max-width: 500px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.8rem;
+            color: #fff;
+        }
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.1);
+        }
+        .btn-register {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(45deg, #2196F3, #00BCD4);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .btn-register:hover {
+            transform: translateY(-2px);
+        }
+        .alert {
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .password-requirements {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 0.5rem;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="register-container">
+        <h1 class="text-center mb-4">Create Your Citadel</h1>
+
+        {% for flash_error in app.flashes('verify_email_error') %}
+            <div class="alert alert-danger" role="alert">{{ flash_error }}</div>
+        {% endfor %}
+
+        {{ form_start(registrationForm) }}
+            <div class="form-group">
+                {{ form_label(registrationForm.username) }}
+                {{ form_widget(registrationForm.username, {
+                    'attr': {'class': 'form-control', 'placeholder': 'Choose a username'}
+                }) }}
+                {{ form_errors(registrationForm.username) }}
+                <small class="form-text text-muted">
+                    Username can contain letters, numbers, underscores, and dashes.
+                </small>
+            </div>
+
+            <div class="form-group">
+                {{ form_label(registrationForm.email) }}
+                {{ form_widget(registrationForm.email, {
+                    'attr': {'class': 'form-control', 'placeholder': 'Enter your email'}
+                }) }}
+                {{ form_errors(registrationForm.email) }}
+            </div>
+
+            <div class="form-group">
+                {{ form_label(registrationForm.password.first) }}
+                {{ form_widget(registrationForm.password.first, {
+                    'attr': {'class': 'form-control', 'placeholder': 'Choose a strong password'}
+                }) }}
+                {{ form_errors(registrationForm.password.first) }}
+                
+                <div class="password-requirements">
+                    Password must contain:
+                    <ul>
+                        <li>At least 8 characters</li>
+                        <li>One uppercase letter</li>
+                        <li>One lowercase letter</li>
+                        <li>One number</li>
+                        <li>One special character (@$!%*?&)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="form-group">
+                {{ form_label(registrationForm.password.second) }}
+                {{ form_widget(registrationForm.password.second, {
+                    'attr': {'class': 'form-control', 'placeholder': 'Repeat your password'}
+                }) }}
+                {{ form_errors(registrationForm.password.second) }}
+            </div>
+
+            <button type="submit" class="btn btn-register" id="register-button">
+                <span class="button-text">Create My Citadel</span>
+                <div class="spinner-border spinner-border-sm ms-2 d-none" role="status">
+                    <span class="visually-hidden">Generating secure keys...</span>
+                </div>
+            </button>
+            <div class="text-center mt-2 text-muted key-generation-status d-none">
+                Generating your secure keys...
+            </div>
+        {{ form_end(registrationForm) }}
+
+        <div class="text-center mt-3">
+            <a href="{{ path('app_login') }}" class="text-light">Already have an account? Log in</a>
+        </div>
+    </div>
+{% endblock %}
