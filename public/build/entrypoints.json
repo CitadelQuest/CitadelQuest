@@ -1,0 +1,32 @@
+{
+  "entrypoints": {
+    "app": {
+      "js": [
+        "/build/runtime.8ab7f0c8.js",
+        "/build/18.92951c7a.js",
+        "/build/892.044ad380.js",
+        "/build/app.0ff9fa3d.js"
+      ],
+      "css": [
+        "/build/app.4000deab.css"
+      ]
+    },
+    "crypto": {
+      "js": [
+        "/build/runtime.8ab7f0c8.js",
+        "/build/18.92951c7a.js",
+        "/build/477.5f2a6678.js",
+        "/build/594.9d8663fc.js",
+        "/build/crypto.2fa9319d.js"
+      ]
+    },
+    "login": {
+      "js": [
+        "/build/runtime.8ab7f0c8.js",
+        "/build/18.92951c7a.js",
+        "/build/477.5f2a6678.js",
+        "/build/login.0cddeeab.js"
+      ]
+    }
+  }
+}
