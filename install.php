@@ -68,10 +68,19 @@ class CitadelQuestInstaller
             }
         }
 
-        // Check if Composer is available
-        exec('composer --version', $output, $returnVar);
-        if ($returnVar !== 0) {
-            throw new Exception("Composer not found. Please install Composer first.");
+        // Check if Composer is available globally or as composer.phar
+        exec('composer --version 2>/dev/null', $output, $returnVar);
+        $hasGlobalComposer = ($returnVar === 0);
+        
+        exec('php composer.phar --version 2>/dev/null', $output, $returnVar);
+        $hasLocalComposer = ($returnVar === 0);
+        
+        if (!$hasGlobalComposer && !$hasLocalComposer) {
+            throw new Exception(
+                "Composer not found. Please either:\n" .
+                "1. Install Composer globally (https://getcomposer.org/download/)\n" .
+                "2. OR download composer.phar to the same directory as install.php:\n" .
+                "   curl -sS https://getcomposer.org/installer | php"
         }
 
         echo "✓ All requirements met\n\n";
@@ -149,7 +158,8 @@ EOT;
     {
         echo "Installing dependencies...\n";
         
-        exec('composer install --no-dev --optimize-autoloader', $output, $returnVar);
+        $composerCmd = $hasGlobalComposer ? 'composer' : 'php composer.phar';
+        exec("$composerCmd install --no-dev --optimize-autoloader", $output, $returnVar);
         if ($returnVar !== 0) {
             throw new Exception("Failed to install dependencies");
         }
