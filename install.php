@@ -16,6 +16,7 @@ class CitadelQuestInstaller
     private string $installDir;
     private string $version = 'v0.1.2-alpha';
     private string $releaseUrl;
+    private bool $isWebMode;
     private array $requirements = [
         'php' => '8.2.0',
         'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
@@ -25,6 +26,25 @@ class CitadelQuestInstaller
     {
         $this->installDir = dirname(__FILE__);
         $this->releaseUrl = "https://github.com/CitadelQuest/CitadelQuest/archive/refs/tags/{$this->version}.tar.gz";
+        $this->isWebMode = PHP_SAPI !== 'cli';
+        
+        if ($this->isWebMode) {
+            echo "<!DOCTYPE html>\n";
+            echo "<html lang=\"en\">\n";
+            echo "<head>\n";
+            echo "    <meta charset=\"UTF-8\">\n";
+            echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+            echo "    <title>CitadelQuest Installer</title>\n";
+            echo "    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+            echo "    <style>\n";
+            echo "        .log { font-family: monospace; margin: 0; }\n";
+            echo "        .error { color: #dc3545; }\n";
+            echo "    </style>\n";
+            echo "</head>\n";
+            echo "<body class=\"container py-4\">\n";
+            echo "    <div class=\"card\">\n";
+            echo "        <div class=\"card-body\">\n";
+        }
     }
 
     public function install(): void
@@ -42,19 +62,43 @@ class CitadelQuestInstaller
         } catch (Exception $e) {
             $this->showError($e->getMessage());
         }
+        
+        if ($this->isWebMode) {
+            echo "        </div>\n";
+            echo "    </div>\n";
+            echo "</body>\n";
+            echo "</html>\n";
+        }
+    }
+
+    private function output(string $message, string $type = 'log'): void
+    {
+        if ($this->isWebMode) {
+            $class = $type === 'error' ? 'log error' : 'log';
+            echo "<p class=\"$class\">$message</p>\n";
+        } else {
+            echo $message . "\n";
+        }
     }
 
     private function showHeader(): void
     {
-        echo "=================================\n";
-        echo "CitadelQuest Installation Script\n";
-        echo "Version: {$this->version}\n";
-        echo "=================================\n\n";
+        if ($this->isWebMode) {
+            $this->output("<h2>CitadelQuest Installation</h2>");
+            $this->output("<h5 class='text-muted'>Version: {$this->version}</h5>");
+            $this->output("<hr>");
+        } else {
+            $this->output("=================================");
+            $this->output("CitadelQuest Installation Script");
+            $this->output("Version: {$this->version}");
+            $this->output("=================================");
+            $this->output("");
+        }
     }
 
     private function checkRequirements(): void
     {
-        echo "Checking requirements...\n";
+        $this->output("Checking requirements...");
         
         // Check PHP version
         if (version_compare(PHP_VERSION, $this->requirements['php'], '<')) {
@@ -80,41 +124,58 @@ class CitadelQuestInstaller
                 "Composer not found. Please either:\n" .
                 "1. Install Composer globally (https://getcomposer.org/download/)\n" .
                 "2. OR download composer.phar to the same directory as install.php:\n" .
-                "   curl -sS https://getcomposer.org/installer | php"
+                "   curl -sS https://getcomposer.org/installer | php");
         }
 
-        echo "✓ All requirements met\n\n";
+        $this->output("✓ All requirements met");
     }
 
     private function downloadAndExtract(): void
     {
-        echo "Downloading CitadelQuest {$this->version}...\n";
+        $this->output("Downloading CitadelQuest {$this->version}...");
         
         $tempFile = tempnam(sys_get_temp_dir(), 'cq_');
         if (!file_put_contents($tempFile, file_get_contents($this->releaseUrl))) {
             throw new Exception("Failed to download release");
         }
 
-        echo "Extracting files...\n";
-        $zip = new ZipArchive;
-        if ($zip->open($tempFile) !== true) {
-            throw new Exception("Failed to open downloaded archive");
+        $this->output("Extracting files...");
+        
+        // Create a temporary extraction directory
+        $extractDir = $this->installDir . '/tmp_extract';
+        if (!is_dir($extractDir)) {
+            mkdir($extractDir, 0755, true);
         }
-        $zip->extractTo($this->installDir);
-        $zip->close();
+        
+        // Extract the tar.gz file
+        $command = "tar -xzf " . escapeshellarg($tempFile) . " -C " . escapeshellarg($extractDir);
+        exec($command, $output, $returnVar);
+        
+        if ($returnVar !== 0) {
+            throw new Exception("Failed to extract archive. Error: " . implode("\n", $output));
+        }
+        
+        // Clean up the downloaded archive
         unlink($tempFile);
-
-        // Move files from extracted directory
-        $extractedDir = $this->installDir . "/CitadelQuest-" . substr($this->version, 1);
+        
+        // The extracted files will be in CitadelQuest-{version} subdirectory
+        $extractedDir = $extractDir . "/CitadelQuest-" . substr($this->version, 1);
+        if (!is_dir($extractedDir)) {
+            throw new Exception("Extracted directory not found: $extractedDir");
+        }
+        
+        // Move files to the installation directory
         $this->recursiveCopy($extractedDir, $this->installDir);
-        $this->recursiveRmdir($extractedDir);
+        
+        // Clean up the temporary directory
+        $this->recursiveRmdir($extractDir);
 
-        echo "✓ Files extracted successfully\n\n";
+        $this->output("✓ Files extracted successfully");
     }
 
     private function configureEnvironment(): void
     {
-        echo "Configuring environment...\n";
+        $this->output("Configuring environment...");
         
         $envContent = <<<EOT
 APP_ENV=prod
@@ -131,12 +192,12 @@ EOT;
             throw new Exception("Failed to create .env.local");
         }
 
-        echo "✓ Environment configured\n\n";
+        $this->output("✓ Environment configured");
     }
 
     private function setPermissions(): void
     {
-        echo "Setting directory permissions...\n";
+        $this->output("Setting directory permissions...");
         
         $dirs = [
             $this->installDir . '/public' => 0755,
@@ -151,12 +212,16 @@ EOT;
             chmod($dir, $perm);
         }
 
-        echo "✓ Permissions set\n\n";
+        $this->output("✓ Permissions set");
     }
 
     private function installDependencies(): void
     {
-        echo "Installing dependencies...\n";
+        $this->output("Installing dependencies...");
+        
+        // Check if Composer is available globally or as composer.phar
+        exec('composer --version 2>/dev/null', $output, $returnVar);
+        $hasGlobalComposer = ($returnVar === 0);
         
         $composerCmd = $hasGlobalComposer ? 'composer' : 'php composer.phar';
         exec("$composerCmd install --no-dev --optimize-autoloader", $output, $returnVar);
@@ -164,12 +229,12 @@ EOT;
             throw new Exception("Failed to install dependencies");
         }
 
-        echo "✓ Dependencies installed\n\n";
+        $this->output("✓ Dependencies installed");
     }
 
     private function setupDatabase(): void
     {
-        echo "Setting up database...\n";
+        $this->output("Setting up database...");
         
         // Create database directory if it doesn't exist
         $dbDir = $this->installDir . '/var/data';
@@ -183,30 +248,50 @@ EOT;
             throw new Exception("Failed to create database schema");
         }
 
-        echo "✓ Database setup complete\n\n";
+        $this->output("✓ Database setup complete");
     }
 
     private function cleanup(): void
     {
-        echo "Cleaning up...\n";
+        $this->output("Cleaning up...");
         // Remove installation script
         unlink(__FILE__);
-        echo "✓ Cleanup complete\n\n";
+        $this->output("✓ Cleanup complete");
     }
 
     private function showSuccess(): void
     {
-        echo "=================================\n";
-        echo "Installation Complete!\n";
-        echo "CitadelQuest has been successfully installed.\n";
-        echo "You can now access your installation through your web browser.\n";
-        echo "=================================\n";
+        $url = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']);
+        if ($this->isWebMode) {
+            $this->output("<div class='alert alert-success mt-3'>");
+            $this->output("✓ CitadelQuest has been successfully installed!");
+            $this->output("You can now access it at: <a href='$url'>$url</a>");
+            $this->output("</div>");
+        } else {
+            $this->output("=================================");
+            $this->output("Installation Complete!");
+            $this->output("CitadelQuest has been successfully installed.");
+            $this->output("You can now access it at: $url");
+            $this->output("=================================");
+        }
     }
 
     private function showError(string $message): void
     {
-        echo "\n❌ ERROR: {$message}\n";
-        echo "Installation failed. Please fix the error and try again.\n";
+        if ($this->isWebMode) {
+            $this->output("<div class='alert alert-danger'>");
+            $this->output("❌ ERROR: $message");
+            $this->output("Installation failed. Please fix the error and try again.");
+            $this->output("</div>");
+            echo "        </div>\n";
+            echo "    </div>\n";
+            echo "</body>\n";
+            echo "</html>\n";
+        } else {
+            $this->output("");
+            $this->output("❌ ERROR: $message", 'error');
+            $this->output("Installation failed. Please fix the error and try again.", 'error');
+        }
         exit(1);
     }
 
