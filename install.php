@@ -24,7 +24,8 @@ class CitadelQuestInstaller
 
     public function __construct()
     {
-        $this->installDir = dirname(__FILE__);
+        // Since we're in the public directory, the install directory should be one level up
+        $this->installDir = dirname(__FILE__, 2);
         $this->releaseUrl = "https://github.com/CitadelQuest/CitadelQuest/archive/refs/tags/{$this->version}.tar.gz";
         $this->isWebMode = PHP_SAPI !== 'cli';
         
@@ -164,11 +165,19 @@ class CitadelQuestInstaller
             throw new Exception("Extracted directory not found: $extractedDir");
         }
         
-        // Move files to the installation directory
+        // Move files to the parent directory (one level up from public)
         $this->recursiveCopy($extractedDir, $this->installDir);
         
         // Clean up the temporary directory
         $this->recursiveRmdir($extractDir);
+        
+        // Move install.php to its new location in public/
+        if (!is_dir($this->installDir . '/public')) {
+            mkdir($this->installDir . '/public', 0755, true);
+        }
+        if (basename(__FILE__) === 'install.php' && dirname(__FILE__) !== $this->installDir . '/public') {
+            copy(__FILE__, $this->installDir . '/public/install.php');
+        }
 
         $this->output("✓ Files extracted successfully");
     }
@@ -202,7 +211,9 @@ EOT;
         $dirs = [
             $this->installDir . '/public' => 0755,
             $this->installDir . '/var' => 0777,
-            $this->installDir . '/var/data' => 0777
+            $this->installDir . '/var/cache' => 0777,
+            $this->installDir . '/var/data' => 0777,
+            $this->installDir . '/var/log' => 0777
         ];
 
         foreach ($dirs as $dir => $perm) {
@@ -224,7 +235,9 @@ EOT;
         $hasGlobalComposer = ($returnVar === 0);
         
         $composerCmd = $hasGlobalComposer ? 'composer' : 'php composer.phar';
-        exec("$composerCmd install --no-dev --optimize-autoloader", $output, $returnVar);
+        // Run composer from the installation directory
+        $command = "cd " . escapeshellarg($this->installDir) . " && $composerCmd install --no-dev --optimize-autoloader 2>&1";
+        exec($command, $output, $returnVar);
         if ($returnVar !== 0) {
             throw new Exception("Failed to install dependencies");
         }
@@ -242,8 +255,9 @@ EOT;
             mkdir($dbDir, 0777, true);
         }
 
-        // Run database migrations
-        exec('php bin/console doctrine:schema:create --force', $output, $returnVar);
+        // Run database migrations from the installation directory
+        $command = "cd " . escapeshellarg($this->installDir) . " && php bin/console doctrine:schema:create --force 2>&1";
+        exec($command, $output, $returnVar);
         if ($returnVar !== 0) {
             throw new Exception("Failed to create database schema");
         }
