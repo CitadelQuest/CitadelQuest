@@ -14,15 +14,14 @@ echo "========================================================"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
+# Clear Symfony cache
+echo "Clearing Symfony cache..."
+php bin/console cache:clear --env=prod
+
 # Build webpack assets
 echo "Building webpack assets..."
 npm install
 npm run build
-
-# Create template database
-echo "Creating template database..."
-rm -rf var/template.db
-APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/template.db" php bin/console doctrine:schema:create
 
 # Copy required files to release directory
 echo "Copying files to release directory..."
@@ -48,14 +47,27 @@ cp -r \
 
 # Remove development files
 rm -f "$RELEASE_DIR/public/install.php"
-rm -f "$RELEASE_DIR/public/install.htaccess"
 rm -f "$RELEASE_DIR/.env.local"
 rm -f "$RELEASE_DIR/.env.dev"
 
+# Clear cache dir in release
+echo "Clearing /var dir in release..."
+rm -rf "$RELEASE_DIR/var"
+
+# Create empty dir for user_databases in release
+echo "Creating /var/user_databases, /var/log, /var/cache/prod dir in release..."
+mkdir -p "$RELEASE_DIR/var/user_databases"
+mkdir -p "$RELEASE_DIR/var/log"
+mkdir -p "$RELEASE_DIR/var/cache/prod"
+
+cd "$RELEASE_DIR"
+# Create main database
+echo "Creating main database..."
+APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:schema:create
+
 # Create release zip
 echo "Creating release archive..."
-cd "$RELEASE_DIR"
-zip -r "../$RELEASE_FILE" ./*
+zip -r "../$RELEASE_FILE" .*
 
 cd ..
 rm -rf "$RELEASE_DIR"

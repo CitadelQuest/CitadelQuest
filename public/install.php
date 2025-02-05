@@ -21,14 +21,12 @@ class CitadelQuestInstaller
     private string $installDir;
     private string $version = 'v0.1.4-alpha';
     private string $prebuiltReleaseUrl;
-    private bool $isWebMode;
     private array $requirements = [
         'php' => '8.2.0',
         'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
     ];
     private array $installFiles = [
-        'install.php',
-        'install.htaccess'
+        'install.php'
     ];
 
     public function __construct()
@@ -36,36 +34,25 @@ class CitadelQuestInstaller
         // Since we're in the public directory, the install directory should be one level up
         $this->installDir = dirname(__FILE__, 2);
         
-        // Set up .htaccess for error reporting during installation
-        if (file_exists(__DIR__ . '/install.htaccess')) {
-            rename(__DIR__ . '/install.htaccess', __DIR__ . '/.htaccess.install');
-            if (file_exists(__DIR__ . '/.htaccess')) {
-                copy(__DIR__ . '/.htaccess', __DIR__ . '/.htaccess.backup');
-            }
-            rename(__DIR__ . '/.htaccess.install', __DIR__ . '/.htaccess');
-        }
-        
         // URL for the pre-built release (Release A)
         $this->prebuiltReleaseUrl = "https://github.com/CitadelQuest/CitadelQuest/releases/download/{$this->version}/citadelquest-prebuilt-{$this->version}.zip";
-        $this->isWebMode = PHP_SAPI !== 'cli';
         
-        if ($this->isWebMode) {
-            echo "<!DOCTYPE html>\n";
-            echo "<html lang=\"en\">\n";
-            echo "<head>\n";
-            echo "    <meta charset=\"UTF-8\">\n";
-            echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
-            echo "    <title>CitadelQuest Installer</title>\n";
-            echo "    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
-            echo "    <style>\n";
-            echo "        .log { font-family: monospace; margin: 0; }\n";
-            echo "        .error { color: #dc3545; }\n";
-            echo "    </style>\n";
-            echo "</head>\n";
-            echo "<body class=\"container py-4\">\n";
-            echo "    <div class=\"card\">\n";
-            echo "        <div class=\"card-body\">\n";
-        }
+        // Initialize HTML template
+        echo "<!DOCTYPE html>\n";
+        echo "<html lang=\"en\">\n";
+        echo "<head>\n";
+        echo "    <meta charset=\"UTF-8\">\n";
+        echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+        echo "    <title>CitadelQuest Installer</title>\n";
+        echo "    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+        echo "    <style>\n";
+        echo "        .log { font-family: monospace; margin: 0; }\n";
+        echo "        .error { color: #dc3545; }\n";
+        echo "    </style>\n";
+        echo "</head>\n";
+        echo "<body class=\"container py-4\">\n";
+        echo "    <div class=\"card\">\n";
+        echo "        <div class=\"card-body\">\n";
     }
 
     public function install(): void
@@ -74,31 +61,31 @@ class CitadelQuestInstaller
             $this->showHeader();
             $this->output("Checking requirements...");
             $this->checkRequirements();
-            $this->output("✓ All requirements met");
+            $this->output("✓ <br/>");
 
             $this->output("Downloading pre-built release...");
             $releaseFile = $this->downloadPrebuiltRelease();
-            $this->output("✓ Download complete");
+            $this->output("✓ <br/>");
 
             $this->output("Extracting files...");
             $this->extractPrebuiltRelease($releaseFile);
-            $this->output("✓ Files extracted successfully");
+            $this->output("✓ <br/>");
 
             $this->output("Configuring environment...");
             $this->configureEnvironment();
-            $this->output("✓ Environment configured");
+            $this->output("✓ <br/>");
 
             $this->output("Setting directory permissions...");
             $this->setPermissions();
-            $this->output("✓ Permissions set");
+            $this->output("✓ <br/>");
 
             $this->output("Verifying installation...");
             $this->verifyInstallation();
-            $this->output("✓ Installation verified");
+            $this->output("✓ <br/>");
 
             $this->output("Cleaning up installation files...");
             $this->cleanupInstallFiles();
-            $this->output("✓ Cleanup complete");
+            $this->output("✓ <br/>");
 
             $this->showSuccess();
         } catch (Exception $e) {
@@ -106,34 +93,22 @@ class CitadelQuestInstaller
         }
     }
 
-    private function output(string $message, string $type = 'log'): void
+    private function output(string $message): void
     {
-        if ($this->isWebMode) {
-            echo "            <p class=\"{$type}\">{$message}</p>\n";
-        } else {
-            echo $message . "\n";
-        }
+        if ($message === null || $message === '') return;
+        echo "{$message}\n";
+        flush();
     }
 
     private function showHeader(): void
     {
-        if ($this->isWebMode) {
-            $this->output("<h2>CitadelQuest Installation</h2>");
-            $this->output("<h5 class='text-muted'>Version: {$this->version}</h5>");
-            $this->output("<hr>");
-        } else {
-            $this->output("=================================");
-            $this->output("CitadelQuest Installation Script");
-            $this->output("Version: {$this->version}");
-            $this->output("=================================");
-            $this->output("");
-        }
+        $this->output("<h2>CitadelQuest Installation</h2>");
+        $this->output("<h5 class='text-muted'>Version: {$this->version}</h5>");
+        $this->output("<hr>");
     }
 
     private function checkRequirements(): void
     {
-        $this->output("Checking requirements...");
-        
         // Check PHP version
         if (version_compare(PHP_VERSION, $this->requirements['php'], '<')) {
             throw new Exception(
@@ -148,20 +123,12 @@ class CitadelQuestInstaller
                 throw new Exception("Required PHP extension missing: {$ext}");
             }
         }
-
-        $this->output("✓ All requirements met");
     }
 
     private function downloadPrebuiltRelease(): string
     {
-        // Create a temporary directory for download
-        $tempDir = sys_get_temp_dir() . '/citadelquest_' . uniqid();
-        if (!mkdir($tempDir)) {
-            throw new Exception("Failed to create temporary directory");
-        }
-        
-        // Download the pre-built release
-        $releasePath = $tempDir . '/release.zip';
+        // Download directly to the installation directory
+        $releasePath = $this->installDir . '/release.zip';
         if (!file_put_contents($releasePath, file_get_contents($this->prebuiltReleaseUrl))) {
             throw new Exception("Failed to download pre-built release");
         }
@@ -176,91 +143,129 @@ class CitadelQuestInstaller
             throw new Exception("Failed to open release archive");
         }
         
-        // Extract to the installation directory
-        if (!$zip->extractTo($this->installDir)) {
-            throw new Exception("Failed to extract release files");
-        }
-        $zip->close();
+        // We don't need to detect a root prefix - files should maintain their full paths
         
-        // Clean up the downloaded file
-        unlink($releasePath);
-        rmdir(dirname($releasePath));
+        // Initialize arrays
+        $extractFiles = [];
+        $seenPaths = [];
         
-        // Extract the archive
-        $command = "cd " . escapeshellarg($extractDir) . " && tar xzf " . escapeshellarg($archivePath);
-        exec($command, $output, $returnVar);
-        if ($returnVar !== 0) {
-            throw new Exception("Failed to extract archive");
-        }
-        
-        // Find the extracted directory
-        $files = glob($extractDir . '/CitadelQuest-*', GLOB_ONLYDIR);
-        if (empty($files)) {
-            throw new Exception("Failed to locate extracted files");
-        }
-        
-        $extractedDir = $files[0];
-        if (!is_dir($extractedDir)) {
-            throw new Exception("Extracted directory not found: $extractedDir");
-        }
-        
-        // Move files to the parent directory (one level up from public)
-        $this->recursiveCopy($extractedDir, $this->installDir);
-        
-        // Clean up the temporary directory
-        $this->recursiveRmdir($extractDir);
-        
-        // Move install.php to its new location in public/
-        if (!is_dir($this->installDir . '/public')) {
-            mkdir($this->installDir . '/public', 0755, true);
-        }
-        if (basename(__FILE__) === 'install.php' && dirname(__FILE__) !== $this->installDir . '/public') {
-            copy(__FILE__, $this->installDir . '/public/install.php');
-        }
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            $name = $stat['name'];
+            $size = $stat['size'];
+            $isDir = substr($name, -1) === '/';
+            
 
-        $this->output("✓ Files extracted successfully");
+            // Skip empty paths and duplicates
+            if (empty($name) || isset($seenPaths[$name])) continue;
+            $seenPaths[$name] = true;
+            
+            // Clean up the path - remove any leading ./ and ensure proper path structure
+            $cleanPath = ltrim($name, './');  // Remove leading ./
+            
+            // Add to extraction list with proper target path
+            $extractFiles[$name] = $this->installDir . '/' . $cleanPath;
+        }
+        
+        // Extract each file to its proper location
+        foreach ($extractFiles as $zipPath => $targetPath) {
+            $targetDir = dirname($targetPath);
+            
+            // Create target directory if it doesn't exist
+            if (!is_dir($targetDir)) {
+                if (!mkdir($targetDir, 0755, true)) {
+                    $zip->close();
+                    throw new Exception("Failed to create directory: $targetDir");
+                }
+            }
+            
+            // Prepare target path
+            $targetFile = $this->installDir . '/' . ltrim($zipPath, './');
+            
+            // Check if this is a directory entry (ends with /)
+            $isDir = substr($zipPath, -1) === '/';
+            
+            if ($isDir) {
+                // Create directory if it doesn't exist
+                if (!is_dir($targetFile) && !mkdir($targetFile, 0755, true)) {
+                    $zip->close();
+                    throw new Exception("Failed to create directory: $targetFile");
+                }
+            } else {
+                // Handle regular file
+                if (file_exists($targetFile) && is_file($targetFile)) {
+                    // Remove existing file to ensure it's replaced
+                    if (!unlink($targetFile)) {
+                        $zip->close();
+                        throw new Exception("Failed to remove existing file: $targetFile");
+                    }
+                }
+                
+                // Create parent directory if needed
+                $targetDir = dirname($targetFile);
+                if (!is_dir($targetDir)) {
+                    mkdir($targetDir, 0755, true);
+                }
+                
+                // Extract file normally
+                if (!$zip->extractTo($this->installDir, $zipPath)) {
+                    $zip->close();
+                    throw new Exception("Failed to extract file: $zipPath");
+                }
+            }
+        }
+        
+        $zip->close();
+        unlink($releasePath);
     }
 
     private function configureEnvironment(): void
     {
-        $this->output("Configuring environment...");
-        
-        // Copy .env.example to .env if it doesn't exist
-        if (!file_exists($this->installDir . '/.env') && file_exists($this->installDir . '/.env.example')) {
-            copy($this->installDir . '/.env.example', $this->installDir . '/.env');
+        // Create basic .env if neither .env nor .env.example exist
+        if (!file_exists($this->installDir . '/.env')) {
+            if (file_exists($this->installDir . '/.env.example')) {
+                copy($this->installDir . '/.env.example', $this->installDir . '/.env');
+            } else {
+                // Create minimal .env with required settings
+                $envContent = "APP_ENV=prod\n";
+                $envContent .= "APP_DEBUG=0\n";
+                $envContent .= "APP_SECRET=" . bin2hex(random_bytes(16)) . "\n";
+                $envContent .= "DATABASE_URL=\"sqlite:///%kernel.project_dir%/var/main.db\"\n";
+                
+                file_put_contents($this->installDir . '/.env', $envContent);
+            }
+        } else {
+            // If .env exists, ensure APP_SECRET is set
+            $envContent = file_get_contents($this->installDir . '/.env');
+            if (strpos($envContent, 'APP_SECRET=') === false) {
+                $secret = bin2hex(random_bytes(16));
+                file_put_contents($this->installDir . '/.env', "\nAPP_SECRET={$secret}\n", FILE_APPEND);
+            }
         }
-        
-        // Generate APP_SECRET if not already set
-        $envContent = file_get_contents($this->installDir . '/.env');
-        if (strpos($envContent, 'APP_SECRET=') === false) {
-            $secret = bin2hex(random_bytes(16));
-            file_put_contents($this->installDir . '/.env', "\nAPP_SECRET={$secret}\n", FILE_APPEND);
-        }
-        
-        $this->output("✓ Environment configured");
     }
 
     private function setPermissions(): void
     {
-        $this->output("Setting directory permissions...");
-        
         $dirs = [
             $this->installDir . '/public' => 0755,
             $this->installDir . '/var' => 0777,
             $this->installDir . '/var/cache' => 0777,
             $this->installDir . '/var/data' => 0777,
-            $this->installDir . '/var/log' => 0777
+            $this->installDir . '/var/log' => 0777,
+            $this->installDir . '/var/user_databases' => 0777  // Directory for user databases
         ];
 
         foreach ($dirs as $dir => $perm) {
             if (!is_dir($dir)) {
-                mkdir($dir, $perm, true);
-            } else {
-                chmod($dir, $perm);
+                if (!mkdir($dir, $perm, true)) {
+                    throw new Exception("Failed to create directory: {$dir}");
+                }
+            }
+            
+            if (!chmod($dir, $perm)) {
+                throw new Exception("Failed to set permissions on: {$dir}");
             }
         }
-
-        $this->output("✓ Permissions set");
     }
 
     private function verifyInstallation(): void
@@ -269,7 +274,6 @@ class CitadelQuestInstaller
         $requiredPaths = [
             $this->installDir . '/vendor',
             $this->installDir . '/public/build',
-            $this->installDir . '/var/app.db',
             $this->installDir . '/.env',
             $this->installDir . '/config/bundles.php'
         ];
@@ -280,10 +284,28 @@ class CitadelQuestInstaller
             }
         }
 
-        // Verify database is accessible
+        // Ensure var directory exists and is writable
+        $varDir = $this->installDir . '/var';
+        if (!is_dir($varDir)) {
+            if (!mkdir($varDir, 0777, true)) {
+                throw new Exception("Failed to create var directory");
+            }
+        }
+
+        // Verify the pre-built database exists and is accessible
+        $dbPath = $varDir . '/main.db';
+        if (!file_exists($dbPath)) {
+            throw new Exception("Pre-built database not found: {$dbPath}. The release package may be corrupted.");
+        }
+        
         try {
-            $db = new SQLite3($this->installDir . '/var/app.db');
+            $db = new SQLite3($dbPath);
             $db->close();
+            
+            // Ensure database is writable
+            if (!is_writable($dbPath)) {
+                chmod($dbPath, 0666);
+            }
         } catch (Exception $e) {
             throw new Exception("Database verification failed: " . $e->getMessage());
         }
@@ -291,12 +313,6 @@ class CitadelQuestInstaller
 
     private function cleanupInstallFiles(): void
     {
-        // Restore original .htaccess if it exists
-        if (file_exists(__DIR__ . '/.htaccess.backup')) {
-            unlink(__DIR__ . '/.htaccess');
-            rename(__DIR__ . '/.htaccess.backup', __DIR__ . '/.htaccess');
-        }
-        
         // Remove installation files
         foreach ($this->installFiles as $file) {
             $path = __DIR__ . '/' . $file;
@@ -304,20 +320,19 @@ class CitadelQuestInstaller
                 unlink($path);
             }
         }
+        
+        // Self-delete the installer script after everything else is done
+        if (file_exists(__FILE__)) {
+            unlink(__FILE__);
+        }
     }
 
     private function showSuccess(): void
     {
-        if ($this->isWebMode) {
-            $this->output("<div class='alert alert-success'>");
-            $this->output("✓ CitadelQuest has been successfully installed!");
-            $this->output("You can now access your installation at: <a href='/' class='alert-link'>Open CitadelQuest</a>");
-            $this->output("</div>");
-        } else {
-            $this->output("");
-            $this->output("✓ CitadelQuest has been successfully installed!");
-            $this->output("You can now access your installation at: http://localhost/");
-        }
+        $this->output("<div class='alert alert-success mt-3 mb-0'>");
+        $this->output("✓ CitadelQuest has been successfully installed!<br/>");
+        $this->output("<a href='/' class='btn btn-success mt-4'>Open CitadelQuest</a>");
+        $this->output("</div>");
     }
 
     private function showError(string $message): void
@@ -343,26 +358,18 @@ class CitadelQuestInstaller
                            "Line: " . $phpErrorLog['line'];
         }
 
-        if ($this->isWebMode) {
-            $this->output("<div class='alert alert-danger'>");
-            $this->output("❌ ERROR: $message");
-            $this->output("Installation failed. Please fix the error and try again.");
-            if ($errorDetails) {
-                $this->output("<pre class='mt-3 p-3 bg-light'><code>" . htmlspecialchars($errorDetails) . "</code></pre>");
-            }
-            $this->output("</div>");
-            echo "        </div>\n";
-            echo "    </div>\n";
-            echo "</body>\n";
-            echo "</html>\n";
-        } else {
-            $this->output("");
-            $this->output("❌ ERROR: $message", 'error');
-            $this->output("Installation failed. Please fix the error and try again.", 'error');
-            if ($errorDetails) {
-                $this->output($errorDetails, 'error');
-            }
+        $this->output("<div class='alert alert-danger'>");
+        $this->output("❌ ERROR: $message");
+        $this->output("Installation failed. Please fix the error and try again.");
+        if ($errorDetails) {
+            $this->output("<pre class='mt-3 p-3 bg-light'><code>" . htmlspecialchars($errorDetails) . "</code></pre>");
         }
+        $this->output("</div>");
+        echo "        </div>\n";
+        echo "    </div>\n";
+        echo "</body>\n";
+        echo "</html>\n";
+        
         exit(1);
     }
 
@@ -405,6 +412,7 @@ class CitadelQuestInstaller
             rmdir($dir);
         }
     }
+    
 }
 
 // Run the installer

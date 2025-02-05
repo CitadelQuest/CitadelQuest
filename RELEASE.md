@@ -41,10 +41,6 @@ private string $version = 'vX.Y.Z-alpha';
 # Create and switch to a new release branch
 git checkout -b release/vX.Y.Z-alpha
 
-# Add and commit changes
-git add build-installer.sh build-release.sh public/install.php
-git commit -m "Release vX.Y.Z-alpha: Added build scripts and installer"
-
 # Create release tag
 git tag -a vX.Y.Z-alpha -m "CitadelQuest vX.Y.Z-alpha release"
 ```
@@ -96,7 +92,7 @@ git push origin vX.Y.Z-alpha
 
    ### Installation
    1. Download the Installation Package (`citadelquest-installer-vX.Y.Z-alpha.zip`)
-   2. Upload `install.php` and `install.htaccess` to your web server
+   2. Upload `install.php` to your web server
    3. Access `install.php` through your web browser
    4. The installer will automatically:
       - Check environment requirements
@@ -121,7 +117,6 @@ Creates the pre-built package (Release A) containing:
 ### build-installer.sh
 Creates the installation package (Release B) containing:
 - `install.php`: Main installer script
-- `install.htaccess`: Apache configuration for installation
 
 ## Post-Release
 
