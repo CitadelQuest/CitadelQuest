@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-VERSION="v0.1.4-alpha"
+VERSION="v0.1.5-alpha"
 RELEASE_DIR="release-build"
 RELEASE_FILE="citadelquest-prebuilt-${VERSION}.zip"
 
