@@ -14,14 +14,14 @@ echo "========================================================"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
-# Clear Symfony cache
-echo "Clearing Symfony cache..."
-php bin/console cache:clear --env=prod
-
 # Build webpack assets
 echo "Building webpack assets..."
 npm install
 npm run build
+
+# Clear Symfony cache
+echo "Clearing Symfony cache..."
+php bin/console cache:clear
 
 # Copy required files to release directory
 echo "Copying files to release directory..."
@@ -67,7 +67,7 @@ APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/c
 
 # Create release zip
 echo "Creating release archive..."
-zip -r "../$RELEASE_FILE" .*
+zip -r "../$RELEASE_FILE" .
 
 cd ..
 rm -rf "$RELEASE_DIR"
