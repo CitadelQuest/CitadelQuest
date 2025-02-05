@@ -1,4 +1,9 @@
 <?php
+// Enable error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
 /**
  * CitadelQuest Installation Script
  * 
@@ -14,18 +19,25 @@
 class CitadelQuestInstaller
 {
     private string $installDir;
-    private string $version = 'v0.1.2-alpha';
+    private string $version = 'v0.1.3-alpha';
     private string $releaseUrl;
     private bool $isWebMode;
     private array $requirements = [
         'php' => '8.2.0',
-        'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
+        'extensions' => ['pdo_sqlite', 'json', 'curl']
     ];
 
     public function __construct()
     {
         // Since we're in the public directory, the install directory should be one level up
         $this->installDir = dirname(__FILE__, 2);
+        
+        // Set up .htaccess for error reporting during installation
+        if (file_exists(__DIR__ . '/install.htaccess')) {
+            rename(__DIR__ . '/install.htaccess', __DIR__ . '/.htaccess.install');
+            copy(__DIR__ . '/.htaccess', __DIR__ . '/.htaccess.backup');
+            rename(__DIR__ . '/.htaccess.install', __DIR__ . '/.htaccess');
+        }
         $this->releaseUrl = "https://github.com/CitadelQuest/CitadelQuest/archive/refs/tags/{$this->version}.tar.gz";
         $this->isWebMode = PHP_SAPI !== 'cli';
         
@@ -113,19 +125,7 @@ class CitadelQuestInstaller
             }
         }
 
-        // Check if Composer is available globally or as composer.phar
-        exec('composer --version 2>/dev/null', $output, $returnVar);
-        $hasGlobalComposer = ($returnVar === 0);
-        
-        exec('php composer.phar --version 2>/dev/null', $output, $returnVar);
-        $hasLocalComposer = ($returnVar === 0);
-        
-        if (!$hasGlobalComposer && !$hasLocalComposer) {
-            throw new Exception(
-                "Composer not found. Please either:\n" .
-                "1. Install Composer globally (https://getcomposer.org/download/)\n" .
-                "2. OR download composer.phar to the same directory as install.php:\n" .
-                "   curl -sS https://getcomposer.org/installer | php");
+        // No Composer check needed anymore as we're using pre-built vendor directory
         }
 
         $this->output("✓ All requirements met");
@@ -228,21 +228,17 @@ EOT;
 
     private function installDependencies(): void
     {
-        $this->output("Installing dependencies...");
+        $this->output("Verifying vendor directory...");
         
-        // Check if Composer is available globally or as composer.phar
-        exec('composer --version 2>/dev/null', $output, $returnVar);
-        $hasGlobalComposer = ($returnVar === 0);
-        
-        $composerCmd = $hasGlobalComposer ? 'composer' : 'php composer.phar';
-        // Run composer from the installation directory
-        $command = "cd " . escapeshellarg($this->installDir) . " && $composerCmd install --no-dev --optimize-autoloader 2>&1";
-        exec($command, $output, $returnVar);
-        if ($returnVar !== 0) {
-            throw new Exception("Failed to install dependencies");
+        // Check if vendor directory exists and contains autoload.php
+        if (!is_dir($this->installDir . '/vendor') || !file_exists($this->installDir . '/vendor/autoload.php')) {
+            throw new Exception(
+                "Vendor directory is missing or incomplete. " .
+                "Please download the full release package that includes the vendor directory."
+            );
         }
 
-        $this->output("✓ Dependencies installed");
+        $this->output("✓ Dependencies verified");
     }
 
     private function setupDatabase(): void
@@ -259,7 +255,7 @@ EOT;
         $command = "cd " . escapeshellarg($this->installDir) . " && php bin/console doctrine:schema:create --force 2>&1";
         exec($command, $output, $returnVar);
         if ($returnVar !== 0) {
-            throw new Exception("Failed to create database schema");
+            throw new Exception("Failed to create database schema: " . implode("\n", $output));
         }
 
         $this->output("✓ Database setup complete");
@@ -292,10 +288,34 @@ EOT;
 
     private function showError(string $message): void
     {
+        // Get the last few lines from error log if it exists
+        $errorDetails = '';
+        $logFile = $this->installDir . '/var/log/prod.log';
+        if (file_exists($logFile)) {
+            $errorLog = file_get_contents($logFile);
+            if ($errorLog) {
+                $logLines = array_slice(explode("\n", $errorLog), -10);
+                $errorDetails = "\n\nError Log (last 10 lines):\n" . implode("\n", $logLines);
+            }
+        }
+
+        // Get PHP error log if available
+        $phpErrorLog = error_get_last();
+        if ($phpErrorLog) {
+            $errorDetails .= "\n\nPHP Error:\n" . 
+                           "Type: " . $phpErrorLog['type'] . "\n" .
+                           "Message: " . $phpErrorLog['message'] . "\n" .
+                           "File: " . $phpErrorLog['file'] . "\n" .
+                           "Line: " . $phpErrorLog['line'];
+        }
+
         if ($this->isWebMode) {
             $this->output("<div class='alert alert-danger'>");
             $this->output("❌ ERROR: $message");
             $this->output("Installation failed. Please fix the error and try again.");
+            if ($errorDetails) {
+                $this->output("<pre class='mt-3 p-3 bg-light'><code>" . htmlspecialchars($errorDetails) . "</code></pre>");
+            }
             $this->output("</div>");
             echo "        </div>\n";
             echo "    </div>\n";
@@ -305,6 +325,9 @@ EOT;
             $this->output("");
             $this->output("❌ ERROR: $message", 'error');
             $this->output("Installation failed. Please fix the error and try again.", 'error');
+            if ($errorDetails) {
+                $this->output($errorDetails, 'error');
+            }
         }
         exit(1);
     }
