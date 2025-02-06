@@ -9,6 +9,7 @@ A decentralized platform for AI-human collaboration with emphasis on personal da
 - Apache 2.4.63 or higher
 - SQLite 3
 - Composer 2.x
+- SSL/TLS certificate (HTTPS required)
 
 ### Frontend Stack
 - Symfony 7.2
@@ -44,6 +45,13 @@ npm install
    ```
    APP_SECRET=your_generated_secret
    ```
+   - Configure your web server with SSL/TLS (HTTPS is required)
+   - Update your `.env.local` to enforce HTTPS:
+   ```
+   TRUSTED_PROXIES=127.0.0.1
+   TRUSTED_HOSTS=^localhost|example\.com$
+   SECURE_SCHEME=https
+   ```
 
 5. Initialize the database:
 ```bash
@@ -71,9 +79,11 @@ symfony server:start
 
 ### Security
 - End-to-end encryption for all communications
-- Secure user authentication system
+- Secure user authentication with Symfony's password hasher
+- HTTPS required for all sensitive routes
 - Per-user database isolation
 - Environment-based configuration
+- CSRF protection on all forms
 
 ### User Interface
 - Clean, modern Bootstrap-based design
@@ -106,11 +116,14 @@ symfony server:start
 - Write unit tests for critical features
 
 ### Security Practices
+- HTTPS required for all operations
 - Implement encryption at rest
 - Secure all API endpoints
 - Validate all user input
 - Follow OWASP security guidelines
 - Keep secrets out of version control
+- Use Symfony's security components
+- Implement proper CSRF protection
 
 ### Frontend Development
 - Use modern vanilla JavaScript
