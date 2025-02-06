@@ -123,6 +123,14 @@ class CitadelQuestInstaller
                 throw new Exception("Required PHP extension missing: {$ext}");
             }
         }
+        
+        // Check HTTPS
+        if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+            throw new Exception(
+                "HTTPS is required for CitadelQuest. Please configure your web server with SSL/TLS " .
+                "and access the installer via https://"
+            );
+        }
     }
 
     private function downloadPrebuiltRelease(): string
