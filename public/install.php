@@ -222,10 +222,10 @@ class CitadelQuestInstaller
     private function configureEnvironment(): void
     {
         // Create basic .env if neither .env nor .env.example exist
-        if (!file_exists($this->installDir . '/.env')) {
+        /* if (!file_exists($this->installDir . '/.env')) {
             if (file_exists($this->installDir . '/.env.example')) {
                 copy($this->installDir . '/.env.example', $this->installDir . '/.env');
-            } else {
+            } else { */
                 // Create minimal .env with required settings
                 $envContent = "APP_ENV=prod\n";
                 $envContent .= "APP_DEBUG=0\n";
@@ -233,7 +233,7 @@ class CitadelQuestInstaller
                 $envContent .= "DATABASE_URL=\"sqlite:///%kernel.project_dir%/var/main.db\"\n";
                 
                 file_put_contents($this->installDir . '/.env', $envContent);
-            }
+            /* }
         } else {
             // If .env exists, ensure APP_SECRET is set
             $envContent = file_get_contents($this->installDir . '/.env');
@@ -241,11 +241,16 @@ class CitadelQuestInstaller
                 $secret = bin2hex(random_bytes(16));
                 file_put_contents($this->installDir . '/.env', "\nAPP_SECRET={$secret}\n", FILE_APPEND);
             }
-        }
+        } */
     }
 
     private function setPermissions(): void
     {
+        // Get web server user and group
+        $webUser = $this->getWebServerUser();
+        $webGroup = $this->getWebServerGroup();
+        
+        // Set directory permissions
         $dirs = [
             $this->installDir . '/public' => 0755,
             $this->installDir . '/var' => 0777,
@@ -264,6 +269,42 @@ class CitadelQuestInstaller
             
             if (!chmod($dir, $perm)) {
                 throw new Exception("Failed to set permissions on: {$dir}");
+            }
+            
+            // Try to set ownership if we have web server user info, but don't fail if we can't
+            if ($webUser && $webGroup) {
+                @chown($dir, $webUser);
+                @chgrp($dir, $webGroup);
+            }
+        }
+        
+        // Handle SQLite database files
+        $dbFiles = [
+            $this->installDir . '/var/main.db',  // Main application database
+        ];
+        
+        foreach ($dbFiles as $dbFile) {
+            if (file_exists($dbFile)) {
+                // Set database file permissions
+                chmod($dbFile, 0666);  // rw-rw-rw-
+                
+                // Try to set ownership if we have web server user info, but don't fail if we can't
+                if ($webUser && $webGroup) {
+                    @chown($dbFile, $webUser);
+                    @chgrp($dbFile, $webGroup);
+                }
+                
+                // Handle SQLite companion files (-wal and -shm)
+                foreach (['-wal', '-shm'] as $ext) {
+                    $companionFile = $dbFile . $ext;
+                    if (file_exists($companionFile)) {
+                        chmod($companionFile, 0666);
+                        if ($webUser && $webGroup) {
+                            @chown($companionFile, $webUser);
+                            @chgrp($companionFile, $webGroup);
+                        }
+                    }
+                }
             }
         }
     }
@@ -327,6 +368,42 @@ class CitadelQuestInstaller
         }
     }
 
+    /**
+     * Attempts to detect the web server user
+     * @return string|null Web server username or null if not detected
+     */
+    private function getWebServerUser(): ?string
+    {
+        // Common web server users
+        $possibleUsers = ['www-data', 'apache', 'nginx', 'http', 'www'];
+        
+        foreach ($possibleUsers as $user) {
+            if (posix_getpwnam($user)) {
+                return $user;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Attempts to detect the web server group
+     * @return string|null Web server group or null if not detected
+     */
+    private function getWebServerGroup(): ?string
+    {
+        // Common web server groups
+        $possibleGroups = ['www-data', 'apache', 'nginx', 'http', 'www'];
+        
+        foreach ($possibleGroups as $group) {
+            if (posix_getgrnam($group)) {
+                return $group;
+            }
+        }
+        
+        return null;
+    }
+    
     private function showSuccess(): void
     {
         $this->output("<div class='alert alert-success mt-3 mb-0'>");

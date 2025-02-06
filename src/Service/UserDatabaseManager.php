@@ -4,6 +4,8 @@ namespace App\Service;
 
 use App\Entity\User;
 use Doctrine\DBAL\DriverManager;
+use PDO;
+use RuntimeException;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -22,8 +24,13 @@ class UserDatabaseManager
 
     public function createUserDatabase(User $user): void
     {
-        // Create databases directory if it doesn't exist
-        $this->filesystem->mkdir($this->databasesDir);
+        // Ensure databases directory exists
+        // Use umask to set permissions during creation
+        $oldUmask = umask(0);
+        if (!is_dir($this->databasesDir)) {
+            mkdir($this->databasesDir, 0777, true);
+        }
+        umask($oldUmask);
 
         // Generate unique database path
         $dbPath = sprintf(
@@ -32,14 +39,42 @@ class UserDatabaseManager
             bin2hex(random_bytes(16))
         );
 
-        // Create SQLite database with proper permissions
-        touch($dbPath);
-        chmod($dbPath, 0666);
+        // Set umask before creating database
+        $oldUmask = umask(0);
+        
+        try {
+            // Touch the database file first to ensure proper permissions
+            touch($dbPath);
+            chmod($dbPath, 0666);
+            
+            // Create connection with SQLite-specific options
+            $connection = DriverManager::getConnection([
+                'driver' => 'pdo_sqlite',
+                'path' => $dbPath,
+                'driverOptions' => [
+                    PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READWRITE | PDO::SQLITE_OPEN_CREATE,
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                ]
+            ]);
 
-        $connection = DriverManager::getConnection([
-            'driver' => 'pdo_sqlite',
-            'path' => $dbPath,
-        ]);
+            // Force SQLite to create the database file
+            $connection->executeQuery('PRAGMA journal_mode=WAL');
+            $connection->executeQuery('PRAGMA synchronous=NORMAL');
+            $connection->executeQuery('PRAGMA temp_store=FILE');
+            
+            // Ensure WAL files have correct permissions
+            $walFile = $dbPath . '-wal';
+            $shmFile = $dbPath . '-shm';
+            if (file_exists($walFile)) {
+                chmod($walFile, 0666);
+            }
+            if (file_exists($shmFile)) {
+                chmod($shmFile, 0666);
+            }
+        } finally {
+            // Restore original umask
+            umask($oldUmask);
+        }
 
         // Initialize database schema
         $this->initializeDatabaseSchema($connection);
