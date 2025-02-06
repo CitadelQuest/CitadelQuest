@@ -15,13 +15,7 @@ security:
         main:
             lazy: true
             provider: app_user_provider
-            form_login:
-                login_path: app_login
-                check_path: app_login
-                enable_csrf: true
-                username_parameter: _username
-                password_parameter: _password
-                default_target_path: app_home
+            custom_authenticator: App\Security\LoginFormAuthenticator
             logout:
                 path: app_logout
                 target: app_home
@@ -31,9 +25,10 @@ security:
                 path: /
 
     access_control:
-        - { path: ^/login, roles: PUBLIC_ACCESS }
-        - { path: ^/register, roles: PUBLIC_ACCESS }
-        - { path: ^/, roles: ROLE_USER }
+        - { path: ^/login, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/register, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/api, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:
     security:

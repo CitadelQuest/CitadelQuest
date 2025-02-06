@@ -2,6 +2,10 @@
 
 {% block title %}Log in to CitadelQuest{% endblock %}
 
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}
+
 {% block body %}
     <div class="container">
         <div class="row justify-content-center">
@@ -9,7 +13,7 @@
                 <div class="feature-card fade-in">
                     <h1 class="text-center mb-4">Welcome Back</h1>
 
-                    <form method="post">
+                    <form method="post" id="login_form">
                         {% if error %}
                             <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
                         {% endif %}
