@@ -19,7 +19,7 @@ ini_set('display_startup_errors', 1);
 class CitadelQuestInstaller
 {
     private string $installDir;
-    private string $version = 'v0.1.5-alpha';
+    private string $version = 'v0.1.6-alpha';
     private string $prebuiltReleaseUrl;
     private array $requirements = [
         'php' => '8.2.0',

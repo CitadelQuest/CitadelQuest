@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-VERSION="v0.1.5-alpha"
+VERSION="v0.1.6-alpha"
 RELEASE_DIR="installer-build"
 RELEASE_FILE="citadelquest-installer-${VERSION}.zip"
 
