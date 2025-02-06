@@ -1,0 +1,16 @@
+parameters:
+    security_headers:
+        # Prevent browsers from detecting the mimetype if it's not correctly configured
+        'X-Content-Type-Options': 'nosniff'
+        # Prevent your site from being framed with X-Frame-Options
+        'X-Frame-Options': 'SAMEORIGIN'
+        # Enable the XSS filter built into modern web browsers
+        'X-XSS-Protection': '1; mode=block'
+        # Strict Transport Security
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+        # Content Security Policy
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+        # Referrer Policy
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+        # Permissions Policy
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
