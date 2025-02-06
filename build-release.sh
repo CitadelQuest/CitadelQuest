@@ -61,9 +61,10 @@ mkdir -p "$RELEASE_DIR/var/log"
 mkdir -p "$RELEASE_DIR/var/cache/prod"
 
 cd "$RELEASE_DIR"
-# Create main database
-echo "Creating main database..."
-APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:schema:create
+# Create and migrate main database
+echo "Creating and migrating main database..."
+APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:database:create
+APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:migrations:migrate --no-interaction
 
 # Create release zip
 echo "Creating release archive..."
