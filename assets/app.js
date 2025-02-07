@@ -4,9 +4,11 @@
 
 // Import styles
 import './styles/app.scss';
+import '@mdi/font/css/materialdesignicons.min.css';
 
 // Import Bootstrap's JavaScript
 import 'bootstrap';
+
 
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {
@@ -21,4 +23,5 @@ document.addEventListener('DOMContentLoaded', () => {
     popoverTriggerList.map(function (popoverTriggerEl) {
         return new bootstrap.Popover(popoverTriggerEl);
     });
+
 });

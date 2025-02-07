@@ -4,7 +4,7 @@
 
 {% block javascripts %}
     {{ parent() }}
-    <script src="{{ asset('js/crypto.js') }}"></script>
+    {{ encore_entry_script_tags('crypto') }}
 {% endblock %}
 
 {% block body %}

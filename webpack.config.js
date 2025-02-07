@@ -21,8 +21,8 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('app', './assets/app.js')
-    .addEntry('crypto', './assets/js/crypto.js')
-    .addEntry('login', './assets/js/login.js')
+    .addEntry('crypto', './assets/crypto.js')
+    .addEntry('backup', './assets/backup.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

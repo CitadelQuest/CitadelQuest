@@ -2,7 +2,7 @@
  * CitadelQuest Cryptography Module
  * Handles client-side key generation and management
  */
-class CitadelCrypto {
+export class CitadelCrypto {
     constructor() {
         this.keyPair = null;
         this.PBKDF2_ITERATIONS = 100000;
@@ -239,9 +239,6 @@ class CitadelCrypto {
         });
     }
 }
-
-// Initialize crypto module
-const citadelCrypto = new CitadelCrypto();
 
 // Handle registration form submission
 document.addEventListener('DOMContentLoaded', () => {

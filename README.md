@@ -77,6 +77,14 @@ symfony server:start
 - UUID-based identification system
 - No external service dependencies
 
+### Backup System
+- ZIP-based backup format for database and user settings
+- Automatic backup creation before database restore
+- Version-aware restore functionality
+- Transaction-safe database operations
+- User-friendly backup management interface
+- Toast notifications for operation feedback
+
 ### Security
 - End-to-end encryption for all communications
 - Secure user authentication with Symfony's password hasher
