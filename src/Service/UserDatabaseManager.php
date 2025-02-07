@@ -100,6 +100,7 @@ class UserDatabaseManager
                 key_type VARCHAR(50) NOT NULL,
                 public_key TEXT,
                 encrypted_private_key TEXT,
+                key_salt VARCHAR(32),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 expires_at DATETIME
             )',

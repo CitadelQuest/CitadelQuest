@@ -31,14 +31,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, unique: true)]
     private ?string $databasePath = null;
 
-    #[ORM\Column(length: 2048, nullable: true)]
-    private ?string $publicKey = null;
 
-    #[ORM\Column(length: 4096, nullable: true)]
-    private ?string $encryptedPrivateKey = null;
-
-    #[ORM\Column(length: 32, nullable: true)]
-    private ?string $keySalt = null;
 
     public function __construct()
     {
@@ -112,38 +105,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getPublicKey(): ?string
-    {
-        return $this->publicKey;
-    }
 
-    public function setPublicKey(?string $publicKey): static
-    {
-        $this->publicKey = $publicKey;
-        return $this;
-    }
-
-    public function getEncryptedPrivateKey(): ?string
-    {
-        return $this->encryptedPrivateKey;
-    }
-
-    public function setEncryptedPrivateKey(?string $encryptedPrivateKey): static
-    {
-        $this->encryptedPrivateKey = $encryptedPrivateKey;
-        return $this;
-    }
-
-    public function getKeySalt(): ?string
-    {
-        return $this->keySalt;
-    }
-
-    public function setKeySalt(?string $keySalt): static
-    {
-        $this->keySalt = $keySalt;
-        return $this;
-    }
 
     public function eraseCredentials(): void
     {

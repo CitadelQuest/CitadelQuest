@@ -2,7 +2,7 @@
  * CitadelQuest Cryptography Module
  * Handles client-side key generation and management
  */
-export class CitadelCrypto {
+class CitadelCrypto {
     constructor() {
         this.keyPair = null;
         this.PBKDF2_ITERATIONS = 100000;
@@ -240,44 +240,10 @@ export class CitadelCrypto {
     }
 }
 
+// Create a singleton instance
+const citadelCrypto = new CitadelCrypto();
+
 // Handle registration form submission
-document.addEventListener('DOMContentLoaded', () => {
-    const registrationForm = document.getElementById('registration_form');
-    if (registrationForm) {
-        registrationForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            try {
-                // Get form data
-                const username = document.getElementById('registration_username').value;
-                const password = document.getElementById('registration_plainPassword').value;
-
-                // Generate key pair
-                await citadelCrypto.generateKeyPair();
-
-                // Export public key
-                const publicKey = await citadelCrypto.exportPublicKey();
-
-                // Encrypt private key with password
-                const { encryptedKey, salt } = await citadelCrypto.encryptPrivateKey(password);
-
-                // Store private key for this session
-                await citadelCrypto.storePrivateKey(username);
-
-                // Set keys in form
-                document.getElementById('registration_publicKey').value = publicKey;
-                document.getElementById('registration_encryptedPrivateKey').value = encryptedKey;
-                document.getElementById('registration_keySalt').value = salt;
-
-                // Submit form
-                registrationForm.submit();
-            } catch (error) {
-                console.error('Error during key generation:', error);
-                alert('Error during key generation. Please try again.');
-            }
-        });
-    }
-});
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.querySelector('form[name="registration"]');
     if (form) {
@@ -296,22 +262,28 @@ document.addEventListener('DOMContentLoaded', () => {
             buttonText.textContent = 'Generating Keys...';
 
             try {
+                // Get form data
+                const username = form.querySelector('input[name="registration[username]"]').value;
+                const password = form.querySelector('input[name="registration[password][first]"]').value;
+
                 // Generate key pair
                 await citadelCrypto.generateKeyPair();
                 const publicKey = await citadelCrypto.exportPublicKey();
 
-                // Add public key to form
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'registration[publicKey]';
-                input.value = publicKey;
-                form.appendChild(input);
+                // Encrypt private key with password
+                const { encryptedKey, salt } = await citadelCrypto.encryptPrivateKey(password);
 
-                // Store private key in IndexedDB
-                const usernameInput = form.querySelector('input[name="registration[username]"]');
-                if (usernameInput) {
-                    await citadelCrypto.storePrivateKey(usernameInput.value);
-                }
+                // Store private key for this session
+                await citadelCrypto.storePrivateKey(username);
+
+                // Set keys in form
+                const publicKeyInput = form.querySelector('input[name="registration[publicKey]"]');
+                const encryptedKeyInput = form.querySelector('input[name="registration[encryptedPrivateKey]"]');
+                const saltInput = form.querySelector('input[name="registration[keySalt]"]');
+
+                publicKeyInput.value = publicKey;
+                encryptedKeyInput.value = encryptedKey;
+                saltInput.value = salt;
 
                 // Submit the form
                 buttonText.textContent = 'Creating Your Citadel...';

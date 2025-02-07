@@ -54,15 +54,15 @@ class RegistrationType extends AbstractType
                 ],
             ])
             ->add('publicKey', HiddenType::class, [
-                'mapped' => true,
+                'mapped' => false,
                 'required' => true,
             ])
             ->add('encryptedPrivateKey', HiddenType::class, [
-                'mapped' => true,
+                'mapped' => false,
                 'required' => true,
             ])
             ->add('keySalt', HiddenType::class, [
-                'mapped' => true,
+                'mapped' => false,
                 'required' => true
             ])
             ->add('password', RepeatedType::class, [

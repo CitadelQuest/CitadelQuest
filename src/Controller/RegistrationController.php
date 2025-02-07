@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Form\RegistrationType;
 use App\Service\UserDatabaseManager;
+use App\Service\UserKeyManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,7 +20,8 @@ class RegistrationController extends AbstractController
         Request $request,
         UserPasswordHasherInterface $userPasswordHasher,
         EntityManagerInterface $entityManager,
-        UserDatabaseManager $databaseManager
+        UserDatabaseManager $databaseManager,
+        UserKeyManager $keyManager
     ): Response {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
@@ -34,12 +36,16 @@ class RegistrationController extends AbstractController
                 )
             );
 
-            // Set the public key
-            $publicKey = $form->get('publicKey')->getData();
-            $user->setPublicKey($publicKey);
-
             // Create user's personal database first
             $databaseManager->createUserDatabase($user);
+
+            // Store the keys in user's personal database
+            $keyManager->storeKeys(
+                $user,
+                $form->get('publicKey')->getData(),
+                $form->get('encryptedPrivateKey')->getData(),
+                $form->get('keySalt')->getData()
+            );
 
             try {
                 // Now save the user with the database path

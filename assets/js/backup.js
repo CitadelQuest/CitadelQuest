@@ -1,9 +1,7 @@
 function getTranslations() {
     const container = document.querySelector('[data-translations]');
     const translationsAttr = container ? container.dataset.translations : null;
-    console.log('Raw translations:', translationsAttr);
     const translations = translationsAttr ? JSON.parse(translationsAttr) : {};
-    console.log('Parsed translations:', translations);
     return translations;
 }
 
@@ -144,8 +142,16 @@ export function initBackup() {
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
             
-            // Reload page to show new backup
-            window.location.reload();
+            // Show success toast
+            const toastEl = document.getElementById('successToast');
+            document.getElementById('successToastMessage').textContent = translations.backup_created || 'Backup created successfully!';
+            toastEl.classList.add('show');
+            
+            // Reload page after showing message
+            setTimeout(() => {
+                toastEl.classList.remove('show');
+                window.location.reload();
+            }, 2500);
         } catch (error) {
             console.error('Backup failed:', error);
             btn.innerHTML = originalBtnText;
