@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Backup Management - {{ parent() }}{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('backup') }}
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <!-- Create Backup Card -->
+            <div class="feature-card fade-in h-100">
+                <h1 class="text-center mb-4">Backup Management</h1>
+                
+                <div class="mb-4">
+                    <p class="text-center">
+                        Create an encrypted backup of your CitadelQuest data. The backup includes:
+                    </p>
+                    <ul class="list-unstyled text-center">
+                        <li><i class="mdi mdi-database"></i> Your personal database</li>
+                        <li><i class="mdi mdi-cog"></i> User preferences and settings</li>
+                        <li><i class="mdi mdi-file-document-outline"></i> Backup manifest with metadata</li>
+                    </ul>
+                </div>
+
+                <form action="{{ path('app_backup_create') }}" method="post" id="backupForm">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="createBackupBtn">
+                            <i class="mdi mdi-backup-restore"></i> Create Backup
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <!-- Backup List Card -->
+            {% if backups|length > 0 %}
+                <div class="feature-card fade-in h-100">
+                    <h5 class="text-center mb-3">Your Backups</h5>
+                    <div class="list-group">
+                        {% for backup in backups %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="mdi mdi-file-lock text-primary"></i>
+                                    <span class="ms-2">{{ backup.filename }}</span>
+                                    <br>
+                                    <small class="text-muted ms-4">
+                                        {{ backup.timestamp|date('Y-m-d H:i:s') }} • 
+                                        {{ (backup.size / 1024)|number_format(1) }} KB
+                                    </small>
+                                </div>
+                                <div class="btn-group">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-success restore-backup" 
+                                            data-backup-file="{{ backup.filename }}" 
+                                            title="Restore backup">
+                                        <i class="mdi mdi-backup-restore"></i>
+                                    </button>
+                                    <a href="{{ path('app_backup_download', {'filename': backup.filename}) }}" 
+                                       class="btn btn-sm btn-outline-primary" title="Download backup">
+                                        <i class="mdi mdi-download"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger delete-backup" 
+                                            data-backup-file="{{ backup.filename }}" 
+                                            title="Delete backup">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# Success Toast #}
+<style>
+    .toast {
+        transition: opacity 0.15s linear;
+        opacity: 0;
+    }
+    .toast.show {
+        opacity: 1;
+    }
+</style>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div id="successToastMessage" class="toast-body">
+                <!-- Message will be set by JavaScript -->
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').classList.remove('show')" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
