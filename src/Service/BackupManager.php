@@ -19,7 +19,7 @@ class BackupManager
 {
     private const BACKUP_VERSION = '1.0';
     private const SCHEMA_VERSION = '1.0';
-    private const MIN_COMPATIBLE_VERSION = '1.0';
+    private const MIN_COMPATIBLE_BACKUP_VERSION = '1.0';
     private const BACKUP_FILENAME_FORMAT = 'backup_%s_%s.citadel';
     private const BACKUP_EXTENSION = '.citadel';
 
@@ -170,7 +170,7 @@ class BackupManager
             'backup_format' => 'citadel_backup_v1',
             'instance_url' => $instanceUrl,
             'compatibility' => [
-                'min_version' => self::MIN_COMPATIBLE_VERSION,
+                'min_version' => self::MIN_COMPATIBLE_BACKUP_VERSION,
                 'max_version' => self::BACKUP_VERSION,
                 'requires_migration' => self::SCHEMA_VERSION !== self::BACKUP_VERSION
             ],

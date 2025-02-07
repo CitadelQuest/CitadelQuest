@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-VERSION="v0.1.6-alpha"
+VERSION=$(php get-version.php)
 RELEASE_DIR="installer-build"
 RELEASE_FILE="citadelquest-installer-${VERSION}.zip"
 
@@ -14,9 +14,9 @@ echo "========================================================"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
-# Copy installation files
-echo "Copying installation files..."
-cp public/install.php "$RELEASE_DIR/"
+# Inject version into install.php
+echo "Preparing install.php with version ${VERSION}..."
+sed "s/version = 'v[0-9]\+\.[0-9]\+\.[0-9]\+-[a-z]\+'/version = '${VERSION}'/" public/install.php > "${RELEASE_DIR}/install.php"
 
 # Create release zip
 echo "Creating release archive..."
