@@ -22,29 +22,34 @@ class RegistrationType extends AbstractType
     {
         $builder
             ->add('username', TextType::class, [
+                'label' => 'auth.register.username',
                 'constraints' => [
                     new NotBlank([
-                        'message' => 'Please enter a username',
+                        'message' => 'auth.register.error.username_blank',
                     ]),
                     new Length([
                         'min' => 3,
                         'max' => 30,
-                        'minMessage' => 'Your username should be at least {{ limit }} characters',
-                        'maxMessage' => 'Your username should not exceed {{ limit }} characters',
+                        'minMessage' => 'auth.register.error.username_min',
+                        'maxMessage' => 'auth.register.error.username_max',
                     ]),
                     new Regex([
                         'pattern' => '/^[a-zA-Z0-9_-]+$/',
-                        'message' => 'Username can only contain letters, numbers, underscores, and dashes',
+                        'message' => 'auth.register.error.username_format',
                     ]),
                 ],
             ])
             ->add('email', EmailType::class, [
+                'label' => 'auth.register.email',
+                'attr' => [
+                    'placeholder' => 'auth.register.email_help',
+                ],
                 'constraints' => [
                     new NotBlank([
-                        'message' => 'Please enter an email',
+                        'message' => 'auth.register.error.email_blank',
                     ]),
                     new Email([
-                        'message' => 'Please enter a valid email address',
+                        'message' => 'auth.register.error.email_invalid',
                     ]),
                 ],
             ])
@@ -62,23 +67,34 @@ class RegistrationType extends AbstractType
             ])
             ->add('password', RepeatedType::class, [
                 'type' => PasswordType::class,
-                'invalid_message' => 'The password fields must match.',
+                'invalid_message' => 'auth.register.error.password_mismatch',
                 'options' => ['attr' => ['class' => 'password-field']],
                 'required' => true,
-                'first_options'  => ['label' => 'Password'],
-                'second_options' => ['label' => 'Repeat Password'],
+                'first_options'  => [
+                    'label' => 'auth.register.password',
+                    'help' => 'auth.register.password_help',
+                    'attr' => [
+                        'placeholder' => 'auth.register.password'
+                    ]
+                ],
+                'second_options' => [
+                    'label' => 'auth.register.repeat_password',
+                    'attr' => [
+                        'placeholder' => 'auth.register.repeat_password'
+                    ]
+                ],
                 'constraints' => [
                     new NotBlank([
-                        'message' => 'Please enter a password',
+                        'message' => 'auth.register.error.password_blank',
                     ]),
                     new Length([
                         'min' => 8,
-                        'minMessage' => 'Your password should be at least {{ limit }} characters',
+                        'minMessage' => 'auth.register.error.password_min',
                         'max' => 4096, // max length allowed by Symfony for security reasons
                     ]),
                     new Regex([
                         'pattern' => '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/',
-                        'message' => 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+                        'message' => 'auth.register.error.password_requirements',
                     ]),
                 ],
             ]);
@@ -88,6 +104,7 @@ class RegistrationType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => User::class,
+            'translation_domain' => 'messages',
         ]);
     }
 }

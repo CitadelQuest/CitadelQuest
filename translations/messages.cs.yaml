@@ -1,0 +1,111 @@
+app:
+    name: 'CitadelQuest'
+    welcome: 'Vítejte v CitadelQuest'
+    tagline: 'Váš osobní bezpečný prostor pro spolupráci s umělou inteligencí. Vytvořeno s důrazem na soukromí a suverenitu vašich dat.'
+    footer:
+        made_with_love: 'Vytvořeno s 💜 člověkem a AI'
+        version: 'Verze %version%'
+
+auth:
+    login:
+        title: 'Přihlášení do CitadelQuest'
+        username: 'Uživatelské jméno'
+        password: 'Heslo'
+        remember_me: 'Zapamatovat si mě'
+        submit: 'Přihlásit'
+        no_account: 'Nemáte účet?'
+        register_link: 'Vytvořte si ho'
+    register:
+        error:
+            username_blank: 'Prosím zadejte uživatelské jméno'
+            username_min: 'Uživatelské jméno musí mít alespoň {{ limit }} znaky'
+            username_max: 'Uživatelské jméno nesmí přesáhnout {{ limit }} znaků'
+            username_format: 'Uživatelské jméno může obsahovat pouze písmena, čísla, podtržítka a pomlčky'
+            email_blank: 'Prosím zadejte email'
+            email_invalid: 'Prosím zadejte platný email'
+            password_blank: 'Prosím zadejte heslo'
+            password_min: 'Heslo musí mít alespoň {{ limit }} znaků'
+            password_mismatch: 'Hesla se musí shodovat'
+            password_requirements: 'Heslo musí obsahovat alespoň jedno velké písmeno, jedno malé písmeno, jedno číslo a jeden speciální znak'
+        title: 'Vytvořte si Citadelu'
+        username: 'Zvolte si uživatelské jméno'
+        email: 'E-mailová adresa'
+        email_help: 'Zadejte svou e-mailovou adresu'
+        username_help: 'Pouze písmena, čísla a podtržítka'
+        password: 'Zvolte si heslo'
+        password_help: 'Zvolte si silné heslo'
+        password_requirements:
+            title: 'Heslo musí obsahovat:'
+            min_length: 'Minimálně 8 znaků'
+            uppercase: 'Jedno velké písmeno'
+            lowercase: 'Jedno malé písmeno'
+            number: 'Jedno číslo'
+            special: 'Jeden speciální znak (@$!%*?&)'
+        repeat_password: 'Zopakujte heslo'
+        agree_terms: 'Souhlasím s podmínkami služby'
+        submit: 'Vytvořit Citadelu'
+        have_account: 'Již máte účet?'
+        login_link: 'Přihlásit se'
+
+home:
+    actions:
+        create_citadel: 'Vytvořit Citadelu'
+        login: 'Přihlásit'
+    features:
+        data_control:
+            title: 'Vaše Data, Vaše Kontrola'
+            description: 'End-to-end šifrování a osobní databáze zajišťují, že vaše data zůstanou vaše.'
+        ai_collab:
+            title: 'Spolupráce s AI'
+            description: 'Pracujte s AI asistenty při zachování úplné suverenity dat.'
+        decentralized:
+            title: 'Decentralizované'
+            description: 'Samostatně hostované a nezávislé. Žádné závislosti na externích službách.'
+
+navigation:
+    user_menu:
+        profile: 'Profil'
+        backup: 'Záloha'
+        settings: 'Nastavení'
+        logout: 'Odhlásit'
+    language:
+        title: 'Jazyk'
+        en: 'Angličtina'
+        cs: 'Čeština'
+        sk: 'Slovenština'
+    menu:
+        login: 'Přihlásit'
+        register: 'Registrovat'
+        logout: 'Odhlásit'
+        backup: 'Záloha'
+
+backup:
+    title: 'Správa záloh'
+    description: 'Vytvořte zálohu vašich CitadelQuest dat. Záloha obsahuje:'
+    features:
+        database: 'Vaši osobní databázi'
+        preferences: 'Uživatelské nastavení a preference'
+        manifest: 'Záložní manifest s metadaty'
+    icons:
+        database: 'Databáze'
+        preferences: 'Nastavení'
+        manifest: 'Manifest'
+        encrypted: 'Šifrovaná záloha'
+        size: 'Velikost zálohy'
+        date: 'Datum vytvoření'
+    actions:
+        create: 'Vytvořit zálohu'
+        restore: 'Obnovit'
+        delete: 'Smazat'
+        download: 'Stáhnout zálohu'
+    messages:
+        success: 'Záloha byla úspěšně vytvořena'
+        restore_success: 'Záloha byla úspěšně obnovena'
+        delete_success: 'Záloha byla úspěšně smazána'
+        error: 'Operace selhala: {error}'
+        confirm_delete: 'Opravdu chcete smazat tuto zálohu?'
+        confirm_restore: 'Opravdu chcete obnovit tuto zálohu? Tímto nahradíte vaše současná data.'
+        failed_delete: 'Smazání zálohy selhalo'
+        failed_restore: 'Obnovení zálohy selhalo'
+        creating: 'Vytvářím zálohu...'
+        failed_create: 'Vytvoření zálohy selhalo'

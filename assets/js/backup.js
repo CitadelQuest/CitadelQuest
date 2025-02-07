@@ -1,8 +1,19 @@
+function getTranslations() {
+    const container = document.querySelector('[data-translations]');
+    const translationsAttr = container ? container.dataset.translations : null;
+    console.log('Raw translations:', translationsAttr);
+    const translations = translationsAttr ? JSON.parse(translationsAttr) : {};
+    console.log('Parsed translations:', translations);
+    return translations;
+}
+
 function handleDeleteBackup(event) {
     const button = event.currentTarget;
     const filename = button.dataset.backupFile;
     
-    if (!confirm('Are you sure you want to delete this backup?')) {
+    const translations = getTranslations();
+    
+    if (!confirm(translations.confirm_delete || 'Are you sure you want to delete this backup?')) {
         return;
     }
 
@@ -28,7 +39,7 @@ function handleDeleteBackup(event) {
                 window.location.reload();
             }
         } else {
-            throw new Error(data.error || 'Failed to delete backup');
+            throw new Error(data.error || translations.failed_delete || 'Failed to delete backup');
         }
     })
     .catch(error => {
@@ -42,7 +53,9 @@ function handleRestoreBackup(event) {
     const button = event.currentTarget;
     const filename = button.dataset.backupFile;
     
-    if (!confirm('Are you sure you want to restore this backup? This will replace your current data.')) {
+    const translations = getTranslations();
+    
+    if (!confirm(translations.confirm_restore || 'Are you sure you want to restore this backup? This will replace your current data.')) {
         return;
     }
 
@@ -70,7 +83,7 @@ function handleRestoreBackup(event) {
                 window.location.reload();
             }, 2500);
         } else {
-            throw new Error(data.error || 'Failed to restore backup');
+            throw new Error(data.error || translations.failed_restore || 'Failed to restore backup');
         }
     })
     .catch(error => {
@@ -97,7 +110,8 @@ export function initBackup() {
         // Set button to loading state
         isProcessing = true;
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating backup...';
+        const translations = getTranslations();
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${translations.creating || 'Creating backup...'}`;
 
         try {
             // Create backup
@@ -105,7 +119,7 @@ export function initBackup() {
                 method: 'POST'
             });
             
-            if (!response.ok) throw new Error('Backup failed');
+            if (!response.ok) throw new Error(translations.failed_create || 'Backup failed');
             
             // Get the filename from Content-Disposition header
             const contentDisposition = response.headers.get('Content-Disposition');

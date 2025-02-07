@@ -99,6 +99,23 @@ symfony server:start
 - Dark theme optimized for readability
 - Intuitive user registration and login
 
+### Internationalization
+- Multi-language support with Symfony's translation component
+- Supported languages:
+  - English (en) - default
+  - Czech (cs)
+  - Slovak (sk)
+- Features:
+  - Language switching for all users (authenticated and non-authenticated)
+  - Cookie-based language persistence
+  - Complete translation coverage:
+    - UI elements and forms
+    - Error messages and validations
+    - JavaScript interactions and confirmations
+  - Translation files in YAML format
+  - Hierarchical translation keys for better organization
+  - ICU message format support for complex translations
+
 ## Security Implementation
 
 ### Encryption

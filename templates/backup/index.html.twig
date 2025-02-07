@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Backup Management - {{ parent() }}{% endblock %}
+{% block title %}{{ 'backup.title'|trans }} - {{ parent() }}{% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
@@ -8,28 +8,37 @@
 {% endblock %}
 
 {% block body %}
-<div class="container">
+{% set translations = {
+    'confirm_delete': 'backup.messages.confirm_delete'|trans,
+    'confirm_restore': 'backup.messages.confirm_restore'|trans,
+    'failed_delete': 'backup.messages.failed_delete'|trans,
+    'failed_restore': 'backup.messages.failed_restore'|trans,
+    'creating': 'backup.messages.creating'|trans,
+    'failed_create': 'backup.messages.failed_create'|trans
+} %}
+<!-- Debug: {{ translations|json_encode }} -->
+<div class="container" data-translations="{{ translations|json_encode|e('html_attr') }}">
     <div class="row justify-content-center">
         <div class="col-md-4">
             <!-- Create Backup Card -->
             <div class="feature-card fade-in h-100">
-                <h1 class="text-center mb-4">Backup Management</h1>
+                <h1 class="text-center mb-4">{{ 'backup.title'|trans }}</h1>
                 
                 <div class="mb-4">
                     <p class="text-center">
-                        Create an encrypted backup of your CitadelQuest data. The backup includes:
+                        {{ 'backup.description'|trans }}
                     </p>
                     <ul class="list-unstyled text-center">
-                        <li><i class="mdi mdi-database"></i> Your personal database</li>
-                        <li><i class="mdi mdi-cog"></i> User preferences and settings</li>
-                        <li><i class="mdi mdi-file-document-outline"></i> Backup manifest with metadata</li>
+                        <li><i class="mdi mdi-database" title="{{ 'backup.icons.database'|trans }}"></i> {{ 'backup.features.database'|trans }}</li>
+                        <li><i class="mdi mdi-cog" title="{{ 'backup.icons.preferences'|trans }}"></i> {{ 'backup.features.preferences'|trans }}</li>
+                        <li><i class="mdi mdi-file-document-outline" title="{{ 'backup.icons.manifest'|trans }}"></i> {{ 'backup.features.manifest'|trans }}</li>
                     </ul>
                 </div>
 
                 <form action="{{ path('app_backup_create') }}" method="post" id="backupForm">
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary" id="createBackupBtn">
-                            <i class="mdi mdi-backup-restore"></i> Create Backup
+                            <i class="mdi mdi-backup-restore"></i> {{ 'backup.actions.create'|trans }}
                         </button>
                     </div>
                 </form>
@@ -40,12 +49,12 @@
             <!-- Backup List Card -->
             {% if backups|length > 0 %}
                 <div class="feature-card fade-in h-100">
-                    <h5 class="text-center mb-3">Your Backups</h5>
+                    <h5 class="text-center mb-3">{{ 'backup.title'|trans }}</h5>
                     <div class="list-group">
                         {% for backup in backups %}
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <i class="mdi mdi-file-lock text-primary"></i>
+                                    <i class="mdi mdi-file-lock text-primary" title="{{ 'backup.icons.encrypted'|trans }}"></i>
                                     <span class="ms-2">{{ backup.filename }}</span>
                                     <br>
                                     <small class="text-muted ms-4">
@@ -57,17 +66,17 @@
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-success restore-backup" 
                                             data-backup-file="{{ backup.filename }}" 
-                                            title="Restore backup">
+                                            title="{{ 'backup.actions.restore'|trans }}">
                                         <i class="mdi mdi-backup-restore"></i>
                                     </button>
                                     <a href="{{ path('app_backup_download', {'filename': backup.filename}) }}" 
-                                       class="btn btn-sm btn-outline-primary" title="Download backup">
+                                       class="btn btn-sm btn-outline-primary" title="{{ 'backup.actions.download'|trans }}">
                                         <i class="mdi mdi-download"></i>
                                     </a>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-danger delete-backup" 
                                             data-backup-file="{{ backup.filename }}" 
-                                            title="Delete backup">
+                                            title="{{ 'backup.actions.delete'|trans }}">
                                         <i class="mdi mdi-delete"></i>
                                     </button>
                                 </div>

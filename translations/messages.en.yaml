@@ -1,0 +1,111 @@
+app:
+    name: 'CitadelQuest'
+    welcome: 'Welcome to CitadelQuest'
+    tagline: 'Your personal secure space for AI-human collaboration. Built with privacy at its core and your data sovereignty in mind.'
+    footer:
+        made_with_love: 'Made with 💜 by Human & AI'
+        version: 'Version %version%'
+
+auth:
+    login:
+        title: 'Login to CitadelQuest'
+        username: 'Username'
+        password: 'Password'
+        remember_me: 'Remember me'
+        submit: 'Sign in'
+        no_account: "Don't have an account?"
+        register_link: 'Create one now'
+    register:
+        error:
+            username_blank: 'Please enter a username'
+            username_min: 'Your username should be at least {{ limit }} characters'
+            username_max: 'Your username should not exceed {{ limit }} characters'
+            username_format: 'Username can only contain letters, numbers, underscores, and dashes'
+            email_blank: 'Please enter an email'
+            email_invalid: 'Please enter a valid email address'
+            password_blank: 'Please enter a password'
+            password_min: 'Your password should be at least {{ limit }} characters'
+            password_mismatch: 'The password fields must match'
+            password_requirements: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+        title: 'Create Your Citadel'
+        username: 'Choose your username'
+        email: 'Email address'
+        email_help: 'Enter your email address'
+        username_help: 'Letters, numbers and underscores only'
+        password: 'Choose your password'
+        password_help: 'Choose a strong password'
+        password_requirements:
+            title: 'Password must contain:'
+            min_length: 'At least 8 characters'
+            uppercase: 'One uppercase letter'
+            lowercase: 'One lowercase letter'
+            number: 'One number'
+            special: 'One special character (@$!%*?&)'
+        repeat_password: 'Repeat password'
+        agree_terms: 'I agree to the terms of service'
+        submit: 'Create Citadel'
+        have_account: 'Already have an account?'
+        login_link: 'Sign in'
+
+home:
+    actions:
+        create_citadel: 'Create Your Citadel'
+        login: 'Login'
+    features:
+        data_control:
+            title: 'Your Data, Your Control'
+            description: 'End-to-end encryption and personal database ensure your data stays yours.'
+        ai_collab:
+            title: 'AI Collaboration'
+            description: 'Work with AI assistants while maintaining complete data sovereignty.'
+        decentralized:
+            title: 'Decentralized'
+            description: 'Self-hosted and independent. No external service dependencies.'
+
+navigation:
+    user_menu:
+        profile: 'Profile'
+        backup: 'Backup'
+        settings: 'Settings'
+        logout: 'Logout'
+    language:
+        title: 'Language'
+        en: 'English'
+        cs: 'Czech'
+        sk: 'Slovak'
+    menu:
+        login: 'Login'
+        register: 'Register'
+        logout: 'Logout'
+        backup: 'Backup'
+
+backup:
+    title: 'Backup Management'
+    description: 'Create an backup of your CitadelQuest data. The backup includes:'
+    features:
+        database: 'Your personal database'
+        preferences: 'User preferences and settings'
+        manifest: 'Backup manifest with metadata'
+    icons:
+        database: 'Database'
+        preferences: 'Settings'
+        manifest: 'Manifest'
+        encrypted: 'Encrypted backup'
+        size: 'Backup size'
+        date: 'Creation date'
+    actions:
+        create: 'Create Backup'
+        restore: 'Restore'
+        delete: 'Delete'
+        download: 'Download backup'
+    messages:
+        success: 'Backup created successfully'
+        restore_success: 'Backup restored successfully'
+        delete_success: 'Backup deleted successfully'
+        error: 'Operation failed: {error}'
+        confirm_delete: 'Are you sure you want to delete this backup?'
+        confirm_restore: 'Are you sure you want to restore this backup? This will replace your current data.'
+        failed_delete: 'Failed to delete backup'
+        failed_restore: 'Failed to restore backup'
+        creating: 'Creating backup...'
+        failed_create: 'Backup failed'

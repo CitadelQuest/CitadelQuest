@@ -9,9 +9,14 @@ import '@mdi/font/css/materialdesignicons.min.css';
 // Import Bootstrap's JavaScript
 import 'bootstrap';
 
+// Import language switcher
+import { initLanguageSwitcher } from './js/language';
+
 
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize language switcher
+    initLanguageSwitcher();
     // Enable tooltips everywhere
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {

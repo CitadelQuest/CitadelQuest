@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Welcome to CitadelQuest{% endblock %}
+{% block title %}{{ 'app.welcome'|trans }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -9,15 +9,12 @@
 {% block body %}
 <div class="container">
     <section class="hero">
-        <h1>Welcome to CitadelQuest</h1>
-        <p>
-            Your personal secure space for AI-human collaboration. 
-            Built with privacy at its core and your data sovereignty in mind.
-        </p>
+        <h1>{{ 'app.welcome'|trans }}</h1>
+        <p>{{ 'app.tagline'|trans }}</p>
         {% if not app.user %}
             <div class="d-flex justify-content-center gap-3">
-                <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg">Create Your Citadel</a>
-                <a href="{{ path('app_login') }}" class="btn btn-outline-light btn-lg">Login</a>
+                <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg">{{ 'home.actions.create_citadel'|trans }}</a>
+                <a href="{{ path('app_login') }}" class="btn btn-outline-light btn-lg">{{ 'home.actions.login'|trans }}</a>
             </div>
         {% endif %}
     </section>
@@ -27,22 +24,22 @@
             <div class="col-md-4">
                 <div class="feature-card">
                     <div class="feature-icon">🔒</div>
-                    <h3>Your Data, Your Control</h3>
-                    <p>End-to-end encryption and personal database ensure your data stays yours.</p>
+                    <h3>{{ 'home.features.data_control.title'|trans }}</h3>
+                    <p>{{ 'home.features.data_control.description'|trans }}</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="feature-card">
                     <div class="feature-icon">🤖</div>
-                    <h3>AI Collaboration</h3>
-                    <p>Work with AI assistants while maintaining complete data sovereignty.</p>
+                    <h3>{{ 'home.features.ai_collab.title'|trans }}</h3>
+                    <p>{{ 'home.features.ai_collab.description'|trans }}</p>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="feature-card">
                     <div class="feature-icon">🌐</div>
-                    <h3>Decentralized</h3>
-                    <p>Self-hosted and independent. No external service dependencies.</p>
+                    <h3>{{ 'home.features.decentralized.title'|trans }}</h3>
+                    <p>{{ 'home.features.decentralized.description'|trans }}</p>
                 </div>
             </div>
         </div>

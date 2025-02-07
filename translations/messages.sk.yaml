@@ -1,0 +1,111 @@
+app:
+    name: 'CitadelQuest'
+    welcome: 'Vitajte v CitadelQuest'
+    tagline: 'Váš osobný bezpečný priestor pre spoluprácu s umelou inteligenciou. Vytvorené s dôrazom na súkromie a suverenitu vašich dát.'
+    footer:
+        made_with_love: 'Vytvorené s 💜 človekom a AI'
+        version: 'Verzia %version%'
+
+auth:
+    login:
+        title: 'Prihlásenie do CitadelQuest'
+        username: 'Používateľské meno'
+        password: 'Heslo'
+        remember_me: 'Zapamätať si ma'
+        submit: 'Prihlásiť'
+        no_account: 'Nemáte účet?'
+        register_link: 'Vytvorte si ho'
+    register:
+        error:
+            username_blank: 'Prosím zadajte používateľské meno'
+            username_min: 'Používateľské meno musí mať aspoň {{ limit }} znaky'
+            username_max: 'Používateľské meno nesmie presiahnuť {{ limit }} znakov'
+            username_format: 'Používateľské meno môže obsahovať len písmená, čísla, podtržníky a pomlčky'
+            email_blank: 'Prosím zadajte email'
+            email_invalid: 'Prosím zadajte platný email'
+            password_blank: 'Prosím zadajte heslo'
+            password_min: 'Heslo musí mať aspoň {{ limit }} znakov'
+            password_mismatch: 'Heslá sa musia zhodovať'
+            password_requirements: 'Heslo musí obsahovať aspoň jedno veľké písmeno, jedno malé písmeno, jedno číslo a jeden špeciálny znak'
+        title: 'Vytvorte si Citadelu'
+        username: 'Zvoľte si používateľské meno'
+        email: 'E-mailová adresa'
+        email_help: 'Zadajte svoju e-mailovú adresu'
+        username_help: 'Len písmená, čísla a podtržníky'
+        password: 'Zvoľte si heslo'
+        password_help: 'Zvoľte si silné heslo'
+        password_requirements:
+            title: 'Heslo musí obsahovať:'
+            min_length: 'Minimálne 8 znakov'
+            uppercase: 'Jedno veľké písmeno'
+            lowercase: 'Jedno malé písmeno'
+            number: 'Jedno číslo'
+            special: 'Jeden špeciálny znak (@$!%*?&)'
+        repeat_password: 'Zopakujte heslo'
+        agree_terms: 'Súhlasím s podmienkami služby'
+        submit: 'Vytvoriť Citadelu'
+        have_account: 'Už máte účet?'
+        login_link: 'Prihlásiť sa'
+
+home:
+    actions:
+        create_citadel: 'Vytvoriť Citadelu'
+        login: 'Prihlásiť'
+    features:
+        data_control:
+            title: 'Vaše Dáta, Vaša Kontrola'
+            description: 'End-to-end šifrovanie a osobná databáza zaisťujú, že vaše dáta zostanu vaše.'
+        ai_collab:
+            title: 'Spolupráca s AI'
+            description: 'Pracujte s AI asistentmi pri zachovaní úplnej suverenity dát.'
+        decentralized:
+            title: 'Decentralizované'
+            description: 'Samostatne hostované a nezávislé. Žiadne závislosti na externých službách.'
+
+navigation:
+    user_menu:
+        profile: 'Profil'
+        backup: 'Záloha'
+        settings: 'Nastavenia'
+        logout: 'Odhlásiť'
+    language:
+        title: 'Jazyk'
+        en: 'Angličtina'
+        cs: 'Čeština'
+        sk: 'Slovenčina'
+    menu:
+        login: 'Prihlásiť'
+        register: 'Registrovať'
+        logout: 'Odhlásiť'
+        backup: 'Záloha'
+
+backup:
+    title: 'Správa záloh'
+    description: 'Vytvorte zálohu vašich CitadelQuest dát. Záloha obsahuje:'
+    features:
+        database: 'Vašu osobnú databázu'
+        preferences: 'Používateľské nastavenia a preferencie'
+        manifest: 'Záložný manifest s metadátami'
+    icons:
+        database: 'Databáza'
+        preferences: 'Nastavenia'
+        manifest: 'Manifest'
+        encrypted: 'Šifrovaná záloha'
+        size: 'Veľkosť zálohy'
+        date: 'Dátum vytvorenia'
+    actions:
+        create: 'Vytvoriť zálohu'
+        restore: 'Obnoviť'
+        delete: 'Zmazať'
+        download: 'Stiahnuť zálohu'
+    messages:
+        success: 'Záloha bola úspešne vytvorená'
+        restore_success: 'Záloha bola úspešne obnovená'
+        delete_success: 'Záloha bola úspešne zmazaná'
+        error: 'Operácia zlyhala: {error}'
+        confirm_delete: 'Naozaj chcete zmazať túto zálohu?'
+        confirm_restore: 'Naozaj chcete obnoviť túto zálohu? Týmto nahradíte vaše súčasné dáta.'
+        failed_delete: 'Zmazanie zálohy zlyhalo'
+        failed_restore: 'Obnovenie zálohy zlyhalo'
+        creating: 'Vytváram zálohu...'
+        failed_create: 'Vytvorenie zálohy zlyhalo'
