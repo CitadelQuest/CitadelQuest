@@ -260,14 +260,14 @@ class CitadelQuestInstaller
             if (!mkdir($backupDir, 0755, true)) {
                 throw new Exception("Failed to create backup directory: $backupDir");
             }
-            $this->output("Created backup directory: $backupDir");
+            //$this->output("Created backup directory: $backupDir");
         }
 
         // Ensure web server can write to backup directory
         $webServerUser = $this->getWebServerUser();
         if ($webServerUser) {
             @chown($backupDir, $webServerUser);
-            $this->output("Set backup directory owner to: $webServerUser");
+            //$this->output("Set backup directory owner to: $webServerUser");
         }
 
         // Get web server user and group

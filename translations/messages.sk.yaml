@@ -27,7 +27,7 @@ auth:
             password_min: 'Heslo musí mať aspoň {{ limit }} znakov'
             password_mismatch: 'Heslá sa musia zhodovať'
             password_requirements: 'Heslo musí obsahovať aspoň jedno veľké písmeno, jedno malé písmeno, jedno číslo a jeden špeciálny znak'
-        title: 'Vytvorte si Citadelu'
+        title: 'Vytvorte si CitadelQuest účet'
         username: 'Zvoľte si používateľské meno'
         email: 'E-mailová adresa'
         email_help: 'Zadajte svoju e-mailovú adresu'
@@ -43,13 +43,13 @@ auth:
             special: 'Jeden špeciálny znak (@$!%*?&)'
         repeat_password: 'Zopakujte heslo'
         agree_terms: 'Súhlasím s podmienkami služby'
-        submit: 'Vytvoriť Citadelu'
+        submit: 'Vytvoriť CitadelQuest účet'
         have_account: 'Už máte účet?'
         login_link: 'Prihlásiť sa'
 
 home:
     actions:
-        create_citadel: 'Vytvoriť Citadelu'
+        create_citadel: 'Vytvoriť CitadelQuest účet'
         login: 'Prihlásiť'
     features:
         data_control:
