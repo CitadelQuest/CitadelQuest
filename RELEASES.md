@@ -1,5 +1,12 @@
 # CitadelQuest Release Notes
 
+## v0.1.7-alpha (2025-02-08)
+
+### Test Release
+- Version bump for update system testing
+- Added test changes to verify update functionality
+
+
 ## v0.1.6-alpha (2025-02-08)
 
 ### New Features
