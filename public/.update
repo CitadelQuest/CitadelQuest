@@ -1,0 +1,778 @@
+<?php
+// Enable error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
+/**
+ * CitadelQuest Update Script Template
+ * 
+ * This is a template for the update script. The actual update process will:
+ * 1. Create a unique update-{UUID}.php from this template
+ * 2. Redirect admin to the unique URL
+ * 3. Delete the unique file after update completes
+ * 
+ * Update Process:
+ * 1. Version compatibility check
+ * 2. System requirements verification
+ * 3. Backup creation
+ * 4. Download and verify update package
+ * 5. Apply updates (files and databases)
+ * 6. Run migrations (main.db and user databases)
+ * 7. Clear cache and finalize
+ */
+
+// Security check - verify this is a valid CitadelQuest-generated update script
+if (!defined('CITADEL_UPDATE_TOKEN')) {
+    die('Access Denied');
+}
+
+// Self-cleanup after completion
+register_shutdown_function(function() {
+    if (defined('CITADEL_UPDATE_SCRIPT')) {
+        @unlink(CITADEL_UPDATE_SCRIPT);
+    }
+});
+// ??? make script available only for ADMINs, 
+//      - create from hidden .update script, from CitadelQuest UI: 
+//          `update-{UUID}.php`
+//        random UUID to keep te path/url hidden/private
+//      - redirect to fresh update script url
+
+class CitadelQuestUpdater
+{
+    private string $installDir;
+    private string $version;
+    private string $backupDir;
+    private array $requirements = [
+        'php' => '8.2.0',
+        'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
+    ];
+
+    public function __construct()
+    {
+        // Since we're in the public directory, get the main directory
+        $this->installDir = dirname(__FILE__, 2);
+        $this->backupDir = $this->installDir . '/var/backups/updates';
+        
+        // ??? first check if the file exists, if not 
+        //      - too old CitadelQuest version or not CitadelQuest installed at all
+        // Load current version from CitadelVersion.php
+        require_once $this->installDir . '/src/CitadelVersion.php';
+        $this->version = \App\CitadelVersion::VERSION;
+        
+        // Initialize HTML template
+        $this->outputHeader();
+    }
+
+    private function outputHeader(): void
+    {
+        echo "<!DOCTYPE html>\n";
+        echo "<html lang=\"en\">\n";
+        echo "<head>\n";
+        echo "    <meta charset=\"UTF-8\">\n";
+        echo "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n";
+        echo "    <title>CitadelQuest Updater</title>\n";
+        echo "    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\">\n";
+        echo "    <style>\n";
+        echo "        .log { font-family: monospace; margin: 0; }\n";
+        echo "        .error { color: #dc3545; }\n";
+        echo "        .success { color: #198754; }\n";
+        echo "        .warning { color: #ffc107; }\n";
+        echo "    </style>\n";
+        echo "</head>\n";
+        echo "<body class=\"bg-light\">\n";
+        echo "<div class=\"container py-5\">\n";
+        echo "    <div class=\"row justify-content-center\">\n";
+        echo "        <div class=\"col-md-8\">\n";
+        echo "            <div class=\"card shadow-sm\">\n";
+        echo "                <div class=\"card-body\">\n";
+        echo "                    <h2 class=\"card-title mb-4\">CitadelQuest Updater</h2>\n";
+    }
+
+    private function log(string $message, string $type = 'info'): void
+    {
+        $class = match($type) {
+            'error' => 'error',
+            'success' => 'success',
+            'warning' => 'warning',
+            default => ''
+        };
+        echo "<p class=\"log {$class}\">{$message}</p>\n";
+        flush();
+    }
+
+    private function checkRequirements(): bool
+    {
+        $this->log("Checking system requirements...");
+        
+        // Check PHP version
+        if (version_compare(PHP_VERSION, $this->requirements['php'], '<')) {
+            $this->log("Error: PHP version {$this->requirements['php']} or higher is required. Current version: " . PHP_VERSION, 'error');
+            return false;
+        }
+        
+        // Check required extensions
+        foreach ($this->requirements['extensions'] as $ext) {
+            if (!extension_loaded($ext)) {
+                $this->log("Error: Required PHP extension '{$ext}' is missing", 'error');
+                return false;
+            }
+        }
+        
+        $this->log("✓ System requirements met", 'success');
+        return true;
+    }
+
+    private function createBackup(): bool
+    {
+        $this->log("Creating backup...");
+        
+        // Create backup directory if it doesn't exist
+        if (!file_exists($this->backupDir)) {
+            if (!mkdir($this->backupDir, 0755, true)) {
+                $this->log("Error: Failed to create backup directory", 'error');
+                return false;
+            }
+        }
+        
+        // Create timestamped backup directory
+        $backupPath = $this->backupDir . '/backup_' . date('Y-m-d_His');
+        if (!mkdir($backupPath, 0755, true)) {
+            $this->log("Error: Failed to create backup directory", 'error');
+            return false;
+        }
+        
+        // Copy all files except var directory, including hidden files
+        $this->log("Copying files...");
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($this->installDir),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        
+        foreach ($iterator as $item) {
+            // Skip . and .. directory entries
+            if ($item->getBasename() === '.' || $item->getBasename() === '..') {
+                continue;
+            }
+            
+            // Skip var directory
+            if (strpos($item->getPathname(), $this->installDir . '/var') === 0) {
+                continue;
+            }
+            
+            $target = $backupPath . '/' . substr($item->getPathname(), strlen($this->installDir) + 1);
+            
+            if ($item->isDir()) {
+                if (!file_exists($target)) {
+                    mkdir($target, 0755, true);
+                }
+            } else {
+                copy($item->getPathname(), $target);
+            }
+        }
+        
+        $this->log("✓ Backup created successfully at: " . basename($backupPath), 'success');
+        return true;
+    }
+
+    private function checkLatestVersion(): ?string
+    {
+        $this->log("Checking for updates...");
+        
+        try {
+            // GitHub API endpoint for latest release
+            $apiUrl = 'https://api.github.com/repos/CitadelQuest/CitadelQuest/releases/latest';
+            
+            // Set up the request with proper headers
+            $opts = [
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'User-Agent: CitadelQuest-Updater',
+                        'Accept: application/vnd.github.v3+json'
+                    ]
+                ]
+            ];
+            
+            $context = stream_context_create($opts);
+            $response = @file_get_contents($apiUrl, false, $context);
+            
+            if ($response === false) {
+                throw new Exception('Failed to connect to GitHub API');
+            }
+            
+            $release = json_decode($response, true);
+            if (!isset($release['tag_name'])) {
+                throw new Exception('Invalid response from GitHub API');
+            }
+            
+            return $release['tag_name'];
+            
+        } catch (Exception $e) {
+            $this->log('Error checking for updates: ' . $e->getMessage(), 'error');
+            return null;
+        }
+    }
+
+    private function downloadUpdate(string $version): bool
+    {
+        $this->log("Downloading update package...");
+        
+        try {
+            // Direct URL to the prebuilt release
+            $downloadUrl = "https://github.com/CitadelQuest/CitadelQuest/releases/download/{$version}/citadelquest-prebuilt-{$version}.zip";
+            
+            // Create temporary directory for the update
+            $tempDir = $this->installDir . '/var/update_temp';
+            if (!file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            
+            // Download the release ZIP
+            $zipPath = $tempDir . '/update.zip';
+            
+            $this->log("Downloading prebuilt release package...");
+            
+            // Set up the request with proper headers
+            $opts = [
+                'http' => [
+                    'method' => 'GET',
+                    'header' => ['User-Agent: CitadelQuest-Updater']
+                ]
+            ];
+            
+            $context = stream_context_create($opts);
+            if (!copy($downloadUrl, $zipPath, $context)) {
+                throw new Exception('Failed to download update package');
+            }
+            
+            // Verify ZIP integrity
+            $zip = new ZipArchive();
+            if ($zip->open($zipPath) !== true) {
+                throw new Exception('Invalid update package');
+            }
+            $zip->close();
+            
+            $this->log("✓ Update package downloaded successfully", 'success');
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Error downloading update: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    private function applyUpdate(): bool
+    {
+        $this->log("Applying update...");
+        
+        try {
+            $tempDir = $this->installDir . '/var/update_temp';
+            $zipPath = $tempDir . '/update.zip';
+            $extractPath = $tempDir . '/extracted';
+            
+            if (!file_exists($zipPath)) {
+                throw new Exception('Update package not found');
+            }
+            
+            // Clean extract directory if it exists
+            if (file_exists($extractPath)) {
+                $this->removeDirectory($extractPath);
+            }
+            mkdir($extractPath, 0755, true);
+            
+            // Extract update package
+            $this->log("Extracting update package...");
+            $zip = new ZipArchive();
+            if ($zip->open($zipPath) !== true) {
+                throw new Exception('Failed to open update package');
+            }
+            $zip->extractTo($extractPath);
+            $zip->close();
+            
+            // Update files
+            $this->log("Updating files...");
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($extractPath),
+                RecursiveIteratorIterator::SELF_FIRST
+            );
+            
+            foreach ($iterator as $item) {
+                // Skip . and .. directory entries
+                if ($item->getBasename() === '.' || $item->getBasename() === '..') {
+                    continue;
+                }
+                
+                $relativePath = substr($item->getPathname(), strlen($extractPath) + 1);
+                $targetPath = $this->installDir . '/' . $relativePath;
+                
+                // Skip var directory and specific files
+                if (strpos($relativePath, 'var/') === 0 ||
+                    $relativePath === '.env.local' ||
+                    $relativePath === '.env' ||
+                    $relativePath === '.htaccess') {
+                    continue;
+                }
+                
+                // Handle update script specially
+                if ($relativePath === '.update') {
+                    // Update the template but not the running instance
+                    if (defined('CITADEL_UPDATE_SCRIPT') && 
+                        realpath($item->getPathname()) === realpath(CITADEL_UPDATE_SCRIPT)) {
+                        continue;
+                    }
+                }
+                
+                if ($item->isDir()) {
+                    if (!file_exists($targetPath)) {
+                        mkdir($targetPath, 0755, true);
+                    }
+                } else {
+                    copy($item->getPathname(), $targetPath);
+                }
+            }
+            
+            // Clean up
+            $this->log("Cleaning up...");
+            $this->removeDirectory($tempDir);
+            
+            $this->log("✓ Update applied successfully", 'success');
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Error applying update: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+    
+    private function removeDirectory(string $dir): void
+    {
+        if (!file_exists($dir)) {
+            return;
+        }
+        
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        
+        foreach ($iterator as $item) {
+            if ($item->getBasename() === '.' || $item->getBasename() === '..') {
+                continue;
+            }
+            
+            if ($item->isDir()) {
+                rmdir($item->getPathname());
+            } else {
+                unlink($item->getPathname());
+            }
+        }
+        
+        rmdir($dir);
+    }
+
+    private function verifyDatabaseIntegrity(PDO $db, string $dbPath): bool
+    {
+        try {
+            // Run SQLite integrity check
+            $result = $db->query('PRAGMA integrity_check')->fetch(PDO::FETCH_ASSOC);
+            if ($result['integrity_check'] !== 'ok') {
+                throw new Exception('Database integrity check failed');
+            }
+            
+            // Verify database is not corrupted
+            $db->query('SELECT 1')->fetch();
+            
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log("Database integrity check failed for {$dbPath}: " . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    private function runMigrations(): bool
+    {
+        $this->log("Running database migrations...");
+        
+        try {
+            // Verify main database first
+            $mainDb = new PDO('sqlite:' . $this->installDir . '/var/main.db');
+            $mainDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            if (!$this->verifyDatabaseIntegrity($mainDb, 'main.db')) {
+                throw new Exception('Main database integrity check failed');
+            }
+            
+            // Run main database migrations
+            if (!$this->runMainDbMigrations()) {
+                return false;
+            }
+            
+            // Verify main database after migrations
+            if (!$this->verifyDatabaseIntegrity($mainDb, 'main.db')) {
+                throw new Exception('Main database integrity check failed after migrations');
+            }
+            
+            // Run user database migrations
+            if (!$this->runUserDbMigrations()) {
+                return false;
+            }
+            
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Migration error: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    private function runMainDbMigrations(): bool
+    {
+        $this->log("Updating main database schema...");
+        
+        try {
+            // Connect to main database
+            $mainDb = new PDO('sqlite:' . $this->installDir . '/var/main.db');
+            $mainDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Get list of applied migrations
+            $appliedMigrations = [];
+            $stmt = $mainDb->query('SELECT version FROM doctrine_migration_versions ORDER BY version ASC');
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $appliedMigrations[$row['version']] = true;
+            }
+            
+            // Scan migrations directory
+            $migrationsDir = $this->installDir . '/migrations';
+            if (!is_dir($migrationsDir)) {
+                throw new Exception('Migrations directory not found');
+            }
+            
+            // Get all migration files
+            $migrations = [];
+            foreach (new DirectoryIterator($migrationsDir) as $file) {
+                if ($file->isDot() || $file->isDir()) continue;
+                
+                if (preg_match('/^Version(\d+)\.php$/', $file->getFilename(), $matches)) {
+                    $version = $matches[1];
+                    $migrations[$version] = $file->getPathname();
+                }
+            }
+            
+            // Sort migrations by version
+            ksort($migrations);
+            
+            // Run new migrations
+            foreach ($migrations as $version => $file) {
+                $migrationVersion = 'DoctrineMigrations\\Version' . $version;
+                
+                // Skip if already applied
+                if (isset($appliedMigrations[$migrationVersion])) {
+                    continue;
+                }
+                
+                $this->log("Running migration: Version{$version}");
+                
+                // Include and instantiate migration class
+                require_once $file;
+                $migration = new $migrationVersion();
+                
+                // Start transaction
+                $mainDb->beginTransaction();
+                
+                try {
+                    // Get start time
+                    $startTime = microtime(true);
+                    
+                    // Run migration
+                    $migration->up($mainDb);
+                    
+                    // Calculate execution time
+                    $executionTime = round((microtime(true) - $startTime) * 1000);
+                    
+                    // Record migration
+                    $stmt = $mainDb->prepare(
+                        'INSERT INTO doctrine_migration_versions (version, executed_at, execution_time) '
+                        . 'VALUES (?, datetime("now"), ?)'
+                    );
+                    $stmt->execute([$migrationVersion, $executionTime]);
+                    
+                    // Commit transaction
+                    $mainDb->commit();
+                    
+                    $this->log("✓ Migration Version{$version} completed ({$executionTime}ms)", 'success');
+                    
+                } catch (Exception $e) {
+                    // Rollback on error
+                    $mainDb->rollBack();
+                    throw new Exception("Migration Version{$version} failed: " . $e->getMessage());
+                }
+            }
+            
+            $this->log("✓ Main database schema update completed", 'success');
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Error updating main database: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    private function runUserDbMigrations(): bool
+    {
+        $this->log("Updating user databases...");
+        
+        try {
+            // Get user databases directory
+            $userDbDir = $this->installDir . '/var/user_databases';
+            if (!is_dir($userDbDir)) {
+                $this->log("No user databases found", 'warning');
+                return true;
+            }
+            
+            // Scan for user migration files
+            $migrationsDir = $this->installDir . '/migrations/user';
+            if (!is_dir($migrationsDir)) {
+                throw new Exception('User migrations directory not found');
+            }
+            
+            // Get all migration files
+            $migrations = [];
+            foreach (new DirectoryIterator($migrationsDir) as $file) {
+                if ($file->isDot() || $file->isDir()) continue;
+                
+                if (preg_match('/^Version(\d+)\.php$/', $file->getFilename(), $matches)) {
+                    $version = $matches[1];
+                    $migrations[$version] = $file->getPathname();
+                }
+            }
+            
+            // Sort migrations by version
+            ksort($migrations);
+            
+            // Process each user database
+            foreach (new DirectoryIterator($userDbDir) as $file) {
+                if ($file->isDot() || $file->isDir() || $file->getExtension() !== 'db') continue;
+                
+                $dbPath = $file->getPathname();
+                $this->log("Processing database: " . $file->getFilename());
+                
+                // Connect to user database and verify integrity
+                $userDb = new PDO('sqlite:' . $dbPath);
+                $userDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                if (!$this->verifyDatabaseIntegrity($userDb, basename($dbPath))) {
+                    throw new Exception('Database integrity check failed');
+                }
+                
+                // Create migration versions table if not exists
+                $userDb->exec(
+                    'CREATE TABLE IF NOT EXISTS migration_versions ('
+                    . 'version VARCHAR(191) PRIMARY KEY,'
+                    . 'executed_at DATETIME DEFAULT NULL,'
+                    . 'execution_time INTEGER DEFAULT NULL'
+                    . ')'
+                );
+                
+                // Get list of applied migrations
+                $appliedMigrations = [];
+                $stmt = $userDb->query('SELECT version FROM migration_versions ORDER BY version ASC');
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $appliedMigrations[$row['version']] = true;
+                }
+                
+                // Run new migrations
+                foreach ($migrations as $version => $migrationFile) {
+                    $migrationVersion = 'UserMigration_' . $version;
+                    
+                    // Skip if already applied
+                    if (isset($appliedMigrations[$migrationVersion])) {
+                        continue;
+                    }
+                    
+                    $this->log("Running migration: Version{$version}");
+                    
+                    // Include and instantiate migration class
+                    require_once $migrationFile;
+                    $migration = new $migrationVersion();
+                    
+                    // Start transaction
+                    $userDb->beginTransaction();
+                    
+                    try {
+                        // Get start time
+                        $startTime = microtime(true);
+                        
+                        // Run migration
+                        $migration->up($userDb);
+                        
+                        // Calculate execution time
+                        $executionTime = round((microtime(true) - $startTime) * 1000);
+                        
+                        // Record migration
+                        $stmt = $userDb->prepare(
+                            'INSERT INTO migration_versions (version, executed_at, execution_time) '
+                            . 'VALUES (?, datetime("now"), ?)'
+                        );
+                        $stmt->execute([$migrationVersion, $executionTime]);
+                        
+                        // Commit transaction
+                        $userDb->commit();
+                        
+                        $this->log("✓ Migration Version{$version} completed ({$executionTime}ms)", 'success');
+                        
+                    } catch (Exception $e) {
+                        // Rollback on error
+                        $userDb->rollBack();
+                        throw new Exception("Migration Version{$version} failed: " . $e->getMessage());
+                    }
+                }
+                
+                $this->log("✓ Database " . $file->getFilename() . " updated successfully", 'success');
+            }
+            
+            $this->log("✓ All user databases updated successfully", 'success');
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Error updating user databases: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    private function clearCache(): bool
+    {
+        $this->log("Clearing cache...");
+        
+        try {
+            // Clear var/cache directory
+            $cacheDir = $this->installDir . '/var/cache';
+            if (file_exists($cacheDir)) {
+                $this->removeDirectory($cacheDir);
+                mkdir($cacheDir, 0777, true);
+            }
+            
+            // Clear var/log directory
+            $logDir = $this->installDir . '/var/log';
+            if (file_exists($logDir)) {
+                foreach (new DirectoryIterator($logDir) as $file) {
+                    if ($file->isDot() || $file->isDir()) continue;
+                    unlink($file->getPathname());
+                }
+            }
+            
+            // Warm up cache using console
+            $this->log("Warming up cache...");
+            $consolePath = $this->installDir . '/bin/console';
+            
+            if (file_exists($consolePath)) {
+                // Set environment variables
+                $env = [
+                    'APP_ENV' => 'prod',
+                    'APP_DEBUG' => '0'
+                ];
+                
+                // Create cache directory with proper permissions
+                $prodCacheDir = $this->installDir . '/var/cache/prod';
+                if (!file_exists($prodCacheDir)) {
+                    mkdir($prodCacheDir, 0777, true);
+                }
+                
+                // Warm up the cache
+                $command = sprintf(
+                    'php %s cache:warmup --env=prod --no-debug 2>&1',
+                    escapeshellarg($consolePath)
+                );
+                
+                $output = [];
+                $exitCode = -1;
+                
+                putenv('APP_ENV=prod');
+                putenv('APP_DEBUG=0');
+                
+                @exec($command, $output, $exitCode);
+                
+                if ($exitCode !== 0) {
+                    throw new Exception("Cache warmup failed: " . implode("\n", $output));
+                }
+            }
+            
+            $this->log("✓ Cache cleared and warmed up successfully", 'success');
+            return true;
+            
+        } catch (Exception $e) {
+            $this->log('Error clearing cache: ' . $e->getMessage(), 'error');
+            return false;
+        }
+    }
+
+    public function update(): void
+    {
+        try {
+            // Check requirements first
+            if (!$this->checkRequirements()) {
+                throw new Exception("System requirements not met");
+            }
+
+            // Check for updates
+            $latestVersion = $this->checkLatestVersion();
+            if (!$latestVersion) {
+                throw new Exception("Failed to check for updates");
+            }
+
+            if (version_compare($latestVersion, $this->version, '<=')) {
+                $this->log("✓ Your CitadelQuest installation is up to date (version {$this->version})", 'success');
+                return;
+            }
+
+            $this->log("New version available: {$latestVersion} (current: {$this->version})", 'warning');
+
+            // Create backup
+            if (!$this->createBackup()) {
+                throw new Exception("Backup creation failed");
+            }
+
+            // Download update
+            if (!$this->downloadUpdate($latestVersion)) {
+                throw new Exception("Update download failed");
+            }
+
+            // Apply update
+            if (!$this->applyUpdate()) {
+                throw new Exception("Update application failed");
+            }
+
+            // Run migrations
+            if (!$this->runMigrations()) {
+                throw new Exception("Database migrations failed");
+            }
+            
+            // Clear and warm up cache
+            if (!$this->clearCache()) {
+                throw new Exception("Cache clearing failed");
+            }
+
+            $this->log("✓ Update completed successfully!", 'success');
+            $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
+            $this->log("Please refresh your browser to start using the new version.", 'warning');
+
+        } catch (Exception $e) {
+            $this->log("Error: " . $e->getMessage(), 'error');
+            $this->log("Update failed. Your installation has not been modified.", 'error');
+        }
+
+        echo "                </div>\n";
+        echo "            </div>\n";
+        echo "        </div>\n";
+        echo "    </div>\n";
+        echo "</div>\n";
+        echo "</body>\n";
+        echo "</html>";
+    }
+}
+
+// Run the updater
+$updater = new CitadelQuestUpdater();
+$updater->update();
