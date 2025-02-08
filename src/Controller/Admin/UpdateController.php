@@ -6,9 +6,16 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class UpdateController extends AbstractController
 {
+    private $requestStack;
+
+    public function __construct(RequestStack $requestStack)
+    {
+        $this->requestStack = $requestStack;
+    }
     #[Route('/admin/update/check', name: 'admin_update_check')]
     public function checkForUpdates(): Response
     {
@@ -35,7 +42,7 @@ class UpdateController extends AbstractController
         chmod($scriptPath, 0644);
         
         // Store token in session for verification
-        $this->get('session')->set('update_token', $updateToken);
+        $this->requestStack->getSession()->set('update_token', $updateToken);
         
         // Redirect to the unique update script
         return $this->redirect('/' . $scriptName);

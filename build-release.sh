@@ -33,6 +33,7 @@ cp -r \
     public \
     src \
     templates \
+    translations \
     vendor \
     var \
     .env \

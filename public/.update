@@ -1,4 +1,4 @@
-<?php
+//<?php
 // Enable error reporting
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -33,11 +33,6 @@ register_shutdown_function(function() {
         @unlink(CITADEL_UPDATE_SCRIPT);
     }
 });
-// ??? make script available only for ADMINs, 
-//      - create from hidden .update script, from CitadelQuest UI: 
-//          `update-{UUID}.php`
-//        random UUID to keep te path/url hidden/private
-//      - redirect to fresh update script url
 
 class CitadelQuestUpdater
 {
@@ -55,9 +50,11 @@ class CitadelQuestUpdater
         $this->installDir = dirname(__FILE__, 2);
         $this->backupDir = $this->installDir . '/var/backups/updates';
         
-        // ??? first check if the file exists, if not 
-        //      - too old CitadelQuest version or not CitadelQuest installed at all
         // Load current version from CitadelVersion.php
+        if (!file_exists($this->installDir . '/src/CitadelVersion.php')) {
+            $this->log("Error: CitadelVersion.php not found. This might not be a valid CitadelQuest installation or it's too old.", 'error');
+            return;
+        }
         require_once $this->installDir . '/src/CitadelVersion.php';
         $this->version = \App\CitadelVersion::VERSION;
         
@@ -181,8 +178,8 @@ class CitadelQuestUpdater
         $this->log("Checking for updates...");
         
         try {
-            // GitHub API endpoint for latest release
-            $apiUrl = 'https://api.github.com/repos/CitadelQuest/CitadelQuest/releases/latest';
+            // Get all releases including pre-releases
+            $apiUrl = 'https://api.github.com/repos/CitadelQuest/CitadelQuest/releases';
             
             // Set up the request with proper headers
             $opts = [
@@ -202,12 +199,19 @@ class CitadelQuestUpdater
                 throw new Exception('Failed to connect to GitHub API');
             }
             
-            $release = json_decode($response, true);
-            if (!isset($release['tag_name'])) {
-                throw new Exception('Invalid response from GitHub API');
+            $releases = json_decode($response, true);
+            if (empty($releases)) {
+                $this->log('No releases found');
+                return null;
             }
             
-            return $release['tag_name'];
+            // Get the latest release (first in the array)
+            $latestRelease = $releases[0];
+            if (!isset($latestRelease['tag_name'])) {
+                throw new Exception('Invalid release data');
+            }
+            
+            return $latestRelease['tag_name'];
             
         } catch (Exception $e) {
             $this->log('Error checking for updates: ' . $e->getMessage(), 'error');

@@ -36,6 +36,17 @@ class RegistrationController extends AbstractController
                 )
             );
 
+            // Check if this is the first user
+            $connection = $entityManager->getConnection();
+            $userCount = $connection->executeQuery('SELECT COUNT(*) FROM user')->fetchOne();
+            
+            // If this is the first user, make them an admin
+            if ($userCount === 0) {
+                $user->setRoles(['ROLE_USER', 'ROLE_ADMIN']);
+            } else {
+                $user->setRoles(['ROLE_USER']);
+            }
+
             // Create user's personal database first
             $databaseManager->createUserDatabase($user);
 

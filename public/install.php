@@ -266,7 +266,7 @@ class CitadelQuestInstaller
         // Ensure web server can write to backup directory
         $webServerUser = $this->getWebServerUser();
         if ($webServerUser) {
-            chown($backupDir, $webServerUser);
+            @chown($backupDir, $webServerUser);
             $this->output("Set backup directory owner to: $webServerUser");
         }
 

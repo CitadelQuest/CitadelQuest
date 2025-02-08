@@ -1,13 +1,7 @@
 # CitadelQuest Release Notes
 
-## v0.1.7-alpha (2025-02-08)
 
-### Test Release
-- Version bump for update system testing
-- Added test changes to verify update functionality
-
-
-## v0.1.6-alpha (2025-02-08)
+## v0.1.n-alpha (near future, now testing Update system)
 
 ### New Features
 - **Update System**: Comprehensive update mechanism with:
@@ -34,3 +28,11 @@
 - Update script template moved to hidden `.update` file
 - Added UpdateController for secure update script generation
 - Enhanced error handling and logging throughout the update process
+
+
+## v0.1.7-alpha (2025-02-08)
+
+### Test Release
+- Version bump for update system testing
+- Added test changes to verify update functionality
+
