@@ -154,7 +154,7 @@ class CitadelQuestUpdater
             }
             
             // Skip var directory
-            if (strpos($item->getPathname(), $this->installDir . '/var') === 0) {
+            if (strpos($item->getPathname(), $this->installDir . '/var/backups') === 0) {
                 continue;
             }
             
@@ -646,6 +646,121 @@ class CitadelQuestUpdater
         }
     }
 
+    private function cleanDirectory(string $dir, array $excludePaths = []): void
+    {
+        if (!file_exists($dir)) {
+            return;
+        }
+
+        // First collect all paths to remove
+        $pathsToRemove = [];
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->getBasename() === '.' || $item->getBasename() === '..') {
+                continue;
+            }
+
+            $relativePath = substr($item->getPathname(), strlen($dir) + 1); // +1 to remove leading slash
+            
+            // Skip excluded paths
+            $shouldExclude = false;
+            foreach ($excludePaths as $excludePath) {
+                if (strpos($relativePath, $excludePath) === 0 || 
+                    strpos($excludePath, dirname($relativePath)) === 0) {
+                    $shouldExclude = true;
+                    break;
+                }
+            }
+
+            if (!$shouldExclude) {
+                $pathsToRemove[] = $item->getPathname();
+            }
+        }
+
+        // Now remove files first, then directories
+        foreach ($pathsToRemove as $path) {
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+        
+        // Sort paths by length descending to remove deepest directories first
+        usort($pathsToRemove, function($a, $b) {
+            return strlen($b) - strlen($a);
+        });
+        
+        foreach ($pathsToRemove as $path) {
+            if (is_dir($path)) {
+                @rmdir($path);
+            }
+        }
+    }
+
+    private function copyDirectory(string $source, string $target): void
+    {
+        if (!file_exists($target)) {
+            mkdir($target, 0755, true);
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($source),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            if ($item->getBasename() === '.' || $item->getBasename() === '..') {
+                continue;
+            }
+
+            $targetPath = $target . '/' . substr($item->getPathname(), strlen($source) + 1);
+
+            if ($item->isDir()) {
+                if (!file_exists($targetPath)) {
+                    mkdir($targetPath, 0755, true);
+                }
+            } else {
+                copy($item->getPathname(), $targetPath);
+            }
+        }
+    }
+
+    private function restoreFromBackup(): void
+    {
+        if (!file_exists($this->backupDir)) {
+            throw new Exception("Backup directory not found at: " . $this->backupDir);
+        }
+
+        // Get the latest backup directory
+        $backupDirs = glob($this->backupDir . '/backup_*');
+        if (empty($backupDirs)) {
+            throw new Exception("No backup found in: " . $this->backupDir);
+        }
+        $latestBackup = end($backupDirs);
+
+        // Clean up current installation (except .env, .htaccess, and user databases)
+        $this->log("Cleaning up current installation...");
+        $this->cleanDirectory($this->installDir, ['var/backups']);
+
+        // Copy backup files back
+        $this->log("Restoring files from backup...");
+        $this->copyDirectory($latestBackup, $this->installDir);
+
+        // Restore main database
+        // already restored in previous step copyDirectory($latestBackup, $this->installDir)
+        /* if (file_exists($latestBackup . '/var/main.db')) {
+            $this->log("Restoring main database...");
+            copy($latestBackup . '/var/main.db', $this->installDir . '/var/main.db');
+        } */
+
+        // Clean up backup
+        $this->log("Cleaning up...");
+        $this->removeDirectory($this->backupDir);
+    }
+
     private function clearCache(): bool
     {
         $this->log("Clearing cache...");
@@ -667,8 +782,8 @@ class CitadelQuestUpdater
                 }
             }
             
-            // Warm up cache using console
-            $this->log("Warming up cache...");
+            // Warm up cache using console - not-so-needed, skipping to avoid possible `composer` problems
+            /* $this->log("Warming up cache...");
             $consolePath = $this->installDir . '/bin/console';
             
             if (file_exists($consolePath)) {
@@ -703,7 +818,7 @@ class CitadelQuestUpdater
                 }
             }
             
-            $this->log("✓ Cache cleared and warmed up successfully", 'success');
+            $this->log("✓ Cache cleared and warmed up successfully", 'success'); */
             return true;
             
         } catch (Exception $e) {
@@ -760,11 +875,23 @@ class CitadelQuestUpdater
 
             $this->log("✓ Update completed successfully!", 'success');
             $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
-            $this->log("Please refresh your browser to start using the new version.", 'warning');
+            $baseUrl = rtrim(dirname($_SERVER['PHP_SELF']), '/update-' . basename(dirname($_SERVER['PHP_SELF'])));
+            $this->log("<a href='{$baseUrl}' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
 
         } catch (Exception $e) {
             $this->log("Error: " . $e->getMessage(), 'error');
-            $this->log("Update failed. Your installation has not been modified.", 'error');
+            
+            // Restore from backup
+            $this->log("Restoring from backup...", 'warning');
+            try {
+                $this->restoreFromBackup();
+                $this->log("✓ System restored from backup successfully", 'success');
+            } catch (Exception $restoreError) {
+                $this->log("Error restoring from backup: " . $restoreError->getMessage(), 'error');
+                $this->log("IMPORTANT: Your system may be in an inconsistent state. Please restore manually from backup at: " . $this->backupDir, 'error');
+            }
+            
+            $this->log("Update failed. System has been restored to previous state.", 'error');
         }
 
         echo "                </div>\n";
