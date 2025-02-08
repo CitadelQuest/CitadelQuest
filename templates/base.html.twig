@@ -18,7 +18,7 @@
             <div class="container">
                 <a class="navbar-brand" href="{{ path('app_home') }}">
                     🏰 {{ 'app.name'|trans }}
-                    <div class="small text-muted-light" style="font-size: 0.6em; margin-top: -5px;">{{ app.request.get('version', parameter('app.version')) }}</div>
+                    <div class="small text-muted-light" style="font-size: 0.6em; margin-top: -5px;">{{ citadel_version }}</div>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>
