@@ -110,6 +110,14 @@ class UserDatabaseManager
                 public_key TEXT,
                 last_seen DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )',
+            'CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                type VARCHAR(50) NOT NULL,
+                is_read BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )'
         ];
 
@@ -139,5 +147,24 @@ class UserDatabaseManager
         if ($user->getDatabasePath() && file_exists($user->getDatabasePath())) {
             $this->filesystem->remove($user->getDatabasePath());
         }
+    }
+
+    public function getUserDatabase(User $user): string
+    {
+        if (!$user->getDatabasePath()) {
+            throw new RuntimeException('User database path not set');
+        }
+
+        if (!file_exists($user->getDatabasePath())) {
+            throw new RuntimeException('User database file not found');
+        }
+
+        return $user->getDatabasePath();
+    }
+
+    public function updateDatabaseSchema(User $user): void
+    {
+        $connection = $this->getDatabaseConnection($user);
+        $this->initializeDatabaseSchema($connection);
     }
 }

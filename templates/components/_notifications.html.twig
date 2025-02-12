@@ -1,0 +1,58 @@
+{# Notification container that will be updated via SSE #}
+<div id="notifications-container" 
+     hx-ext="sse" 
+     sse-connect="{{ path('app_events') }}" 
+     sse-swap="notification">
+    
+    {# Notification counter in navbar #}
+    <div class="position-relative d-inline-block">
+        <i class="mdi mdi-bell"></i>
+        {% set unread = get_unread_count() %}
+        {% if unread > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {{ unread }}
+            </span>
+        {% endif %}
+    </div>
+
+    {# Notification dropdown content #}
+    <div class="notification-dropdown shadow-lg d-none">
+        <div class="notification-header p-2 border-bottom">
+            <h6 class="m-0">{{ 'notifications.title'|trans }}</h6>
+        </div>
+        <div class="notification-list">
+            {% for notification in get_notifications() %}
+                <div class="notification-item p-2 border-bottom {% if not notification.read %}unread{% endif %}"
+                     data-notification-id="{{ notification.id }}">
+                    <div class="d-flex align-items-center">
+                        {# Icon based on type #}
+                        <div class="notification-icon me-2">
+                            {% if notification.type == 'success' %}
+                                <i class="mdi mdi-check-circle text-success"></i>
+                            {% elseif notification.type == 'warning' %}
+                                <i class="mdi mdi-alert text-warning"></i>
+                            {% elseif notification.type == 'error' %}
+                                <i class="mdi mdi-alert-circle text-danger"></i>
+                            {% else %}
+                                <i class="mdi mdi-information text-info"></i>
+                            {% endif %}
+                        </div>
+                        
+                        {# Content #}
+                        <div class="notification-content flex-grow-1">
+                            <h6 class="notification-title mb-1">{{ notification.title }}</h6>
+                            <p class="notification-message mb-1">{{ notification.message }}</p>
+                            <small class="notification-time text-muted">
+                                {{ notification.createdAt|date('Y-m-d H:i:s') }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="p-3 text-center text-muted">
+                    {{ 'notifications.empty'|trans }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

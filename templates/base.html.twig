@@ -26,6 +26,9 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                         {% if app.user %}
+                            <li class="nav-item me-3">
+                                {{ include('components/_notifications.html.twig') }}
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     {{ app.user.userIdentifier }}

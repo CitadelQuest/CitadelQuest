@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Controller;
+
+use App\Service\NotificationService;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+#[Route('/notifications')]
+#[IsGranted('ROLE_USER')]
+class NotificationController extends AbstractController
+{
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {
+    }
+
+    #[Route('', name: 'app_notifications')]
+    public function list(): Response
+    {
+        $user = $this->getUser();
+        $notifications = $this->notificationService->getUnreadNotifications($user);
+
+        return $this->render('components/_notifications.html.twig', [
+            'notifications' => $notifications,
+            'unread_count' => count($notifications)
+        ]);
+    }
+
+    #[Route('/test', name: 'app_notifications_test')]
+    public function test(): Response
+    {
+        $user = $this->getUser();
+        
+        // Create a test notification
+        $notification = $this->notificationService->createNotification(
+            user: $user,
+            title: 'Test Notification',
+            message: 'This is a test notification sent at ' . date('H:i:s'),
+            type: array_rand(array_flip(['info', 'success', 'warning', 'error']))
+        );
+
+        return $this->json([
+            'status' => 'success',
+            'message' => 'Test notification created',
+            'notification' => $notification->toArray()
+        ]);
+    }
+
+    #[Route('/{id}/mark-read', name: 'app_notifications_mark_read', methods: ['POST'])]
+    public function markAsRead(int $id): Response
+    {
+        $user = $this->getUser();
+        $this->notificationService->markAsRead($user, $id);
+
+        return $this->json(['status' => 'success']);
+    }
+}

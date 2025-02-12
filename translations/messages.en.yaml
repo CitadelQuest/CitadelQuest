@@ -49,6 +49,19 @@ auth:
 
 home:
     actions:
+
+notifications:
+    title: 'Notifications'
+    empty: 'No notifications'
+    mark_all_read: 'Mark all as read'
+    types:
+        info: 'Information'
+        success: 'Success'
+        warning: 'Warning'
+        error: 'Error'
+    test:
+        title: 'Test Notification'
+        message: 'This is a test notification sent at %time%'
         create_citadel: 'Create Your CitadelQuest Account'
         login: 'Login'
     features:
