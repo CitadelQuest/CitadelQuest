@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Service\NotificationService;
+use App\SSE\Event;
+use App\SSE\EventPublisher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -21,16 +23,17 @@ class NotificationController extends AbstractController
     public function list(): Response
     {
         $user = $this->getUser();
-        $notifications = $this->notificationService->getUnreadNotifications($user);
+        $notifications = $this->notificationService->getAllNotifications($user);
+        $unreadNotifications = $this->notificationService->getUnreadNotifications($user);
 
         return $this->render('components/_notifications.html.twig', [
             'notifications' => $notifications,
-            'unread_count' => count($notifications)
+            'unread_count' => count($unreadNotifications)
         ]);
     }
 
     #[Route('/test', name: 'app_notifications_test')]
-    public function test(): Response
+    public function test(EventPublisher $eventPublisher): Response
     {
         $user = $this->getUser();
         
@@ -41,6 +44,12 @@ class NotificationController extends AbstractController
             message: 'This is a test notification sent at ' . date('H:i:s'),
             type: array_rand(array_flip(['info', 'success', 'warning', 'error']))
         );
+
+        // Emit SSE event with the notification data
+        $eventPublisher->publish(new Event(
+            'notification',
+            ['notification' => $notification->toArray()]
+        ));
 
         return $this->json([
             'status' => 'success',

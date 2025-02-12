@@ -1,8 +1,5 @@
 {# Notification container that will be updated via SSE #}
-<div id="notifications-container" 
-     hx-ext="sse" 
-     sse-connect="{{ path('app_events') }}" 
-     sse-swap="notification">
+<div id="notifications-container">
     
     {# Notification counter in navbar #}
     <div class="position-relative d-inline-block">

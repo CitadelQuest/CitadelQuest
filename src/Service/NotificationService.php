@@ -59,6 +59,19 @@ class NotificationService
         );
     }
 
+    public function getAllNotifications(UserInterface $user): array
+    {
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $result = $userDb->executeQuery(
+            'SELECT * FROM notifications ORDER BY created_at DESC'
+        );
+
+        return array_map(
+            fn(array $row) => $this->createNotificationFromRow($row),
+            $result->fetchAllAssociative()
+        );
+    }
+
     public function markAsRead(UserInterface $user, int $notificationId): void
     {
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);

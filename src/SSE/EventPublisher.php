@@ -2,12 +2,18 @@
 
 namespace App\SSE;
 
+use App\Service\SSEEventStorage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class EventPublisher
 {
     private const RETRY_TIMEOUT = 2000; // 2 seconds
+    
+    public function __construct(
+        private readonly SSEEventStorage $storage
+    ) {
+    }
 
     /**
      * Create SSE response with proper headers
@@ -24,26 +30,8 @@ class EventPublisher
             // Send retry interval
             echo "retry: " . self::RETRY_TIMEOUT . "\n\n";
             
-            while (true) {
-                // Clear output buffer to prevent memory issues
-                if (ob_get_level() > 0) {
-                    ob_end_flush();
-                }
-                
-                // Call the event generator
-                $callback();
-                
-                // Flush output
-                flush();
-                
-                // Check if client is still connected
-                if (connection_aborted()) {
-                    return;
-                }
-                
-                // Sleep to prevent CPU overload
-                usleep(100000); // 100ms
-            }
+            // Call the event generator
+            $callback();
         });
 
         return $response;
@@ -63,5 +51,22 @@ class EventPublisher
         }
         
         echo "data: " . str_replace("\n", "\ndata: ", $data) . "\n\n";
+    }
+
+    /**
+     * Publish an event to all connected clients
+     */
+    public function publish(Event $event): void
+    {
+        $this->storage->storeEvent($event);
+    }
+
+    /**
+     * Get and clear all pending events
+     * @return Event[]
+     */
+    public function getAndClearEvents(): array
+    {
+        return $this->storage->getAndClearEvents();
     }
 }

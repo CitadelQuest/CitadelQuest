@@ -9,8 +9,8 @@ import '@mdi/font/css/materialdesignicons.min.css';
 // Import Bootstrap's JavaScript
 import 'bootstrap';
 
-// Import HTMX setup
-import './js/htmx-setup';
+// SSE notifications
+import './js/notifications';
 
 // Import language switcher
 import { initLanguageSwitcher } from './js/language';

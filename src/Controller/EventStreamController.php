@@ -23,19 +23,52 @@ class EventStreamController extends AbstractController
     public function streamEvents(): StreamedResponse
     {
         return $this->eventPublisher->createResponse(function () {
-            $user = $this->getUser();
-            
-            // Get unread notifications
-            $notifications = $this->notificationService->getUnreadNotifications($user);
-            
-            foreach ($notifications as $notification) {
-                $event = $this->notificationService->createNotificationEvent($notification);
+            $this->eventPublisher->sendEvent(
+                data: json_encode(['message' => 'SSE connection established']),
+                event: 'debug'
+            );
+
+            while (true) {
+                // First check if client is still connected
+                if (connection_aborted()) {
+                    $this->eventPublisher->sendEvent(
+                        data: json_encode(['message' => 'Client disconnected']),
+                        event: 'debug'
+                    );
+                    break;
+                }
+
+                // Get and send any pending events
+                $events = $this->eventPublisher->getAndClearEvents();
+                if (!empty($events)) {
+                    $this->eventPublisher->sendEvent(
+                        data: json_encode(['count' => count($events)]),
+                        event: 'debug'
+                    );
+                }
+
+                foreach ($events as $event) {
+                    $this->eventPublisher->sendEvent(
+                        data: json_encode($event->getData()),
+                        event: $event->getType(),
+                        id: $event->getId()
+                    );
+                }
                 
+                // Send a heartbeat
                 $this->eventPublisher->sendEvent(
-                    data: $event->toJson(),
-                    event: $event->getType(),
-                    id: $event->getId()
+                    data: json_encode(['time' => time()]),
+                    event: 'heartbeat'
                 );
+
+                // Ensure output is flushed
+                while (ob_get_level() > 0) {
+                    ob_end_flush();
+                }
+                flush();
+
+                // Sleep to prevent CPU overload
+                usleep(9000000); // 9 seconds
             }
         });
     }
