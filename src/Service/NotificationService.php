@@ -46,6 +46,12 @@ class NotificationService
         return $notification;
     }
 
+    public function markAllAsRead(UserInterface $user): void
+    {
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb->executeStatement('UPDATE notifications SET is_read = 1 WHERE is_read = 0');
+    }
+
     public function getUnreadNotifications(UserInterface $user): array
     {
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);

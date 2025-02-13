@@ -1,31 +1,40 @@
 // Notification handling
+// Function to format relative time
+function getRelativeTime(date) {
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000); // diff in seconds
+
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
+    return date.toLocaleDateString();
+}
+
+// Function to update all timestamps
+function updateTimestamps() {
+    document.querySelectorAll('.notification-time').forEach(timeElement => {
+        const timestamp = timeElement.getAttribute('data-timestamp');
+        if (timestamp) {
+            const date = new Date(timestamp);
+            timeElement.textContent = getRelativeTime(date);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const notificationContainer = document.getElementById('notifications-container');
     if (!notificationContainer) return;
 
-    // Toggle notification dropdown
-    const toggleDropdown = () => {
-        const dropdown = notificationContainer.querySelector('.notification-dropdown');
-        dropdown.classList.toggle('d-none');
-    };
-
-    // Click handler for notification bell
-    notificationContainer.querySelector('.mdi-bell').addEventListener('click', (e) => {
-        e.preventDefault();
-        toggleDropdown();
-    });
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!notificationContainer.contains(e.target)) {
-            const dropdown = notificationContainer.querySelector('.notification-dropdown');
-            dropdown.classList.add('d-none');
-        }
-    });
+    // We don't need manual dropdown handling since we're using Bootstrap's dropdown
+    // Bootstrap will handle the toggle and outside clicks automatically
 
     // Mark notification as read
     notificationContainer.addEventListener('click', (e) => {
-        const notificationItem = e.target.closest('.notification-item');
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const notificationItem = e.target.closest('.dropdown-item');
         if (!notificationItem) return;
 
         const notificationId = notificationItem.dataset.notificationId;
@@ -38,8 +47,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }).then(response => {
             if (response.ok) {
-                notificationItem.classList.remove('unread');
-                updateUnreadCount();
+                // Reload the entire notification list to maintain proper order
+                fetch('/notifications')
+                    .then(response => response.text())
+                    .then(html => {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        const newItems = tempDiv.querySelector('.notification-items');
+                        const currentItems = notificationContainer.querySelector('.notification-items');
+                        if (newItems && currentItems) {
+                            currentItems.innerHTML = newItems.innerHTML;
+                        }
+                        updateUnreadCount();
+                    });
             }
         });
     });
@@ -56,15 +76,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const iconClass = typeIcons[notification.type] || typeIcons.info;
         
         return `
-            <div class="notification-item p-2 border-bottom unread" data-notification-id="${notification.id}">
+            <div class="dropdown-item unread type-${notification.type || 'info'}" data-notification-id="${notification.id}">
                 <div class="d-flex align-items-center">
-                    <div class="notification-icon me-2">
+                    <div class="notification-icon me-3">
                         <i class="mdi ${iconClass}"></i>
                     </div>
                     <div class="notification-content flex-grow-1">
-                        <h6 class="notification-title mb-1">${notification.title}</h6>
-                        <p class="notification-message mb-1">${notification.message}</p>
-                        <small class="notification-time text-muted">${notification.createdAt}</small>
+                        <div class="notification-title fw-semibold mb-1">${notification.title}</div>
+                        <div class="notification-message small mb-1">${notification.message}</div>
+                        <div class="notification-time text-muted" data-timestamp="${notification.createdAt}">
+                            ${getRelativeTime(new Date(notification.createdAt))}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -73,20 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add new notification to list
     const addNotification = (notification) => {
-        const list = notificationContainer.querySelector('.notification-list');
-        const emptyMessage = list.querySelector('.text-center');
-        if (emptyMessage) {
-            emptyMessage.remove();
-        }
-        list.insertAdjacentHTML('afterbegin', createNotificationItem(notification));
-        updateUnreadCount();
+        // Reload the entire notification list to maintain proper order and sections
+        fetch('/notifications')
+            .then(response => response.text())
+            .then(html => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const newItems = tempDiv.querySelector('.notification-items');
+                const currentItems = notificationContainer.querySelector('.notification-items');
+                if (newItems && currentItems) {
+                    currentItems.innerHTML = newItems.innerHTML;
+                    updateTimestamps();
+                }
+                updateUnreadCount();
+            });
     };
 
     // Update unread count badge with debug logging
     const updateUnreadCount = (() => {
         const updateBadge = () => {
             console.log('Updating unread count...');
-            const unreadItems = notificationContainer.querySelectorAll('.notification-item.unread');
+            const unreadItems = notificationContainer.querySelectorAll('.dropdown-item.unread');
             const badge = notificationContainer.querySelector('.badge');
             const before = badge?.textContent;
             
@@ -95,9 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     badge.textContent = unreadItems.length;
                 } else {
                     const newBadge = document.createElement('span');
-                    newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                    newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success';
                     newBadge.textContent = unreadItems.length;
-                    notificationContainer.querySelector('.position-relative').appendChild(newBadge);
+                    notificationContainer.querySelector('.nav-link').appendChild(newBadge);
                 }
             } else if (badge) {
                 badge.remove();
@@ -109,20 +138,70 @@ document.addEventListener('DOMContentLoaded', () => {
         return updateBadge;
     })();
 
-    // Test notification button (for development)
-    const testButton = document.createElement('button');
-    testButton.className = 'btn btn-sm btn-outline-primary mt-2';
-    testButton.textContent = 'Test Notification';
-    testButton.addEventListener('click', () => {
-        fetch('/notifications/test')
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log('Test notification created:', data);
+    // Filter notifications
+    const filterButtons = document.querySelectorAll('.notification-filters [data-filter]');
+    filterButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            const filter = button.dataset.filter;
+            
+            // Update active state
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Show/hide notifications based on filter
+            document.querySelectorAll('.dropdown-item').forEach(item => {
+                if (filter === 'all' || item.classList.contains(`type-${filter}`)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
                 }
             });
+        });
     });
-    notificationContainer.appendChild(testButton);
+
+    // Mark all as read
+    document.getElementById('mark-all-read')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        fetch('/notifications/mark-all-read', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).then(response => {
+            if (response.ok) {
+                // Reload the entire notification list
+                fetch('/notifications')
+                    .then(response => response.text())
+                    .then(html => {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        const newItems = tempDiv.querySelector('.notification-items');
+                        const currentItems = notificationContainer.querySelector('.notification-items');
+                        if (newItems && currentItems) {
+                            currentItems.innerHTML = newItems.innerHTML;
+                            updateTimestamps();
+                        }
+                        updateUnreadCount();
+                    });
+            }
+        });
+    });
+
+    // Test notification button
+    document.getElementById('test-notification')?.addEventListener('click', () => {
+        fetch('/notifications/test', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+    });
+
+    // Update timestamps every minute
+    updateTimestamps();
+    setInterval(updateTimestamps, 60000);
+
 
     // Initialize SSE connection with reconnection handling
     let eventSource = null;

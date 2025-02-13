@@ -1,29 +1,57 @@
 {# Notification container that will be updated via SSE #}
-<div id="notifications-container">
-    
-    {# Notification counter in navbar #}
-    <div class="position-relative d-inline-block">
+<div id="notifications-container" class="dropdown">
+    {# Notification bell with counter #}
+    <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="mdi mdi-bell"></i>
         {% set unread = get_unread_count() %}
         {% if unread > 0 %}
-            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success">
                 {{ unread }}
             </span>
         {% endif %}
-    </div>
+    </a>
 
     {# Notification dropdown content #}
-    <div class="notification-dropdown shadow-lg d-none">
-        <div class="notification-header p-2 border-bottom">
-            <h6 class="m-0">{{ 'notifications.title'|trans }}</h6>
+    <div class="dropdown-menu dropdown-menu-end notifications-menu">
+        <div class="dropdown-header fw-bold d-flex align-items-center gap-2 p-2">
+            <div class="flex-grow-1">{{ 'notifications.title'|trans }}</div>
+            {# Filter icons #}
+            <div class="notification-filters btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="all" title="{{ 'notifications.filter.all'|trans }}">
+                    <i class="mdi mdi-bell-outline"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="info" title="{{ 'notifications.filter.info'|trans }}">
+                    <i class="mdi mdi-information text-info"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="success" title="{{ 'notifications.filter.success'|trans }}">
+                    <i class="mdi mdi-check-circle text-success"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="warning" title="{{ 'notifications.filter.warning'|trans }}">
+                    <i class="mdi mdi-alert text-warning"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="error" title="{{ 'notifications.filter.error'|trans }}">
+                    <i class="mdi mdi-alert-circle text-danger"></i>
+                </button>
+            </div>
+            {# Mark all as read button #}
+            <button class="btn btn-sm btn-link text-decoration-none p-1" id="mark-all-read" title="{{ 'notifications.actions.mark_all_read'|trans }}">
+                <i class="mdi mdi-email-open-outline"></i>
+            </button>
+            {# Test notification button #}
+            <button class="btn btn-sm btn-link text-decoration-none p-1" id="test-notification" title="{{ 'notifications.actions.create_test'|trans }}">
+                <i class="mdi mdi-bell-plus"></i>
+            </button>
         </div>
         <div class="notification-list">
-            {% for notification in get_notifications() %}
-                <div class="notification-item p-2 border-bottom {% if not notification.read %}unread{% endif %}"
+            <div class="notification-items">
+            {# First show unread notifications #}
+            {% set unread_notifications = get_unread_notifications() %}
+            {% for notification in unread_notifications %}
+                <div class="dropdown-item unread type-{{ notification.type|default('info') }}"
                      data-notification-id="{{ notification.id }}">
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}
-                        <div class="notification-icon me-2">
+                        <div class="notification-icon me-3">
                             {% if notification.type == 'success' %}
                                 <i class="mdi mdi-check-circle text-success"></i>
                             {% elseif notification.type == 'warning' %}
@@ -37,19 +65,52 @@
                         
                         {# Content #}
                         <div class="notification-content flex-grow-1">
-                            <h6 class="notification-title mb-1">{{ notification.title }}</h6>
-                            <p class="notification-message mb-1">{{ notification.message }}</p>
-                            <small class="notification-time text-muted">
+                            <div class="notification-title fw-semibold mb-1">{{ notification.title }}</div>
+                            <div class="notification-message small mb-1">{{ notification.message }}</div>
+                            <div class="notification-time text-muted" data-timestamp="{{ notification.createdAt|date('c') }}">
                                 {{ notification.createdAt|date('Y-m-d H:i:s') }}
-                            </small>
+                            </div>
                         </div>
                     </div>
                 </div>
-            {% else %}
-                <div class="p-3 text-center text-muted">
-                    {{ 'notifications.empty'|trans }}
+            {% endfor %}
+
+            {# Then show read notifications #}
+            {% set read_notifications = get_notifications()|slice(unread_notifications|length, 12) %}
+            {% for notification in read_notifications %}
+                <div class="dropdown-item type-{{ notification.type|default('info') }}"
+                     data-notification-id="{{ notification.id }}">
+                    <div class="d-flex align-items-center">
+                        {# Icon based on type #}
+                        <div class="notification-icon me-3">
+                            {% if notification.type == 'success' %}
+                                <i class="mdi mdi-check-circle text-success"></i>
+                            {% elseif notification.type == 'warning' %}
+                                <i class="mdi mdi-alert text-warning"></i>
+                            {% elseif notification.type == 'error' %}
+                                <i class="mdi mdi-alert-circle text-danger"></i>
+                            {% else %}
+                                <i class="mdi mdi-information text-info"></i>
+                            {% endif %}
+                        </div>
+                        
+                        {# Content #}
+                        <div class="notification-content flex-grow-1">
+                            <div class="notification-title fw-semibold mb-1">{{ notification.title }}</div>
+                            <div class="notification-message small mb-1">{{ notification.message }}</div>
+                            <div class="notification-time text-muted" data-timestamp="{{ notification.createdAt|date('c') }}">
+                                {{ notification.createdAt|date('Y-m-d H:i:s') }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             {% endfor %}
+
+            {% if not get_notifications()|length %}
+                <div class="p-3 text-center text-muted small">
+                    {{ 'notifications.empty'|trans }}
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

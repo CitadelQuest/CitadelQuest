@@ -47,6 +47,19 @@ auth:
         have_account: 'Již máte účet?'
         login_link: 'Přihlásit se'
 
+notifications:
+    title: Oznámení
+    empty: Žádná oznámení
+    filter:
+        all: Všechna oznámení
+        info: Informační oznámení
+        success: Úspěšná oznámení
+        warning: Varovná oznámení
+        error: Chybová oznámení
+    actions:
+        mark_all_read: Označit vše jako přečtené
+        create_test: Vytvořit testovací oznámení
+
 home:
     actions:
         create_citadel: 'Vytvořit CitadelQuest účet'

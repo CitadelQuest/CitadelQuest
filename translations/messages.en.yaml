@@ -47,21 +47,24 @@ auth:
         have_account: 'Already have an account?'
         login_link: 'Sign in'
 
+notifications:
+    title: Notifications
+    empty: No notifications
+    filter:
+        all: All notifications
+        info: Info notifications
+        success: Success notifications
+        warning: Warning notifications
+        error: Error notifications
+    actions:
+        mark_all_read: Mark all as read
+        create_test: Create test notification
+    test:
+        title: Test Notification
+        message: This is a test notification sent at %time%
+
 home:
     actions:
-
-notifications:
-    title: 'Notifications'
-    empty: 'No notifications'
-    mark_all_read: 'Mark all as read'
-    types:
-        info: 'Information'
-        success: 'Success'
-        warning: 'Warning'
-        error: 'Error'
-    test:
-        title: 'Test Notification'
-        message: 'This is a test notification sent at %time%'
         create_citadel: 'Create Your CitadelQuest Account'
         login: 'Login'
     features:

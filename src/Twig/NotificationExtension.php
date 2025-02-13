@@ -20,10 +20,21 @@ class NotificationExtension extends AbstractExtension
         return [
             new TwigFunction('get_notifications', [$this, 'getNotifications']),
             new TwigFunction('get_unread_count', [$this, 'getUnreadCount']),
+            new TwigFunction('get_unread_notifications', [$this, 'getUnreadNotifications']),
         ];
     }
 
     public function getNotifications(): array
+    {
+        $user = $this->security->getUser();
+        if (!$user) {
+            return [];
+        }
+
+        return $this->notificationService->getAllNotifications($user);
+    }
+
+    public function getUnreadNotifications(): array
     {
         $user = $this->security->getUser();
         if (!$user) {

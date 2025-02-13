@@ -22,14 +22,7 @@ class NotificationController extends AbstractController
     #[Route('', name: 'app_notifications')]
     public function list(): Response
     {
-        $user = $this->getUser();
-        $notifications = $this->notificationService->getAllNotifications($user);
-        $unreadNotifications = $this->notificationService->getUnreadNotifications($user);
-
-        return $this->render('components/_notifications.html.twig', [
-            'notifications' => $notifications,
-            'unread_count' => count($unreadNotifications)
-        ]);
+        return $this->render('components/_notifications.html.twig');
     }
 
     #[Route('/test', name: 'app_notifications_test')]
@@ -56,6 +49,15 @@ class NotificationController extends AbstractController
             'message' => 'Test notification created',
             'notification' => $notification->toArray()
         ]);
+    }
+
+    #[Route('/mark-all-read', name: 'app_notifications_mark_all_read', methods: ['POST'])]
+    public function markAllRead(): Response
+    {
+        $user = $this->getUser();
+        $this->notificationService->markAllAsRead($user);
+
+        return $this->json(['status' => 'success']);
     }
 
     #[Route('/{id}/mark-read', name: 'app_notifications_mark_read', methods: ['POST'])]
