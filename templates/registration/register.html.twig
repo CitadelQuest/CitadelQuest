@@ -69,16 +69,16 @@
                             <button type="submit" class="btn btn-primary" id="register-button">
                                 <span class="button-text">{{ 'auth.register.submit'|trans }}</span>
                                 <div class="spinner-border spinner-border-sm ms-2 d-none" role="status">
-                                    <span class="visually-hidden">Generating secure keys...</span>
+                                    <span class="visually-hidden">{{ 'auth.key_generation.generating_keys'|trans }}</span>
                                 </div>
                             </button>
                         </div>
 
                         <div class="text-center mt-2 text-muted key-generation-status d-none">
                             <div class="spinner-border spinner-border-sm me-2" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                                <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
                             </div>
-                            Generating your secure keys...
+                            {{ 'auth.key_generation.generating_your_keys'|trans }}
                         </div>
                     {{ form_end(registrationForm) }}
 

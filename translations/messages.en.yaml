@@ -95,6 +95,12 @@ navigation:
         logout: 'Logout'
         backup: 'Backup'
 
+auth:
+    key_generation:
+        generating_keys: 'Generating secure keys...'
+        generating_your_keys: 'Generating your secure keys...'
+        loading: 'Loading...'
+
 backup:
     title: 'Backup Management'
     description: 'Create an backup of your CitadelQuest data. The backup includes:'
@@ -106,7 +112,6 @@ backup:
         database: 'Database'
         preferences: 'Settings'
         manifest: 'Manifest'
-        encrypted: 'Encrypted backup'
         size: 'Backup size'
         date: 'Creation date'
     actions:

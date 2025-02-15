@@ -92,6 +92,12 @@ navigation:
         logout: 'Odhlásiť'
         backup: 'Záloha'
 
+auth:
+    key_generation:
+        generating_keys: 'Generujem bezpečnostné kľúče...'
+        generating_your_keys: 'Generujem vaše bezpečnostné kľúče...'
+        loading: 'Načítavam...'
+
 backup:
     title: 'Správa záloh'
     description: 'Vytvorte zálohu vašich CitadelQuest dát. Záloha obsahuje:'
@@ -103,7 +109,6 @@ backup:
         database: 'Databáza'
         preferences: 'Nastavenia'
         manifest: 'Manifest'
-        encrypted: 'Šifrovaná záloha'
         size: 'Veľkosť zálohy'
         date: 'Dátum vytvorenia'
     actions:
