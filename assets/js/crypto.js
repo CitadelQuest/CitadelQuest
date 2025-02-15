@@ -1,3 +1,5 @@
+import { Translator } from './translations';
+
 /**
  * CitadelQuest Cryptography Module
  * Handles client-side key generation and management
@@ -259,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
             spinner.classList.remove('d-none');
             statusText.classList.remove('d-none');
-            buttonText.textContent = 'Generating Keys...';
+            buttonText.textContent = Translator.trans('auth.key_generation.generating_keys');
 
             try {
                 // Get form data
@@ -286,17 +288,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 saltInput.value = salt;
 
                 // Submit the form
-                buttonText.textContent = 'Creating Your Citadel...';
+                buttonText.textContent = Translator.trans('auth.key_generation.creating_citadel');
                 form.submit();
             } catch (error) {
                 console.error('Error during key generation:', error);
-                alert('Error during key generation. Please try again.');
+                alert(Translator.trans('auth.key_generation.error'));
                 
                 // Reset loading state
                 button.disabled = false;
                 spinner.classList.add('d-none');
                 statusText.classList.add('d-none');
-                buttonText.textContent = 'Create My Citadel';
+                buttonText.textContent = Translator.trans('auth.key_generation.button_text');
             }
         });
     }

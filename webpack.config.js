@@ -23,6 +23,7 @@ Encore
     .addEntry('app', './assets/app.js')
     .addEntry('crypto', './assets/crypto.js')
     .addEntry('backup', './assets/backup.js')
+    .addEntry('translations', './assets/translations.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

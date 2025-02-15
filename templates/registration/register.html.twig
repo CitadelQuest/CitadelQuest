@@ -4,6 +4,15 @@
 
 {% block javascripts %}
     {{ parent() }}
+    <script>
+        // Make translations available globally
+        window.CITADEL_TRANSLATIONS = {
+            'auth.key_generation.generating_keys': '{{ 'auth.key_generation.generating_keys'|trans|e('js') }}',
+            'auth.key_generation.creating_citadel': '{{ 'auth.key_generation.creating_citadel'|trans|e('js') }}',
+            'auth.key_generation.error': '{{ 'auth.key_generation.error'|trans|e('js') }}',
+            'auth.key_generation.button_text': '{{ 'auth.key_generation.button_text'|trans|e('js') }}'
+        };
+    </script>
     {{ encore_entry_script_tags('crypto') }}
 {% endblock %}
 
@@ -24,7 +33,13 @@
                             {{ form_widget(registrationForm.username, {
                                 'attr': {'class': 'form-control', 'placeholder': 'auth.register.username'|trans}
                             }) }}
-                            {{ form_errors(registrationForm.username) }}
+                            {% if not registrationForm.username.vars.valid %}
+                                <div class="alert alert-danger mt-2">
+                                    {% for error in registrationForm.username.vars.errors %}
+                                        <div>{{ error.message|trans(error.messageParameters) }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                             <small class="text-light-50">
                                 {{ 'auth.register.username_help'|trans }}
                             </small>
@@ -35,7 +50,13 @@
                             {{ form_widget(registrationForm.email, {
                                 'attr': {'class': 'form-control', 'placeholder': 'auth.register.email_help'|trans}
                             }) }}
-                            {{ form_errors(registrationForm.email) }}
+                            {% if not registrationForm.email.vars.valid %}
+                                <div class="alert alert-danger mt-2">
+                                    {% for error in registrationForm.email.vars.errors %}
+                                        <div>{{ error.message|trans(error.messageParameters) }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
@@ -43,7 +64,13 @@
                             {{ form_widget(registrationForm.password.first, {
                                 'attr': {'class': 'form-control', 'placeholder': 'auth.register.password_help'|trans}
                             }) }}
-                            {{ form_errors(registrationForm.password.first) }}
+                            {% if not registrationForm.password.first.vars.valid %}
+                                <div class="alert alert-danger mt-2">
+                                    {% for error in registrationForm.password.first.vars.errors %}
+                                        <div>{{ error.message|trans(error.messageParameters) }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                             
                             <div class="password-requirements text-light-50 small mt-2">
                                 {{ 'auth.register.password_requirements.title'|trans }}
@@ -62,7 +89,13 @@
                             {{ form_widget(registrationForm.password.second, {
                                 'attr': {'class': 'form-control', 'placeholder': 'auth.register.repeat_password'|trans}
                             }) }}
-                            {{ form_errors(registrationForm.password.second) }}
+                            {% if not registrationForm.password.second.vars.valid %}
+                                <div class="alert alert-danger mt-2">
+                                    {% for error in registrationForm.password.second.vars.errors %}
+                                        <div>{{ error.message|trans(error.messageParameters) }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="d-grid gap-2">

@@ -15,14 +15,23 @@ auth:
         submit: 'Sign in'
         no_account: "Don't have an account?"
         register_link: 'Create one now'
+    key_generation:
+        generating_keys: 'Generating secure keys...'
+        generating_your_keys: 'Generating your secure keys...'
+        loading: 'Loading...'
+        creating_citadel: 'Creating Your Citadel...'
+        error: 'Error during key generation. Please try again.'
+        button_text: 'Create My Citadel'
     register:
         error:
             username_blank: 'Please enter a username'
             username_min: 'Your username should be at least {{ limit }} characters'
             username_max: 'Your username should not exceed {{ limit }} characters'
             username_format: 'Username can only contain letters, numbers, underscores, and dashes'
+            username_already_used: 'This username is already taken. Please choose a different username.'
             email_blank: 'Please enter an email'
             email_invalid: 'Please enter a valid email address'
+            email_already_used: 'This email is already registered. Please use a different email or login to your existing account.'
             password_blank: 'Please enter a password'
             password_min: 'Your password should be at least {{ limit }} characters'
             password_mismatch: 'The password fields must match'
@@ -46,6 +55,7 @@ auth:
         submit: 'Create CitadelQuest Account'
         have_account: 'Already have an account?'
         login_link: 'Sign in'
+        success: 'Registration successful! You can now log in.'
 
 notifications:
     title: Notifications
@@ -94,12 +104,6 @@ navigation:
         register: 'Register'
         logout: 'Logout'
         backup: 'Backup'
-
-auth:
-    key_generation:
-        generating_keys: 'Generating secure keys...'
-        generating_your_keys: 'Generating your secure keys...'
-        loading: 'Loading...'
 
 backup:
     title: 'Backup Management'

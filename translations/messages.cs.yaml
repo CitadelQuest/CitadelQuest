@@ -15,14 +15,23 @@ auth:
         submit: 'Přihlásit'
         no_account: 'Nemáte účet?'
         register_link: 'Vytvořte si ho'
+    key_generation:
+        generating_keys: 'Generuji bezpečnostní klíče...'
+        generating_your_keys: 'Generuji vaše bezpečnostní klíče...'
+        loading: 'Načítání...'
+        creating_citadel: 'Vytvářím Vaši Citadelu...'
+        error: 'Chyba při generování klíčů. Prosím zkuste to znovu.'
+        button_text: 'Vytvořit Moji Citadelu'
     register:
         error:
             username_blank: 'Prosím zadejte uživatelské jméno'
             username_min: 'Uživatelské jméno musí mít alespoň {{ limit }} znaky'
             username_max: 'Uživatelské jméno nesmí přesáhnout {{ limit }} znaků'
             username_format: 'Uživatelské jméno může obsahovat pouze písmena, čísla, podtržítka a pomlčky'
+            username_already_used: 'Toto uživatelské jméno je již obsazeno. Prosím zvolte jiné uživatelské jméno.'
             email_blank: 'Prosím zadejte email'
             email_invalid: 'Prosím zadejte platný email'
+            email_already_used: 'Tento email je již zaregistrován. Použijte prosím jiný email nebo se přihlaste ke svému existujícímu účtu.'
             password_blank: 'Prosím zadejte heslo'
             password_min: 'Heslo musí mít alespoň {{ limit }} znaků'
             password_mismatch: 'Hesla se musí shodovat'
@@ -46,6 +55,7 @@ auth:
         submit: 'Vytvořit CitadelQuest účet'
         have_account: 'Již máte účet?'
         login_link: 'Přihlásit se'
+        success: 'Registrace úspěšná! Nyní se můžete přihlásit.'
 
 notifications:
     title: Oznámení
@@ -59,6 +69,9 @@ notifications:
     actions:
         mark_all_read: Označit vše jako přečtené
         create_test: Vytvořit testovací oznámení
+    test:
+        title: Testovací oznámení
+        message: Toto je testovací oznámení vytvořené v %time%
 
 home:
     actions:
@@ -91,12 +104,6 @@ navigation:
         register: 'Registrovat'
         logout: 'Odhlásit'
         backup: 'Záloha'
-
-auth:
-    key_generation:
-        generating_keys: 'Generuji bezpečnostní klíče...'
-        generating_your_keys: 'Generuji vaše bezpečnostní klíče...'
-        loading: 'Načítání...'
 
 backup:
     title: 'Správa záloh'

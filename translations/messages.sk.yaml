@@ -15,14 +15,23 @@ auth:
         submit: 'Prihlásiť'
         no_account: 'Nemáte účet?'
         register_link: 'Vytvorte si ho'
+    key_generation:
+        generating_keys: 'Generujem bezpečnostné kľúče...'
+        generating_your_keys: 'Generujem vaše bezpečnostné kľúče...'
+        loading: 'Načítavam...'
+        creating_citadel: 'Vytváram Vašu Citadelu...'
+        error: 'Chyba pri generovaní kľúčov. Prosím skúste to znova.'
+        button_text: 'Vytvoriť Moju Citadelu'
     register:
         error:
             username_blank: 'Prosím zadajte používateľské meno'
             username_min: 'Používateľské meno musí mať aspoň {{ limit }} znaky'
             username_max: 'Používateľské meno nesmie presiahnuť {{ limit }} znakov'
             username_format: 'Používateľské meno môže obsahovať len písmená, čísla, podtržníky a pomlčky'
+            username_already_used: 'Toto používateľské meno je už obsadené. Prosím zvoľte iné používateľské meno.'
             email_blank: 'Prosím zadajte email'
             email_invalid: 'Prosím zadajte platný email'
+            email_already_used: 'Tento email je už zaregistrovaný. Použite prosím iný email alebo sa prihláste k svojmu existujúcemu účtu.'
             password_blank: 'Prosím zadajte heslo'
             password_min: 'Heslo musí mať aspoň {{ limit }} znakov'
             password_mismatch: 'Heslá sa musia zhodovať'
@@ -46,6 +55,7 @@ auth:
         submit: 'Vytvoriť CitadelQuest účet'
         have_account: 'Už máte účet?'
         login_link: 'Prihlásiť sa'
+        success: 'Registrácia úspešná! Teraz sa môžete prihlásiť.'
 
 notifications:
     title: Notifikácie
@@ -59,6 +69,9 @@ notifications:
     actions:
         mark_all_read: Označiť všetky ako prečítané
         create_test: Vytvoriť testovaciu notifikáciu
+    test:
+        title: Testovacia notifikácia
+        message: Toto je testovacia notifikácia vytvorená v %time%
 
 home:
     actions:
@@ -91,12 +104,6 @@ navigation:
         register: 'Registrovať'
         logout: 'Odhlásiť'
         backup: 'Záloha'
-
-auth:
-    key_generation:
-        generating_keys: 'Generujem bezpečnostné kľúče...'
-        generating_your_keys: 'Generujem vaše bezpečnostné kľúče...'
-        loading: 'Načítavam...'
 
 backup:
     title: 'Správa záloh'

@@ -52,6 +52,7 @@ class RegistrationType extends AbstractType
                         'message' => 'auth.register.error.email_invalid',
                     ]),
                 ],
+
             ])
             ->add('publicKey', HiddenType::class, [
                 'mapped' => false,
