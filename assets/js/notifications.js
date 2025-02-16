@@ -23,8 +23,11 @@ function updateTimestamps() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const notificationContainer = document.getElementById('notifications-container');
-    if (!notificationContainer) return;
+    const notificationDropdown = document.getElementById('notificationsDropdown');
+    if (!notificationDropdown) return;
+    
+    // Get the dropdown menu element
+    const notificationContainer = notificationDropdown.nextElementSibling;
 
     // We don't need manual dropdown handling since we're using Bootstrap's dropdown
     // Bootstrap will handle the toggle and outside clicks automatically
@@ -57,8 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const currentItems = notificationContainer.querySelector('.notification-items');
                         if (newItems && currentItems) {
                             currentItems.innerHTML = newItems.innerHTML;
+                            updateTimestamps();
+                            // Ensure badge is updated after DOM is updated
+                            setTimeout(updateUnreadCount, 0);
                         }
-                        updateUnreadCount();
                     });
             }
         });
@@ -116,23 +121,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const updateBadge = () => {
             console.log('Updating unread count...');
             const unreadItems = notificationContainer.querySelectorAll('.dropdown-item.unread');
-            const badge = notificationContainer.querySelector('.badge');
+            const badge = document.getElementById('notificationsCountBadge');
             const before = badge?.textContent;
             
             if (unreadItems.length > 0) {
                 if (badge) {
                     badge.textContent = unreadItems.length;
-                } else {
-                    const newBadge = document.createElement('span');
-                    newBadge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success';
-                    newBadge.textContent = unreadItems.length;
-                    notificationContainer.querySelector('.nav-link').appendChild(newBadge);
+                    badge.style.display = '';
                 }
             } else if (badge) {
-                badge.remove();
+                badge.style.display = 'none';
             }
             
-            const after = notificationContainer.querySelector('.badge')?.textContent;
+            const after = badge?.textContent;
             console.log(`Unread count changed: ${before} -> ${after} (${unreadItems.length} unread items)`);
         };
         return updateBadge;
@@ -181,8 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (newItems && currentItems) {
                             currentItems.innerHTML = newItems.innerHTML;
                             updateTimestamps();
+                            // Ensure badge is updated after DOM is updated
+                            setTimeout(updateUnreadCount, 0);
                         }
-                        updateUnreadCount();
                     });
             }
         });

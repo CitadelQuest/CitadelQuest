@@ -1,0 +1,61 @@
+<nav class="navbar navbar-expand-lg navbar-dark position-relative shadow rounded-0 py-2" style="z-index: 1030;">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand d-flex align-items-center" href="{{ path('app_home') }}">
+            <img src="{{ asset('build/images/logo-sm.png') }}" alt="CitadelQuest" height="43" class="me-2">
+            <div>
+                <span>{{ 'app.name'|trans }}</span>
+                <div class="small text-muted-light">{{ citadel_version }}</div>
+            </div>
+        </a>
+
+        <!-- Mobile Toggle -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Navigation Items -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto align-items-center">
+            {% if app.user %}
+                <!-- Notifications -->
+                <li class="nav-item">
+                    {{ include('components/_notifications.html.twig') }}
+                </li>
+                
+                <!-- User Menu -->
+                <li class="nav-item dropdown ms-3">
+                    <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        {{ app.user.userIdentifier }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item nav-link ps-3" href="{{ path('app_backup_index') }}">{{ 'navigation.user_menu.backup'|trans }}</a></li>
+                        {# <li><hr class="dropdown-divider"></li> #}
+                        <li><a class="dropdown-item nav-link ps-3" href="{{ path('app_logout') }}">{{ 'navigation.user_menu.logout'|trans }}</a></li>
+                    </ul>
+                </li>
+            {% else %}
+                <!-- Login/Register -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ path('app_login') }}">{{ 'navigation.menu.login'|trans }}</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ path('app_register') }}">{{ 'navigation.menu.register'|trans }}</a>
+                </li>
+            {% endif %}
+                
+                <!-- Language Selector -->
+                <li class="nav-item dropdown ms-3">
+                    <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'navigation.language.title'|trans }}">
+                        <i class="mdi mdi-translate"></i>{#  {{ app.request.locale??'en' }} #}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="languageDropdown">
+                        <li><a class="dropdown-item nav-link ps-3 language-switch{% if app.request.locale == 'en' %} active{% endif %}" href="#" data-locale="en">{{ 'navigation.language.en'|trans }}</a></li>
+                        <li><a class="dropdown-item nav-link ps-3 language-switch{% if app.request.locale == 'cs' %} active{% endif %}" href="#" data-locale="cs">{{ 'navigation.language.cs'|trans }}</a></li>
+                        <li><a class="dropdown-item nav-link ps-3 language-switch{% if app.request.locale == 'sk' %} active{% endif %}" href="#" data-locale="sk">{{ 'navigation.language.sk'|trans }}</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
