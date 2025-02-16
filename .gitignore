@@ -37,6 +37,8 @@ Thumbs.db
 .phpunit.result.cache
 /phpunit.xml
 
+# project CitadelQuest gen 1 old source and assets
+/_gen_1_old_source/
 
 ###> symfony/webpack-encore-bundle ###
 /node_modules/

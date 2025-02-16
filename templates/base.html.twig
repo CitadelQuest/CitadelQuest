@@ -4,7 +4,13 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>🏰</text></svg>">
+        
+        {# Favicon and manifest #}
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('build/images/apple-touch-icon.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('build/images/favicon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('build/images/favicon-16x16.png') }}">
+        <link rel="manifest" href="{{ path('app_manifest') }}">
+        <meta name="theme-color" content="#0a0b14">
         {% block stylesheets %}
             {{ encore_entry_link_tags('app') }}
         {% endblock %}
@@ -13,55 +19,8 @@
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
     </head>
-    <body class="position-relative min-vh-100">
-        <nav class="navbar navbar-expand-lg navbar-dark position-relative" style="z-index: 1030;">
-            <div class="container">
-                <a class="navbar-brand" href="{{ path('app_home') }}">
-                    🏰 {{ 'app.name'|trans }}
-                    <div class="small text-muted-light" style="font-size: 0.6em; margin-top: -5px;">{{ citadel_version }}</div>
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
-                        {% if app.user %}
-                            <li class="nav-item me-3">
-                                {{ include('components/_notifications.html.twig') }}
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    {{ app.user.userIdentifier }}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                                    <li><a class="dropdown-item" href="{{ path('app_backup_index') }}">{{ 'navigation.user_menu.backup'|trans }}</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{{ path('app_logout') }}">{{ 'navigation.user_menu.logout'|trans }}</a></li>
-                                </ul>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_login') }}">{{ 'navigation.menu.login'|trans }}</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_register') }}">{{ 'navigation.menu.register'|trans }}</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                    <!-- Language Selector -->
-                    <div class="nav-item dropdown ms-2">
-                        <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'navigation.language.title'|trans }}">
-                            <i class="mdi mdi-translate"></i>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item language-switch{% if app.request.locale == 'en' %} active{% endif %}" href="#" data-locale="en">{{ 'navigation.language.en'|trans }}</a></li>
-                            <li><a class="dropdown-item language-switch{% if app.request.locale == 'cs' %} active{% endif %}" href="#" data-locale="cs">{{ 'navigation.language.cs'|trans }}</a></li>
-                            <li><a class="dropdown-item language-switch{% if app.request.locale == 'sk' %} active{% endif %}" href="#" data-locale="sk">{{ 'navigation.language.sk'|trans }}</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav>
+    <body class="position-relative min-vh-100 citadel-background">
+        {{ include('components/_navigation.html.twig') }}
 
         {% for message in app.flashes('success') %}
             <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
@@ -81,7 +40,7 @@
             {% block body %}{% endblock %}
         </main>
 
-        <footer class="footer mt-auto py-3 bg-dark text-light position-absolute bottom-0 start-0 end-0">
+        <footer class="footer mt-auto py-2 position-absolute bottom-0 start-0 end-0">
             <div class="container text-center">
                 <small>{{ 'app.name'|trans }} {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} | {{ 'app.footer.made_with_love'|trans }}</small>
             </div>
