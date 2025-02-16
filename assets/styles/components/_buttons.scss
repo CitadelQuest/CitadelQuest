@@ -1,0 +1,64 @@
+@use '../colors' as colors;
+@use '../variables' as vars;
+@use "~bootstrap/scss/bootstrap" as bs;
+
+// Buttons Component
+.btn {
+    border-radius: 6px;
+    padding: 0.5rem 1.5rem;
+    transition: all vars.$transition-quick;
+    font-weight: 500;
+    
+    &.btn-primary {
+        background: bs.$primary;
+        border-color: bs.$primary;
+        
+        &:hover {
+            background: darken(bs.$primary, 10%);
+            border-color: darken(bs.$primary, 10%);
+            transform: translateY(-1px);
+        }
+    }
+    
+    &.btn-outline-light {
+        border-width: 2px;
+        
+        &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+    }
+    
+    // Cyber variant
+    &.btn-cyber {
+        position: relative;
+        background: transparent;
+        border: 2px solid colors.$cyber;
+        color: colors.$cyber;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 0.9rem;
+        
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: colors.$cyber;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+            z-index: -1;
+        }
+        
+        &:hover {
+            color: colors.$text-on-cyber;
+            &::before {
+                transform: scaleX(1);
+                transform-origin: left;
+            }
+        }
+    }
+}

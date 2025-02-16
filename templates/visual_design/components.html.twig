@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Components - CitadelQuest Design{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="glass-panel p-4 mb-4">
+        <h1 class="text-light">Components</h1>
+        <p class="text-secondary">Our reusable UI components featuring glass effects, consistent styling, and smooth animations.</p>
+    </div>
+
+    <div class="row g-4">
+        {# Buttons #}
+        <div class="col-12">
+            <div class="glass-panel p-4">
+                <h2 class="text-light mb-4">Buttons</h2>
+                <div class="d-flex gap-3 flex-wrap">
+                    <button class="btn btn-primary">Primary Button</button>
+                    <button class="btn btn-outline-light">Outline Light</button>
+                    <button class="btn btn-cyber">Cyber Button</button>
+                </div>
+            </div>
+        </div>
+
+        {# Glass Panels #}
+        <div class="col-md-4">
+            <div class="glass-panel p-4">
+                <h2 class="text-light mb-3">Default Panel</h2>
+                <p class="text-secondary mb-0">Standard glass panel with hover effect.</p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="glass-panel glass-panel-border p-4">
+                <h2 class="text-light mb-3">Bordered Panel</h2>
+                <p class="text-secondary mb-0">Glass panel with green border accent.</p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="glass-panel glass-panel-glow p-4">
+                <h2 class="text-light mb-3">Glowing Panel</h2>
+                <p class="text-secondary mb-0">Glass panel with hover glow effect.</p>
+            </div>
+        </div>
+
+        {# Navigation #}
+        <div class="col-12">
+            <div class="glass-panel p-4">
+                <h2 class="text-light mb-4">Navigation</h2>
+                <nav class="navbar navbar-expand">
+                    <a class="navbar-brand" href="#">
+                        <img src="{{ asset('images/logo.png') }}" alt="CitadelQuest">
+                        CitadelQuest
+                    </a>
+                    <div class="navbar-nav ms-auto">
+                        <a class="nav-link active" href="#">Home</a>
+                        <a class="nav-link" href="#">Projects</a>
+                        <a class="nav-link" href="#">Settings</a>
+                    </div>
+                </nav>
+            </div>
+        </div>
+
+        {# Cards #}
+        <div class="col-12">
+            <div class="glass-panel p-4">
+                <h2 class="text-light mb-4">Content Cards</h2>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="glass-panel p-4">
+                            <h3 class="text-light mb-3">Project Card</h3>
+                            <p class="text-secondary">A sample project card with glass effect.</p>
+                            <button class="btn btn-cyber mt-3">View Project</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-panel glass-panel-border p-4">
+                            <h3 class="text-light mb-3">Tool Card</h3>
+                            <p class="text-secondary">A sample tool card with border.</p>
+                            <button class="btn btn-cyber mt-3">Use Tool</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-panel glass-panel-glow p-4">
+                            <h3 class="text-light mb-3">Chat Card</h3>
+                            <p class="text-secondary">A sample chat card with glow.</p>
+                            <button class="btn btn-cyber mt-3">Open Chat</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

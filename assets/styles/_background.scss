@@ -1,0 +1,45 @@
+@use 'colors' as colors;
+
+// CitadelQuest Background System
+
+// Background Variables
+$bg-overlay-opacity: 0.8;  // Increased opacity for better contrast
+
+// Background setup
+.citadel-background {
+    // Layer 0: Overlay color
+    background-color: rgba(colors.$body-bg, $bg-overlay-opacity);
+
+    // Layer -1: Overlay pattern
+    /* &::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('../images/bg-pattern.svg') repeat;
+        background-size: 200px;
+        background-attachment: fixed;
+        opacity: $bg-overlay-opacity;
+        z-index: -1;
+        pointer-events: none;
+    } */
+
+    // Layer -2: Base background image
+    &::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url('../images/citadel_quest_bg.jpg');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        z-index: -2;
+        opacity: 1;
+    }    
+}
+

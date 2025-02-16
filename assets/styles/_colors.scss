@@ -1,0 +1,71 @@
+// CitadelQuest Color System
+// Cyber Theme Colors
+$cyber: #95ec86;
+$cyber-rgb: 149, 236, 134;
+
+// Bootstrap Colors
+$primary: #0d6efd;
+$primary-dark: darken($primary, 20%);
+$secondary: #6c757d;
+$success: #198754;
+$info: #0dcaf0;
+$warning: #ffc107;
+$danger: #dc3545;
+$light: #f8f9fa;
+$dark: #212529;
+
+
+
+// Body Colors
+$body-color: #aab8c5;
+$body-color-rgb: 170, 184, 197;
+$body-bg: #343a40;
+$body-bg-rgb: 52, 58, 64;
+
+// Text Colors
+$emphasis-color: #dee2e6;
+$emphasis-color-rgb: 222, 226, 230;
+$secondary-color: #8391a2;
+$secondary-color-rgb: 131, 145, 162;
+
+// Background Colors
+$secondary-bg: #37404a;
+$secondary-bg-rgb: 55, 64, 74;
+$tertiary-bg: #404954;
+$tertiary-bg-rgb: 64, 73, 84;
+
+// Border Colors
+$border-color: #464f5b;
+$border-color-translucent: #8391a2;
+
+// Surface Colors
+$surface-dark: rgba($secondary-bg, 0.5);
+$text-light: $emphasis-color;
+$text-secondary: $secondary-color;
+
+// Special Text Colors
+$text-on-cyber: $body-bg;
+
+// CSS Variables
+:root {
+    --cyber: #{$cyber};
+    --cyber-rgb: #{$cyber-rgb};
+    --text-on-cyber: #{$text-on-cyber};
+    --primary: #{$primary};
+    --primary-dark: #{$primary-dark};
+    --secondary: #{$secondary};
+    --success: #{$success};
+    --info: #{$info};
+    --warning: #{$warning};
+    --danger: #{$danger};
+    --light: #{$light};
+    --dark: #{$dark};
+    --body-color: #{$body-color};
+    --body-bg: #{$body-bg};
+    --emphasis-color: #{$emphasis-color};
+    --secondary-color: #{$secondary-color};
+    --secondary-bg: #{$secondary-bg};
+    --tertiary-bg: #{$tertiary-bg};
+    --border-color: #{$border-color};
+    --surface-dark: #{$surface-dark};
+}

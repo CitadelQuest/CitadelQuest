@@ -1,0 +1,25 @@
+@use '../mixins' as mix;
+@use '../colors' as colors;
+@use '../variables' as vars;
+
+// Glass Panel Component
+.glass-panel {
+    @include mix.glass-panel;
+    transition: transform vars.$transition-quick, box-shadow vars.$transition-quick;
+    
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    // Variants
+    &.glass-panel-border {
+        border: 1px solid rgba(colors.$cyber, 0.2);
+    }
+
+    &.glass-panel-glow {
+        &:hover {
+            box-shadow: 0 8px 32px rgba(colors.$cyber, 0.2);
+        }
+    }
+}

@@ -1,0 +1,75 @@
+@use '../mixins' as mix;
+@use '../colors' as colors;
+@use '../variables' as vars;
+
+// Navigation Component
+.navbar {
+    @include mix.glass-panel;
+    padding: vars.$spacing-unit * 2;
+    margin-bottom: vars.$spacing-unit * 4;
+    
+    .navbar-brand {
+        font-weight: normal;
+        letter-spacing: 1px;
+        font-size: small;
+        
+        &:hover {
+            transform: translateY(-1px);
+        }
+
+        .small {
+            font-size: xx-small;
+            color: colors.$text-secondary;
+            margin-top: -5px;
+        }
+
+        img {
+            height: 32px;
+            margin-right: 0.5rem;
+        }
+    }
+    
+    .nav-link {
+        color: colors.$text-light;
+        position: relative;
+        padding: 0.5rem 1rem;
+        background: transparent;
+        
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 1rem;
+            right: 1rem;
+            height: 2px;
+            background: colors.$cyber;
+            transform: scaleX(0);
+            transition: transform vars.$transition-smooth;
+        }
+        
+        &:hover, &.active {
+            color: colors.$cyber;
+            background: transparent;
+            
+            &::after {
+                transform: scaleX(1);
+            }
+        }
+    }
+    
+    .dropdown-menu {
+        background: rgba(colors.$dark, 0.95);
+        border: none;
+        
+        .dropdown-item {
+            &:hover, &.active {
+                background: transparent;
+                color: colors.$cyber !important;
+            }
+        }
+        
+        .dropdown-divider {
+            border-color: rgba(colors.$cyber, 0.2);
+        }
+    }
+}

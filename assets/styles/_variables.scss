@@ -1,0 +1,18 @@
+// Animation
+$transition-quick: 0.2s ease;
+$transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+// Layout
+$spacing-unit: 8px;
+$container-padding: $spacing-unit * 3;
+$breakpoint-mobile: 768px;
+
+// Typography
+$font-primary: 'Nunito', sans-serif;
+
+// Glass Variables
+$glass-blur: 5px;
+$glass-border: 0px solid rgba(255, 255, 255, 0.1);
+
+// Border Radius
+$border-radius: 6px;
