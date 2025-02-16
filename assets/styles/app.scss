@@ -1,41 +1,83 @@
+// Import variables first
+@use 'variables' as vars;
+
 // Import Bootstrap
-@use "~bootstrap/scss/bootstrap" as *;
+@use "~bootstrap/scss/bootstrap" as bs;
 
-// Import components
-@import "./notifications";
+// Core styles
+@use "fonts" as fonts;
+@use "colors" as colors;
+@use "background" as bg;
+@use "mixins" as mix;
 
-// Variables
-$primary-color: #2196F3;
-$secondary-color: #00BCD4;
-$background-dark: #1a1a2e;
-$background-darker: #16213e;
-$text-light: #ffffff;
+// Components
+@use "./components/glass-panel";
+@use "./components/buttons";
+@use "./components/navigation";
+@use "./notifications";
+
+// Color Utilities
+.bg-cyber {
+    background-color: colors.$cyber !important;
+    color: colors.$text-on-cyber !important;
+}
+
+.text-cyber {
+    color: colors.$cyber !important;
+}
 
 // Global styles
 html, body {
-    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    font-family: vars.$font-primary;
+    font-size: 16px;
+    line-height: 1.5;
+    color: colors.$text-light;
+    background-color: colors.$body-bg;
+    overflow-x: hidden;
+    cursor: default;
 }
 
-body {
-    background: linear-gradient(135deg, $background-dark 0%, $background-darker 100%);
-    color: $text-light;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+.h1 {
+    font-size: 1.4rem !important;
+    color: colors.$cyber !important;
 }
 
-// Navbar styles
-.navbar {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    padding: 1rem 0;
+// Interactive Element Mixin
+@mixin interactive {
+    cursor: pointer;
+    transition: all vars.$transition-quick;
+    
+    &:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.2);
+    }
+    
+    &:active {
+        transform: translateY(1px);
+    }
+}
+
+// Navbar styles - extending Bootstrap
+/* .navbar {
+    @include mix.glass-panel;
+    padding: 0;
     margin-bottom: 2rem;
+    border-radius: 0 !important;
 
     .navbar-brand {
-        font-weight: bold;
-        color: $text-light !important;
-        font-size: 1.4rem;
+        color: colors.$cyber !important;
+        font-size: 1rem;
 
         &:hover {
             transform: translateY(-1px);
+        }
+
+        .small {
+            font-size: 0.6rem;
+            color: #dee2e6;
+            margin-top: -5px;
         }
     }
 
@@ -44,11 +86,11 @@ body {
         transition: all 0.3s ease;
 
         &:hover {
-            color: $text-light !important;
+            color: colors.$text-light !important;
             transform: translateY(-1px);
         }
     }
-}
+} */
 
 // Hero section
 .hero {
@@ -58,8 +100,9 @@ body {
     h1 {
         font-size: 3.5rem;
         margin-bottom: 1.5rem;
-        background: linear-gradient(45deg, $primary-color, $secondary-color);
+        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
     }
     
@@ -77,11 +120,11 @@ body {
 }
 
 .feature-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 15px;
+    background-color: rgba(var(--bs-body-color-rgb), 0.2);
+    border-radius: var(--bs-border-radius-sm);
     padding: 2rem;
     margin-bottom: 2rem;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(5px);
     transition: transform 0.3s;
     
     &:hover {
@@ -94,7 +137,7 @@ body {
     }
     
     h3 {
-        color: $primary-color;
+        color: bs.$primary;
         margin-bottom: 1rem;
     }
     
@@ -105,7 +148,7 @@ body {
 
 // Buttons
 .btn-primary {
-    background: linear-gradient(45deg, $primary-color, $secondary-color);
+    background: linear-gradient(45deg, bs.$primary, colors.$primary-dark);
     border: none;
     padding: 0.8rem 2rem;
     font-weight: 500;
@@ -113,7 +156,7 @@ body {
     
     &:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba($primary-color, 0.4);
+        box-shadow: 0 4px 15px rgba(bs.$primary, 0.4);
     }
 }
 
@@ -133,13 +176,13 @@ body {
 .form-control {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    color: $text-light;
+    color: colors.$text-light;
     
     &:focus {
         background: rgba(255, 255, 255, 0.1);
         border-color: rgba(255, 255, 255, 0.3);
-        color: $text-light;
-        box-shadow: 0 0 0 0.2rem rgba($primary-color, 0.25);
+        color: colors.$text-light;
+        box-shadow: 0 0 0 0.2rem rgba(bs.$primary, 0.25);
     }
 }
 
