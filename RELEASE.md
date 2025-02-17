@@ -67,41 +67,53 @@ git push origin vX.Y.Z-alpha
 
 ### 5. Create GitHub Release
 
+Option A: Using GitHub CLI (Recommended)
+```bash
+# Create the release with notes
+gh release create "vX.Y.Z-alpha" \
+  --title "CitadelQuest vX.Y.Z-alpha" \
+  --notes-file - << 'EOF'
+CitadelQuest vX.Y.Z-alpha Release
+
+This release includes:
+[List major changes and improvements]
+
+## Release Packages
+
+1. **Pre-built Package** (Release A):
+   - Full application with all dependencies
+   - Pre-compiled assets
+   - Template database
+   - Size: [size]
+
+2. **Installation Package** (Release B):
+   - Lightweight installer
+   - Downloads and sets up the pre-built package
+   - Size: [size]
+
+### Installation
+1. Download the Installation Package (`citadelquest-installer-vX.Y.Z-alpha.zip`)
+2. Upload `install.php` to your web server
+3. Access `install.php` through your web browser
+4. The installer will automatically:
+   - Check environment requirements
+   - Download and extract the pre-built package
+   - Set up the database
+   - Configure permissions
+EOF
+
+# Upload release assets
+gh release upload "vX.Y.Z-alpha" \
+  citadelquest-prebuilt-vX.Y.Z-alpha.zip \
+  citadelquest-installer-vX.Y.Z-alpha.zip
+```
+
+Option B: Using GitHub Web Interface
 1. Go to https://github.com/CitadelQuest/CitadelQuest/releases/new
 2. Choose the tag: `vX.Y.Z-alpha`
 3. Title: `CitadelQuest vX.Y.Z-alpha`
-4. Description template:
-   ```markdown
-   CitadelQuest vX.Y.Z-alpha Release
-
-   This release includes:
-   [List major changes and improvements]
-
-   ## Release Packages
-
-   1. **Pre-built Package** (Release A):
-      - Full application with all dependencies
-      - Pre-compiled assets
-      - Template database
-      - Size: [size]
-
-   2. **Installation Package** (Release B):
-      - Lightweight installer
-      - Downloads and sets up the pre-built package
-      - Size: [size]
-
-   ### Installation
-   1. Download the Installation Package (`citadelquest-installer-vX.Y.Z-alpha.zip`)
-   2. Upload `install.php` to your web server
-   3. Access `install.php` through your web browser
-   4. The installer will automatically:
-      - Check environment requirements
-      - Download and extract the pre-built package
-      - Set up the database
-      - Configure permissions
-      - Clean up installation files
-   ```
-5. Upload both release files:
+4. Use the same release notes format as shown in Option A
+5. Upload both release packages:
    - `citadelquest-prebuilt-vX.Y.Z-alpha.zip`
    - `citadelquest-installer-vX.Y.Z-alpha.zip`
 

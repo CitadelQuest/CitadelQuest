@@ -29,6 +29,7 @@ class EventPublisher
         $response->setCallback(function () use ($callback) {
             // Send retry interval
             echo "retry: " . self::RETRY_TIMEOUT . "\n\n";
+            flush();
             
             // Call the event generator
             $callback();

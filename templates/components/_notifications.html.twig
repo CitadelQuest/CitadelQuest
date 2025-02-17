@@ -2,11 +2,9 @@
 <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationsDropdown">
     <i class="mdi mdi-bell"></i>
     {% set unread = get_unread_count() %}
-    {% if unread > 0 %}
-        <span class="position-absolute top-0 start-50 p-1 badge text-cyber _bg-cyber" id="notificationsCountBadge">
-            {{ unread }}
-        </span>
-    {% endif %}
+    <span class="position-absolute top-0 start-50 p-1 badge text-cyber _bg-cyber" id="notificationsCountBadge">
+        {% if unread > 0 %}{{ unread }}{% endif %}
+    </span>
 </a>
 
 {# Notification dropdown content #}
@@ -45,7 +43,7 @@
             {# First show unread notifications #}
             {% set unread_notifications = get_unread_notifications() %}
             {% for notification in unread_notifications %}
-                <div class="dropdown-item unread type-{{ notification.type|default('info') }}"
+                <div class="dropdown-item unread type-{{ notification.type|default('info') }} rounded"
                      data-notification-id="{{ notification.id }}">
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}
@@ -76,7 +74,7 @@
             {# Then show read notifications #}
             {% set read_notifications = get_notifications()|slice(unread_notifications|length, 12) %}
             {% for notification in read_notifications %}
-                <div class="dropdown-item type-{{ notification.type|default('info') }}"
+                <div class="dropdown-item type-{{ notification.type|default('info') }} rounded"
                      data-notification-id="{{ notification.id }}">
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}

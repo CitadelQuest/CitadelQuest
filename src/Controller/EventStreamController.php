@@ -35,6 +35,11 @@ class EventStreamController extends AbstractController
                         data: json_encode(['message' => 'Client disconnected']),
                         event: 'debug'
                     );
+                    // Ensure output is flushed
+                    while (ob_get_level() > 0) {
+                        ob_end_flush();
+                    }
+                    flush();
                     break;
                 }
 
@@ -68,7 +73,7 @@ class EventStreamController extends AbstractController
                 flush();
 
                 // Sleep to prevent CPU overload
-                usleep(9000000); // 9 seconds
+                usleep(3000000); // 3 seconds
             }
         });
     }
