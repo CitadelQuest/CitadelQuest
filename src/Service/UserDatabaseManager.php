@@ -34,7 +34,7 @@ class UserDatabaseManager
 
         // Generate unique database path
         $dbPath = sprintf(
-            '%s/%s.sqlite',
+            '%s/%s.db',
             $this->databasesDir,
             bin2hex(random_bytes(16))
         );

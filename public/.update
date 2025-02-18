@@ -558,7 +558,9 @@ class CitadelQuestUpdater
             
             // Process each user database
             foreach (new DirectoryIterator($userDbDir) as $file) {
-                if ($file->isDot() || $file->isDir() || $file->getExtension() !== 'db') continue;
+                if ($file->isDot() || $file->isDir() || 
+                    ($file->getExtension() !== 'db' && $file->getExtension() !== 'sqlite')
+                   ) continue;
                 
                 $dbPath = $file->getPathname();
                 $this->log("Processing database: " . $file->getFilename());
