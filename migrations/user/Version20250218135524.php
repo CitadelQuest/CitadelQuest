@@ -1,25 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
-namespace DoctrineMigrations;
-
-use Doctrine\DBAL\Schema\Schema;
-use Doctrine\Migrations\AbstractMigration;
-
-/**
- * Auto-generated Migration: Please modify to your needs!
- */
-final class UserMigration_20250218135524 extends AbstractMigration
+class UserMigration_20250218135524
 {
-    public function getDescription(): string
+    public function up(PDO $db): void
     {
-        return 'Add notifications table to user database';
-    }
-
-    public function up(Schema $schema): void
-    {
-        $this->addSql('CREATE TABLE IF NOT EXISTS notifications (
+        $db->exec('CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title VARCHAR(255) NOT NULL,
             message TEXT NOT NULL,
@@ -29,8 +14,8 @@ final class UserMigration_20250218135524 extends AbstractMigration
         )');
     }
 
-    public function down(Schema $schema): void
+    public function down(PDO $db): void
     {
-        $this->addSql('DROP TABLE IF EXISTS notifications');
+        $db->exec('DROP TABLE IF EXISTS notifications');
     }
 }

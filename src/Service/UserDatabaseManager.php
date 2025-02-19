@@ -83,6 +83,12 @@ class UserDatabaseManager
         $user->setDatabasePath($dbPath);
     }
 
+    /**
+     * Initialize the user database schema.
+     * IMPORTANT: When modifying this schema, always create a corresponding user migration in migrations/user/
+     * User migrations must be simple SQL (no Doctrine) since they run from the standalone update script.
+     * See migrations/user/Version20250218135524.php for an example.
+     */
     private function initializeDatabaseSchema($connection): void
     {
         // Create basic tables for user's personal data
