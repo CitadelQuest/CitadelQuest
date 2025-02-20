@@ -7,19 +7,20 @@ use Doctrine\DBAL\DriverManager;
 use PDO;
 use RuntimeException;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use Symfony\Component\Filesystem\Filesystem;
 
 class UserDatabaseManager
 {
     private string $databasesDir;
-    private Filesystem $filesystem;
 
     public function __construct(
-        ParameterBagInterface $params,
-        Filesystem $filesystem
+        ParameterBagInterface $params
     ) {
         $this->databasesDir = $params->get('kernel.project_dir') . '/var/user_databases';
-        $this->filesystem = $filesystem;
+    }
+
+    public function getUserDatabaseFullPath(User $user): string
+    {
+        return $this->databasesDir . '/' . $user->getDatabasePath();
     }
 
     public function createUserDatabase(User $user): void
@@ -32,25 +33,27 @@ class UserDatabaseManager
         }
         umask($oldUmask);
 
-        // Generate unique database path
-        $dbPath = sprintf(
-            '%s/%s.db',
-            $this->databasesDir,
-            bin2hex(random_bytes(16))
-        );
+        // Generate unique database filename
+        $dbFilename = sprintf('%s.db', bin2hex(random_bytes(16)));
+
+        // Set database filename in user entity
+        $user->setDatabasePath($dbFilename);
+
+        // Get full path to database
+        $dbFullPath = $this->getUserDatabaseFullPath($user);
 
         // Set umask before creating database
         $oldUmask = umask(0);
         
         try {
             // Touch the database file first to ensure proper permissions
-            touch($dbPath);
-            chmod($dbPath, 0666);
+            touch($dbFullPath);
+            chmod($dbFullPath, 0666);
             
             // Create connection with SQLite-specific options
             $connection = DriverManager::getConnection([
                 'driver' => 'pdo_sqlite',
-                'path' => $dbPath,
+                'path' => $dbFullPath,
                 'driverOptions' => [
                     PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READWRITE | PDO::SQLITE_OPEN_CREATE,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -61,16 +64,6 @@ class UserDatabaseManager
             $connection->executeQuery('PRAGMA journal_mode=WAL');
             $connection->executeQuery('PRAGMA synchronous=NORMAL');
             $connection->executeQuery('PRAGMA temp_store=FILE');
-            
-            // Ensure WAL files have correct permissions
-            $walFile = $dbPath . '-wal';
-            $shmFile = $dbPath . '-shm';
-            if (file_exists($walFile)) {
-                chmod($walFile, 0666);
-            }
-            if (file_exists($shmFile)) {
-                chmod($shmFile, 0666);
-            }
         } finally {
             // Restore original umask
             umask($oldUmask);
@@ -78,9 +71,6 @@ class UserDatabaseManager
 
         // Initialize database schema
         $this->initializeDatabaseSchema($connection);
-
-        // Set database path in user entity
-        $user->setDatabasePath($dbPath);
     }
 
     /**
@@ -138,20 +128,24 @@ class UserDatabaseManager
             throw new \RuntimeException('User database path not set');
         }
 
-        if (!file_exists($user->getDatabasePath())) {
+        $dbFullPath = $this->getUserDatabaseFullPath($user);
+        if (!file_exists($dbFullPath)) {
             throw new \RuntimeException('User database file not found');
         }
 
         return DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
-            'path' => $user->getDatabasePath(),
+            'path' => $dbFullPath,
         ]);
     }
 
     public function deleteUserDatabase(User $user): void
     {
-        if ($user->getDatabasePath() && file_exists($user->getDatabasePath())) {
-            $this->filesystem->remove($user->getDatabasePath());
+        if ($user->getDatabasePath()) {
+            $dbFullPath = $this->getUserDatabaseFullPath($user);
+            if (file_exists($dbFullPath)) {
+                unlink($dbFullPath);
+            }
         }
     }
 
@@ -161,11 +155,12 @@ class UserDatabaseManager
             throw new RuntimeException('User database path not set');
         }
 
-        if (!file_exists($user->getDatabasePath())) {
+        $dbFullPath = $this->getUserDatabaseFullPath($user);
+        if (!file_exists($dbFullPath)) {
             throw new RuntimeException('User database file not found');
         }
 
-        return $user->getDatabasePath();
+        return $dbFullPath;
     }
 
     public function updateDatabaseSchema(User $user): void

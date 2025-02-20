@@ -10,7 +10,7 @@ CitadelQuest uses two types of release packages:
    - Full application with all dependencies
    - Pre-compiled assets and vendor libraries
    - Template database
-   - Size: ~7MB
+   - Size: ~12MB
    - Filename format: `citadelquest-prebuilt-vX.Y.Z-alpha.zip`
 
 2. **Installation Package (Release B)**
@@ -23,23 +23,16 @@ CitadelQuest uses two types of release packages:
 
 ### 1. Update Version Numbers
 
-Update the version number in the following files:
-```bash
-# In build-release.sh
-VERSION="vX.Y.Z-alpha"
-
-# In build-installer.sh
-VERSION="vX.Y.Z-alpha"
-
-# In public/install.php
+Update the version number in this single-source-of-truth:
+```/src/CitadelVersion.php
 private string $version = 'vX.Y.Z-alpha';
 ```
 
-### 2. Create Release Branch
+### 2. Create Release Branch/Tag
 
 ```bash
-# Create and switch to a new release branch
-git checkout -b release/vX.Y.Z-alpha
+# Create and switch to a new release branch - skip this step for today
+#git checkout -b release/vX.Y.Z-alpha
 
 # Create release tag
 git tag -a vX.Y.Z-alpha -m "CitadelQuest vX.Y.Z-alpha release"
@@ -58,8 +51,8 @@ git tag -a vX.Y.Z-alpha -m "CitadelQuest vX.Y.Z-alpha release"
 ### 4. Push to GitHub
 
 ```bash
-# Push the release branch
-git push origin release/vX.Y.Z-alpha
+# Push the release branch - skip this step for today
+#git push origin release/vX.Y.Z-alpha
 
 # Push the tag
 git push origin vX.Y.Z-alpha
@@ -145,4 +138,3 @@ Format: `vX.Y.Z-alpha`
 - Z: Patch version (bug fixes)
 - alpha: Development stage
 
-Example: `v0.1.4-alpha`

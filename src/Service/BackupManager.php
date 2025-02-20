@@ -5,7 +5,6 @@ namespace App\Service;
 use App\Entity\User;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
@@ -26,10 +25,10 @@ class BackupManager
     public function __construct(
         private Security $security,
         private ParameterBagInterface $params,
-        private Filesystem $filesystem,
         private RequestStack $requestStack,
         private EntityManagerInterface $entityManager,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private UserDatabaseManager $userDatabaseManager
     ) {}
 
     /**
@@ -47,35 +46,44 @@ class BackupManager
 
         // Ensure data directory exists
         $dataDir = $this->params->get('kernel.project_dir') . '/var/data';
-        $this->filesystem->mkdir($dataDir);
+        if (!is_dir($dataDir)) {
+            if (!mkdir($dataDir, 0755, true)) {
+                throw new \RuntimeException('Failed to create data directory');
+            }
+        }
 
         // Create temporary backup file
-        $backupFile = tempnam(sys_get_temp_dir(), 'citadel_backup_');
-        if ($backupFile === false) {
-            throw new \RuntimeException('Failed to create temporary backup file');
+        $tmpDir = $this->params->get('kernel.project_dir') . '/var/tmp';
+        if (!is_dir($tmpDir)) {
+            if (!mkdir($tmpDir, 0755, true)) {
+                throw new \RuntimeException('Failed to create temporary directory');
+            }
         }
+        $timestamp = date('Y-m-d_His');
+        $username = $user->getUserIdentifier();
+        $backupFile = sprintf('%s/' . self::BACKUP_FILENAME_FORMAT, $tmpDir, $username, $timestamp);
 
         try {
             // Create backup manifest
             $manifest = $this->createManifest($user);
 
-            if (!$user instanceof User) {
-                throw new \RuntimeException('Invalid user type');
-            }
-
             // Backup user's SQLite database
-            $dbPath = $user->getDatabasePath();
-            if (!$this->filesystem->exists($dbPath)) {
+            $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
+            if (!file_exists($dbPath)) {
                 throw new \RuntimeException('User database not found');
             }
 
             // Create temporary directory for backup
-            $tempDir = sys_get_temp_dir() . '/citadel_backup_' . uniqid();
-            $this->filesystem->mkdir($tempDir);
+            $tempDir = $this->params->get('kernel.project_dir') . '/var/tmp/backup_staging_' . uniqid();
+            if (!mkdir($tempDir, 0755, true)) {
+                throw new \RuntimeException('Failed to create temporary directory');
+            }
 
             try {
                 // Copy database
-                $this->filesystem->copy($dbPath, $tempDir . '/user.db');
+                if (!copy($dbPath, $tempDir . '/user.db')) {
+                    throw new \RuntimeException('Failed to copy user database');
+                }
 
                 // Save manifest
                 file_put_contents($tempDir . '/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
@@ -92,7 +100,7 @@ class BackupManager
                 
                 // Add user preferences and settings if they exist
                 $prefsPath = $this->params->get('kernel.project_dir') . '/var/data/' . $user->getUserIdentifier() . '_prefs.json';
-                if ($this->filesystem->exists($prefsPath)) {
+                if (file_exists($prefsPath)) {
                     $zip->addFile($prefsPath, 'preferences.json');
                 }
 
@@ -108,11 +116,11 @@ class BackupManager
                 return $storedPath;
             } finally {
                 // Clean up temporary directory
-                $this->filesystem->remove($tempDir);
+                $this->removeDirectory($tempDir);
             }
         } catch (\Exception $e) {
-            if (isset($backupFile) && $this->filesystem->exists($backupFile)) {
-                $this->filesystem->remove($backupFile);
+            if (isset($backupFile) && file_exists($backupFile)) {
+                unlink($backupFile);
             }
             throw new \RuntimeException('Backup creation failed: ' . $e->getMessage(), 0, $e);
         }
@@ -257,10 +265,11 @@ class BackupManager
 
     private function createAutoBackup(): string
     {
-        $timestamp = date('Y-m-d_H-i-s');
         $backupPath = $this->createBackup();
-        $autoBackupPath = str_replace('.citadel', "_auto_{$timestamp}.citadel", $backupPath);
-        $this->filesystem->rename($backupPath, $autoBackupPath);
+        $autoBackupPath = str_replace(self::BACKUP_EXTENSION, "_auto" . self::BACKUP_EXTENSION, $backupPath);
+        if (!rename($backupPath, $autoBackupPath)) {
+            throw new \RuntimeException('Failed to rename auto-backup file');
+        }
         return $autoBackupPath;
     }
 
@@ -272,19 +281,16 @@ class BackupManager
         );
 
         // Create backup directory if it doesn't exist
-        if (!$this->filesystem->exists($backupDir)) {
-            $this->filesystem->mkdir($backupDir, 0755);
+        if (!is_dir($backupDir)) {
+            if (!mkdir($backupDir, 0755, true)) {
+                throw new \RuntimeException('Failed to create backup directory');
+            }
         }
 
-        // Generate unique backup filename
-        $timestamp = date('Y-m-d_H-i-s');
-        $filename = sprintf(self::BACKUP_FILENAME_FORMAT, 
-            $timestamp,
-            substr(md5(uniqid()), 0, 8)
-        );
-
-        $storedBackupPath = $backupDir . '/' . $filename;
-        $this->filesystem->copy($backupPath, $storedBackupPath);
+        $storedBackupPath = $backupDir . '/' . basename($backupPath);
+        if (!copy($backupPath, $storedBackupPath)) {
+            throw new \RuntimeException('Failed to store backup file');
+        }
 
         return $storedBackupPath;
     }
@@ -304,13 +310,15 @@ class BackupManager
         $backupDir = sprintf('%s/%s', $this->params->get('app.backup_dir'), $user->getId());
         $backupPath = $backupDir . '/' . $filename;
 
-        if (!$this->filesystem->exists($backupPath)) {
+        if (!file_exists($backupPath)) {
             throw new \RuntimeException('Backup file not found');
         }
 
         // Create temporary directory for restore
         $tempDir = sys_get_temp_dir() . '/citadel_restore_' . uniqid();
-        $this->filesystem->mkdir($tempDir);
+        if (!mkdir($tempDir, 0755, true)) {
+            throw new \RuntimeException('Failed to create temporary directory');
+        }
 
         try {
             // Extract backup
@@ -403,19 +411,31 @@ class BackupManager
             $newDb->close();
 
             // Backup current database
-            $currentDbPath = $user->getDatabasePath();
-            if ($this->filesystem->exists($currentDbPath)) {
+            $currentDbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
+            if (file_exists($currentDbPath)) {
                 $backupDbPath = $currentDbPath . '.bak';
-                $this->filesystem->copy($currentDbPath, $backupDbPath);
+                if (!copy($currentDbPath, $backupDbPath)) {
+                throw new \RuntimeException('Failed to create backup copy of database');
+            }
             }
 
             // Replace current database with new one
-            $this->filesystem->copy($tempDbPath, $currentDbPath, true);
+            if (file_exists($currentDbPath)) {
+                unlink($currentDbPath);
+            }
+            if (!copy($tempDbPath, $currentDbPath)) {
+                throw new \RuntimeException('Failed to replace current database');
+            }
 
             // Restore preferences if they exist
             $prefsPath = $this->params->get('kernel.project_dir') . '/var/data/' . $user->getUserIdentifier() . '_prefs.json';
-            if ($this->filesystem->exists($tempDir . '/preferences.json')) {
-                $this->filesystem->copy($tempDir . '/preferences.json', $prefsPath, true);
+            if (file_exists($tempDir . '/preferences.json')) {
+                if (file_exists($prefsPath)) {
+                    unlink($prefsPath);
+                }
+                if (!copy($tempDir . '/preferences.json', $prefsPath)) {
+                    throw new \RuntimeException('Failed to restore preferences');
+                }
             }
 
             $this->logger->info('Backup restored successfully');
@@ -424,14 +444,14 @@ class BackupManager
             throw new \RuntimeException('Failed to restore backup: ' . $e->getMessage(), 0, $e);
         } finally {
             // Cleanup
-            if (isset($tempDir) && $this->filesystem->exists($tempDir)) {
-                $this->filesystem->remove($tempDir);
+            if (isset($tempDir) && is_dir($tempDir)) {
+                $this->removeDirectory($tempDir);
             }
             
             // Remove .bak file since we have an auto-backup
             $bakFile = $currentDbPath . '.bak';
-            if ($this->filesystem->exists($bakFile)) {
-                $this->filesystem->remove($bakFile);
+            if (file_exists($bakFile)) {
+                unlink($bakFile);
             }
         }
     }
@@ -453,7 +473,7 @@ class BackupManager
             $user->getId()
         );
 
-        if (!$this->filesystem->exists($backupDir)) {
+        if (!is_dir($backupDir)) {
             return [];
         }
 
@@ -461,7 +481,7 @@ class BackupManager
         $finder = new Finder();
         $finder->files()
             ->in($backupDir)
-            ->name('*.citadel')
+            ->name('*' . self::BACKUP_EXTENSION)
             ->sortByModifiedTime();
 
         foreach ($finder as $file) {
@@ -482,6 +502,29 @@ class BackupManager
      * @param string $filename Name of the backup file to delete
      * @throws \RuntimeException if deletion fails or file not found
      */
+    /**
+     * Helper method to recursively remove a directory
+     */
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $files = array_diff(scandir($dir), ['.', '..']);
+
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                unlink($path);
+            }
+        }
+
+        rmdir($dir);
+    }
+
     public function deleteBackup(string $filename): void
     {
         // Verify user is logged in

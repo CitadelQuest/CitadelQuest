@@ -877,8 +877,7 @@ class CitadelQuestUpdater
 
             $this->log("✓ Update completed successfully!", 'success');
             $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
-            $baseUrl = dirname($_SERVER['PHP_SELF']);
-            $this->log("<a href='{$baseUrl}' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
+            $this->log("<a href='/' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
 
         } catch (Exception $e) {
             $this->log("Error: " . $e->getMessage(), 'error');

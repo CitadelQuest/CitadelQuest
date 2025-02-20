@@ -317,18 +317,6 @@ class CitadelQuestInstaller
                     @chown($dbFile, $webUser);
                     @chgrp($dbFile, $webGroup);
                 }
-                
-                // Handle SQLite companion files (-wal and -shm)
-                foreach (['-wal', '-shm'] as $ext) {
-                    $companionFile = $dbFile . $ext;
-                    if (file_exists($companionFile)) {
-                        chmod($companionFile, 0666);
-                        if ($webUser && $webGroup) {
-                            @chown($companionFile, $webUser);
-                            @chgrp($companionFile, $webGroup);
-                        }
-                    }
-                }
             }
         }
     }

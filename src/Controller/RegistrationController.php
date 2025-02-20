@@ -68,9 +68,7 @@ class RegistrationController extends AbstractController
                 $entityManager->flush();
             } catch (\Exception $e) {
                 // If saving fails, we should clean up the created database
-                if (file_exists($user->getDatabasePath())) {
-                    unlink($user->getDatabasePath());
-                }
+                $databaseManager->deleteUserDatabase($user);
                 throw $e;
             }
 

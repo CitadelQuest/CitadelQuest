@@ -14,9 +14,9 @@ echo "========================================================"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
-# Inject version into install.php
+# Inject version into .install and save it as install.php
 echo "Preparing install.php with version ${VERSION}..."
-sed "s/version = 'v[0-9]\+\.[0-9]\+\.[0-9]\+-[a-z]\+'/version = '${VERSION}'/" public/install.php > "${RELEASE_DIR}/install.php"
+sed "s/version = 'v[0-9]\+\.[0-9]\+\.[0-9]\+-[a-z]\+'/version = '${VERSION}'/" public/.install > "${RELEASE_DIR}/install.php"
 
 # Create release zip
 echo "Creating release archive..."

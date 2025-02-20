@@ -48,6 +48,7 @@ cp -r \
 
 # Remove development files
 rm -f "$RELEASE_DIR/public/install.php"
+rm -f "$RELEASE_DIR/public/.install"
 rm -f "$RELEASE_DIR/.env.local"
 rm -f "$RELEASE_DIR/.env.dev"
 
