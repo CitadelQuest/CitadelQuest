@@ -99,7 +99,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getDatabasePath(): ?string
     {
-        return $this->databasePath;
+        return basename($this->databasePath);
     }
 
     public function setDatabasePath(string $databasePath): static
