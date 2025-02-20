@@ -281,7 +281,9 @@ class CitadelQuestInstaller
             $this->installDir . '/var/cache' => 0777,
             $this->installDir . '/var/data' => 0777,
             $this->installDir . '/var/log' => 0777,
-            $this->installDir . '/var/user_databases' => 0777  // Directory for user databases
+            $this->installDir . '/var/tmp' => 0777,  // Temporary directory for backups and other operations
+            $this->installDir . '/var/user_databases' => 0777,  // Directory for user databases
+            $this->installDir . '/var/user_backups' => 0777  // Directory for user backups
         ];
 
         foreach ($dirs as $dir => $perm) {

@@ -32,7 +32,7 @@
     // Cyber variant
     &.btn-cyber {
         position: relative;
-        background: transparent;
+        background: rgba(colors.$cyber, 0.12);
         border: 2px solid colors.$cyber;
         color: colors.$cyber;
         text-transform: uppercase;

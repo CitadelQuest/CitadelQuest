@@ -41,7 +41,12 @@ html, body {
 
 .h1 {
     font-size: 1.4rem !important;
-    color: colors.$cyber !important;
+}
+h1, h2, h3, h4, h5, h6 {
+    background: linear-gradient(45deg, colors.$cyber, bs.$success) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
 }
 
 // Interactive Element Mixin
@@ -59,38 +64,6 @@ html, body {
     }
 }
 
-// Navbar styles - extending Bootstrap
-/* .navbar {
-    @include mix.glass-panel;
-    padding: 0;
-    margin-bottom: 2rem;
-    border-radius: 0 !important;
-
-    .navbar-brand {
-        color: colors.$cyber !important;
-        font-size: 1rem;
-
-        &:hover {
-            transform: translateY(-1px);
-        }
-
-        .small {
-            font-size: 0.6rem;
-            color: #dee2e6;
-            margin-top: -5px;
-        }
-    }
-
-    .nav-link {
-        color: rgba(255, 255, 255, 0.8) !important;
-        transition: all 0.3s ease;
-
-        &:hover {
-            color: colors.$text-light !important;
-            transform: translateY(-1px);
-        }
-    }
-} */
 
 // Hero section
 .hero {
@@ -100,7 +73,7 @@ html, body {
     h1 {
         font-size: 3.5rem;
         margin-bottom: 1.5rem;
-        background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+        background: linear-gradient(45deg, var(--cyber), var(--success));
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -137,7 +110,6 @@ html, body {
     }
     
     h3 {
-        color: bs.$primary;
         margin-bottom: 1rem;
     }
     

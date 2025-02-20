@@ -44,21 +44,33 @@ class BackupManager
             throw new \RuntimeException('User must be logged in to create a backup');
         }
 
-        // Ensure data directory exists
-        $dataDir = $this->params->get('kernel.project_dir') . '/var/data';
-        if (!is_dir($dataDir)) {
-            if (!mkdir($dataDir, 0755, true)) {
-                throw new \RuntimeException('Failed to create data directory');
+        // Ensure required directories exist
+        $projectDir = $this->params->get('kernel.project_dir');
+        $requiredDirs = [
+            $projectDir . '/var/tmp',
+            $projectDir . '/var/user_backups',
+            $projectDir . '/var/data'
+        ];
+
+        // Use umask to ensure proper permissions during directory creation
+        $oldUmask = umask(0);
+        try {
+            foreach ($requiredDirs as $dir) {
+                if (!is_dir($dir)) {
+                    if (!mkdir($dir, 0755, true)) {
+                        throw new \RuntimeException(sprintf('Failed to create directory: %s', $dir));
+                    }
+                }
+                
+                if (!is_writable($dir)) {
+                    $this->logger->warning(sprintf('Directory %s is not writable. Some operations may fail.', $dir));
+                }
             }
+        } finally {
+            umask($oldUmask);
         }
 
-        // Create temporary backup file
-        $tmpDir = $this->params->get('kernel.project_dir') . '/var/tmp';
-        if (!is_dir($tmpDir)) {
-            if (!mkdir($tmpDir, 0755, true)) {
-                throw new \RuntimeException('Failed to create temporary directory');
-            }
-        }
+        $tmpDir = $projectDir . '/var/tmp';
         $timestamp = date('Y-m-d_His');
         $username = $user->getUserIdentifier();
         $backupFile = sprintf('%s/' . self::BACKUP_FILENAME_FORMAT, $tmpDir, $username, $timestamp);
@@ -194,34 +206,67 @@ class BackupManager
     }
 
     /**
-     * Store backup in user's backup directory
+     * Get schema information from the user's database
      */
     private function getCurrentSchemaInfo(): array
     {
-        $connection = $this->entityManager->getConnection();
-        $schemaManager = $connection->createSchemaManager();
-        $tables = [];
-
-        foreach ($schemaManager->listTables() as $table) {
-            $columns = [];
-            foreach ($table->getColumns() as $column) {
-                $columns[$column->getName()] = [
-                    'type' => $column->getType()->getName(),
-                    'nullable' => !$column->getNotnull(),
-                    'default' => $column->getDefault()
-                ];
-            }
-
-            $tables[$table->getName()] = [
-                'columns' => $columns,
-                'primary_key' => $table->getPrimaryKey() ? $table->getPrimaryKey()->getColumns() : [],
-                'indexes' => array_map(fn($idx) => [
-                    'columns' => $idx->getColumns(),
-                    'unique' => $idx->isUnique()
-                ], $table->getIndexes())
-            ];
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in to get schema info');
         }
 
+        // Open the user's database directly with SQLite3
+        $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
+        $db = new \SQLite3($dbPath);
+        
+        $tables = [];
+        $result = $db->query("SELECT name FROM sqlite_master WHERE type='table'");
+        
+        while ($table = $result->fetchArray(SQLITE3_ASSOC)) {
+            $tableName = $table['name'];
+            $columns = [];
+            $indexes = [];
+            $primaryKey = [];
+            
+            // Get column info
+            $tableInfo = $db->query("PRAGMA table_info('$tableName')");
+            while ($column = $tableInfo->fetchArray(SQLITE3_ASSOC)) {
+                $columns[$column['name']] = [
+                    'type' => strtolower($column['type']),
+                    'nullable' => $column['notnull'] == 0,
+                    'default' => $column['dflt_value']
+                ];
+                
+                if ($column['pk'] > 0) {
+                    $primaryKey[] = $column['name'];
+                }
+            }
+            
+            // Get index info
+            $indexList = $db->query("PRAGMA index_list('$tableName')");
+            while ($index = $indexList->fetchArray(SQLITE3_ASSOC)) {
+                $indexName = $index['name'];
+                $indexInfo = $db->query("PRAGMA index_info('$indexName')");
+                $indexColumns = [];
+                
+                while ($indexColumn = $indexInfo->fetchArray(SQLITE3_ASSOC)) {
+                    $indexColumns[] = $indexColumn['name'];
+                }
+                
+                $indexes[$indexName] = [
+                    'columns' => $indexColumns,
+                    'unique' => $index['unique'] == 1
+                ];
+            }
+            
+            $tables[$tableName] = [
+                'columns' => $columns,
+                'primary_key' => $primaryKey,
+                'indexes' => $indexes
+            ];
+        }
+        
+        $db->close();
         return $tables;
     }
 
@@ -282,9 +327,18 @@ class BackupManager
 
         // Create backup directory if it doesn't exist
         if (!is_dir($backupDir)) {
-            if (!mkdir($backupDir, 0755, true)) {
-                throw new \RuntimeException('Failed to create backup directory');
+            $oldUmask = umask(0);
+            try {
+                if (!mkdir($backupDir, 0755, true)) {
+                    throw new \RuntimeException('Failed to create backup directory');
+                }
+            } finally {
+                umask($oldUmask);
             }
+        }
+        
+        if (!is_writable($backupDir)) {
+            throw new \RuntimeException('Backup directory is not writable: ' . $backupDir);
         }
 
         $storedBackupPath = $backupDir . '/' . basename($backupPath);
@@ -320,6 +374,8 @@ class BackupManager
             throw new \RuntimeException('Failed to create temporary directory');
         }
 
+        $bakFile = '';
+
         try {
             // Extract backup
             $zip = new \ZipArchive();
@@ -337,7 +393,7 @@ class BackupManager
             }
 
             // Version compatibility check
-            if (version_compare($manifest['version'], self::MIN_COMPATIBLE_VERSION, '<')) {
+            if (version_compare($manifest['version'], self::MIN_COMPATIBLE_BACKUP_VERSION, '<')) {
                 throw new \RuntimeException('Backup version too old');
             }
             if (version_compare($manifest['version'], self::BACKUP_VERSION, '>')) {
@@ -414,6 +470,7 @@ class BackupManager
             $currentDbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
             if (file_exists($currentDbPath)) {
                 $backupDbPath = $currentDbPath . '.bak';
+                $bakFile = $currentDbPath . '.bak';
                 if (!copy($currentDbPath, $backupDbPath)) {
                 throw new \RuntimeException('Failed to create backup copy of database');
             }
@@ -449,7 +506,6 @@ class BackupManager
             }
             
             // Remove .bak file since we have an auto-backup
-            $bakFile = $currentDbPath . '.bak';
             if (file_exists($bakFile)) {
                 unlink($bakFile);
             }

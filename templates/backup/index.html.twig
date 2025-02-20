@@ -19,6 +19,7 @@
 <!-- Debug: {{ translations|json_encode }} -->
 <div class="container" data-translations="{{ translations|json_encode|e('html_attr') }}">
     <div class="row justify-content-center">
+
         <div class="col-md-4">
             <!-- Create Backup Card -->
             <div class="feature-card fade-in h-100">
@@ -37,7 +38,7 @@
 
                 <form action="{{ path('app_backup_create') }}" method="post" id="backupForm">
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary" id="createBackupBtn">
+                        <button type="submit" class="btn btn-cyber" id="createBackupBtn">
                             <i class="mdi mdi-backup-restore"></i> {{ 'backup.actions.create'|trans }}
                         </button>
                     </div>
@@ -49,40 +50,49 @@
             <!-- Backup List Card -->
             {% if backups|length > 0 %}
                 <div class="feature-card fade-in h-100">
-                    <h5 class="text-center mb-3">{{ 'backup.title'|trans }}</h5>
+
+                    {# <h5 class="text-center mb-3">{{ 'backup.title'|trans }}</h5> #}
+
                     <div class="list-group">
                         {% for backup in backups %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="mdi mdi-file-lock text-primary" title="{{ 'navigation.user_menu.backup'|trans }}"></i>
-                                    <span class="ms-2">{{ backup.filename }}</span>
-                                    <br>
-                                    <small class="text-muted ms-4">
-                                        {{ backup.timestamp|date('Y-m-d H:i:s') }} • 
-                                        {{ (backup.size / 1024)|number_format(1) }} KB
-                                    </small>
-                                </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center small">
+                                
+                                <a href="{{ path('app_backup_download', {'filename': backup.filename}) }}" title="{{ 'backup.actions.download'|trans }}">
+                                    <i class="mdi mdi-file-lock text-primary fs-3 text-cyber"></i>
+                                </a>
+                                
+                                <span class="ms-2">{{ backup.filename }}</span>
+                                <small class="text-secondary me-2">
+                                    {{ backup.timestamp|date('Y-m-d H:i:s') }} • 
+                                    {{ (backup.size / 1024)|number_format(1) }} KB
+                                </small>
+
                                 <div class="btn-group">
+
                                     <button type="button" 
-                                            class="btn btn-sm btn-outline-success restore-backup" 
+                                            class="btn btn-sm btn-outline-success restore-backup px-2 py-1" 
                                             data-backup-file="{{ backup.filename }}" 
                                             title="{{ 'backup.actions.restore'|trans }}">
                                         <i class="mdi mdi-backup-restore"></i>
                                     </button>
+
                                     <a href="{{ path('app_backup_download', {'filename': backup.filename}) }}" 
-                                       class="btn btn-sm btn-outline-primary" title="{{ 'backup.actions.download'|trans }}">
+                                       class="btn btn-sm btn-outline-primary px-2 py-1" title="{{ 'backup.actions.download'|trans }}">
                                         <i class="mdi mdi-download"></i>
                                     </a>
+
                                     <button type="button" 
-                                            class="btn btn-sm btn-outline-danger delete-backup" 
+                                            class="btn btn-sm btn-outline-danger delete-backup px-2 py-1" 
                                             data-backup-file="{{ backup.filename }}" 
                                             title="{{ 'backup.actions.delete'|trans }}">
                                         <i class="mdi mdi-delete"></i>
                                     </button>
+
                                 </div>
                             </div>
                         {% endfor %}
                     </div>
+
                 </div>
             {% endif %}
         </div>
@@ -99,6 +109,7 @@
         opacity: 1;
     }
 </style>
+
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
     <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
