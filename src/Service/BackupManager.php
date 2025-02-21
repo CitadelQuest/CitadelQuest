@@ -408,41 +408,90 @@ class BackupManager
             $tempDbPath = $tempDir . '/new_user.db';
             $newDb = new \SQLite3($tempDbPath);
 
-            // Get current schema SQL
-            $connection = $this->entityManager->getConnection();
-            $schemaManager = $connection->createSchemaManager();
-            $currentSchema = $schemaManager->introspectSchema();
-
-            // Get table schemas from source database
+            // Get table schemas from source database and recreate them
             $sourceDb = new \SQLite3($tempDir . '/user.db');
-            $result = $sourceDb->query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-                $newDb->exec($row['sql']);
-            }
-
-            // Open source database
-            $sourceDb = new \SQLite3($tempDir . '/user.db');
-
-            // Get current schema info
-            $currentTables = $this->getCurrentSchemaInfo();
-
-            // Open source database to analyze its schema
-            $sourceDb = new \SQLite3($tempDir . '/user.db');
-            
-            // Get table list from source database
             $result = $sourceDb->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
             $backupTables = [];
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-                $tableName = $row['name'];
+            
+            while ($table = $result->fetchArray(SQLITE3_ASSOC)) {
+                $tableName = $table['name'];
                 $columns = [];
-                $columnResult = $sourceDb->query("PRAGMA table_info(" . $tableName . ")");
-                while ($columnRow = $columnResult->fetchArray(SQLITE3_ASSOC)) {
-                    $columns[$columnRow['name']] = [
-                        'type' => $columnRow['type'],
-                        'nullable' => !$columnRow['notnull'],
-                        'default' => $columnRow['dflt_value']
+                $primaryKey = [];
+                
+                // Get column information
+                $columnInfo = $sourceDb->query("PRAGMA table_info(" . $tableName . ")");
+                while ($column = $columnInfo->fetchArray(SQLITE3_ASSOC)) {
+                    // Clean and normalize the type
+                    $type = strtoupper($column['type']);
+                    if (strpos($type, '(') !== false) {
+                        // Extract base type and size/precision
+                        preg_match('/([A-Z]+)\((\d+)\)/', $type, $matches);
+                        if ($matches) {
+                            $baseType = $matches[1];
+                            $size = $matches[2];
+                            $type = "{$baseType}({$size})";  // Rebuild with proper formatting
+                        }
+                    }
+                    
+                    $columns[$column['name']] = [
+                        'type' => $type,
+                        'nullable' => !$column['notnull'],
+                        'default' => $column['dflt_value']
                     ];
+                    
+                    // Store primary key info
+                    if ($column['pk'] > 0) {
+                        $primaryKey[] = $column['name'];
+                    }
                 }
+                
+                // Create table SQL
+                $columnDefs = [];
+                foreach ($columns as $colName => $colInfo) {
+                    $columnDefs[] = sprintf(
+                        '"%s" %s%s%s',
+                        $colName,
+                        $colInfo['type'],
+                        $colInfo['nullable'] ? '' : ' NOT NULL',
+                        $colInfo['default'] !== null ? ' DEFAULT ' . $colInfo['default'] : ''
+                    );
+                }
+                
+                $createTable = sprintf(
+                    'CREATE TABLE IF NOT EXISTS "%s" (%s%s)',
+                    $tableName,
+                    implode(', ', $columnDefs),
+                    !empty($primaryKey) ? ', PRIMARY KEY("' . implode('", "', $primaryKey) . '")' : ''
+                );
+                
+                // Execute create table
+                $newDb->exec($createTable);
+                
+                // Get and recreate indexes
+                $indexList = $sourceDb->query("PRAGMA index_list(" . $tableName . ")");
+                while ($index = $indexList->fetchArray(SQLITE3_ASSOC)) {
+                    if ($index['origin'] !== 'pk') { // Skip primary key indexes
+                        $indexName = $index['name'];
+                        $indexInfo = $sourceDb->query("PRAGMA index_info(" . $indexName . ")");
+                        $indexColumns = [];
+                        
+                        while ($indexColumn = $indexInfo->fetchArray(SQLITE3_ASSOC)) {
+                            $indexColumns[] = '"' . $indexColumn['name'] . '"';
+                        }
+                        
+                        if (!empty($indexColumns)) {
+                            $createIndex = sprintf(
+                                'CREATE%sINDEX IF NOT EXISTS "%s" ON "%s" (%s)',
+                                $index['unique'] ? ' UNIQUE ' : ' ',
+                                $indexName,
+                                $tableName,
+                                implode(', ', $indexColumns)
+                            );
+                            $newDb->exec($createIndex);
+                        }
+                    }
+                }
+                
                 $backupTables[$tableName] = ['columns' => $columns];
             }
 
