@@ -2,13 +2,13 @@
 <svg width="100" height="100" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <style>
         .pattern { stroke: #70dca3; stroke-width: 0.3; fill: none; }
-        .horizontal { stroke-opacity: 0.5; }
-        .vertical { stroke-opacity: 0.5; }
-        .diagonal { stroke-opacity: 0.5; }
+        .horizontal { stroke-opacity: 0.25; }
+        .vertical { stroke-opacity: 0.25; }
+        .diagonal { stroke-opacity: 0.25; }
         @keyframes pulse {
-            0% { stroke-opacity: 0.2; }
-            50% { stroke-opacity: 0.8; }
-            100% { stroke-opacity: 0.2; }
+            0% { stroke-opacity: 0.25; }
+            50% { stroke-opacity: 0.5; }
+            100% { stroke-opacity: 0.25; }
         }
         @keyframes slide {
             0% { stroke-dashoffset: 0; }
@@ -54,10 +54,10 @@
 
         <!-- Diagonal lines with pulse animation -->
         <line class="pattern diagonal" x1="0" y1="0" x2="100" y2="100">
-            <animate attributeName="stroke-opacity" values="0.05;0.2;0.05" dur="4s" repeatCount="indefinite" />
+            <animate attributeName="stroke-opacity" values="0.25;0.5;0.25" dur="4s" repeatCount="indefinite" />
         </line>
         <line class="pattern diagonal" x1="0" y1="100" x2="100" y2="0">
-            <animate attributeName="stroke-opacity" values="0.05;0.2;0.05" dur="4s" repeatCount="indefinite" begin="2s" />
+            <animate attributeName="stroke-opacity" values="0.25;0.5;0.25" dur="4s" repeatCount="indefinite" begin="2s" />
         </line>
     </g>
 </svg>

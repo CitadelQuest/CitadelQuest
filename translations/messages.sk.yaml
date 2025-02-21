@@ -91,6 +91,7 @@ home:
 navigation:
     user_menu:
         profile: 'Profil'
+        visual_design: 'Vizuálny štýl'
         backup: 'Záloha'
         settings: 'Nastavenia'
         logout: 'Odhlásiť'

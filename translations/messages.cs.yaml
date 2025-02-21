@@ -86,11 +86,12 @@ home:
             description: 'Pracujte s AI asistenty při zachování úplné suverenity dat.'
         decentralized:
             title: 'Decentralizované'
-            description: 'Samostatně hostované a nezávislé. Žádné závislosti na externích službách.'
+            description: 'Samostatně hostované a nezávislosti na externích službách.'
 
 navigation:
     user_menu:
         profile: 'Profil'
+        visual_design: 'Vizuální styl'
         backup: 'Záloha'
         settings: 'Nastavení'
         logout: 'Odhlásit'

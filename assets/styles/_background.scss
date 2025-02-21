@@ -3,13 +3,13 @@
 // CitadelQuest Background System
 
 // Background Variables
-$bg-overlay-opacity: 0.8;  // Increased opacity for better contrast
+$bg-overlay-opacity: 0.75;  // Increased opacity for better contrast
 
 // Background setup
 .citadel-background {
     // Layer 0: Overlay color
     background-color: rgba(colors.$body-bg, $bg-overlay-opacity);
-
+        
     // Layer -1: Overlay pattern
     /* &::after {
         content: '';
@@ -17,11 +17,11 @@ $bg-overlay-opacity: 0.8;  // Increased opacity for better contrast
         top: 0;
         left: 0;
         right: 0;
-        bottom: 0;
-        background: url('../images/bg-pattern.svg') repeat;
-        background-size: 200px;
-        background-attachment: fixed;
-        opacity: $bg-overlay-opacity;
+        bottom: 0;*/
+        /* background-image: url('../images/bg-pattern.svg');
+        background-repeat: repeat;
+        background-attachment: fixed; */
+        /*opacity: $bg-overlay-opacity;
         z-index: -1;
         pointer-events: none;
     } */
@@ -40,6 +40,6 @@ $bg-overlay-opacity: 0.8;  // Increased opacity for better contrast
         background-attachment: fixed;
         z-index: -2;
         opacity: 1;
-    }    
+    } 
 }
 

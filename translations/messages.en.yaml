@@ -91,6 +91,7 @@ home:
 navigation:
     user_menu:
         profile: 'Profile'
+        visual_design: 'Visual Design'
         backup: 'Backup'
         settings: 'Settings'
         logout: 'Logout'

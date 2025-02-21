@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="glass-panel p-4 mb-4">
         <h1 class="text-light">Components</h1>
-        <p class="text-secondary">Our reusable UI components featuring glass effects, consistent styling, and smooth animations.</p>
+        <p class="">Our reusable UI components featuring glass effects, consistent styling, and smooth animations.</p>
     </div>
 
     <div class="row g-4">
@@ -26,21 +26,21 @@
         <div class="col-md-4">
             <div class="glass-panel p-4">
                 <h2 class="text-light mb-3">Default Panel</h2>
-                <p class="text-secondary mb-0">Standard glass panel with hover effect.</p>
+                <p class="mb-0">Standard glass panel with hover effect.</p>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="glass-panel glass-panel-border p-4">
                 <h2 class="text-light mb-3">Bordered Panel</h2>
-                <p class="text-secondary mb-0">Glass panel with green border accent.</p>
+                <p class="mb-0">Glass panel with green border accent.</p>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="glass-panel glass-panel-glow p-4">
                 <h2 class="text-light mb-3">Glowing Panel</h2>
-                <p class="text-secondary mb-0">Glass panel with hover glow effect.</p>
+                <p class="mb-0">Glass panel with hover glow effect.</p>
             </div>
         </div>
 
@@ -49,9 +49,16 @@
             <div class="glass-panel p-4">
                 <h2 class="text-light mb-4">Navigation</h2>
                 <nav class="navbar navbar-expand">
-                    <a class="navbar-brand" href="#">
-                        <img src="{{ asset('images/logo.png') }}" alt="CitadelQuest">
+                    {# <a class="navbar-brand text-light" href="#">
+                        <img src="{{ asset('build/images/logo-sm.png') }}" alt="CitadelQuest">
                         CitadelQuest
+                    </a> #}
+                    <a class="navbar-brand d-flex align-items-center" href="{{ path('app_home') }}">
+                        <img src="{{ asset('build/images/logo-sm.png') }}" alt="CitadelQuest" height="43" class="me-2">
+                        <div>
+                            <span class="text-light">{{ 'app.name'|trans }}</span>
+                            <div class="small text-muted-light">{{ citadel_version }}</div>
+                        </div>
                     </a>
                     <div class="navbar-nav ms-auto">
                         <a class="nav-link active" href="#">Home</a>
@@ -70,21 +77,21 @@
                     <div class="col-md-4">
                         <div class="glass-panel p-4">
                             <h3 class="text-light mb-3">Project Card</h3>
-                            <p class="text-secondary">A sample project card with glass effect.</p>
+                            <p class="">A sample project card with glass effect.</p>
                             <button class="btn btn-cyber mt-3">View Project</button>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="glass-panel glass-panel-border p-4">
                             <h3 class="text-light mb-3">Tool Card</h3>
-                            <p class="text-secondary">A sample tool card with border.</p>
+                            <p class="">A sample tool card with border.</p>
                             <button class="btn btn-cyber mt-3">Use Tool</button>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="glass-panel glass-panel-glow p-4">
                             <h3 class="text-light mb-3">Chat Card</h3>
-                            <p class="text-secondary">A sample chat card with glow.</p>
+                            <p class="">A sample chat card with glow.</p>
                             <button class="btn btn-cyber mt-3">Open Chat</button>
                         </div>
                     </div>
