@@ -1,4 +1,4 @@
-import { Toast } from 'bootstrap';
+import { ToastService } from './toast';
 
 export class ProfileManager {
     constructor() {
@@ -43,12 +43,12 @@ export class ProfileManager {
                 form.reset();
                 
                 // Show success message
-                this.showToast('success', this.translations.email_updated);
+                this.showToast('success', this.translations.email_updated, ':)');
             } else {
-                this.showToast('error', data.message || this.translations.email_error);
+                this.showToast('error', data.message || this.translations.email_error, ':(');
             }
         } catch (error) {
-            this.showToast('error', this.translations.connection_error);
+            this.showToast('error', this.translations.connection_error, ':(');
         } finally {
             // Reset loading state
             form.classList.remove('form-processing');
@@ -96,28 +96,20 @@ export class ProfileManager {
         }
     }
 
-    showToast(type, message) {
-        // Create toast notification
-        const toast = document.createElement('div');
-        toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0`;
-        toast.setAttribute('role', 'alert');
-        toast.setAttribute('aria-live', 'assertive');
-        toast.setAttribute('aria-atomic', 'true');
-        
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        `;
-
-        document.getElementById('toast-container').appendChild(toast);
-        const bsToast = new Toast(toast);
-        bsToast.show();
-
-        // Remove toast after it's hidden
-        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    showToast(type, message, title = null) {
+        const toast = new ToastService();
+        switch(type) {
+            case 'success':
+                toast.success(message, title);
+                break;
+            case 'error':
+                toast.error(message, title);
+                break;
+            case 'warning':
+                toast.warning(message, title);
+                break;
+            default:
+                toast.info(message, title);
+        }
     }
 }

@@ -22,19 +22,30 @@
     <body class="position-relative min-vh-100 citadel-background">
         {{ include('components/_navigation.html.twig') }}
 
-        {% for message in app.flashes('success') %}
-            <div class="alert alert-success alert-dismissible fade show m-3" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-
-        {% for message in app.flashes('error') %}
-            <div class="alert alert-danger alert-dismissible fade show m-3" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
+        <div id="toast-container" class="toast-container position-fixed top-0 start-0 p-3"></div>
+        
+        {# Initialize flashes as toasts #}
+        {% set allFlashes = {}
+            |merge({ 'success': app.flashes('success') })
+            |merge({ 'danger': app.flashes('danger') })
+            |merge({ 'warning': app.flashes('warning') })
+            |merge({ 'info': app.flashes('info') })
+        %}
+        
+        {% if allFlashes|length > 0 %}
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const { ToastService } = await import('{{ asset('build/js/toast.js') }}');
+                const toast = new ToastService();
+                
+                {% for type, messages in allFlashes %}
+                    {% for message in messages %}
+                        toast.{{ type }}({{ message|json_encode|raw }});
+                    {% endfor %}
+                {% endfor %}
+            });
+        </script>
+        {% endif %}
 
         <main class="pb-5">
             {% block body %}{% endblock %}

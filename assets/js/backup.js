@@ -1,3 +1,5 @@
+import { ToastService } from './toast';
+
 function getTranslations() {
     const container = document.querySelector('[data-translations]');
     const translationsAttr = container ? container.dataset.translations : null;
@@ -41,7 +43,8 @@ function handleDeleteBackup(event) {
         }
     })
     .catch(error => {
-        alert(error.message);
+        const toast = new ToastService();
+        toast.error(error.message);
         button.disabled = false;
         button.innerHTML = originalHtml;
     });
@@ -71,21 +74,18 @@ function handleRestoreBackup(event) {
     .then(data => {
         if (data.success) {
             // Show success message
-            const toastEl = document.getElementById('successToast');
-            document.getElementById('successToastMessage').textContent = data.message || 'Backup restored successfully!';
-            toastEl.classList.add('show');
+            const toast = new ToastService();
+            toast.success(data.message || translations.backup_restored || 'Backup restored successfully!');
             
             // Reload after showing message
-            setTimeout(() => {
-                toastEl.classList.remove('show');
-                window.location.reload();
-            }, 2500);
+            setTimeout(() => window.location.reload(), 2500);
         } else {
             throw new Error(data.error || translations.failed_restore || 'Failed to restore backup');
         }
     })
     .catch(error => {
-        alert(error.message);
+        const toast = new ToastService();
+        toast.error(error.message);
         button.disabled = false;
         button.innerHTML = originalHtml;
     });
@@ -143,17 +143,15 @@ export function initBackup() {
             window.URL.revokeObjectURL(url);
             
             // Show success toast
-            const toastEl = document.getElementById('successToast');
-            document.getElementById('successToastMessage').textContent = translations.backup_created || 'Backup created successfully!';
-            toastEl.classList.add('show');
+            const toast = new ToastService();
+            toast.success(translations.backup_created || 'Backup created successfully!');
             
             // Reload page after showing message
-            setTimeout(() => {
-                toastEl.classList.remove('show');
-                window.location.reload();
-            }, 2500);
+            setTimeout(() => window.location.reload(), 2500);
         } catch (error) {
             console.error('Backup failed:', error);
+            const toast = new ToastService();
+            toast.error(translations.failed_create || 'Failed to create backup');
             btn.innerHTML = originalBtnText;
             btn.disabled = false;
             isProcessing = false;

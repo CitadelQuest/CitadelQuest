@@ -99,26 +99,5 @@
     </div>
 </div>
 
-{# Success Toast #}
-<style>
-    .toast {
-        transition: opacity 0.15s linear;
-        opacity: 0;
-    }
-    .toast.show {
-        opacity: 1;
-    }
-</style>
-
-<div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div id="successToastMessage" class="toast-body">
-                <!-- Message will be set by JavaScript -->
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').classList.remove('show')" aria-label="Close"></button>
-        </div>
-    </div>
-</div>
 
 {% endblock %}
