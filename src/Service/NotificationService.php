@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Notification;
 use App\SSE\Event;
+use App\SSE\EventPublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -11,7 +12,8 @@ class NotificationService
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly UserDatabaseManager $userDatabaseManager
+        private readonly UserDatabaseManager $userDatabaseManager,
+        private readonly EventPublisher $eventPublisher
     ) {
     }
 
@@ -42,6 +44,12 @@ class NotificationService
         
         // Set the ID from the last insert
         $notification->setId($userDb->lastInsertId());
+
+        // Emit SSE event with the notification data
+        $this->eventPublisher->publish(new Event(
+            'notification',
+            ['notification' => $notification->toArray()]
+        ));
 
         return $notification;
     }

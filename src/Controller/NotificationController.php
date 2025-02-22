@@ -38,12 +38,6 @@ class NotificationController extends AbstractController
             type: array_rand(array_flip(['info', 'success', 'warning', 'error']))
         );
 
-        // Emit SSE event with the notification data
-        $eventPublisher->publish(new Event(
-            'notification',
-            ['notification' => $notification->toArray()]
-        ));
-
         return $this->json([
             'status' => 'success',
             'message' => 'Test notification created',
