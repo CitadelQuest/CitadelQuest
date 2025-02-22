@@ -106,6 +106,36 @@ navigation:
         logout: 'Odhlásiť'
         backup: 'Záloha'
 
+profile:
+    title: 'Nastavenia profilu'
+    info: 'Informácie o profile'
+    username: 'Používateľské meno'
+    email:
+        label: 'Email'
+        change: 'Zmeniť email'
+        new: 'Nová emailová adresa'
+        update: 'Aktualizovať email'
+        invalid: 'Zadajte prosím platnú emailovú adresu'
+        updated:
+            title: 'Email aktualizovaný'
+            message: 'Vaša emailová adresa bola úspešne aktualizovaná'
+        error: 'Nepodarilo sa aktualizovať email'
+    password:
+        change: 'Zmeniť heslo'
+        current: 'Súčasné heslo'
+        new: 'Nové heslo'
+        confirm: 'Potvrdiť nové heslo'
+        update: 'Aktualizovať heslo'
+        current_invalid: 'Súčasné heslo nie je správne'
+        mismatch: 'Nové heslá sa nezhodujú'
+        too_short: 'Heslo musí mať aspoň 8 znakov'
+        updated:
+            title: 'Heslo aktualizované'
+            message: 'Vaše heslo bolo úspešne aktualizované'
+        error: 'Nepodarilo sa aktualizovať heslo'
+    error:
+        connection: 'Chyba pripojenia. Skúste to prosím znova.'
+
 backup:
     title: 'Správa záloh'
     description: 'Vytvorte zálohu vašich CitadelQuest dát. Záloha obsahuje:'

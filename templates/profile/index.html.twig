@@ -1,0 +1,92 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'profile.title'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .form-processing {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div data-translations="{{ {
+        'email_updated': 'profile.email.updated.title'|trans,
+        'email_error': 'profile.email.error'|trans,
+        'password_updated': 'profile.password.updated.title'|trans,
+        'password_error': 'profile.password.error'|trans,
+        'connection_error': 'profile.error.connection'|trans
+    }|json_encode|e('html_attr') }}">
+<div class="container py-4">
+    <h1 class="mb-4">{{ 'profile.title'|trans }}</h1>
+
+    {# Toast Container #}
+    <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+    {# Profile Info #}
+    <div class="card glass-panel mb-4">
+        <div class="card-header text-cyber border-success border-1 border-bottom">
+            {{ 'profile.info'|trans }}
+        </div>
+        <div class="card-body">
+            <p><strong>{{ 'profile.username'|trans }}:</strong> {{ user.username }}</p>
+            <p><strong>{{ 'profile.email.label'|trans }}:</strong> <span id="current-email">{{ user.email }}</span></p>
+        </div>
+    </div>
+
+    {# Email Form #}
+    <div class="card glass-panel mb-4">
+        <div class="card-header text-cyber border-success border-1 border-bottom">
+            {{ 'profile.email.change'|trans }}
+        </div>
+        <div class="card-body">
+            <form id="email-form" action="{{ path('app_profile_email') }}" method="post">
+                <div class="mb-3">
+                    <label for="email" class="form-label">{{ 'profile.email.new'|trans }}</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <button type="submit" class="btn btn-cyber">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    {{ 'profile.email.update'|trans }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {# Password Form #}
+    <div class="card glass-panel mb-4">
+        <div class="card-header text-cyber border-success border-1 border-bottom">
+            {{ 'profile.password.change'|trans }}
+        </div>
+        <div class="card-body">
+            <form id="password-form" action="{{ path('app_profile_password') }}" method="post">
+                <div class="mb-3">
+                    <label for="current_password" class="form-label">{{ 'profile.password.current'|trans }}</label>
+                    <input type="password" class="form-control" id="current_password" name="current_password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="new_password" class="form-label">{{ 'profile.password.new'|trans }}</label>
+                    <input type="password" class="form-control" id="new_password" name="new_password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">{{ 'profile.password.confirm'|trans }}</label>
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                </div>
+                <button type="submit" class="btn btn-cyber">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    {{ 'profile.password.update'|trans }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('profile') }}
+{% endblock %}

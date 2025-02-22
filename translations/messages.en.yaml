@@ -106,6 +106,36 @@ navigation:
         logout: 'Logout'
         backup: 'Backup'
 
+profile:
+    title: 'Profile Settings'
+    info: 'Profile Information'
+    username: 'Username'
+    email:
+        label: 'Email'
+        change: 'Change Email'
+        new: 'New Email Address'
+        update: 'Update Email'
+        invalid: 'Please enter a valid email address'
+        updated:
+            title: 'Email Updated'
+            message: 'Your email address has been successfully updated'
+        error: 'Failed to update email'
+    password:
+        change: 'Change Password'
+        current: 'Current Password'
+        new: 'New Password'
+        confirm: 'Confirm New Password'
+        update: 'Update Password'
+        current_invalid: 'Current password is incorrect'
+        mismatch: 'New passwords do not match'
+        too_short: 'Password must be at least 8 characters long'
+        updated:
+            title: 'Password Updated'
+            message: 'Your password has been successfully updated'
+        error: 'Failed to update password'
+    error:
+        connection: 'Connection error. Please try again.'
+
 backup:
     title: 'Backup Management'
     description: 'Create an backup of your CitadelQuest data. The backup includes:'

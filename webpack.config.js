@@ -25,6 +25,7 @@ Encore
     .addEntry('backup', './assets/backup.js')
     .addEntry('translations', './assets/translations.js')
     .addEntry('visual-design', './assets/js/visual-design.js')
+    .addEntry('profile', './assets/profile.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()
