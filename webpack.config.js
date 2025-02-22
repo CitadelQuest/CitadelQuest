@@ -20,13 +20,14 @@ Encore
      * Each entry will result in one JavaScript file (e.g. app.js)
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
-    .addEntry('app', './assets/app.js')
-    .addEntry('crypto', './assets/crypto.js')
-    .addEntry('backup', './assets/backup.js')
-    .addEntry('translations', './assets/translations.js')
-    .addEntry('visual-design', './assets/js/visual-design.js')
-    .addEntry('profile', './assets/profile.js')
-    .addEntry('js/toast', './assets/js/toast.js')
+    .addEntry('app', './assets/entries/app.js')
+    .addEntry('crypto', './assets/entries/crypto.js')
+    .addEntry('backup', './assets/entries/backup.js')
+    .addEntry('translations', './assets/entries/translations.js')
+    .addEntry('visual-design', './assets/entries/visual-design.js')
+    .addEntry('profile', './assets/entries/profile.js')
+    .addEntry('js/toast', './assets/js/shared/toast.js')
+    .addEntry('language-switcher', './assets/entries/language-switcher.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

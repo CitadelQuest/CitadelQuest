@@ -1,2 +1,2 @@
 // Import translations functionality
-import './js/translations';
+import '../js/shared/translations';

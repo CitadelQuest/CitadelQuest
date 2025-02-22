@@ -1,4 +1,4 @@
-import { ProfileManager } from './js/profile';
+import { ProfileManager } from '../js/features/profile';
 
 // Initialize profile manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

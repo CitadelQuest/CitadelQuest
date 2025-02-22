@@ -1,4 +1,4 @@
-import { ToastService } from './toast';
+import { ToastService } from '../../shared/toast';
 
 function getTranslations() {
     const container = document.querySelector('[data-translations]');

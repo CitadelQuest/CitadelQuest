@@ -156,6 +156,23 @@ symfony server:start
 - Maintain responsive design
 - Optimize asset loading
 
+#### JavaScript Organization
+- Structured directory layout:
+  ```
+  assets/
+  ├── entries/           # Webpack entry points
+  ├── js/
+      ├── features/      # Feature-specific modules
+      ├── shared/        # Reusable utilities
+      └── ui/           # UI components
+  ```
+- One entry point per feature in `assets/entries/`
+- Feature-specific code in dedicated directories under `features/`
+- Shared utilities (crypto, translations) in `shared/`
+- UI components in `ui/`
+- Descriptive, purpose-indicating filenames
+- Webpack-based bundling with code splitting
+
 ### Database
 - Use migrations for schema changes
 - Implement proper UUID handling

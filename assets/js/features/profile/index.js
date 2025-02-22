@@ -1,4 +1,4 @@
-import { ToastService } from './toast';
+import { ToastService } from '../../shared/toast';
 
 export class ProfileManager {
     constructor() {

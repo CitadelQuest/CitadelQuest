@@ -1,2 +1,2 @@
 // Import crypto functionality
-import './js/crypto';
+import '../js/shared/crypto';
