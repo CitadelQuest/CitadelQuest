@@ -3,16 +3,21 @@ $transition-quick: 0.2s ease;
 $transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
 // Layout
-$spacing-unit: 8px;
+$spacing-unit: 0.8rem;
 $container-padding: $spacing-unit * 3;
 $breakpoint-mobile: 768px;
 
 // Typography
 $font-primary: 'Nunito', sans-serif;
+$base-font-size: 1rem;
+$font-weight-light: 100;
+$font-weight-regular: 300;
+$font-weight-medium: 500;
+$font-weight-bold: 700;
 
 // Glass Variables
 $glass-blur: 5px;
 $glass-border: 0px solid rgba(255, 255, 255, 0.1);
 
 // Border Radius
-$border-radius: 6px;
+$border-radius: 0.5rem;

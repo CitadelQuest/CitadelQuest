@@ -2,6 +2,7 @@ app:
     name: 'CitadelQuest'
     welcome: 'Vitajte v CitadelQuest'
     tagline: 'Váš osobný bezpečný priestor pre spoluprácu s umelou inteligenciou. Vytvorené s dôrazom na súkromie a suverenitu vašich dát.'
+    tagline_html: 'Váš osobný bezpečný priestor pre spoluprácu s umelou inteligenciou.<br/>Vytvorené s dôrazom na súkromie a suverenitu vašich dát.'
     footer:
         made_with_love: 'Vytvorené s 💜 človekom a AI'
         version: 'Verzia %version%'
@@ -79,14 +80,20 @@ home:
         login: 'Prihlásiť'
     features:
         data_control:
-            title: 'Vaše Dáta, Vaša Kontrola'
-            description: 'End-to-end šifrovanie a osobná databáza zaisťujú, že vaše dáta zostanu vaše.'
+            title: 'Vaše Dáta,<br/>Vaša Kontrola'
+            description: '<p>End-to-end šifrovanie a osobná databáza zaisťujú, že vaše dáta zostanu vaše.</p><p>Vy rozhodujete, kto má prístup k vašim zdieľaným dátam.</p><p><a href="/backups">Zálohy</a>. Manuálne a automatické.</p><p>Podpora pre migráciu účtu z jednej Citadely na druhú.</p>'
         ai_collab:
             title: 'Spolupráca s AI'
-            description: 'Pracujte s AI asistentmi pri zachovaní úplnej suverenity dát.'
+            description: '<p>Prechádzajte každodennými úlohami, dlhodobými projektmi alebo zažite digitálne dobrodružstvo s vašimi dôveryhodnými osobnými AI spoločníkmi, pri zachovaní suverenity dát.</p>'
         decentralized:
-            title: 'Decentralizované'
-            description: 'Samostatne hostované a nezávislé. Žiadne závislosti na externých službách.'
+            title: 'Decentralizované,<br/>Slobodné'
+            description: '<p>Samostatne hostované a nezávislé.</p><p>Žiadne tretie strany nemonitorujú a nemonetizujú vaše súkromie.</p><p>Žiadne cookies tretích strán.</p><p>Žiadne reklamy.</p><p>Len vy a vaši priatelia - prepojení.</p>'
+        open_source:
+            title: 'Open Source'
+            description: '<p>CitadelQuest je open-source projekt, hostovaný na <a href="https://github.com/CitadelQuest/CitadelQuest" target="_blank" class="text-cyber" title="CitadelQuest GitHub">GitHube</a>, s hlavným účelom poskytovať všeobecné verejné blaho, namiesto profitovania na súkromí používateľov.</p><p>Sme odhodlaní poskytovať bezplatný softvér používateľom, ktorí zdieľajú našu víziu lepšieho, prepojeného sveta.</p>'
+        easy_to_start:
+            title: 'Jednoduchý Štart'
+            description: '<p>CitadelQuest je navrhnutý tak, aby bol ľahko použiteľný aj pre netechnických používateľov.</p><p><strong>Máte už vlastnú doménu a webové stránky?</strong></p><p>Skvelé! <span class="text-cyber">Môžete si nainštalovať vlastný CitadelQuest na subdoméne a začať ho ihneď používať.</span></p><p>...alebo môžete zostať tu, na našej verejnej <a href="https://base.citadelquest.com/" target="_blank" class="text-cyber" title="CitadelQuest Base">CitadelQuest Base</a>, a vyskúšať si to - bez námahy a zadarmo.</p>'
 
 navigation:
     user_menu:

@@ -1,8 +1,10 @@
+@use 'variables' as vars;
+
 // Nunito Font Family
 @font-face {
     font-family: 'Nunito';
     src: url('../fonts/nunito/Nunito-Regular.ttf') format('truetype');
-    font-weight: 400;
+    font-weight: vars.$font-weight-regular;
     font-style: normal;
     font-display: swap;
 }
@@ -10,7 +12,7 @@
 @font-face {
     font-family: 'Nunito';
     src: url('../fonts/nunito/Nunito-Light.ttf') format('truetype');
-    font-weight: 300;
+    font-weight: vars.$font-weight-light;
     font-style: normal;
     font-display: swap;
 }
@@ -18,7 +20,7 @@
 @font-face {
     font-family: 'Nunito';
     src: url('../fonts/nunito/Nunito-Medium.ttf') format('truetype');
-    font-weight: 500;
+    font-weight: vars.$font-weight-medium;
     font-style: normal;
     font-display: swap;
 }
@@ -26,7 +28,7 @@
 @font-face {
     font-family: 'Nunito';
     src: url('../fonts/nunito/Nunito-Bold.ttf') format('truetype');
-    font-weight: 700;
+    font-weight: vars.$font-weight-bold;
     font-style: normal;
     font-display: swap;
 }

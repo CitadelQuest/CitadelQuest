@@ -50,7 +50,7 @@
                     <div class="col-md-4">
                         <div class="color-card p-4 rounded" style="background: var(--cyber); color: var(--text-on-cyber);" 
                              data-color="#95ec86" data-class="bg-cyber" data-var="--cyber">
-                            <h3 class="h5 mb-3">Cyber Background</h3>
+                            <span class="fs-5 mb-2 d-inline-block">Cyber Background</span>
                             <div class="color-info">
                                 <code class="small">#95ec86</code>
                                 <code class="small">.bg-cyber</code>
@@ -63,13 +63,14 @@
                     <div class="col-md-4">
                         <div class="color-card p-4 rounded" style="background: var(--bs-dark); color: var(--cyber);" 
                              data-color="#95ec86" data-class="text-cyber" data-var="--cyber">
-                            <h3 class="h5 mb-3">Cyber Text</h3>
+                            <span class="fs-5 mb-2 d-inline-block">Cyber Text</span>
                             <div class="color-info">
                                 <code class="small">#95ec86</code>
                                 <code class="small">.text-cyber</code>
                                 <code class="small">var(--cyber)</code>
                             </div>
                         </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -80,10 +81,10 @@
                 <h2 class="text-light mb-4">Bootstrap Colors</h2>
                 <div class="row g-3">
                     {% set bootstrap_colors = {
-                        'Primary': ['primary', '#0d6efd'],
+                        'Primary': ['primary', '#95ec86'],
                         'Secondary': ['secondary', '#6c757d'],
-                        'Success': ['success', '#198754'],
-                        'Info': ['info', '#0dcaf0'],
+                        'Success': ['success', '#0b8a4e'],
+                        'Info': ['info', '#0d8af0'],
                         'Warning': ['warning', '#ffc107'],
                         'Danger': ['danger', '#dc3545'],
                         'Light': ['light', '#f8f9fa'],
@@ -92,11 +93,11 @@
 
                     {% for name, data in bootstrap_colors %}
                         <div class="col-md-3">
-                            <div class="color-card p-4 rounded" 
-                                 style="background: var(--{{ data[0] }}); {% if data[0] in ['light', 'warning'] %}color: #000;{% endif %}"
+                            <div class="color-card p-4 rounded {% if data[0] in ['light', 'warning', 'primary'] %}text-dark{% else %}text-light{% endif %}" 
+                                 style="background: var(--{{ data[0] }});"
                                  data-color="{{ data[1] }}" data-class="{{ data[0] }}" data-var="--{{ data[0] }}">
                                 <div class="color-info">
-                                    <h4 class="mb-0">{{ name }}</h4>
+                                    <span class="fs-5 mb-0">{{ name }}</span>
                                     <code>{{ data[1] }}</code>
                                     <small>.text-{{ data[0] }}</small>
                                     <small>var(--{{ data[0] }})</small>
@@ -109,26 +110,29 @@
         </div>
 
         {# Text Colors #}
-        <div class="col-12 mb-4">
+        <div class="col-12 col-md-6 mb-4">
             <div class="glass-panel p-4">
                 <h2 class="text-light mb-4">Text Colors</h2>
                 <div class="mb-3">
-                    <p class="text-light mb-2">Light Text <code>#dee2e6</code></p>
-                    <p class="text-secondary mb-2">Secondary Text <code>#8391a2</code></p>
-                    <p style="color: #aab8c5" class="mb-2">Body Text <code>#aab8c5</code></p>
+                    <p class="text-cyber mb-2">Cyber Text <code class="float-end ms-1 opacity-75">.text-cyber</code> <code class="float-end opacity-75">var(--cyber)</code></p>
+                    <p class="text-primary mb-2">Primary Text <code class="float-end ms-1 opacity-75">.text-primary</code> <code class="float-end opacity-75">var(--primary)</code></p>
+                    <p class="text-secondary mb-2">Secondary Text <code class="float-end ms-1 opacity-75">.text-secondary</code> <code class="float-end opacity-75">var(--secondary)</code></p>
+                    <p class="text-emphasis mb-2">Emphasis Text <code class="float-end ms-1 opacity-75">.text-emphasis</code> <code class="float-end opacity-75">var(--emphasis)</code></p>
+                    <p class="text-success mb-2">Success Text <code class="float-end ms-1 opacity-75">.text-success</code> <code class="float-end opacity-75">var(--success)</code></p>
+                    <p class="text-warning mb-2">Warning Text <code class="float-end ms-1 opacity-75">.text-warning</code> <code class="float-end opacity-75">var(--warning)</code></p>
+                    <p class="text-info mb-2">Info Text <code class="float-end ms-1 opacity-75">.text-info</code> <code class="float-end opacity-75">var(--info)</code></p>
+                    <p class="text-danger mb-2">Danger Text <code class="float-end ms-1 opacity-75">.text-danger</code> <code class="float-end opacity-75">var(--danger)</code></p>
                 </div>
             </div>
         </div>
 
-        {# Background Colors #}
-        <div class="col-12 mb-4">
+        {# Body Colors #}
+        <div class="col-12 col-md-6 mb-4">
             <div class="glass-panel p-4">
-                <h2 class="text-light mb-4">Background Colors</h2>
-                <div class="p-2 rounded mb-2" style="background: #37404a">
-                    <p class="text-light mb-0">Secondary Background <code>#37404a</code></p>
-                </div>
-                <div class="p-2 rounded" style="background: #404954">
-                    <p class="text-light mb-0">Tertiary Background <code>#404954</code></p>
+                <h2 class="text-light mb-4">Body Colors</h2>
+                <div class="p-3 rounded mb-2 body-bg">
+                    <p class="body-color">Body Color <code class="float-end ms-1 opacity-75">.body-color</code></p>
+                    <p class="body-color mb-0">on Body Background <code class="float-end ms-1 opacity-75">.body-bg</code></p>
                 </div>
             </div>
         </div>

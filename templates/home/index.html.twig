@@ -8,35 +8,47 @@
 
 {% block body %}
 <div class="container">
-    <section class="hero">
-        <h1>{{ 'app.welcome'|trans }}</h1>
-        <p>{{ 'app.tagline'|trans }}</p>
+    <section class="hero p-4 pb-0">
+        <h1>{{ 'app.welcome'|trans|raw }}</h1>
+        <p>{{ 'app.tagline_html'|trans|raw }}</p>
         {% if not app.user %}
             <div class="d-flex justify-content-center gap-3">
-                <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg">{{ 'home.actions.create_citadel'|trans }}</a>
-                <a href="{{ path('app_login') }}" class="btn btn-outline-light btn-lg">{{ 'home.actions.login'|trans }}</a>
+                <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg">{{ 'home.actions.create_citadel'|trans|raw }}</a>
+                <a href="{{ path('app_login') }}" class="btn btn-outline-light btn-lg">{{ 'home.actions.login'|trans|raw }}</a>
             </div>
         {% endif %}
     </section>
 
     <section class="features">
         <div class="row">
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <h3>{{ 'home.features.data_control.title'|trans }}</h3>
-                    <p>{{ 'home.features.data_control.description'|trans }}</p>
+            <div class="col-md-4 mb-3">
+                <div class="glass-panel glass-panel-glow p-4 h-100">
+                    <h3>{{ 'home.features.data_control.title'|trans|raw }}</h3>
+                    <p>{{ 'home.features.data_control.description'|trans|raw }}</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <h3>{{ 'home.features.ai_collab.title'|trans }}</h3>
-                    <p>{{ 'home.features.ai_collab.description'|trans }}</p>
+            <div class="col-md-4 mb-3">
+                <div class="glass-panel glass-panel-glow p-4 h-100">
+                    <h3>{{ 'home.features.easy_to_start.title'|trans|raw }}</h3>
+                    <p>{{ 'home.features.easy_to_start.description'|trans|raw }}</p>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <h3>{{ 'home.features.decentralized.title'|trans }}</h3>
-                    <p>{{ 'home.features.decentralized.description'|trans }}</p>
+            <div class="col-md-4 mb-3">
+                <div class="glass-panel glass-panel-glow p-4 h-100">
+                    <h3>{{ 'home.features.decentralized.title'|trans|raw }}</h3>
+                    <p>{{ 'home.features.decentralized.description'|trans|raw }}</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="glass-panel glass-panel-glow p-4 h-100">
+                    <h3>{{ 'home.features.open_source.title'|trans|raw }}</h3>
+                    <p>{{ 'home.features.open_source.description'|trans|raw }}</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="glass-panel glass-panel-glow p-4 h-100">
+                    <h3>{{ 'home.features.ai_collab.title'|trans|raw }}</h3>
+                    <p>{{ 'home.features.ai_collab.description'|trans|raw }}</p>
                 </div>
             </div>
         </div>

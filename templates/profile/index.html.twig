@@ -20,46 +20,52 @@
         'password_error': 'profile.password.error'|trans,
         'connection_error': 'profile.error.connection'|trans
     }|json_encode|e('html_attr') }}">
-<div class="container py-4">
+<div class="container">
     <h1 class="mb-4">{{ 'profile.title'|trans }}</h1>
 
-    {# Profile Info #}
-    <div class="card glass-panel mb-4">
-        <div class="card-header text-cyber border-success border-1 border-bottom">
-            {{ 'profile.info'|trans }}
-        </div>
-        <div class="card-body">
-            <p><strong>{{ 'profile.username'|trans }}:</strong> {{ user.username }}</p>
-            <p><strong>{{ 'profile.email.label'|trans }}:</strong> <span id="current-email">{{ user.email }}</span></p>
-        </div>
-    </div>
-
-    {# Email Form #}
-    <div class="card glass-panel mb-4">
-        <div class="card-header text-cyber border-success border-1 border-bottom">
-            {{ 'profile.email.change'|trans }}
-        </div>
-        <div class="card-body">
-            <form id="email-form" action="{{ path('app_profile_email') }}" method="post">
-                <div class="mb-3">
-                    <label for="email" class="form-label">{{ 'profile.email.new'|trans }}</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
+    <div class="row">
+        <div class="col-12 mb-4">
+            {# Profile Info #}
+            <div class="card glass-panel mb-4">
+                <div class="card-header text-cyber border-success border-1 border-bottom">
+                    {{ 'profile.info'|trans }}
                 </div>
-                <button type="submit" class="btn btn-cyber">
-                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                    {{ 'profile.email.update'|trans }}
-                </button>
-            </form>
+                <div class="card-body body-color">
+                    <p><span>{{ 'profile.username'|trans }}</span><br><code>{{ user.username }}</code></p>
+                    <p><span>{{ 'profile.email.label'|trans }}</span><br><code id="current-email">{{ user.email }}</code></p>
+                </div>
+            </div>
         </div>
-    </div>
+    
+        <div class="col-12 col-md-6 mb-4">
+            {# Email Form #}
+            <div class="card glass-panel mb-4">
+                <div class="card-header text-cyber border-success border-1 border-bottom">
+                    {{ 'profile.email.change'|trans }}
+                </div>
+                <div class="card-body body-color">
+                    <form id="email-form" action="{{ path('app_profile_email') }}" method="post">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">{{ 'profile.email.new'|trans }}</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-cyber float-end">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            {{ 'profile.email.update'|trans }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
-    {# Password Form #}
-    <div class="card glass-panel mb-4">
-        <div class="card-header text-cyber border-success border-1 border-bottom">
-            {{ 'profile.password.change'|trans }}
-        </div>
-        <div class="card-body">
-            <form id="password-form" action="{{ path('app_profile_password') }}" method="post">
+        <div class="col-12 col-md-6 mb-4">
+            {# Password Form #}
+            <div class="card glass-panel mb-4">
+                <div class="card-header text-cyber border-success border-1 border-bottom">
+                    {{ 'profile.password.change'|trans }}
+                </div>
+                <div class="card-body body-color">
+                    <form id="password-form" action="{{ path('app_profile_password') }}" method="post">
                 <div class="mb-3">
                     <label for="current_password" class="form-label">{{ 'profile.password.current'|trans }}</label>
                     <input type="password" class="form-control" id="current_password" name="current_password" required>
@@ -72,7 +78,7 @@
                     <label for="confirm_password" class="form-label">{{ 'profile.password.confirm'|trans }}</label>
                     <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                 </div>
-                <button type="submit" class="btn btn-cyber">
+                <button type="submit" class="btn btn-sm btn-cyber float-end">
                     <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                     {{ 'profile.password.update'|trans }}
                 </button>

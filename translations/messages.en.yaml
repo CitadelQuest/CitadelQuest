@@ -2,9 +2,10 @@ app:
     name: 'CitadelQuest'
     welcome: 'Welcome to CitadelQuest'
     tagline: 'Your personal secure space for AI-human collaboration. Built with privacy at its core and your data sovereignty in mind.'
+    tagline_html: 'Your personal secure space for AI-human collaboration.<br/>Built with privacy at its core and your data sovereignty in mind.'
     footer:
         made_with_love: 'Made with 💜 by Human & AI'
-        version: 'Version %version%'
+        version: '%version%'
 
 auth:
     login:
@@ -79,14 +80,20 @@ home:
         login: 'Login'
     features:
         data_control:
-            title: 'Your Data, Your Control'
-            description: 'End-to-end encryption and personal database ensure your data stays yours.'
+            title: 'Your Data,<br/>Your Full Control'
+            description: '<p>End-to-end encryption and personal database ensure your data stays yours.</p><p>You decide, who has access to your shared data.</p><p><a href="/backups">Backups</a>. Manual and automatic.</p><p>Support for account migration from one Citadel to another.</p>'
         ai_collab:
             title: 'AI Collaboration'
-            description: 'Work with AI assistants while maintaining complete data sovereignty.'
+            description: '<p>Go through everyday tasks, long-term projects or experience digital adventures with your trusted personal AI companions, while maintaining data sovereignty.</p>'
         decentralized:
-            title: 'Decentralized'
-            description: 'Self-hosted and independent. No external service dependencies.'
+            title: 'Decentralized,<br/>Free'
+            description: '<p>Self-hosted and independent.</p><p>No third-parties monitoring and monetizing your privacy.</p><p>No third-party cookies.</p><p>No ads.</p><p>Just you and your friends - connected.</p>'
+        open_source:
+            title: 'Open Source'
+            description: '<p>CitadelQuest is an open-source project, hosted on <a href="https://github.com/CitadelQuest/CitadelQuest" target="_blank" class="text-cyber" title="CitadelQuest GitHub">GitHub</a>, with main purpose to provide general public good, instead of profiting on user`s privacy.</p><p>We are committed to provide free software to users who share our vision of better, connected world.</p>'
+        easy_to_start:
+            title: 'Easy to Start'
+            description: '<p>CitadelQuest is designed to be easy to start, even for non-technical people.</p><p><strong>Do you already have your own domain and website?</strong></p><p>Perfect! <span class="text-cyber">You can install your own CitadelQuest on subdomain and start using it right away.</span></p><p>..or you can stay here, at our public <a href="https://base.citadelquest.com/" target="_blank" class="text-cyber" title="CitadelQuest Base">CitadelQuest Base</a>, and give it a try - effortlessly and free.</p>'
 
 navigation:
     user_menu:

@@ -30,23 +30,87 @@
 html, body {
     margin: 0;
     padding: 0;
+    
     font-family: vars.$font-primary;
-    font-size: 16px;
+    font-size: vars.$base-font-size;
+    font-weight: vars.$font-weight-regular !important;
     line-height: 1.5;
-    color: colors.$text-light;
+    
+    color: colors.$body-color;
     background-color: colors.$body-bg;
+
     overflow-x: hidden;
     cursor: default;
 }
 
-.h1 {
-    font-size: 1.4rem !important;
+.body-color {
+    color: colors.$body-color !important;
 }
-h1, h2, h3, h4, h5, h6 {
-    background: linear-gradient(45deg, colors.$cyber, bs.$success) !important;
+.body-bg {
+    background-color: colors.$body-bg !important;
+}
+
+h1, .h1 {
+    font-size: (vars.$base-font-size * 2) !important;
+}
+h2, .h2 {
+    font-size: (vars.$base-font-size * 1.8) !important;
+}
+h3, .h3 {
+    font-size: (vars.$base-font-size * 1.6) !important;
+}
+h4, .h4 {
+    font-size: (vars.$base-font-size * 1.4) !important;
+}
+h5, .h5 {
+    font-size: (vars.$base-font-size * 1.2) !important;
+}
+h6, .h6 {
+    font-size: (vars.$base-font-size * 1.1) !important;
+}
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    background: linear-gradient(135deg, colors.$cyber, bs.$success) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
+}
+
+a {
+    color: colors.$cyber;
+    text-decoration: none;
+    
+    &:hover {
+        // glow effect
+        text-shadow: 0 0 (vars.$base-font-size * 0.6) rgba(colors.$cyber, 0.8);
+        transition: all vars.$transition-quick;
+        cursor: pointer;        
+    }
+}
+
+code {
+    font-family: monospace;
+    font-size: (vars.$base-font-size * 0.7);
+    color: colors.$cyber;
+    background-color: rgba(colors.$dark, 0.5);
+    padding: vars.$spacing-unit/2;
+    border-radius: vars.$border-radius;
+}
+
+small, .small {
+    font-size: (vars.$base-font-size * 0.8);
+    font-weight: vars.$font-weight-light;
+}
+
+strong, .strong {
+    font-weight: vars.$font-weight-bold;
+}
+
+.text-muted {
+    color: colors.$text-muted !important;
+}
+
+.clearfix, .clear-both {
+    clear: both;
 }
 
 // Interactive Element Mixin
@@ -67,23 +131,18 @@ h1, h2, h3, h4, h5, h6 {
 
 // Hero section
 .hero {
-    padding: 4rem 0;
+    padding: vars.$spacing-unit * 4;
     text-align: center;
     
     h1 {
-        font-size: 3.5rem;
-        margin-bottom: 1.5rem;
-        background: linear-gradient(45deg, var(--cyber), var(--success));
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-size: vars.$base-font-size * 2.5;
+        margin-bottom: vars.$spacing-unit * 2;
     }
     
     p {
-        font-size: 1.2rem;
-        color: rgba(255, 255, 255, 0.8);
-        max-width: 800px;
-        margin: 0 auto 2rem;
+        font-size: vars.$base-font-size * 1.2;
+        max-width: 80%;
+        margin: 0 auto vars.$spacing-unit;
     }
 }
 

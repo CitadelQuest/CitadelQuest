@@ -4,28 +4,32 @@
 
 // Buttons Component
 .btn {
-    border-radius: 6px;
-    padding: 0.5rem 1.5rem;
-    transition: all vars.$transition-quick;
-    font-weight: 500;
-    
-    &.btn-primary {
-        background: bs.$primary;
-        border-color: bs.$primary;
-        
-        &:hover {
-            background: darken(bs.$primary, 10%);
-            border-color: darken(bs.$primary, 10%);
-            transform: translateY(-1px);
-        }
+    padding: (vars.$base-font-size * 0.5) (vars.$base-font-size * 1.5) !important;
+    transition: all vars.$transition-quick !important;
+    font-size: vars.$base-font-size !important;
+
+    &.btn-sm {
+        padding: (vars.$base-font-size * 0.3) (vars.$base-font-size * 0.9) !important;
+        font-size: (vars.$base-font-size * 0.8) !important;
+        padding-top: (vars.$base-font-size * 0.4) !important;
     }
     
-    &.btn-outline-light {
-        border-width: 2px;
+    &.btn-primary {
+        background: colors.$primary;
+        border-color: colors.$primary;
+        color: colors.$dark;
         
         &:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-1px);
+            box-shadow: none;
+        }
+    }
+    &.btn-outline-primary {
+        color: colors.$primary;
+        border-color: colors.$primary;
+        
+        &:hover {
+            background: colors.$primary;
+            color: colors.$dark;
         }
     }
     
@@ -36,8 +40,7 @@
         border: 2px solid colors.$cyber;
         color: colors.$cyber;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        font-size: 0.9rem;
+        letter-spacing: (vars.$base-font-size * 0.1);
         
         &::before {
             content: '';
@@ -54,7 +57,39 @@
         }
         
         &:hover {
-            color: colors.$text-on-cyber;
+            color: colors.$secondary;
+            &::before {
+                transform: scaleX(1);
+                transform-origin: left;
+            }
+        }
+    }
+
+    // Light variant
+    &.btn-light {
+        position: relative;
+        background: rgba(colors.$light, 0.12);
+        border: 2px solid colors.$light;
+        color: colors.$light;
+        text-transform: uppercase;
+        letter-spacing: (vars.$base-font-size * 0.1);
+        
+        &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: colors.$light;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+            z-index: -1;
+        }
+        
+        &:hover {
+            color: colors.$secondary;
             &::before {
                 transform: scaleX(1);
                 transform-origin: left;

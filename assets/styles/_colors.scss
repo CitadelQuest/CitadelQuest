@@ -4,11 +4,12 @@ $cyber: #95ec86;
 $cyber-rgb: 149, 236, 134;
 
 // Bootstrap Colors
-$primary: #0d6efd;
+$primary: $cyber;
+$primary-rgb: $cyber-rgb;
 $primary-dark: darken($primary, 20%);
 $secondary: #6c757d;
-$success: #198754;
-$info: #0dcaf0;
+$success: #0b8a4e;
+$info: #0d8af0;
 $warning: #ffc107;
 $danger: #dc3545;
 $light: #f8f9fa;
@@ -17,7 +18,7 @@ $dark: #212529;
 
 
 // Body Colors
-$body-color: #aab8c5;
+$body-color: #ccd3da;
 $body-color-rgb: 170, 184, 197;
 $body-bg: #343a40;
 $body-bg-rgb: 52, 58, 64;
@@ -42,6 +43,7 @@ $border-color-translucent: #8391a2;
 $surface-dark: rgba($secondary-bg, 0.5);
 $text-light: $emphasis-color;
 $text-secondary: $secondary-color;
+$text-muted: $secondary;
 
 // Special Text Colors
 $text-on-cyber: $body-bg;
@@ -52,7 +54,11 @@ $text-on-cyber: $body-bg;
     --cyber-rgb: #{$cyber-rgb};
     --text-on-cyber: #{$text-on-cyber};
     --primary: #{$primary};
+    --primary-rgb: #{$primary-rgb};
     --primary-dark: #{$primary-dark};
+    --bs-primary: #{$primary};
+    --bs-primary-rgb: #{$primary-rgb};
+    --bs-primary-dark: #{$primary-dark};
     --secondary: #{$secondary};
     --success: #{$success};
     --info: #{$info};
