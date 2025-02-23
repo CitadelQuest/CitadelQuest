@@ -27,8 +27,8 @@
         <div class="col-12 mb-4">
             {# Profile Info #}
             <div class="card glass-panel mb-4">
-                <div class="card-header text-cyber border-success border-1 border-bottom">
-                    {{ 'profile.info'|trans }}
+                <div class="card-header bg-cyber-g border-success border-1 border-bottom">
+                    <strong>{{ 'profile.info'|trans }}</strong>
                 </div>
                 <div class="card-body body-color">
                     <p><span>{{ 'profile.username'|trans }}</span><br><code>{{ user.username }}</code></p>
@@ -39,9 +39,9 @@
     
         <div class="col-12 col-md-6 mb-4">
             {# Email Form #}
-            <div class="card glass-panel mb-4">
-                <div class="card-header text-cyber border-success border-1 border-bottom">
-                    {{ 'profile.email.change'|trans }}
+            <div class="card glass-panel glass-panel-glow mb-4">
+                <div class="card-header bg-cyber-g border-success border-1 border-bottom">
+                    <strong>{{ 'profile.email.change'|trans }}</strong>
                 </div>
                 <div class="card-body body-color">
                     <form id="email-form" action="{{ path('app_profile_email') }}" method="post">
@@ -60,9 +60,9 @@
 
         <div class="col-12 col-md-6 mb-4">
             {# Password Form #}
-            <div class="card glass-panel mb-4">
-                <div class="card-header text-cyber border-success border-1 border-bottom">
-                    {{ 'profile.password.change'|trans }}
+            <div class="card glass-panel glass-panel-glow mb-4">
+                <div class="card-header bg-cyber-g border-success border-1 border-bottom">
+                    <strong>{{ 'profile.password.change'|trans }}</strong>
                 </div>
                 <div class="card-body body-color">
                     <form id="password-form" action="{{ path('app_profile_password') }}" method="post">

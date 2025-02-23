@@ -35,12 +35,9 @@
         {% if allFlashes|length > 0 %}
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const { ToastService } = await import('{{ asset('build/js/toast.js') }}');
-                const toast = new ToastService();
-                
                 {% for type, messages in allFlashes %}
                     {% for message in messages %}
-                        toast.{{ type }}({{ message|json_encode|raw }});
+                        window.toast.{{ type }}({{ message|json_encode|raw }});
                     {% endfor %}
                 {% endfor %}
             });

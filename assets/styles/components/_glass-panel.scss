@@ -8,7 +8,7 @@
     transition: transform vars.$transition-quick, box-shadow vars.$transition-quick;
     
     &:hover {
-        transform: translateY(-2px);
+        transform: none;//translateY(-2px);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
     }
 
@@ -19,7 +19,7 @@
 
     &.glass-panel-glow {
         &:hover {
-            box-shadow: 0 8px 32px rgba(colors.$cyber, 0.2);
+            box-shadow: 0 0 2rem rgba(colors.$cyber, 0.2);
         }
     }
 }

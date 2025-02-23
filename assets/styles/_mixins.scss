@@ -3,7 +3,7 @@
 
 // Glass Effect Mixin
 @mixin glass-panel {
-    background: $surface-dark;
+    background: $surface-light;
     backdrop-filter: blur(vars.$glass-blur);
     -webkit-backdrop-filter: blur(vars.$glass-blur);
     border: vars.$glass-border;

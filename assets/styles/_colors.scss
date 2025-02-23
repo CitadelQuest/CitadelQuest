@@ -40,7 +40,10 @@ $border-color: #464f5b;
 $border-color-translucent: #8391a2;
 
 // Surface Colors
-$surface-dark: rgba($secondary-bg, 0.5);
+$surface-light: rgba($secondary-bg, 0.5);
+$surface-dark: rgba($dark, 0.5);
+
+// Text Colors
 $text-light: $emphasis-color;
 $text-secondary: $secondary-color;
 $text-muted: $secondary;
@@ -52,6 +55,7 @@ $text-on-cyber: $body-bg;
 :root {
     --cyber: #{$cyber};
     --cyber-rgb: #{$cyber-rgb};
+    --cyber-g: 0;
     --text-on-cyber: #{$text-on-cyber};
     --primary: #{$primary};
     --primary-rgb: #{$primary-rgb};

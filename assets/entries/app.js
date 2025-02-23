@@ -26,6 +26,9 @@ import { initLanguageSwitcher } from '../js/ui/language-switcher';
 // Import notifications
 import '../js/shared/notifications';
 
+// Import toast
+import { ToastService } from '../js/shared/toast';
+window.toast = new ToastService();
 
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {

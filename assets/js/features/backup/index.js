@@ -1,4 +1,4 @@
-import { ToastService } from '../../shared/toast';
+// Using global window.toast service
 
 function getTranslations() {
     const container = document.querySelector('[data-translations]');
@@ -43,8 +43,7 @@ function handleDeleteBackup(event) {
         }
     })
     .catch(error => {
-        const toast = new ToastService();
-        toast.error(error.message);
+        window.toast.error(error.message);
         button.disabled = false;
         button.innerHTML = originalHtml;
     });
@@ -74,8 +73,7 @@ function handleRestoreBackup(event) {
     .then(data => {
         if (data.success) {
             // Show success message
-            const toast = new ToastService();
-            toast.success(data.message || translations.backup_restored || 'Backup restored successfully!');
+            window.toast.success(data.message || translations.backup_restored || 'Backup restored successfully!');
             
             // Reload after showing message
             setTimeout(() => window.location.reload(), 2500);
@@ -84,8 +82,7 @@ function handleRestoreBackup(event) {
         }
     })
     .catch(error => {
-        const toast = new ToastService();
-        toast.error(error.message);
+        window.toast.error(error.message);
         button.disabled = false;
         button.innerHTML = originalHtml;
     });
@@ -143,15 +140,13 @@ export function initBackup() {
             window.URL.revokeObjectURL(url);
             
             // Show success toast
-            const toast = new ToastService();
-            toast.success(translations.backup_created || 'Backup created successfully!');
+            window.toast.success(translations.backup_created || 'Backup created successfully!');
             
             // Reload page after showing message
             setTimeout(() => window.location.reload(), 2500);
         } catch (error) {
             console.error('Backup failed:', error);
-            const toast = new ToastService();
-            toast.error(translations.failed_create || 'Failed to create backup');
+            window.toast.error(translations.failed_create || 'Failed to create backup');
             btn.innerHTML = originalBtnText;
             btn.disabled = false;
             isProcessing = false;

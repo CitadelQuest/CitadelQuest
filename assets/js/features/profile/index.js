@@ -1,4 +1,4 @@
-import { ToastService } from '../../shared/toast';
+// Using global window.toast service
 
 export class ProfileManager {
     constructor() {
@@ -97,19 +97,18 @@ export class ProfileManager {
     }
 
     showToast(type, message, title = null) {
-        const toast = new ToastService();
         switch(type) {
             case 'success':
-                toast.success(message, title);
+                window.toast.success(message, title);
                 break;
             case 'error':
-                toast.error(message, title);
+                window.toast.error(message, title);
                 break;
             case 'warning':
-                toast.warning(message, title);
+                window.toast.warning(message, title);
                 break;
             default:
-                toast.info(message, title);
+                window.toast.info(message, title);
         }
     }
 }

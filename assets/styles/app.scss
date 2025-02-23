@@ -9,17 +9,36 @@
 @use "colors" as colors;
 @use "background" as bg;
 @use "mixins" as mix;
-
 // Components
-@use "./components/glass-panel";
 @use "./components/buttons";
 @use "./components/navigation";
+@use "./components/glass-panel";
 @use "./notifications";
 
-// Color Utilities
+// Glass panel hover effect
+.glass-panel {
+    .bg-cyber-g {
+        background-image: linear-gradient(135deg, transparent, colors.$cyber) !important;
+        background-size: 800% 100%;
+        transition: background-size vars.$transition-quick ease-in-out;
+    }
+    
+    &:hover {
+        .bg-cyber-g {
+            background-size: 150% 100%;
+        }
+    }   
+}
+
 .bg-cyber {
     background-color: colors.$cyber !important;
     color: colors.$text-on-cyber !important;
+    transition: all vars.$transition-quick;
+}
+
+.bg-cyber-g {
+    color: colors.$cyber !important;
+    transition: all vars.$transition-quick;
 }
 
 .text-cyber {
@@ -135,7 +154,7 @@ strong, .strong {
     text-align: center;
     
     h1 {
-        font-size: vars.$base-font-size * 2.5;
+        font-size: vars.$base-font-size * 2.5 !important;
         margin-bottom: vars.$spacing-unit * 2;
     }
     
