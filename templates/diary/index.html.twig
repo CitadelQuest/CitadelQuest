@@ -15,7 +15,7 @@
         {% for entry in entries %}
             <div class="col-md-6 mb-4">
                 <div class="card glass-panel h-100">
-                    <div class="card-body body-color">
+                    <div class="card-body body-color bg-cyber-g rounded">
                         <div class="d-flex justify-content-between">
                             <h4 class="card-title">
                                 <a href="{{ path('diary_show', {id: entry.id}) }}" class="text-decoration-none">
@@ -36,7 +36,7 @@
                         {% if entry.tags %}
                             <div class="mt-2">
                                 {% for tag in entry.tags %}
-                                    <span class="badge bg-light text-secondary opacity-25 me-1">{{ tag }}</span>
+                                    <span class="badge bg-light text-secondary opacity-50 me-1">{{ tag }}</span>
                                 {% endfor %}
                             </div>
                         {% endif %}

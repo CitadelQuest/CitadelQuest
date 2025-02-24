@@ -18,30 +18,35 @@ class DiaryService
         string $title,
         string $content,
         ?string $mood = null,
-        array|string|null $tags = null
+        array|string|null $tags = null,
+        ?bool $isEncrypted = null,
+        ?string $contentFormatted = null
     ): DiaryEntry {
         $entry = new DiaryEntry();
         $entry
             ->setTitle($title)
             ->setContent($content)
             ->setMood($mood)
-            ->setTags($tags);
+            ->setTags($tags)
+            ->setIsEncrypted($isEncrypted ?? false)
+            ->setContentFormatted($contentFormatted);
 
         // Store in user's database
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
         $userDb->executeStatement(
-            'INSERT INTO diary_entries (id, title, content, mood, tags, is_encrypted, is_favorite, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO diary_entries (id, title, content, created_at, updated_at, is_encrypted, is_favorite, tags, mood, content_formatted) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $entry->getId(),
                 $entry->getTitle(),
                 $entry->getContent(),
-                $entry->getMood(),
-                $entry->getTags() ? implode(',', $entry->getTags()) : null,
+                $entry->getCreatedAt()->format('Y-m-d H:i:s'),
+                $entry->getUpdatedAt()->format('Y-m-d H:i:s'),
                 $entry->isEncrypted() ? 1 : 0,
                 $entry->isFavorite() ? 1 : 0,
-                $entry->getCreatedAt()->format('Y-m-d H:i:s'),
-                $entry->getUpdatedAt()->format('Y-m-d H:i:s')
+                $entry->getTags() ? implode(',', $entry->getTags()) : null,
+                $entry->getMood(),
+                $entry->getContentFormatted()
             ]
         );
 
@@ -105,8 +110,9 @@ class DiaryService
             ->setId($row['id'])
             ->setTitle($row['title'])
             ->setContent($row['content'])
+            ->setContentFormatted($row['content_formatted'])
             ->setMood($row['mood'])
-            ->setTags($row['tags'])
+            ->setTags($row['tags'] ? explode(',', $row['tags']) : null)
             ->setIsEncrypted((bool)$row['is_encrypted'])
             ->setIsFavorite((bool)$row['is_favorite'])
             ->setCreatedAt(new \DateTimeImmutable($row['created_at']))
@@ -160,8 +166,11 @@ class DiaryService
         if (isset($data['content'])) {
             $entry->setContent($data['content']);
         }
-        if (isset($data['mood'])) {
-            $entry->setMood($data['mood']);
+        if (isset($data['contentFormatted'])) {
+            $entry->setContentFormatted($data['contentFormatted']);
+        }
+        if (array_key_exists('mood', $data)) {
+            $entry->setMood($data['mood'] ?: null);
         }
         if (isset($data['tags'])) {
             $entry->setTags($data['tags']);
@@ -170,13 +179,14 @@ class DiaryService
         // Update in database
         $userDb->executeStatement(
             'UPDATE diary_entries 
-             SET title = ?, content = ?, mood = ?, tags = ?, updated_at = CURRENT_TIMESTAMP 
+             SET title = ?, content = ?, content_formatted = ?, mood = ?, tags = ?, updated_at = CURRENT_TIMESTAMP 
              WHERE id = ?',
             [
                 $entry->getTitle(),
                 $entry->getContent(),
+                $entry->getContentFormatted(),
                 $entry->getMood(),
-                $entry->getTags(),
+                $entry->getTags() ? implode(',', $entry->getTags()) : null,
                 $id
             ]
         );

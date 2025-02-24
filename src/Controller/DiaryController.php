@@ -38,7 +38,7 @@ class DiaryController extends AbstractController
         return $this->render('diary/new.html.twig');
     }
 
-    #[Route('/{id}', name: 'diary_show')]
+    #[Route('/{id}', name: 'diary_show', methods: ['GET'])]
     public function show(string $id): Response
     {
         $entry = $this->diaryService->findById($this->getUser(), $id);
@@ -48,6 +48,20 @@ class DiaryController extends AbstractController
         }
         
         return $this->render('diary/show.html.twig', [
+            'entry' => $entry
+        ]);
+    }
+
+    #[Route('/{id}/edit', name: 'diary_edit', methods: ['GET'])]
+    public function edit(string $id): Response
+    {
+        $entry = $this->diaryService->findById($this->getUser(), $id);
+
+        if (!$entry) {
+            throw $this->createNotFoundException('Diary entry not found');
+        }
+
+        return $this->render('diary/edit.html.twig', [
             'entry' => $entry
         ]);
     }

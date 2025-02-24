@@ -9,9 +9,10 @@ class DiaryEntry implements JsonSerializable
     private ?string $id = null;
     private string $title;
     private string $content;
+    private ?string $contentFormatted = null;
     private \DateTimeImmutable $createdAt;
     private \DateTimeImmutable $updatedAt;
-    private bool $isEncrypted = true;
+    private bool $isEncrypted = false;
     private bool $isFavorite = false;
     private ?array $tags = null;
     private ?string $mood = null;
@@ -53,6 +54,17 @@ class DiaryEntry implements JsonSerializable
     public function setContent(string $content): self
     {
         $this->content = $content;
+        return $this;
+    }
+
+    public function getContentFormatted(): ?string
+    {
+        return $this->contentFormatted;
+    }
+
+    public function setContentFormatted(?string $contentFormatted): self
+    {
+        $this->contentFormatted = $contentFormatted;
         return $this;
     }
 

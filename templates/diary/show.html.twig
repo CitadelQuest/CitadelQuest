@@ -19,7 +19,7 @@
                                     <i class="mdi mdi-dots-vertical"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="#" id="editEntry">Edit</a></li>
+                                    <li><a class="dropdown-item" href="{{ path('diary_edit', {id: entry.id}) }}">Edit</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item text-danger" href="#" id="deleteEntry">Delete</a></li>
                                 </ul>
@@ -38,7 +38,7 @@
                     </div>
 
                     <div class="card-text mb-4">
-                        {{ entry.content|nl2br }}
+                        {{ entry.contentFormatted|default(entry.content|nl2br)|raw }}
                     </div>
 
                     {% if entry.tags %}
@@ -50,7 +50,7 @@
                     {% endif %}
 
                     <div class="mt-4">
-                        <a href="{{ path('diary_index') }}" class="btn btn-secondary">
+                        <a href="{{ path('diary_index') }}" class="btn btn-sm btn-secondary">
                             <i class="mdi mdi-arrow-left"></i> Back to Diary
                         </a>
                     </div>

@@ -16,10 +16,7 @@
                             <label for="title" class="form-label">Title</label>
                             <input type="text" class="form-control" id="title" required>
                         </div>
-                        <div class="mb-3">
-                            <label for="content" class="form-label">Content</label>
-                            <textarea class="form-control" id="content" rows="10" required></textarea>
-                        </div>
+                        {% include 'diary/_rich_editor.html.twig' with { content: '' } %}
                         <div class="mb-3">
                             <label for="mood" class="form-label">Mood</label>
                             <select class="form-select" id="mood">
@@ -54,9 +51,11 @@
 
 {% block javascripts %}
 {{ parent() }}
+{% block rich_editor_js %}{% endblock %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('newEntryForm');
+    const editor = document.getElementById('editor');
     
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -68,7 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
         const data = {
             title: document.getElementById('title').value,
-            content: document.getElementById('content').value,
+            content: editor.innerText,
+            contentFormatted: editor.innerHTML,
             mood: document.getElementById('mood').value,
             tags: tags,
             isEncrypted: document.getElementById('isEncrypted').checked

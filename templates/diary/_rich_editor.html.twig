@@ -1,0 +1,66 @@
+{% block rich_editor %}
+    <div class="mb-3">
+        <div class="toolbar btn-group mb-3 float-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-bottom-0 border-bottom-0" data-command="bold">
+                <i class="mdi mdi-format-bold"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary border-bottom-0" data-command="italic">
+                <i class="mdi mdi-format-italic"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary border-bottom-0" data-command="underline">
+                <i class="mdi mdi-format-underline"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary border-bottom-0" data-command="insertUnorderedList">
+                <i class="mdi mdi-format-list-bulleted"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-bottom-0 border-bottom-0" data-command="insertOrderedList">
+                <i class="mdi mdi-format-list-numbered"></i>
+            </button>
+        </div>
+
+        <label for="content" class="form-label">Content</label>
+        <div id="editor" class="form-control rounded-top-0 rounded-start-1" style="min-height: 200px;" contenteditable="true">
+            {{ content|raw }}
+        </div>
+        <input type="hidden" id="content" name="content">
+        <input type="hidden" id="contentFormatted" name="contentFormatted">
+    </div>
+{% endblock %}
+
+{% block rich_editor_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editor = document.getElementById('editor');
+    const form = document.querySelector('form');
+    const contentInput = document.getElementById('content');
+    const contentFormattedInput = document.getElementById('contentFormatted');
+
+    // Remove any existing click listeners
+    document.querySelectorAll('[data-command]').forEach(button => {
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+    });
+
+    // Add fresh click listeners
+    document.querySelectorAll('[data-command]').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent form submission
+            const command = button.getAttribute('data-command');
+            try {
+                document.execCommand(command, false, null);
+            } catch (error) {
+                console.error('Error executing command:', error);
+            }
+            editor.focus();
+        });
+    });
+
+    // Form submission
+    form.addEventListener('submit', async function(e) {
+        // Store both plain text and formatted content
+        contentInput.value = editor.innerText;
+        contentFormattedInput.value = editor.innerHTML;
+    });
+});
+</script>
+{% endblock %}

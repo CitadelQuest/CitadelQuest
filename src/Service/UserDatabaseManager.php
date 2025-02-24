@@ -121,10 +121,11 @@ class UserDatabaseManager
                 content TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                is_encrypted BOOLEAN DEFAULT 1,
+                is_encrypted BOOLEAN DEFAULT 0,
                 is_favorite BOOLEAN DEFAULT 0,
                 tags TEXT DEFAULT NULL,
-                mood VARCHAR(50) DEFAULT NULL
+                mood VARCHAR(50) DEFAULT NULL,
+                content_formatted TEXT
             )',
             'CREATE INDEX IF NOT EXISTS idx_diary_entries_created_at ON diary_entries(created_at)',
             'CREATE INDEX IF NOT EXISTS idx_diary_entries_is_favorite ON diary_entries(is_favorite)'
