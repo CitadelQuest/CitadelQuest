@@ -114,7 +114,20 @@ class UserDatabaseManager
                 type VARCHAR(50) NOT NULL,
                 is_read BOOLEAN DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )'
+            )',
+            'CREATE TABLE IF NOT EXISTS diary_entries (
+                id VARCHAR(36) PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                is_encrypted BOOLEAN DEFAULT 1,
+                is_favorite BOOLEAN DEFAULT 0,
+                tags TEXT DEFAULT NULL,
+                mood VARCHAR(50) DEFAULT NULL
+            )',
+            'CREATE INDEX IF NOT EXISTS idx_diary_entries_created_at ON diary_entries(created_at)',
+            'CREATE INDEX IF NOT EXISTS idx_diary_entries_is_favorite ON diary_entries(is_favorite)'
         ];
 
         foreach ($schema as $query) {
