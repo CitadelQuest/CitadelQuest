@@ -13,6 +13,7 @@
 @use "./components/buttons";
 @use "./components/navigation";
 @use "./components/glass-panel";
+@use "./components/diary";
 @use "./notifications";
 
 // Glass panel hover effect
@@ -22,12 +23,22 @@
         background-size: 800% 100%;
         transition: background-size vars.$transition-quick ease-in-out;
     }
+
+    .bg-cyber-g-light {
+        background-image: linear-gradient(135deg, transparent, rgba(colors.$cyber, 0.5)) !important;
+        background-size: 800% 100%;
+        transition: background-size vars.$transition-quick ease-in-out;
+    }
     
     &:hover {
         .bg-cyber-g {
             background-size: 150% 100%;
         }
-    }   
+        
+        .bg-cyber-g-light {
+            background-size: 350% 100%;
+        }
+    }
 }
 
 .bg-cyber {
@@ -43,6 +54,10 @@
 
 .text-cyber {
     color: colors.$cyber !important;
+}
+
+.glow-cyber, .cyber-glow {
+    box-shadow: 0 0 2rem rgba(colors.$cyber, 0.2);
 }
 
 // Global styles
@@ -130,6 +145,10 @@ strong, .strong {
 
 .clearfix, .clear-both {
     clear: both;
+}
+
+.cursor-pointer {
+    cursor: pointer !important;
 }
 
 // Interactive Element Mixin

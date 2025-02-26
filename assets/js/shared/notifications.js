@@ -155,9 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Event Handlers
-        eventSource.addEventListener('heartbeat', (event) => {
+        /* eventSource.addEventListener('heartbeat', (event) => {
             console.debug('Heartbeat received:', JSON.parse(event.data));
-        });
+        }); */
 
         eventSource.addEventListener('debug', (event) => {
             console.debug('Debug event:', JSON.parse(event.data));

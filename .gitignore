@@ -46,5 +46,5 @@ Thumbs.db
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
-VISIONS.md
-DIARY-FEATURE.md
+#VISIONS.md
+#DIARY-FEATURE.md

@@ -155,6 +155,7 @@ class DiaryEntry implements JsonSerializable
             'isFavorite' => $this->isFavorite,
             'tags' => $this->tags,
             'mood' => $this->mood,
+            'contentFormatted' => $this->contentFormatted,
         ];
     }
 }

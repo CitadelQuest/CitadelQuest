@@ -11,43 +11,49 @@
         </a>
     </div>
 
-    <div class="row">
+    <div class="diary-entries">
         {% for entry in entries %}
-            <div class="col-md-6 mb-4">
-                <div class="card glass-panel h-100">
-                    <div class="card-body body-color bg-cyber-g rounded">
-                        <div class="d-flex justify-content-between">
-                            <h4 class="card-title">
-                                <a href="{{ path('diary_show', {id: entry.id}) }}" class="text-decoration-none">
-                                    {{ entry.title }}
-                                </a>
-                            </h4>
+            <div class="diary-entry-card glass-panel mb-4" data-entry-id="{{ entry.id }}">
+                <div class="card-body body-color rounded p-4">
+                    <div class="entry-header d-flex justify-content-between">
+                        <h4 class="entry-title">
+                            {{ entry.title }}
+                        </h4>
+                        <div class="entry-actions">
                             {% if entry.isFavorite %}
-                                <i class="mdi mdi-star text-warning"></i>
+                                <i class="mdi mdi-star text-warning favorite-static-icon" title="Favorite"></i>
+                            {% else %}
+                                <i class="mdi mdi-star text-muted favorite-static-icon" title="Not favorite"></i>
                             {% endif %}
+                            <span id="toggleFavorite" class="cursor-pointer p-0 me-2 d-none" title="Toggle favorite">
+                                <i class="mdi mdi-star {% if entry.isFavorite %}text-warning{% else %}text-muted{% endif %}"></i>
+                            </span>
                         </div>
-                        <span class="card-subtitle mb-2 text-muted">
+                    </div>
+                    <div class="entry-metadata mb-2">
+                        <small class="text-muted">
                             {{ entry.createdAt|date('F j, Y g:i:s a') }}
                             {% if entry.mood %}
                                 • {{ entry.mood }}
                             {% endif %}
-                        </span>
-                        <p class="card-text">{{ entry.content|striptags|slice(0, 150) }}...</p>
+                        </small>
+                    </div>
+                    <div class="entry-content-original">
+                        <p class="entry-preview">{{ entry.content|striptags|slice(0, 150) }}...</p>
                         {% if entry.tags %}
-                            <div class="mt-2">
+                            <div class="entry-tags">
                                 {% for tag in entry.tags %}
                                     <span class="badge bg-light text-secondary opacity-50 me-1">{{ tag }}</span>
                                 {% endfor %}
                             </div>
                         {% endif %}
                     </div>
+                    <div class="entry-content-expanded d-none"></div>
                 </div>
             </div>
         {% else %}
-            <div class="col-12">
-                <div class="alert glass-panel glass-panel-glow">
-                    No diary entries yet. <a href="{{ path('diary_new') }}">Create your first entry</a>!
-                </div>
+            <div class="alert glass-panel glass-panel-glow">
+                No diary entries yet. <a href="{{ path('diary_new') }}">Create your first entry</a>!
             </div>
         {% endfor %}
     </div>
@@ -56,9 +62,5 @@
 
 {% block javascripts %}
 {{ parent() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Future JavaScript for diary features
-});
-</script>
+{{ encore_entry_script_tags('diary') }}
 {% endblock %}

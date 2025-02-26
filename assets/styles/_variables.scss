@@ -1,5 +1,7 @@
 // Animation
-$transition-quick: 0.2s ease;
+$transition-duration-quick: 0.6s;
+$transition-duration-smooth: 1.2s;
+$transition-quick: 0.3s ease;
 $transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
 // Layout

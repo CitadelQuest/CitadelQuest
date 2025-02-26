@@ -60,6 +60,20 @@ class DiaryEntryApiController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/{id}', name: 'app_api_diary_get', methods: ['GET'])]
+    public function get(string $id): JsonResponse
+    {
+        $entry = $this->diaryService->findById($this->getUser(), $id);
+        
+        if (!$entry) {
+            return $this->json(['error' => 'Entry not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json([
+            'entry' => $entry->jsonSerialize()
+        ]);
+    }
+
     #[Route('/{id}/favorite', name: 'app_api_diary_toggle_favorite', methods: ['POST'])]
     public function toggleFavorite(string $id): JsonResponse
     {

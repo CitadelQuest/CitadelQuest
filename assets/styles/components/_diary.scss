@@ -1,0 +1,107 @@
+@use '../colors' as colors;
+@use '../variables' as vars;
+
+// Diary animations and transitions
+.diary-entry-card {
+    transition: transform vars.$transition-duration-quick ease-in-out,
+                opacity vars.$transition-duration-quick ease-in-out,
+                box-shadow vars.$transition-duration-quick ease-in-out;
+
+    .entry-content-original {
+        transition: opacity vars.$transition-duration-quick ease-in-out;
+        opacity: 1;
+        display: block; // Ensure it's visible by default
+    }
+
+    .entry-content-expanded {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        display: block !important; // Always keep it in the DOM flow
+        visibility: hidden; // Hide it initially
+        transition: max-height vars.$transition-duration-smooth ease-in-out,
+                    opacity vars.$transition-duration-quick ease-in-out,
+                    visibility 0s vars.$transition-duration-quick; // Delay visibility change
+    }
+
+    &.expanded {
+        .entry-content-original {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+        }
+        
+        .entry-content-expanded {
+            max-height: 2000px; // Large enough to accommodate content
+            opacity: 1;
+            visibility: visible;
+            transition: max-height vars.$transition-duration-smooth ease-in-out,
+                        opacity vars.$transition-duration-quick ease-in-out,
+                        visibility 0s; // No delay when showing
+        }
+    }
+
+    // Favorite icon transitions
+    .favorite-static-icon,
+    #toggleFavorite {
+        transition: opacity vars.$transition-duration-quick ease-in-out,
+                    transform vars.$transition-duration-quick ease-in-out;
+
+        i {
+            transition: color vars.$transition-duration-quick ease-in-out;
+        }
+
+        &.d-none {
+            opacity: 0;
+            transform: scale(0.8);
+            display: block !important; // Override Bootstrap's d-none
+            pointer-events: none; // Prevent interaction while hidden
+        }
+    }
+
+    // Loading indicator fade
+    .loading-indicator {
+        opacity: 0;
+        transition: opacity vars.$transition-duration-quick ease-in-out;
+        display: block !important; // Always keep it in the DOM
+        pointer-events: none; // Prevent interaction while loading
+        
+        &.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+
+    // Dropdown menu transitions
+    .dropdown-menu {
+        transition: opacity vars.$transition-duration-quick ease-in-out,
+                    transform vars.$transition-duration-quick ease-in-out;
+        transform-origin: top right; // Align with the menu button
+        position: absolute !important; // Ensure it stays in place
+        right: 0; // Align to the right
+        top: 100%; // Position below the trigger
+        z-index: 1000; // Ensure it appears above other content
+
+        &:not(.show) {
+            display: block !important; // Override Bootstrap
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+            visibility: hidden;
+        }
+
+        &.show {
+            opacity: 1;
+            transform: scale(1);
+            visibility: visible;
+        }
+    }
+}
+
+// Ensure smooth transitions when removing elements
+.diary-entry-card.removing {
+    transform: translateX(-100%);
+    opacity: 0;
+    transition: transform vars.$transition-duration-smooth ease-in-out,
+                opacity vars.$transition-duration-quick ease-in-out;
+}
