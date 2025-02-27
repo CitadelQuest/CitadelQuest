@@ -3,9 +3,9 @@
 
 // Diary animations and transitions
 .diary-entry-card {
-    transition: transform vars.$transition-duration-quick ease-in-out,
-                opacity vars.$transition-duration-quick ease-in-out,
-                box-shadow vars.$transition-duration-quick ease-in-out;
+    transition: transform vars.$duration-quick vars.$ease-smooth,
+                opacity vars.$duration-quick vars.$ease-smooth,
+                box-shadow vars.$duration-quick vars.$ease-smooth;
 
     .entry-content-original {
         transition: opacity vars.$transition-duration-quick ease-in-out;
@@ -19,9 +19,9 @@
         opacity: 0;
         display: block !important; // Always keep it in the DOM flow
         visibility: hidden; // Hide it initially
-        transition: max-height vars.$transition-duration-smooth ease-in-out,
-                    opacity vars.$transition-duration-quick ease-in-out,
-                    visibility 0s vars.$transition-duration-quick; // Delay visibility change
+        transition: max-height vars.$duration-smooth vars.$ease-in-out,
+                    opacity vars.$duration-quick vars.$ease-smooth,
+                    visibility 0s vars.$duration-quick; // Delay visibility change
     }
 
     &.expanded {
@@ -35,8 +35,8 @@
             max-height: 2000px; // Large enough to accommodate content
             opacity: 1;
             visibility: visible;
-            transition: max-height vars.$transition-duration-smooth ease-in-out,
-                        opacity vars.$transition-duration-quick ease-in-out,
+            transition: max-height vars.$duration-smooth vars.$ease-in-out,
+                        opacity vars.$duration-quick vars.$ease-smooth,
                         visibility 0s; // No delay when showing
         }
     }
@@ -48,7 +48,7 @@
                     transform vars.$transition-duration-quick ease-in-out;
 
         i {
-            transition: color vars.$transition-duration-quick ease-in-out;
+            transition: color vars.$duration-quick vars.$ease-smooth;
         }
 
         &.d-none {
@@ -102,6 +102,6 @@
 .diary-entry-card.removing {
     transform: translateX(-100%);
     opacity: 0;
-    transition: transform vars.$transition-duration-smooth ease-in-out,
-                opacity vars.$transition-duration-quick ease-in-out;
+    transition: transform vars.$duration-smooth vars.$ease-in-out,
+                opacity vars.$duration-quick vars.$ease-smooth;
 }

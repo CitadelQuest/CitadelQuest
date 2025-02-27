@@ -5,7 +5,7 @@
 // Buttons Component
 .btn {
     padding: (vars.$base-font-size * 0.5) (vars.$base-font-size * 1.5) !important;
-    transition: all vars.$transition-quick !important;
+    transition: all vars.$duration-quick vars.$ease-standard !important;
     font-size: vars.$base-font-size !important;
 
     &.btn-sm {
@@ -41,6 +41,9 @@
         color: colors.$cyber;
         text-transform: uppercase;
         letter-spacing: (vars.$base-font-size * 0.1);
+        opacity: 1 !important; // Ensure base opacity is always 1
+        isolation: isolate; // Create new stacking context
+        transform: translateZ(0); // Force new stacking context in older browsers
         
         &::before {
             content: '';
@@ -52,15 +55,18 @@
             background: colors.$cyber;
             transform: scaleX(0);
             transform-origin: right;
-            transition: transform 0.3s ease;
+            transition: transform vars.$duration-quick vars.$ease-standard;
             z-index: -1;
+            opacity: 1 !important; // Ensure pseudo-element opacity
         }
         
         &:hover {
             color: colors.$secondary;
+            opacity: 1 !important; // Ensure hover opacity
             &::before {
                 transform: scaleX(1);
                 transform-origin: left;
+                opacity: 1 !important;
             }
         }
     }
@@ -84,7 +90,7 @@
             background: colors.$light;
             transform: scaleX(0);
             transform-origin: right;
-            transition: transform 0.3s ease;
+            transition: transform vars.$duration-quick vars.$ease-standard;
             z-index: -1;
         }
         

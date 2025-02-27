@@ -44,7 +44,7 @@
             height: 2px;
             background: colors.$cyber;
             transform: scaleX(0);
-            transition: transform vars.$transition-smooth;
+            transition: transform vars.$duration-smooth vars.$ease-smooth;
         }
         
         &:hover, &.active {

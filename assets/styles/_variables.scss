@@ -1,8 +1,23 @@
-// Animation
-$transition-duration-quick: 0.6s;
-$transition-duration-smooth: 1.2s;
-$transition-quick: 0.3s ease;
-$transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+// Animation System
+
+// Base Durations
+$duration-instant: 0.15s;    // Micro-interactions (hover states)
+$duration-quick: 0.3s;      // Standard UI feedback
+$duration-normal: 0.4s;     // Content transitions
+$duration-smooth: 0.9s;     // Complex animations
+$duration-emphasis: 0.6s;    // Important actions (delete)
+
+// Easing Functions
+$ease-standard: ease;                                  // General purpose
+$ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);          // Smooth transitions
+$ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);          // Complex animations
+$ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55); // Playful feedback
+
+// Legacy Variables (kept for backward compatibility)
+$transition-duration-quick: $duration-normal;  // 0.4s
+$transition-duration-smooth: $duration-smooth; // 0.9s
+$transition-quick: $duration-quick $ease-standard;      // 0.3s ease
+$transition-smooth: $duration-normal $ease-smooth;      // 0.4s cubic-bezier
 
 // Layout
 $spacing-unit: 0.8rem;

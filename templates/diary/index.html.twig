@@ -6,11 +6,10 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>My Diary</h1>
-        <a href="{{ path('diary_new') }}" class="btn btn-cyber">
+        <button class="btn btn-cyber">
             <i class="mdi mdi-plus"></i> New Entry
-        </a>
+        </button>
     </div>
-
     <div class="diary-entries">
         {% for entry in entries %}
             <div class="diary-entry-card glass-panel mb-4" data-entry-id="{{ entry.id }}">

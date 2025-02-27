@@ -1,3 +1,5 @@
+import { DURATION, wait } from '../../shared/animation';
+
 export class DiaryManager {
     constructor() {
         this.activeEntryId = null;
@@ -144,7 +146,7 @@ export class DiaryManager {
                 
                 // Fade out loading indicator
                 loadingIndicator.classList.remove('active');
-                await new Promise(resolve => setTimeout(resolve, 300)); // Wait for fade out
+                await wait(DURATION.QUICK); // Wait for fade out
                 
                 // Update content with animation
                 contentContainer.innerHTML = this.renderEntryDetail(data.entry);
@@ -255,7 +257,7 @@ export class DiaryManager {
                 favoriteIcon.style.opacity = '';
                 toggleIcon.style.transform = '';
                 toggleIcon.style.opacity = '';
-            }, 50);
+            }, 150); // Micro-interaction timing - matches $duration-instant
             
             console.log('Favorite status updated');
             
@@ -274,7 +276,7 @@ export class DiaryManager {
         const dropdownMenu = entry.querySelector('.dropdown-menu');
         if (dropdownMenu) {
             dropdownMenu.classList.remove('show');
-            await new Promise(resolve => setTimeout(resolve, 600)); // Wait for dropdown animation
+            await wait(DURATION.EMPHASIS); // Important action timing
         }
         
         try {
@@ -286,7 +288,7 @@ export class DiaryManager {
             
             // Animate removal
             entry.classList.add('removing');
-            await new Promise(resolve => setTimeout(resolve, 600)); // Match transition duration
+            await wait(DURATION.EMPHASIS); // Match transition duration
             entry.remove();
             
             window.toast.success('Entry deleted successfully');

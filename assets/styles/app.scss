@@ -21,13 +21,13 @@
     .bg-cyber-g {
         background-image: linear-gradient(135deg, transparent, colors.$cyber) !important;
         background-size: 800% 100%;
-        transition: background-size vars.$transition-quick ease-in-out;
+        transition: background-size vars.$duration-quick vars.$ease-smooth;
     }
 
     .bg-cyber-g-light {
         background-image: linear-gradient(135deg, transparent, rgba(colors.$cyber, 0.5)) !important;
         background-size: 800% 100%;
-        transition: background-size vars.$transition-quick ease-in-out;
+        transition: background-size vars.$duration-quick vars.$ease-smooth;
     }
     
     &:hover {
@@ -44,12 +44,12 @@
 .bg-cyber {
     background-color: colors.$cyber !important;
     color: colors.$text-on-cyber !important;
-    transition: all vars.$transition-quick;
+    transition: all vars.$duration-quick vars.$ease-standard;
 }
 
 .bg-cyber-g {
     color: colors.$cyber !important;
-    transition: all vars.$transition-quick;
+    transition: all vars.$duration-quick vars.$ease-standard;
 }
 
 .text-cyber {
@@ -116,7 +116,7 @@ a {
     &:hover {
         // glow effect
         text-shadow: 0 0 (vars.$base-font-size * 0.6) rgba(colors.$cyber, 0.8);
-        transition: all vars.$transition-quick;
+        transition: all vars.$duration-quick vars.$ease-standard;
         cursor: pointer;        
     }
 }
@@ -154,7 +154,7 @@ strong, .strong {
 // Interactive Element Mixin
 @mixin interactive {
     cursor: pointer;
-    transition: all vars.$transition-quick;
+    transition: all vars.$duration-quick vars.$ease-standard;
     
     &:hover {
         transform: translateY(-1px);
@@ -195,7 +195,7 @@ strong, .strong {
     padding: 2rem;
     margin-bottom: 2rem;
     backdrop-filter: blur(5px);
-    transition: transform 0.3s;
+    transition: transform vars.$duration-quick vars.$ease-standard;
     
     &:hover {
         transform: translateY(-5px);
@@ -221,7 +221,7 @@ strong, .strong {
     border: none;
     padding: 0.8rem 2rem;
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: all vars.$duration-quick vars.$ease-standard;
     
     &:hover {
         transform: translateY(-2px);
@@ -233,7 +233,7 @@ strong, .strong {
     border-width: 2px;
     padding: 0.8rem 2rem;
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: all vars.$duration-quick vars.$ease-standard;
     
     &:hover {
         transform: translateY(-2px);
@@ -262,5 +262,5 @@ strong, .strong {
 }
 
 .fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeIn vars.$duration-emphasis vars.$ease-smooth forwards;
 }

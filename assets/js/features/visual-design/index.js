@@ -1,4 +1,5 @@
 // Visual Design System JavaScript
+import { DURATION } from '../../shared/animation';
 
 // Color card click handler for copying values
 function initializeColorCards() {
@@ -30,8 +31,8 @@ function initializeColorCards() {
                     feedback.style.opacity = '0';
                     setTimeout(() => {
                         feedback.style.display = 'none';
-                    }, 200);
-                }, 2000);
+                    }, DURATION.INSTANT);
+                }, DURATION.EMPHASIS + DURATION.INSTANT);
             } catch (err) {
                 console.error('Failed to copy:', err);
             }

@@ -5,7 +5,7 @@
 // Glass Panel Component
 .glass-panel {
     @include mix.glass-panel;
-    transition: transform vars.$transition-quick, box-shadow vars.$transition-quick;
+    transition: transform vars.$duration-quick vars.$ease-smooth, box-shadow vars.$duration-quick vars.$ease-smooth;
     
     &:hover {
         transform: none;//translateY(-2px);

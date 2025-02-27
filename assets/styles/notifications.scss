@@ -1,3 +1,5 @@
+@use 'variables' as vars;
+
 // Dropdown menu customization
 .dropdown-menu.notifications-menu {
     cursor: default;
@@ -8,11 +10,26 @@
     max-height: 50vh;
     overflow-y: auto;
     
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+    }
+    
     .notification-items {
         padding: 0 0.5rem;
     }
 
     .dropdown-item {
+        transition: background-color vars.$duration-instant vars.$ease-standard;
+        
         &.unread {
             &.type-success {
                 background-color: var(--bs-success-bg-subtle);
@@ -29,6 +46,7 @@
 
             &:hover {
                 filter: brightness(0.95);
+                transition: filter vars.$duration-instant vars.$ease-standard;
             }
         }
 
@@ -40,7 +58,7 @@
 
 .notification-item {
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color vars.$duration-instant vars.$ease-standard;
 
     &:hover {
         background-color: var(--bs-tertiary-bg);
