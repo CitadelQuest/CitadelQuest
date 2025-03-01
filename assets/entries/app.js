@@ -30,8 +30,18 @@ import '../js/shared/notifications';
 import { ToastService } from '../js/shared/toast';
 window.toast = new ToastService();
 
+// Import theme service
+import themeService from '../js/shared/theme';
+
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize theme toggle
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            themeService.toggleTheme();
+        });
+    }
     // Initialize language switcher
     initLanguageSwitcher();
     // Enable tooltips everywhere

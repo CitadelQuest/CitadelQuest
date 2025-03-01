@@ -20,7 +20,7 @@
 <div class="container" data-translations="{{ translations|json_encode|e('html_attr') }}">
     <div class="row justify-content-center">
 
-        <div class="col-md-4 mb-4">
+        <div class="col-lg-4 mb-4">
             <!-- Create Backup Card -->
             <div class="feature-card fade-in h-100">
                 <h1 class="text-center mb-4">{{ 'backup.title'|trans }}</h1>
@@ -46,14 +46,14 @@
             </div>
         </div>
         
-        <div class="col-md-8">
+        <div class="col-lg-8">
             <!-- Backup List Card -->
             {% if backups|length > 0 %}
                 <div class="feature-card fade-in h-100">
 
-                    <div class="list-group">
+                    <div class="list-group_">
                         {% for backup in backups %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="list-group-item pb-3 d-flex justify-content-between align-items-center">
                                 
                                 <div class="pe-1">
                                     <a href="{{ path('app_backup_download', {'filename': backup.filename}) }}" title="{{ 'backup.actions.download'|trans }}">

@@ -219,7 +219,7 @@ export class DiaryManager {
                 this.collapseEntry(entry);
 
                 entry.style.transform = 'scale(0.7)';
-                entry.style.opacity = '0.5';
+                entry.style.opacity = '0.7';
             }
         });
     }

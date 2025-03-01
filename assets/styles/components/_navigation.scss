@@ -5,8 +5,8 @@
 // Navigation Component
 .navbar {
     @include mix.glass-panel;
-    padding: vars.$spacing-unit * 2;
-    margin-bottom: vars.$spacing-unit * 4;
+    padding: vars.$spacing-unit * 0.5;
+    margin-bottom: vars.$spacing-unit * 2;
     
     .navbar-brand {
         font-weight: lighter;
@@ -58,8 +58,9 @@
     }
     
     .dropdown-menu {
-        background: rgba(colors.$dark, 0.95);
+        background: rgba(colors.$dark, 1);
         border: none;
+        box-shadow: 0 0 2rem rgba(colors.$cyber, 0.2);
         
         .dropdown-item {
             &:hover, &.active {

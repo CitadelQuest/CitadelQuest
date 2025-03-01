@@ -3,29 +3,32 @@
 // CitadelQuest Background System
 
 // Background Variables
-$bg-overlay-opacity: 0.75;  // Increased opacity for better contrast
+$bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
+
+// Theme-specific backgrounds
+:root {
+    &[data-theme='night-1'] .citadel-background::before {
+        background-image: url('../images/bg-dreamy-flowers-1.webp');
+    }
+    
+    &[data-theme='night-2'] .citadel-background::before {
+        background-image: url('../images/bg-dreamy-flowers-2.webp');
+    }
+    
+    &[data-theme='day'] .citadel-background::before {
+        background-image: url('../images/citadel_quest_bg.jpg');
+    }
+    
+    &[data-theme='test'] .citadel-background::before {
+        background-image: url('../images/bg-b.jpg');
+    }
+}
 
 // Background setup
 .citadel-background {
     // Layer 0: Overlay color
     background-color: rgba(colors.$body-bg, $bg-overlay-opacity);
-        
-    // Layer -1: Overlay pattern
-    /* &::after {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;*/
-        /* background-image: url('../images/bg-pattern.svg');
-        background-repeat: repeat;
-        background-attachment: fixed; */
-        /*opacity: $bg-overlay-opacity;
-        z-index: -1;
-        pointer-events: none;
-    } */
-
+    
     // Layer -2: Base background image
     &::before {
         content: '';
@@ -34,12 +37,12 @@ $bg-overlay-opacity: 0.75;  // Increased opacity for better contrast
         left: 0;
         right: 0;
         bottom: 0;
-        background-image: url('../images/citadel_quest_bg.jpg');
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
         z-index: -2;
         opacity: 1;
-    } 
+        transition: background-image 0.5s ease-in-out;
+    }
 }
 
