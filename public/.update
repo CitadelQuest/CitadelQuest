@@ -153,8 +153,15 @@ class CitadelQuestUpdater
                 continue;
             }
             
-            // Skip var directory
-            if (strpos($item->getPathname(), $this->installDir . '/var/backups') === 0) {
+            // Skip directories: /var/backups/updates, /var/cache/prod, /var/tmp, /var/log
+            $skip = false;
+            foreach (['/var/backups/updates', '/var/cache/prod', '/var/tmp', '/var/log'] as $dir) {
+                if (strpos($item->getPathname(), $this->installDir . $dir) === 0) {
+                    $skip = true;
+                    break;
+                }
+            }            
+            if ($skip) {
                 continue;
             }
             
@@ -768,13 +775,6 @@ class CitadelQuestUpdater
         $this->log("Clearing cache...");
         
         try {
-            // Clear var/cache directory
-            $cacheDir = $this->installDir . '/var/cache';
-            if (file_exists($cacheDir)) {
-                $this->removeDirectory($cacheDir);
-                mkdir($cacheDir, 0777, true);
-            }
-            
             // Clear var/log directory
             $logDir = $this->installDir . '/var/log';
             if (file_exists($logDir)) {
@@ -783,46 +783,18 @@ class CitadelQuestUpdater
                     unlink($file->getPathname());
                 }
             }
-            
-            // Warm up cache using console - not-so-needed, skipping to avoid possible `composer` problems
-            /* $this->log("Warming up cache...");
-            $consolePath = $this->installDir . '/bin/console';
-            
-            if (file_exists($consolePath)) {
-                // Set environment variables
-                $env = [
-                    'APP_ENV' => 'prod',
-                    'APP_DEBUG' => '0'
-                ];
-                
-                // Create cache directory with proper permissions
-                $prodCacheDir = $this->installDir . '/var/cache/prod';
-                if (!file_exists($prodCacheDir)) {
-                    mkdir($prodCacheDir, 0777, true);
-                }
-                
-                // Warm up the cache
-                $command = sprintf(
-                    'php %s cache:warmup --env=prod --no-debug 2>&1',
-                    escapeshellarg($consolePath)
-                );
-                
-                $output = [];
-                $exitCode = -1;
-                
-                putenv('APP_ENV=prod');
-                putenv('APP_DEBUG=0');
-                
-                @exec($command, $output, $exitCode);
-                
-                if ($exitCode !== 0) {
-                    throw new Exception("Cache warmup failed: " . implode("\n", $output));
-                }
+
+            // Clear var/cache directory
+            $cacheDir = $this->installDir . '/var/cache/prod';
+            if (file_exists($cacheDir)) {
+                $this->removeDirectory($cacheDir);
+                mkdir($cacheDir, 0755, true);
+                $this->log("✓ Cache cleared up successfully", 'success');
+            } else {
+                $this->log("✓ Cache cleared up successfully");
             }
             
-            $this->log("✓ Cache cleared and warmed up successfully", 'success'); */
             return true;
-            
         } catch (Exception $e) {
             $this->log('Error clearing cache: ' . $e->getMessage(), 'error');
             return false;

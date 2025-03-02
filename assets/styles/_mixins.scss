@@ -9,3 +9,20 @@
     border: vars.$glass-border;
     border-radius: vars.$border-radius;
 }
+
+// Base scrollbar styling
+@mixin cyber-scrollbar {
+    &::-webkit-scrollbar {
+        width: 4px;
+        background: transparent;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background-color: $cyber;
+        border-radius: 2px;
+    }
+}

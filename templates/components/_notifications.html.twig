@@ -2,48 +2,50 @@
 <a class="nav-link position-relative" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationsDropdown">
     <i class="mdi mdi-bell"></i>
     {% set unread = get_unread_count() %}
-    <span class="position-absolute top-0 start-50 p-1 badge text-cyber _bg-cyber" id="notificationsCountBadge">
-        {% if unread > 0 %}{{ unread }}{% endif %}
-    </span>
+    {% if unread > 0 %}
+        <span class="position-absolute top-0 start-50 badge rounded-pill text-cyber" id="notificationsCountBadge">
+            {{ unread }}
+        </span>
+    {% endif %}
 </a>
 
 {# Notification dropdown content #}
-<ul class="dropdown-menu dropdown-menu-end notifications-menu glass-panel glass-panel-glow me-2" aria-labelledby="notificationsDropdown" style="background-color:var(--bs-dropdown-bg)">
-    <div class="dropdown-header fw-bold d-flex align-items-center gap-2 p-2">
-        <div class="flex-grow-1">{{ 'notifications.title'|trans }}</div>
+<ul class="dropdown-menu dropdown-menu-end notifications-menu glass-panel glass-panel-glow" aria-labelledby="notificationsDropdown">
+    <div class="dropdown-header d-flex align-items-center gap-2 p-2">
+        <div class="flex-grow-1 text-cyber ps-1">{{ 'notifications.title'|trans }}</div>
         {# Filter icons #}
         <div class="notification-filters btn-group" role="group">
-            <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="all" title="{{ 'notifications.filter.all'|trans }}">
+            <button type="button" class="btn btn-sm btn-link nav-link p-0" style="padding:0 0.5rem !important;" data-filter="all" title="{{ 'notifications.filter.all'|trans }}">
                 <i class="mdi mdi-bell-outline"></i>
             </button>
-                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="info" title="{{ 'notifications.filter.info'|trans }}">
-                    <i class="mdi mdi-information text-info"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="success" title="{{ 'notifications.filter.success'|trans }}">
-                    <i class="mdi mdi-check-circle text-success"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="warning" title="{{ 'notifications.filter.warning'|trans }}">
-                    <i class="mdi mdi-alert text-warning"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-link text-decoration-none p-1" data-filter="error" title="{{ 'notifications.filter.error'|trans }}">
-                    <i class="mdi mdi-alert-circle text-danger"></i>
-                </button>
-            </div>
-            {# Mark all as read button #}
-            <button class="btn btn-sm btn-link text-decoration-none p-1" id="mark-all-read" title="{{ 'notifications.actions.mark_all_read'|trans }}">
-                <i class="mdi mdi-email-open-outline"></i>
+            <button type="button" class="btn btn-sm btn-link link-info p-0" style="padding:0 0.5rem !important;" data-filter="info" title="{{ 'notifications.filter.info'|trans }}">
+                <i class="mdi mdi-information"></i>
             </button>
-            {# Test notification button #}
-            <button class="btn btn-sm btn-link text-decoration-none p-1" id="test-notification" title="{{ 'notifications.actions.create_test'|trans }}">
-                <i class="mdi mdi-bell-plus"></i>
+            <button type="button" class="btn btn-sm btn-link link-success p-0" style="padding:0 0.5rem !important;" data-filter="success" title="{{ 'notifications.filter.success'|trans }}">
+                <i class="mdi mdi-check-circle"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-link link-warning p-0" style="padding:0 0.5rem !important;" data-filter="warning" title="{{ 'notifications.filter.warning'|trans }}">
+                <i class="mdi mdi-alert"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-link link-danger p-0" style="padding:0 0.5rem !important;" data-filter="error" title="{{ 'notifications.filter.error'|trans }}">
+                <i class="mdi mdi-alert-circle"></i>
             </button>
         </div>
+        {# Mark all as read button #}
+        <button class="btn btn-sm btn-link nav-link p-1" id="mark-all-read" title="{{ 'notifications.actions.mark_all_read'|trans }}">
+            <i class="mdi mdi-email-open-outline"></i>
+        </button>
+        {# Test notification button #}
+        <button class="btn btn-sm btn-link nav-link p-1" id="test-notification" title="{{ 'notifications.actions.create_test'|trans }}">
+            <i class="mdi mdi-bell-plus"></i>
+        </button>
+    </div>
         <div class="notification-list">
             <div class="notification-items">
             {# First show unread notifications #}
             {% set unread_notifications = get_unread_notifications() %}
             {% for notification in unread_notifications %}
-                <div class="dropdown-item unread type-{{ notification.type|default('info') }} rounded"
+                <div class="dropdown-item nav-link ps-3 unread type-{{ notification.type|default('info') }}"
                      data-notification-id="{{ notification.id }}">
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}
@@ -74,7 +76,7 @@
             {# Then show read notifications #}
             {% set read_notifications = get_notifications()|slice(unread_notifications|length, 12) %}
             {% for notification in read_notifications %}
-                <div class="dropdown-item type-{{ notification.type|default('info') }} rounded"
+                <div class="dropdown-item nav-link ps-3 type-{{ notification.type|default('info') }}"
                      data-notification-id="{{ notification.id }}">
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}

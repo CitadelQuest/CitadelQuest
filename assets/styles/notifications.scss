@@ -1,94 +1,76 @@
 @use 'variables' as vars;
+@use 'colors';
+@use 'mixins';
 
 // Dropdown menu customization
-.dropdown-menu.notifications-menu {
+.notifications-menu {
     cursor: default;
+
+    width: min(90vw, 400px);
+    top: auto;
+
+    .dropdown-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
 }
 
 // Notification list container
 .notification-list {
-    max-height: 50vh;
+    max-height: min(70vh, 600px);
+    overflow-x: hidden;
     overflow-y: auto;
-    
-    &::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-        background-color: rgba(0, 0, 0, 0.2);
-        border-radius: 3px;
-    }
+    @include mixins.cyber-scrollbar;
     
     .notification-items {
-        padding: 0 0.5rem;
+        padding: 0;
     }
 
     .dropdown-item {
-        transition: background-color vars.$duration-instant vars.$ease-standard;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all vars.$duration-smooth vars.$ease-smooth;
+        
+        &:last-child {
+            border-bottom: none;
+        }
         
         &.unread {
-            &.type-success {
-                background-color: var(--bs-success-bg-subtle);
-            }
-            &.type-warning {
-                background-color: var(--bs-warning-bg-subtle);
-            }
-            &.type-error {
-                background-color: var(--bs-danger-bg-subtle);
-            }
-            &.type-info {
-                background-color: var(--bs-info-bg-subtle);
+            background-color: rgba(colors.$cyber, 0.1);
+            
+            .notification-title {
+                color: colors.$cyber;
             }
 
             &:hover {
-                filter: brightness(0.95);
-                transition: filter vars.$duration-instant vars.$ease-standard;
+                background-color: rgba(colors.$cyber, 0.15);
             }
         }
 
         &:not(.unread):hover {
-            background-color: var(--bs-tertiary-bg);
-        }
-    }
-}
-
-.notification-item {
-    cursor: pointer;
-    transition: background-color vars.$duration-instant vars.$ease-standard;
-
-    &:hover {
-        background-color: var(--bs-tertiary-bg);
-    }
-
-    &.unread {
-        background-color: var(--bs-primary-bg-subtle);
-
-        .notification-title {
-            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.05);
         }
     }
 }
 
 .notification-icon {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
+    width: 24px;
+    text-align: center;
 }
 
 .notification-title {
     font-size: 0.9rem;
     margin: 0;
+    font-weight: 500;
 }
 
 .notification-message {
     font-size: 0.85rem;
     margin: 0;
-    color: var(--bs-secondary-color);
+    opacity: 0.8;
 }
 
 .notification-time {
     font-size: 0.75rem;
-    color: var(--bs-tertiary-color);
+    opacity: 0.6;
 }

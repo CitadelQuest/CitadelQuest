@@ -47,12 +47,35 @@
             transition: transform vars.$duration-smooth vars.$ease-smooth;
         }
         
-        &:hover, &.active {
+        // Desktop hover
+        @media (hover: hover) {
+            &:hover {
+                color: colors.$cyber;
+                background: transparent;
+                
+                &::after {
+                    transform: scaleX(1);
+                }
+            }
+        }
+        
+        // Active state (both desktop and mobile)
+        &.active,
+        &[aria-expanded="true"] {
             color: colors.$cyber;
             background: transparent;
             
             &::after {
                 transform: scaleX(1);
+            }
+        }
+        
+        // Reset color when dropdown is closed
+        &[aria-expanded="false"] {
+            color: colors.$text-light;
+            
+            &::after {
+                transform: scaleX(0);
             }
         }
     }

@@ -61,20 +61,27 @@
 }
 
 // Global styles
-html, body {
+html {
     margin: 0;
     padding: 0;
-    
+    height: 100%;
+    overflow: visible;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
     font-family: vars.$font-primary;
     font-size: vars.$base-font-size;
     font-weight: vars.$font-weight-regular !important;
     line-height: 1.5;
-    
     color: colors.$body-color;
     background-color: colors.$body-bg;
-
-    overflow-x: hidden;
     cursor: default;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    @include mix.cyber-scrollbar;
 }
 
 .body-color {
