@@ -289,3 +289,9 @@ strong, .strong {
 .fade-in {
     animation: fadeIn vars.$duration-emphasis vars.$ease-smooth forwards;
 }
+
+
+.btn-check:checked+.btn:focus-visible, .btn.active:focus-visible, .btn.show:focus-visible, .btn:first-child:active:focus-visible, :not(.btn-check)+.btn:active:focus-visible
+{
+    box-shadow: none;
+}

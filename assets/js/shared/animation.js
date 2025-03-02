@@ -53,3 +53,75 @@ export const fade = async (element, action = 'in') => {
     
     element.style.transition = '';
 };
+
+// Helper function for slide up animation
+export const slideUp = async (element, duration = DURATION.NORMAL) => {
+    // Store the original height
+    const height = element.offsetHeight;
+    
+    // Set fixed height to enable transition
+    element.style.height = `${height}px`;
+    element.style.overflow = 'hidden';
+    
+    // Force reflow
+    element.offsetHeight;
+    
+    // Set transition and animate to 0
+    element.style.transition = `height ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out`;
+    element.style.height = '0';
+    element.style.opacity = '0';
+    element.style.paddingTop = '0';
+    element.style.paddingBottom = '0';
+    element.style.marginTop = '0';
+    element.style.marginBottom = '0';
+    
+    // Wait for animation to complete
+    await wait(duration);
+    
+    // Clean up styles
+    element.style.display = 'none';
+    element.style.height = '';
+    element.style.overflow = '';
+    element.style.opacity = '';
+    element.style.paddingTop = '';
+    element.style.paddingBottom = '';
+    element.style.marginTop = '';
+    element.style.marginBottom = '';
+    element.style.transition = '';
+};
+
+// Helper function for slide down animation
+export const slideDown = async (element, duration = DURATION.NORMAL) => {
+    // Make sure the element is displayed but invisible
+    element.style.display = 'block';
+    element.style.opacity = '0';
+    element.style.overflow = 'hidden';
+    element.style.height = '0';
+    element.style.paddingTop = '0';
+    element.style.paddingBottom = '0';
+    element.style.marginTop = '0';
+    element.style.marginBottom = '0';
+    
+    // Force reflow
+    element.offsetHeight;
+    
+    // Get the natural height
+    const height = element.scrollHeight;
+    
+    // Set transition and animate to full height
+    element.style.transition = `height ${duration}ms ease-in-out, opacity ${duration}ms ease-in-out, padding ${duration}ms ease-in-out, margin ${duration}ms ease-in-out`;
+    element.style.height = `${height}px`;
+    element.style.opacity = '1';
+    element.style.paddingTop = '';
+    element.style.paddingBottom = '';
+    element.style.marginTop = '';
+    element.style.marginBottom = '';
+    
+    // Wait for animation to complete
+    await wait(duration);
+    
+    // Clean up styles for normal flow
+    element.style.height = '';
+    element.style.overflow = '';
+    element.style.transition = '';
+};
