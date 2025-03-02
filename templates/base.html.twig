@@ -48,9 +48,14 @@
             {% block body %}{% endblock %}
         </main>
 
-        <footer class="footer mt-auto py-2 position-absolute bottom-0 start-0 end-0">
+        <footer class="footer py-1 position-fixed bottom-0 start-0 end-0" style="z-index: 1020;">
             <div class="container text-center">
-                <small>{{ 'app.name'|trans }} {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} | {{ 'app.footer.made_with_love'|trans }}</small>
+                <small>
+                    &copy; 2025 
+                    <span class="text-cyber">&bull; {{ 'app.name'|trans }}</span> {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} 
+                    <span class="text-cyber">&bull;</span> 
+                    <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans }}</span>
+                </small>
             </div>
         </footer>
     </body>

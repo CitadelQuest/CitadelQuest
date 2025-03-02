@@ -26,8 +26,8 @@ $bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
 
 // Background setup
 .citadel-background {
-    // Layer 0: Overlay color
-    background-color: rgba(colors.$body-bg, $bg-overlay-opacity);
+    // Layer 0
+    position: fixed;
     
     // Layer -2: Base background image
     &::before {
@@ -43,6 +43,21 @@ $bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
         z-index: -2;
         opacity: 1;
         transition: background-image 0.5s ease-in-out;
+    }
+
+    // Layer -1: Overlay color
+    &::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        z-index: -1;
+        background-color: rgba(colors.$body-bg, $bg-overlay-opacity) !important;
     }
 }
 

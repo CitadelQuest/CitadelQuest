@@ -1,4 +1,5 @@
 import { DURATION, wait } from '../../shared/animation';
+import * as bootstrap from 'bootstrap';
 
 export class DiaryManager {
     constructor() {
@@ -151,24 +152,10 @@ export class DiaryManager {
                 // Update content with animation
                 contentContainer.innerHTML = this.renderEntryDetail(data.entry);
                 
-                // Initialize any dropdowns in the loaded content
+                // Initialize Bootstrap dropdowns
                 const dropdownButtons = contentContainer.querySelectorAll('[data-bs-toggle="dropdown"]');
                 dropdownButtons.forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const dropdownMenu = button.nextElementSibling;
-                        dropdownMenu.classList.toggle('show');
-                        
-                        // Close dropdown when clicking outside
-                        const closeDropdown = (event) => {
-                            if (!dropdownMenu.contains(event.target) && !button.contains(event.target)) {
-                                dropdownMenu.classList.remove('show');
-                                document.removeEventListener('click', closeDropdown);
-                            }
-                        };
-                        
-                        document.addEventListener('click', closeDropdown);
-                    });
+                    new bootstrap.Dropdown(button);
                 });
             } catch (error) {
                 console.error('Error loading entry:', error);
@@ -322,14 +309,16 @@ export class DiaryManager {
                         <i class="mdi mdi-pencil"></i> Edit
                     </button>
                     
-                    <div class="dropdown dropup d-inline float-end position-relative_ me-2">
-                        <button class="btn btn-sm btn-link text-cyber p-0" type="button" data-bs-toggle="dropdown">
+                    <div class="dropdown dropup d-inline float-end me-2">
+                        <button class="btn btn-sm btn-link text-cyber p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="mdi mdi-dots-vertical"></i>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end bg-transparent border-0 text-center">
-                            <button class="btn btn-sm btn-danger" type="button" data-entry-id="${entry.id}" data-action="delete">
-                                <i class="mdi mdi-trash-can-outline"></i> Delete
-                            </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button class="dropdown-item text-danger" type="button" data-entry-id="${entry.id}" data-action="delete">
+                                    <i class="mdi mdi-delete-forever-outline"></i> Delete
+                                </button>
+                            </li>
                         </ul>
                     </div>
                 </div>
