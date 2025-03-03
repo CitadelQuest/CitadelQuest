@@ -22,7 +22,7 @@ class DiaryEntryApiController extends AbstractController
     #[Route('', name: 'app_api_diary_list', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
-        $limit = $request->query->get('limit', 10);
+        $limit = $request->query->get('limit', 100);
         $tag = $request->query->get('tag');
 
         $entries = match(true) {

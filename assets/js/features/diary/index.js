@@ -1,4 +1,4 @@
-import { DURATION, wait, slideUp, slideDown } from '../../shared/animation';
+import { DURATION, wait, slideUp, slideDown, scrollIntoViewWithOffset } from '../../shared/animation';
 import * as bootstrap from 'bootstrap';
 
 export class DiaryManager {
@@ -125,15 +125,23 @@ export class DiaryManager {
         });
 
         // Handle browser back/forward
-        window.addEventListener('popstate', (e) => {
+        window.addEventListener('popstate', async (e) => {
             if (e.state && e.state.entryId) {
-                this.expandEntry(e.state.entryId);
+                await this.expandEntry(e.state.entryId);
             } else if (e.state && e.state.action === 'new-entry') {
                 this.showNewEntryForm();
             } else {
-                this.collapseAllEntries();
+                await this.collapseAllEntries();
             }
         });
+
+        // extract last part of from url `/diary/{new|uuid}`
+        let uuid = window.location.pathname.split('/').pop();
+        if (uuid === 'new') {
+            this.showNewEntryForm();
+        } else if (uuid) {
+            await this.expandEntry(uuid);
+        }
     }
 
     async expandEntry(entryId, entryCard) {
@@ -141,11 +149,13 @@ export class DiaryManager {
             return;
         }
 
-        // returning from - history.back()
+        // returning from - history.back() or direc detail URL accees
         if (typeof entryCard === 'undefined') {
             entryCard = this.entriesContainer.querySelector(`[data-entry-id="${entryId}"]`);
             if (!entryCard) {
                 console.error(`Could not find entry card with ID ${entryId}`);
+                history.pushState(null, '', '/diary/');
+                window.toast.error('Entry not found');
                 return;
             }
         } else {
@@ -153,6 +163,10 @@ export class DiaryManager {
             const url = `/diary/${entryId}`;
             history.pushState({ entryId }, '', url);
         }
+
+        // Scale down other entries
+        await this.scaleAndCollapseOtherEntries(entryCard);
+        await wait(DURATION.NORMAL); // Wait for fade out
         
         // Update UI state
         entryCard.classList.add('expanded');
@@ -165,10 +179,9 @@ export class DiaryManager {
 
         // Show expanded content div
         const contentContainer = entryCard.querySelector('.entry-content-expanded');
+        contentContainer.classList.remove('d-none');
+        entryCard.querySelector('.entry-content-original')?.classList.add('d-none');
         
-        // Scale down other entries
-        this.scaleAndCollapseOtherEntries(entryCard);
-
         // Update GUI - hide Favorite icon + show toggleFavorite
         const favoriteStatic = entryCard.querySelector('.favorite-static-icon');
         const toggleFavorite = entryCard.querySelector('#toggleFavorite');
@@ -177,15 +190,20 @@ export class DiaryManager {
         favoriteStatic.classList.add('d-none');
         toggleFavorite.classList.remove('d-none');
         
+        // Scroll entryCard to top under navigation
+        scrollIntoViewWithOffset(entryCard);        
+        
         // Check if content is already loaded
         if (contentContainer.innerHTML !== '') {
             // already loaded
             console.log('Entry content already loaded');
+            await slideDown(contentContainer, DURATION.NORMAL);
         } else {
             // Show loading state in expanded content with fade
             contentContainer.innerHTML = this.loadingTemplate;
             const loadingIndicator = contentContainer.querySelector('.loading-indicator');
             loadingIndicator.classList.add('active');
+            await wait(DURATION.QUICK);
 
             // load entry content
             try {
@@ -201,6 +219,7 @@ export class DiaryManager {
                 
                 // Update content with animation
                 contentContainer.innerHTML = this.renderEntryDetail(data.entry);
+                await slideDown(contentContainer, DURATION.NORMAL);
                 
                 // Initialize Bootstrap dropdowns
                 const dropdownButtons = contentContainer.querySelectorAll('[data-bs-toggle="dropdown"]');
@@ -218,9 +237,18 @@ export class DiaryManager {
                 `;
             }
         }
+
+        // Scroll entryCard to top under navigation, after content loaded
+        scrollIntoViewWithOffset(entryCard);
     }
 
-    collapseEntry(entryCard) {
+    async collapseEntry(entryCard) {
+        // Hide expanded content div
+        entryCard.querySelector('.entry-content-expanded')?.classList.add('d-none');
+        
+        // Show original content div
+        entryCard.querySelector('.entry-content-original')?.classList.remove('d-none');
+
         // Update UI state
         entryCard.classList.remove('expanded');
         entryCard.classList.remove('cyber-glow');
@@ -235,10 +263,10 @@ export class DiaryManager {
         entryCard.querySelector('#toggleFavorite').classList.add('d-none');
     }
 
-    collapseAllEntries() {
+    async collapseAllEntries() {
         const entries = this.entriesContainer.querySelectorAll('.diary-entry-card');
-        entries.forEach(entry => {
-            this.collapseEntry(entry);
+        entries.forEach(async entry => {
+            await this.collapseEntry(entry);
 
             entry.style.transform = '';
             entry.style.opacity = '';
@@ -246,11 +274,11 @@ export class DiaryManager {
         this.activeEntryId = null;
     }
 
-    scaleAndCollapseOtherEntries(activeCard) {
+    async scaleAndCollapseOtherEntries(activeCard) {
         const entries = this.entriesContainer.querySelectorAll('.diary-entry-card');
-        entries.forEach(entry => {
+        entries.forEach(async entry => {
             if (entry !== activeCard) {
-                this.collapseEntry(entry);
+                await this.collapseEntry(entry);
 
                 entry.style.transform = 'scale(0.7)';
                 entry.style.opacity = '0.7';
@@ -374,6 +402,13 @@ export class DiaryManager {
     async showEditForm(entryId, entryCard) {
         const contentContainer = entryCard.querySelector('.entry-content-expanded');
         const detailContent = contentContainer.querySelector('.entry-detail');
+
+        // save current content state before editing to `.entry-content-expanded-before-edit`
+        const entryContentExpandedBeforeEdit = entryCard.querySelector('.entry-content-expanded-before-edit');
+        if (entryContentExpandedBeforeEdit) {
+            console.log('saving content before edit', contentContainer.innerHTML);
+            entryContentExpandedBeforeEdit.innerHTML = contentContainer.innerHTML;
+        }
         
         // If there's existing content, slide it up first
         if (detailContent) {
@@ -384,6 +419,7 @@ export class DiaryManager {
         contentContainer.innerHTML = this.loadingTemplate;
         const loadingIndicator = contentContainer.querySelector('.loading-indicator');
         loadingIndicator.classList.add('active');
+        await wait(DURATION.QUICK);
         
         try {
             // Fetch entry data
@@ -476,6 +512,7 @@ export class DiaryManager {
             contentContainer.innerHTML = this.loadingTemplate;
             const loadingIndicator = contentContainer.querySelector('.loading-indicator');
             loadingIndicator.classList.add('active');
+            await wait(DURATION.QUICK);
             
             // Reload the entry detail view
             try {
@@ -491,6 +528,10 @@ export class DiaryManager {
                 
                 // Render entry detail view (initially hidden)
                 contentContainer.innerHTML = this.renderEntryDetail(entryData.entry);
+                // Update entry title
+                entryCard.querySelector('.entry-title').textContent = entryData.entry.title;
+                // Update entry mood
+                entryCard.querySelector('.entry-mood').textContent = entryData.entry.mood;
                 
                 // Get the content container and apply slide down animation
                 const detailContent = contentContainer.querySelector('.entry-detail');
@@ -529,43 +570,13 @@ export class DiaryManager {
         // Apply slide-up animation to the form
         await slideUp(editForm, DURATION.NORMAL);
         
-        // Show loading state
-        contentContainer.innerHTML = this.loadingTemplate;
-        const loadingIndicator = contentContainer.querySelector('.loading-indicator');
-        loadingIndicator.classList.add('active');
-        
-        try {
-            // Fetch entry data
-            const response = await fetch(`/api/diary/${entryId}`);
-            if (!response.ok) throw new Error('Failed to load entry');
-            
-            const data = await response.json();
-            
-            // Fade out loading indicator
-            loadingIndicator.classList.remove('active');
-            await wait(DURATION.QUICK);
-            
-            // Render entry detail view (initially hidden)
-            contentContainer.innerHTML = this.renderEntryDetail(data.entry);
-            
-            // Get the content container and apply slide down animation
-            const detailContent = contentContainer.querySelector('.entry-detail');
-            await slideDown(detailContent, DURATION.NORMAL);
-            
-            // Initialize Bootstrap dropdowns
-            const dropdownButtons = contentContainer.querySelectorAll('[data-bs-toggle="dropdown"]');
-            dropdownButtons.forEach(button => {
-                new bootstrap.Dropdown(button);
-            });
-        } catch (error) {
-            console.error('Error canceling edit:', error);
-            window.toast.error('Failed to cancel edit');
-            
-            contentContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    Failed to cancel edit. Please try again or refresh the page.
-                </div>
-            `;
+        // restore content before edit
+        const entryContentExpandedBeforeEdit = entryCard.querySelector('.entry-content-expanded-before-edit');
+        if (entryContentExpandedBeforeEdit) {
+            console.log('restoring content before edit', entryContentExpandedBeforeEdit.innerHTML);
+            contentContainer.innerHTML = entryContentExpandedBeforeEdit.innerHTML;
+
+            await slideDown(contentContainer, DURATION.NORMAL);
         }
     }
     
@@ -791,7 +802,7 @@ export class DiaryManager {
     
     renderNewEntryForm() {
         return `
-            <div class="card-body body-color rounded p-4">
+            <div class="card-body body-color rounded p-4 bg-cyber-g-light">
                 <h3 class="mb-4">New Diary Entry</h3>
                 <form class="new-entry-form">
                     <div class="mb-3">
@@ -877,7 +888,7 @@ export class DiaryManager {
         if (entry.tags && entry.tags.length > 0) {
             tagsHtml = `
                 <div class="entry-tags">
-                    ${entry.tags.map(tag => `<span class="badge bg-light text-secondary opacity-50 me-1">${tag}</span>`).join('')}
+                    ${entry.tags.map(tag => `<span class="badge bg-light text-cyber bg-opacity-10 me-1">${tag}</span>`).join('')}
                 </div>
             `;
         }
@@ -912,6 +923,7 @@ export class DiaryManager {
                     ${tagsHtml}
                 </div>
                 <div class="entry-content-expanded d-none"></div>
+                <div class="entry-content-expanded-before-edit d-none"></div>
             </div>
         `;
     }
@@ -923,6 +935,7 @@ export class DiaryManager {
                 this.entriesContainer.innerHTML = this.loadingTemplate;
                 const loadingIndicator = this.entriesContainer.querySelector('.loading-indicator');
                 loadingIndicator.classList.add('active');
+                await wait(DURATION.QUICK);
             }
             
             // Fetch entries

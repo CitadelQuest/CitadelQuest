@@ -19,8 +19,8 @@ $bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
         background-image: url('../images/citadel_quest_bg.jpg');
     }
     
-    &[data-theme='test'] .citadel-background::before {
-        background-image: url('../images/bg-b.jpg');
+    &[data-theme='glow-1'] .citadel-background::before {
+        background-image: url('../images/bg-glow-flowers-1.jpg');
     }
 }
 

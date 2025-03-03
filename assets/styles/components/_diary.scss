@@ -7,40 +7,6 @@
                 opacity vars.$duration-quick vars.$ease-smooth,
                 box-shadow vars.$duration-quick vars.$ease-smooth;
 
-    .entry-content-original {
-        transition: opacity vars.$transition-duration-quick ease-in-out;
-        opacity: 1;
-        display: block; // Ensure it's visible by default
-    }
-
-    .entry-content-expanded {
-        overflow: hidden;
-        max-height: 0;
-        opacity: 0;
-        display: block !important; // Always keep it in the DOM flow
-        visibility: hidden; // Hide it initially
-        transition: max-height vars.$duration-smooth vars.$ease-in-out,
-                    opacity vars.$duration-quick vars.$ease-smooth,
-                    visibility 0s vars.$duration-quick; // Delay visibility change
-    }
-
-    &.expanded {
-        .entry-content-original {
-            opacity: 0;
-            height: 0;
-            overflow: hidden;
-        }
-        
-        .entry-content-expanded {
-            max-height: 2000px; // Large enough to accommodate content
-            opacity: 1;
-            visibility: visible;
-            transition: max-height vars.$duration-smooth vars.$ease-in-out,
-                        opacity vars.$duration-quick vars.$ease-smooth,
-                        visibility 0s; // No delay when showing
-        }
-    }
-
     // Favorite icon transitions
     .favorite-static-icon,
     #toggleFavorite {
@@ -103,7 +69,8 @@
 
         .dropdown-item {
             color: colors.$text-light;
-            padding: 0.5rem 1rem;
+            padding: 0;
+            padding-left: 0.5rem;
             border-radius: calc(vars.$border-radius * 0.75);
             //transition: all vars.$duration-instant vars.$ease-smooth;
             text-align: left;

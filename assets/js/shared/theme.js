@@ -1,7 +1,7 @@
 // Theme management service
 export class ThemeService {
     constructor() {
-        this.themes = ['night-1', 'night-2', 'day', 'test'];
+        this.themes = ['night-1', 'night-2', 'day', 'glow-1'];
         this.currentThemeIndex = 2; // Start with day as it's good ol' CQ default
         
         // Load saved theme if exists

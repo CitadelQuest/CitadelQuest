@@ -33,7 +33,7 @@
                         <small class="text-muted">
                             {{ entry.createdAt|date('F j, Y g:i:s a') }}
                             {% if entry.mood %}
-                                • {{ entry.mood }}
+                                • <span class="entry-mood">{{ entry.mood }}</span>
                             {% endif %}
                         </small>
                     </div>
@@ -42,12 +42,13 @@
                         {% if entry.tags %}
                             <div class="entry-tags">
                                 {% for tag in entry.tags %}
-                                    <span class="badge bg-light text-secondary opacity-50 me-1">{{ tag }}</span>
+                                    <span class="badge bg-light text-cyber bg-opacity-10 me-1">{{ tag }}</span>
                                 {% endfor %}
                             </div>
                         {% endif %}
                     </div>
                     <div class="entry-content-expanded d-none"></div>
+                    <div class="entry-content-expanded-before-edit d-none"></div>
                 </div>
             </div>
         {% else %}

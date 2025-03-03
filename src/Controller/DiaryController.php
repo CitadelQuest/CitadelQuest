@@ -19,50 +19,16 @@ class DiaryController extends AbstractController
     ) {
     }
 
+    // "one route to rule them all"
     #[Route('/', name: 'diary_index')]
+    #[Route('/new', name: 'diary_new')]
+    #[Route('/{id}', name: 'diary_show', methods: ['GET'])]
     public function index(): Response
     {
-        // just for dev purposes
-        // $this->userDatabaseManager->updateDatabaseSchema($this->getUser());
-
         $entries = $this->diaryService->findLatestEntries($this->getUser());
         
         return $this->render('diary/index.html.twig', [
             'entries' => $entries
-        ]);
-    }
-
-    #[Route('/new', name: 'diary_new')]
-    public function new(): Response
-    {
-        return $this->render('diary/new.html.twig');
-    }
-
-    #[Route('/{id}', name: 'diary_show', methods: ['GET'])]
-    public function show(string $id): Response
-    {
-        $entry = $this->diaryService->findById($this->getUser(), $id);
-        
-        if (!$entry) {
-            throw $this->createNotFoundException('Diary entry not found');
-        }
-        
-        return $this->render('diary/show.html.twig', [
-            'entry' => $entry
-        ]);
-    }
-
-    #[Route('/{id}/edit', name: 'diary_edit', methods: ['GET'])]
-    public function edit(string $id): Response
-    {
-        $entry = $this->diaryService->findById($this->getUser(), $id);
-
-        if (!$entry) {
-            throw $this->createNotFoundException('Diary entry not found');
-        }
-
-        return $this->render('diary/edit.html.twig', [
-            'entry' => $entry
         ]);
     }
 }

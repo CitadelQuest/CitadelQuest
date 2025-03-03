@@ -56,7 +56,7 @@ class DiaryService
     /**
      * @return DiaryEntry[]
      */
-    public function findLatestEntries(UserInterface $user, int $limit = 10): array
+    public function findLatestEntries(UserInterface $user, int $limit = 100): array
     {
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
         $stmt = $userDb->executeQuery(

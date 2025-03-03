@@ -125,3 +125,15 @@ export const slideDown = async (element, duration = DURATION.NORMAL) => {
     element.style.overflow = '';
     element.style.transition = '';
 };
+
+// Helper function to scroll element to top (under navigation)
+export const scrollIntoViewWithOffset = (element, offset = 0) => {
+    window.scrollTo({
+        behavior: 'smooth',
+        top:
+            element.getBoundingClientRect().top -
+            document.body.getBoundingClientRect().top -
+            document.querySelector('nav').getBoundingClientRect().height * 1.5 -
+            offset,
+    })
+};

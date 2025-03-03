@@ -15,7 +15,9 @@ import '../images/favicon-32x32.png';
 import '../images/favicon.ico';
 import '../images/logo-sm.png';
 import '../images/citadel_quest_bg.jpg';
-import '../images/bg-pattern.svg';
+import '../images/bg-dreamy-flowers-1.webp';
+import '../images/bg-dreamy-flowers-2.webp';
+import '../images/bg-glow-flowers-1.jpg';
 
 // Import Bootstrap's JavaScript
 import 'bootstrap';
