@@ -1,14 +1,35 @@
 import { DURATION, wait, slideUp, slideDown, scrollIntoViewWithOffset } from '../../shared/animation';
 import * as bootstrap from 'bootstrap';
 
+/**
+ * DiaryManager - Handles all diary functionality including entry management, UI interactions, and AJAX operations
+ * 
+ * Translation System:
+ * 1. Translations are defined in /translations/messages.{lang}.yaml under the 'diary:' namespace
+ * 2. The Twig template (templates/diary/index.html.twig) passes these translations to JavaScript 
+ *    via a data-translations attribute containing a JSON object with all needed translations
+ * 3. This class loads translations in the constructor and makes them available via this.translations
+ * 4. All user-facing text should use these translations to ensure proper localization
+ * 
+ * Translation keys are flattened in the data-translations object:
+ * - YAML: diary.messages.confirm_delete becomes this.translations.confirm_delete
+ * - YAML: diary.form.moods.happy becomes this.translations.form_moods_happy
+ */
 export class DiaryManager {
     constructor() {
         this.activeEntryId = null;
         this.entriesContainer = document.querySelector('.diary-entries');
+        
+        // Load translations from data attribute set in the Twig template
+        // This contains all text strings needed for the diary feature in the current language
+        const container = document.querySelector('[data-translations]');
+        this.translations = container ? JSON.parse(container.dataset.translations) : {};
+        
+        // Create loading template using the loaded translations
         this.loadingTemplate = `
             <div class="loading-indicator w-100 text-center">
                 <div class="spinner-border text-cyber" role="status">
-                    <span class="visually-hidden">Loading...</span>
+                    <span class="visually-hidden">${this.translations.loading}</span>
                 </div>
             </div>
         `;
@@ -44,10 +65,9 @@ export class DiaryManager {
                     const staticIcon = entryCard.querySelector('.favorite-static-icon');
                     staticIcon.classList.toggle('text-warning', isFavorite);
                     staticIcon.classList.toggle('text-muted', !isFavorite);
-                    staticIcon.title = isFavorite ? 'Favorite' : 'Not favorite';
+                    staticIcon.title = isFavorite ? this.translations.favorite : this.translations.not_favorite;
                 } catch (error) {
-                    console.error('Failed to toggle favorite:', error);
-                    window.toast.error('Failed to toggle favorite');
+                    window.toast.error(this.translations.failed_favorite);
                 }
                 return;
             }
@@ -58,16 +78,15 @@ export class DiaryManager {
                 e.stopPropagation();
                 const entryId = e.target.closest('[data-action="delete"]').dataset.entryId;
                 
-                if (confirm('Are you sure you want to delete this entry?')) {
+                if (confirm(this.translations.confirm_delete)) {
                     try {
                         await this.deleteEntry(entryId);
                         // Remove the entry card from DOM
                         entryCard.remove();
                         history.back(); // Go back to list view
                     } catch (error) {
-                        console.error('Failed to delete entry:', error);
                         // Show error toast
-                        window.toast.error('Failed to delete entry');
+                        window.toast.error(this.translations.failed_delete);
                     }
                 }
                 return;
@@ -153,9 +172,8 @@ export class DiaryManager {
         if (typeof entryCard === 'undefined') {
             entryCard = this.entriesContainer.querySelector(`[data-entry-id="${entryId}"]`);
             if (!entryCard) {
-                console.error(`Could not find entry card with ID ${entryId}`);
                 history.pushState(null, '', '/diary/');
-                window.toast.error('Entry not found');
+                window.toast.error(this.translations.entry_not_found);
                 return;
             }
         } else {
@@ -196,7 +214,6 @@ export class DiaryManager {
         // Check if content is already loaded
         if (contentContainer.innerHTML !== '') {
             // already loaded
-            console.log('Entry content already loaded');
             await slideDown(contentContainer, DURATION.NORMAL);
         } else {
             // Show loading state in expanded content with fade
@@ -209,7 +226,7 @@ export class DiaryManager {
             try {
                 // Fetch full entry content
                 const response = await fetch(`/api/diary/${entryId}`);
-                if (!response.ok) throw new Error('Failed to load entry');
+                if (!response.ok) throw new Error(this.translations.failed_load);
                 
                 const data = await response.json();
                 
@@ -227,12 +244,11 @@ export class DiaryManager {
                     new bootstrap.Dropdown(button);
                 });
             } catch (error) {
-                console.error('Error loading entry:', error);
-                window.toast.error('Failed to load entry content');
+                window.toast.error(this.translations.failed_load);
                 
                 contentContainer.innerHTML = `
                     <div class="alert alert-danger">
-                        Failed to load entry content. Please try again later.
+                        ${this.translations.failed_load_content}
                     </div>
                 `;
             }
@@ -305,7 +321,7 @@ export class DiaryManager {
                 }
             });
 
-            if (!response.ok) throw new Error('Failed to toggle favorite');
+            if (!response.ok) throw new Error(this.translations.failed_favorite);
             const data = await response.json();
             
             // Toggle the star and animate back
@@ -323,8 +339,7 @@ export class DiaryManager {
             
             return data.entry.isFavorite;
         } catch (error) {
-            console.error('Error toggling favorite:', error);
-            window.toast.error('Failed to update favorite status');
+            window.toast.error(this.translations.failed_favorite);
             throw error;
         }
     }
@@ -344,19 +359,18 @@ export class DiaryManager {
                 method: 'DELETE',
             });
 
-            if (!response.ok) throw new Error('Failed to delete entry');
+            if (!response.ok) throw new Error(this.translations.failed_delete);
             
             // Animate removal
             entry.classList.add('removing');
             await wait(DURATION.EMPHASIS); // Match transition duration
             entry.remove();
             
-            window.toast.success('Entry deleted successfully');
+            window.toast.success(this.translations.entry_deleted);
             
             return true;
         } catch (error) {
-            console.error('Error deleting entry:', error);
-            window.toast.error('Failed to delete entry');
+            window.toast.error(this.translations.failed_delete);
             throw error;
         }
     }
@@ -376,10 +390,10 @@ export class DiaryManager {
                 ` : ''}
                 <div class="entry-actions mt-4">
                     <button class="btn btn-sm btn-light me-2" onclick="history.back()">
-                        <i class="mdi mdi-keyboard-return"></i> Back
+                        <i class="mdi mdi-keyboard-return"></i> ${this.translations.back}
                     </button>
                     <button class="btn btn-sm btn-cyber float-end" data-action="edit" data-entry-id="${entry.id}">
-                        <i class="mdi mdi-pencil"></i> Edit
+                        <i class="mdi mdi-pencil"></i> ${this.translations.edit}
                     </button>
                     
                     <div class="dropdown dropup d-inline float-end me-2">
@@ -389,7 +403,7 @@ export class DiaryManager {
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
                                 <button class="dropdown-item text-danger" type="button" data-entry-id="${entry.id}" data-action="delete">
-                                    <i class="mdi mdi-delete-forever-outline"></i> Delete
+                                    <i class="mdi mdi-delete-forever-outline"></i> ${this.translations.delete}
                                 </button>
                             </li>
                         </ul>
@@ -406,7 +420,6 @@ export class DiaryManager {
         // save current content state before editing to `.entry-content-expanded-before-edit`
         const entryContentExpandedBeforeEdit = entryCard.querySelector('.entry-content-expanded-before-edit');
         if (entryContentExpandedBeforeEdit) {
-            console.log('saving content before edit', contentContainer.innerHTML);
             entryContentExpandedBeforeEdit.innerHTML = contentContainer.innerHTML;
         }
         
@@ -424,7 +437,7 @@ export class DiaryManager {
         try {
             // Fetch entry data
             const response = await fetch(`/api/diary/${entryId}`);
-            if (!response.ok) throw new Error('Failed to load entry');
+            if (!response.ok) throw new Error(this.translations.failed_load);
             
             const data = await response.json();
             const entry = data.entry;
@@ -452,18 +465,17 @@ export class DiaryManager {
                     try {
                         document.execCommand(command, false, null);
                     } catch (error) {
-                        console.error('Error executing command:', error);
+                        console.error(this.translations.error_executing_command, error);
                     }
                     editor.focus();
                 });
             });
         } catch (error) {
-            console.error('Error loading entry for editing:', error);
-            window.toast.error('Failed to load entry for editing');
+            window.toast.error(this.translations.failed_load_edit);
             
             contentContainer.innerHTML = `
                 <div class="alert alert-danger">
-                    Failed to load entry for editing. Please try again later.
+                    ${this.translations.failed_load_edit_content}
                 </div>
             `;
         }
@@ -486,7 +498,7 @@ export class DiaryManager {
             // Show loading state
             const saveButton = form.querySelector('[data-action="save-edit"]');
             const originalButtonText = saveButton.innerHTML;
-            saveButton.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Saving...';
+            saveButton.innerHTML = `<i class="mdi mdi-loading mdi-spin"></i> ${this.translations.saving}`;
             saveButton.disabled = true;
             
             // Send update request
@@ -498,12 +510,12 @@ export class DiaryManager {
                 body: JSON.stringify(formData)
             });
             
-            if (!response.ok) throw new Error('Failed to update entry');
+            if (!response.ok) throw new Error(this.translations.failed_save);
             
             const data = await response.json();
             
             // Show success message
-            window.toast.success('Entry updated successfully');
+            window.toast.success(this.translations.entry_saved);
             
             // Apply slide-up animation to the form
             await slideUp(form, DURATION.NORMAL);
@@ -518,7 +530,7 @@ export class DiaryManager {
             try {
                 // Fetch full entry content
                 const entryResponse = await fetch(`/api/diary/${entryId}`);
-                if (!entryResponse.ok) throw new Error('Failed to load updated entry');
+                if (!entryResponse.ok) throw new Error(this.translations.failed_load);
                 
                 const entryData = await entryResponse.json();
                 
@@ -543,18 +555,16 @@ export class DiaryManager {
                     new bootstrap.Dropdown(button);
                 });
             } catch (error) {
-                console.error('Error loading updated entry:', error);
-                window.toast.error('Entry was updated but failed to reload content');
+                window.toast.error(this.translations.failed_load);
                 
                 contentContainer.innerHTML = `
                     <div class="alert alert-warning">
-                        Entry was updated successfully but failed to reload content. Please refresh the page.
+                        ${this.translations.update_reload_error}
                     </div>
                 `;
             }
         } catch (error) {
-            console.error('Error updating entry:', error);
-            window.toast.error('Failed to update entry');
+            window.toast.error(this.translations.failed_save);
             
             // Restore button state
             const saveButton = form.querySelector('[data-action="save-edit"]');
@@ -573,7 +583,6 @@ export class DiaryManager {
         // restore content before edit
         const entryContentExpandedBeforeEdit = entryCard.querySelector('.entry-content-expanded-before-edit');
         if (entryContentExpandedBeforeEdit) {
-            console.log('restoring content before edit', entryContentExpandedBeforeEdit.innerHTML);
             contentContainer.innerHTML = entryContentExpandedBeforeEdit.innerHTML;
 
             await slideDown(contentContainer, DURATION.NORMAL);
@@ -584,7 +593,7 @@ export class DiaryManager {
         return `
             <form class="edit-entry-form" data-entry-id="${entry.id}">
                 <div class="mb-3">
-                    <label for="title" class="form-label">Title</label>
+                    <label for="title" class="form-label">${this.translations.form_title}</label>
                     <input type="text" class="form-control" id="title" name="title" value="${entry.title}" required>
                 </div>
                 
@@ -607,37 +616,37 @@ export class DiaryManager {
                         </button>
                     </div>
 
-                    <label for="editor" class="form-label">Content</label>
-                    <div id="editor" class="form-control rounded-top-0 rounded-start-1" style="min-height: 200px;" contenteditable="true">
+                    <label for="editor" class="form-label">${this.translations.form_content}</label>
+                    <div id="editor" class="form-control rounded-top-0 rounded-start-1" style="min-height: 200px;" contenteditable="true" data-placeholder="${this.translations.placeholders_content}">
                         ${entry.contentFormatted || entry.content}
                     </div>
                 </div>
                 
                 <div class="mb-3">
-                    <label for="mood" class="form-label">Mood</label>
+                    <label for="mood" class="form-label">${this.translations.form_mood}</label>
                     <select class="form-select" id="mood" name="mood">
-                        <option value="">Select mood...</option>
-                        <option value="Happy" ${entry.mood === 'Happy' ? 'selected' : ''}>Happy</option>
-                        <option value="Calm" ${entry.mood === 'Calm' ? 'selected' : ''}>Calm</option>
-                        <option value="Thoughtful" ${entry.mood === 'Thoughtful' ? 'selected' : ''}>Thoughtful</option>
-                        <option value="Excited" ${entry.mood === 'Excited' ? 'selected' : ''}>Excited</option>
-                        <option value="Sad" ${entry.mood === 'Sad' ? 'selected' : ''}>Sad</option>
-                        <option value="Anxious" ${entry.mood === 'Anxious' ? 'selected' : ''}>Anxious</option>
+                        <option value="">${this.translations.form_mood_select}</option>
+                        <option value="Happy" ${entry.mood === 'Happy' ? 'selected' : ''}>${this.translations.form_moods_happy}</option>
+                        <option value="Calm" ${entry.mood === 'Calm' ? 'selected' : ''}>${this.translations.form_moods_calm}</option>
+                        <option value="Thoughtful" ${entry.mood === 'Thoughtful' ? 'selected' : ''}>${this.translations.form_moods_thoughtful}</option>
+                        <option value="Excited" ${entry.mood === 'Excited' ? 'selected' : ''}>${this.translations.form_moods_excited}</option>
+                        <option value="Sad" ${entry.mood === 'Sad' ? 'selected' : ''}>${this.translations.form_moods_sad}</option>
+                        <option value="Anxious" ${entry.mood === 'Anxious' ? 'selected' : ''}>${this.translations.form_moods_anxious}</option>
                     </select>
                 </div>
                 
                 <div class="mb-3">
-                    <label for="tags" class="form-label">Tags</label>
-                    <input type="text" class="form-control" id="tags" name="tags" value="${entry.tags ? entry.tags.join(', ') : ''}">
-                    <small class="form-text text-muted">Separate tags with commas</small>
+                    <label for="tags" class="form-label">${this.translations.form_tags}</label>
+                    <input type="text" class="form-control" id="tags" name="tags" value="${entry.tags ? entry.tags.join(', ') : ''}" placeholder="${this.translations.placeholders_tags}">
+                    <small class="form-text text-muted">${this.translations.form_tags_help}</small>
                 </div>
                 
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-secondary" data-action="cancel-edit" data-entry-id="${entry.id}">
-                        <i class="mdi mdi-cancel"></i> Cancel
+                        <i class="mdi mdi-cancel"></i> ${this.translations.cancel}
                     </button>
                     <button type="button" class="btn btn-cyber" data-action="save-edit">
-                        <i class="mdi mdi-content-save"></i> Save Changes
+                        <i class="mdi mdi-content-save"></i> ${this.translations.save}
                     </button>
                 </div>
             </form>
@@ -688,7 +697,7 @@ export class DiaryManager {
                 try {
                     document.execCommand(command, false, null);
                 } catch (error) {
-                    console.error('Error executing command:', error);
+                    console.error(this.translations.error_executing_command, error);
                 }
                 editor.focus();
             });
@@ -717,7 +726,7 @@ export class DiaryManager {
         // Validate form
         const title = form.querySelector('#title').value.trim();
         if (!title) {
-            window.toast.error('Title is required');
+            window.toast.error(this.translations.title_required);
             form.querySelector('#title').focus();
             return;
         }
@@ -736,7 +745,7 @@ export class DiaryManager {
             // Show loading state
             const saveButton = form.querySelector('[data-action="save-new"]');
             const originalButtonText = saveButton.innerHTML;
-            saveButton.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Saving...';
+            saveButton.innerHTML = `<i class="mdi mdi-loading mdi-spin"></i> ${this.translations.saving}`;
             saveButton.disabled = true;
             
             // Send create request
@@ -748,12 +757,12 @@ export class DiaryManager {
                 body: JSON.stringify(formData)
             });
             
-            if (!response.ok) throw new Error('Failed to create entry');
+            if (!response.ok) throw new Error(this.translations.failed_save);
             
             const data = await response.json();
             
             // Show success message
-            window.toast.success('Entry created successfully');
+            window.toast.success(this.translations.entry_saved);
             
             // Slide up and remove the form
             await slideUp(newEntryContainer, DURATION.NORMAL);
@@ -771,8 +780,7 @@ export class DiaryManager {
             // Fetch and render the new entry at the top
             await this.loadAndRenderEntries(true);
         } catch (error) {
-            console.error('Error creating entry:', error);
-            window.toast.error('Failed to create entry');
+            window.toast.error(this.translations.failed_save);
             
             // Restore button state
             const saveButton = form.querySelector('[data-action="save-new"]');
@@ -803,10 +811,10 @@ export class DiaryManager {
     renderNewEntryForm() {
         return `
             <div class="card-body body-color rounded p-4 bg-cyber-g-light">
-                <h3 class="mb-4">New Diary Entry</h3>
+                <h3 class="mb-4">${this.translations.new_entry}</h3>
                 <form class="new-entry-form">
                     <div class="mb-3">
-                        <label for="title" class="form-label">Title</label>
+                        <label for="title" class="form-label">${this.translations.form_title}</label>
                         <input type="text" class="form-control" id="title" name="title" required>
                     </div>
                     
@@ -829,40 +837,40 @@ export class DiaryManager {
                             </button>
                         </div>
 
-                        <label for="editor" class="form-label">Content</label>
-                        <div id="editor" class="form-control rounded-top-0 rounded-start-1" style="min-height: 200px;" contenteditable="true"></div>
+                        <label for="editor" class="form-label">${this.translations.form_content}</label>
+                        <div id="editor" class="form-control rounded-top-0 rounded-start-1" style="min-height: 200px;" contenteditable="true" data-placeholder="${this.translations.placeholders_content}"></div>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="mood" class="form-label">Mood</label>
+                        <label for="mood" class="form-label">${this.translations.form_mood}</label>
                         <select class="form-select" id="mood" name="mood">
-                            <option value="">Select mood...</option>
-                            <option value="Happy">Happy</option>
-                            <option value="Calm">Calm</option>
-                            <option value="Thoughtful">Thoughtful</option>
-                            <option value="Excited">Excited</option>
-                            <option value="Sad">Sad</option>
-                            <option value="Anxious">Anxious</option>
+                            <option value="">${this.translations.form_mood_select}</option>
+                            <option value="Happy">${this.translations.form_moods_happy}</option>
+                            <option value="Calm">${this.translations.form_moods_calm}</option>
+                            <option value="Thoughtful">${this.translations.form_moods_thoughtful}</option>
+                            <option value="Excited">${this.translations.form_moods_excited}</option>
+                            <option value="Sad">${this.translations.form_moods_sad}</option>
+                            <option value="Anxious">${this.translations.form_moods_anxious}</option>
                         </select>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="tags" class="form-label">Tags</label>
-                        <input type="text" class="form-control" id="tags" name="tags">
-                        <small class="form-text text-muted">Separate tags with commas</small>
+                        <label for="tags" class="form-label">${this.translations.form_tags}</label>
+                        <input type="text" class="form-control" id="tags" name="tags" placeholder="${this.translations.placeholders_tags}">
+                        <small class="form-text text-muted">${this.translations.form_tags_help}</small>
                     </div>
                     
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="isEncrypted" name="isEncrypted">
-                        <label class="form-check-label" for="isEncrypted">Encrypt this entry</label>
+                        <label class="form-check-label" for="isEncrypted">${this.translations.encrypt_entry}</label>
                     </div>
                     
                     <div class="d-flex justify-content-between mt-4">
                         <button type="button" class="btn btn-secondary" data-action="cancel-new">
-                            <i class="mdi mdi-cancel"></i> Cancel
+                            <i class="mdi mdi-cancel"></i> ${this.translations.cancel}
                         </button>
                         <button type="button" class="btn btn-cyber" data-action="save-new">
-                            <i class="mdi mdi-content-save"></i> Save Entry
+                            <i class="mdi mdi-content-save"></i> ${this.translations.save}
                         </button>
                     </div>
                 </form>
@@ -906,8 +914,8 @@ export class DiaryManager {
                         ${entry.title}
                     </h4>
                     <div class="entry-actions">
-                        <i class="mdi mdi-star ${entry.isFavorite ? 'text-warning' : 'text-muted'} favorite-static-icon" title="${entry.isFavorite ? 'Favorite' : 'Not favorite'}"></i>
-                        <span id="toggleFavorite" class="cursor-pointer p-0 me-2 d-none" title="Toggle favorite">
+                        <i class="mdi mdi-star ${entry.isFavorite ? 'text-warning' : 'text-muted'} favorite-static-icon" title="${entry.isFavorite ? this.translations.favorite.title : this.translations.favorite.not_favorite}"></i>
+                        <span id="toggleFavorite" class="cursor-pointer p-0 me-2 d-none" title="${this.translations.favorite.toggle}">
                             <i class="mdi mdi-star ${entry.isFavorite ? 'text-warning' : 'text-muted'}"></i>
                         </span>
                     </div>
@@ -940,7 +948,7 @@ export class DiaryManager {
             
             // Fetch entries
             const response = await fetch('/api/diary');
-            if (!response.ok) throw new Error('Failed to load entries');
+            if (!response.ok) throw new Error(this.translations.failed_load);
             
             const data = await response.json();
             const entries = data.entries;
@@ -958,7 +966,7 @@ export class DiaryManager {
             if (entries.length === 0) {
                 this.entriesContainer.innerHTML = `
                     <div class="alert alert-info">
-                        No diary entries yet. Create your first one by clicking the "New Entry" button.
+                        ${this.translations.no_entries}
                     </div>
                 `;
             } else {
@@ -998,15 +1006,14 @@ export class DiaryManager {
                 }
             }
         } catch (error) {
-            console.error('Error loading entries:', error);
             if (!prependNewEntry) {
                 this.entriesContainer.innerHTML = `
                     <div class="alert alert-danger">
-                        Failed to load entries. Please try again later.
+                        ${this.translations.failed_load_list_content}
                     </div>
                 `;
             } else {
-                window.toast.error('Failed to refresh entries');
+                window.toast.error(this.translations.failed_refresh);
             }
         }
     }
