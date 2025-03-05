@@ -33,7 +33,7 @@
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('diary_index') }}">
                             <i class="mdi mdi-book me-3{% if app.request.pathInfo == path('diary_index') %} text-cyber{% endif %}"></i>
-                            My Diary
+                            {{ 'diary.title'|trans }}
                         </a>
                     </li>
                     <li>

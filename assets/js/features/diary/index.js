@@ -479,6 +479,9 @@ export class DiaryManager {
                 </div>
             `;
         }
+
+        // Scroll entryCard to top under navigation
+        scrollIntoViewWithOffset(entryCard); 
     }
     
     async saveEditForm(entryId, form, entryCard) {
