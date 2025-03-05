@@ -66,10 +66,7 @@ CREATE INDEX idx_diary_entries_is_favorite ON diary_entries(is_favorite);
    - `assets/js/features/diary/index.js`: Main JavaScript module with DiaryManager class
    - `assets/entries/diary.js`: Webpack entry point
    - Templates:
-     - `templates/diary/index.html.twig`: Entry listing page
-     - `templates/diary/show.html.twig`: Single entry view
-     - `templates/diary/new.html.twig`: Create new entry
-     - `templates/diary/edit.html.twig`: Edit existing entry
+     - `templates/diary/index.html.twig`: Entry listing page with dynamic js for: entry view, new entry, edit entry, rich text editor, delete entry
      - `templates/diary/_rich_editor.html.twig`: Reusable rich text editor component
 
 3. **Key Features Implemented**
@@ -81,6 +78,7 @@ CREATE INDEX idx_diary_entries_is_favorite ON diary_entries(is_favorite);
    - Responsive design with cyber theme
    - Interactive UI with animations
    - Client-side form validation
+   - Dynamic content rendering and processing
 
 ## Changelog
 
