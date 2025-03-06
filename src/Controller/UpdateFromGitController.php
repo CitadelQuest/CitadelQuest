@@ -26,6 +26,9 @@ class UpdateFromGitController extends AbstractController
             throw new AccessDeniedHttpException('Invalid signature');
         }
 
+        // delete all contents of dir: var/cache/dev
+        $r = shell_exec('cd ~/citadelquest.com/dev/ && rm -rf var/cache/dev/*');
+
         // call 'git pull' command
         $r = shell_exec('cd ~/citadelquest.com/dev/ && git pull 2>&1');
 
