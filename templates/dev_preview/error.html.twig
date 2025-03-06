@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Development Preview Error{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card bg-dark text-light border-cyber">
+                <div class="card-header bg-cyber text-light">
+                    <h2 class="mb-0">Development Preview Error</h2>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        {{ message }}
+                    </div>
+                    <p>This endpoint is designed for the browser preview tool to access the application without manual login.</p>
+                    <a href="{{ path('app_login') }}" class="btn btn-cyber">Go to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
