@@ -37,7 +37,7 @@ auth:
             password_min: 'Your password should be at least {{ limit }} characters'
             password_mismatch: 'The password fields must match'
             password_requirements: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-        title: 'Create Your CitadelQuest Account'
+        title: 'Create Your CitadelQuest Account Now!'
         username: 'Choose your username'
         email: 'Email address'
         email_help: 'Enter your email address'
