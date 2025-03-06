@@ -13,7 +13,7 @@ use Psr\Log\LoggerInterface;
 
 class UpdateFromGitController extends AbstractController
 {
-    #[Route(path: '/update-from-git', name: 'update_from_git')]
+    #[Route(path: '/update-fg', name: 'update_from_git')]
     public function update(ManagerRegistry $doctrine, Request $request, LoggerInterface $logger): Response
     {
         $logger->info('GitHub Push Update');
