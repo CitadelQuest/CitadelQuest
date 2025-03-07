@@ -10,7 +10,7 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Controller for development preview functionality
@@ -24,7 +24,7 @@ class DevPreviewController extends AbstractController
         TokenStorageInterface $tokenStorage,
         EntityManagerInterface $entityManager,
         Request $request,
-        PasswordHasherInterface $passwordHasher
+        UserPasswordHasherInterface $passwordHasher
     ): Response {
         // Only enable in dev environment
         if ($_SERVER['APP_ENV'] !== 'dev') {
