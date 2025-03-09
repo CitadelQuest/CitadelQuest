@@ -22,6 +22,10 @@ $bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
     &[data-theme='glow-1'] .citadel-background::before {
         background-image: url('../images/bg-glow-flowers-1.jpg');
     }
+
+    &[data-theme='night-3'] .citadel-background::before {
+        background-image: url('../images/night-forest-sky.webp');
+    }
 }
 
 // Background setup

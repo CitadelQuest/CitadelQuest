@@ -88,7 +88,7 @@ body {
 
 // Footer styling
 .footer {
-    background: linear-gradient(to top, rgba(colors.$body-bg, 0.8), rgba(colors.$body-bg, 0));
+    background: rgba(colors.$body-bg, 0.2);
     backdrop-filter: blur(vars.$glass-blur);
     -webkit-backdrop-filter: blur(vars.$glass-blur);
     

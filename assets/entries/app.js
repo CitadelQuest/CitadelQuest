@@ -18,6 +18,7 @@ import '../images/citadel_quest_bg.jpg';
 import '../images/bg-dreamy-flowers-1.webp';
 import '../images/bg-dreamy-flowers-2.webp';
 import '../images/bg-glow-flowers-1.jpg';
+import '../images/night-forest-sky.webp';
 
 // Import Bootstrap's JavaScript
 import 'bootstrap';

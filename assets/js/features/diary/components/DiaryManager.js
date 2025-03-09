@@ -312,7 +312,7 @@ export class DiaryManager {
                     new bootstrap.Dropdown(button);
                 });
             } catch (error) {
-                window.toast?.error?.(this.translations.failed_load);
+                window.toast?.error(this.translations.failed_load);
                 
                 expandedContent.innerHTML = `
                     <div class="alert alert-danger">
