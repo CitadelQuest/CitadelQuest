@@ -180,6 +180,107 @@ class UserDatabaseManager
     public function updateDatabaseSchema(User $user): void
     {
         $connection = $this->getDatabaseConnection($user);
-        $this->initializeDatabaseSchema($connection);
+        $dbPath = $this->getUserDatabaseFullPath($user);
+        
+        // Run migrations for this user database using the Doctrine connection
+        $this->runMigrationsForUserDatabase($connection, $dbPath);
+    }
+    
+    /**
+     * Run migrations for a specific user database
+     * 
+     * Based on the logic from runUserDbMigrations() in public/.update
+     * @param \Doctrine\DBAL\Connection $userDb The database connection
+     */
+    private function runMigrationsForUserDatabase(\Doctrine\DBAL\Connection $userDb, string $dbPath): void
+    {
+        // Create migration versions table if not exists
+        $userDb->executeStatement(
+            'CREATE TABLE IF NOT EXISTS migration_versions ('
+            . 'version VARCHAR(191) PRIMARY KEY,'
+            . 'executed_at DATETIME DEFAULT NULL,'
+            . 'execution_time INTEGER DEFAULT NULL'
+            . ')'
+        );
+        
+        // Scan for user migration files
+        // Get project directory from the databases directory path
+        $projectDir = dirname(dirname($this->databasesDir));
+        $migrationsDir = $projectDir . '/migrations/user';
+        if (!is_dir($migrationsDir)) {
+            throw new \Exception('User migrations directory not found');
+        }
+        
+        // Get all migration files
+        $migrations = [];
+        foreach (new \DirectoryIterator($migrationsDir) as $file) {
+            if ($file->isDot() || $file->isDir()) continue;
+            
+            if (preg_match('/^Version(\d+)\.php$/', $file->getFilename(), $matches)) {
+                $version = $matches[1];
+                $migrations[$version] = $file->getPathname();
+            }
+        }
+        
+        // Sort migrations by version
+        ksort($migrations);
+        
+        // Get list of applied migrations
+        $appliedMigrations = [];
+        $result = $userDb->executeQuery('SELECT version FROM migration_versions ORDER BY version ASC');
+        while ($row = $result->fetchAssociative()) {
+            $appliedMigrations[$row['version']] = true;
+        }
+        
+        // Run new migrations
+        foreach ($migrations as $version => $migrationFile) {
+            $migrationVersion = 'UserMigration_' . $version;
+            
+            // Skip if already applied
+            if (isset($appliedMigrations[$migrationVersion])) {
+                continue;
+            }
+            
+            // Include and instantiate migration class
+            require_once $migrationFile;
+            $className = 'UserMigration_' . $version;
+            $migration = new $className();
+            
+            // Start transaction
+            $userDb->beginTransaction();
+            
+            try {
+                // Get start time
+                $startTime = microtime(true);
+                
+                // Get the PDO connection for the migration
+                // This is necessary because our migration classes expect a PDO connection
+                $pdoConnection = $userDb->getWrappedConnection();
+                if (method_exists($pdoConnection, 'getNativeConnection')) {
+                    // For newer Doctrine DBAL versions
+                    $pdoConnection = $pdoConnection->getNativeConnection();
+                }
+                
+                // Run migration with PDO connection
+                $migration->up($pdoConnection);
+                
+                // Calculate execution time
+                $executionTime = round((microtime(true) - $startTime) * 1000);
+                
+                // Record migration
+                $userDb->executeStatement(
+                    'INSERT INTO migration_versions (version, executed_at, execution_time) VALUES (?, datetime("now"), ?)',
+                    [$migrationVersion, $executionTime]
+                );
+                
+                // Commit transaction
+                $userDb->commit();
+                
+            } catch (\Exception $e) {
+                // Rollback on error
+                $userDb->rollBack();
+                throw new \Exception("Migration Version{$version} failed: " . $e->getMessage());
+            }
+        }
     }
 }

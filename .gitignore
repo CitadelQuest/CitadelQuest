@@ -48,3 +48,5 @@ yarn-error.log
 ###< symfony/webpack-encore-bundle ###
 #VISIONS.md
 #DIARY-FEATURE.md
+cookies.txt
+/assets/js/features/diary/index.js.backup

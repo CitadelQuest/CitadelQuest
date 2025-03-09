@@ -141,6 +141,59 @@ CREATE INDEX idx_diary_entries_is_favorite ON diary_entries(is_favorite);
 - Created transitions for entry expansion/collapse
 - Implemented opacity and height animations for seamless UX
 
+## Consciousness Level Integration
+
+Integrating David R. Hawkins' Levels of Consciousness framework into the Diary feature to enhance personal growth tracking and self-awareness.
+
+### Vision
+
+Transform the current basic mood selection into a comprehensive consciousness level tracking system that helps users understand and visualize their spiritual and emotional growth over time.
+
+### Implementation Plan
+
+1. **Data Architecture**
+   - Store consciousness levels as numeric values (0-1000) based on Hawkins' scale
+   - Map numeric values to descriptive labels and visual representations
+   - No need to maintain backward compatibility with that one existing mood entry
+
+2. **UI/UX Design**
+   - Replace dropdown selection with an interactive slider component
+   - Implement full-width gradient visualization based on Goethe's color theory
+     - Lower levels (0-200): Darker colors (deep reds, browns)
+     - Middle levels (200-500): Transitional colors (yellows, greens)
+     - Higher levels (500-1000): Luminous colors (blues, violets, white)
+   - Add iconic representations at key points (100, 200, 300, etc.)
+   - Provide subtle animations and visual feedback during selection
+   - Include hover tooltips with level descriptions and brief insights
+
+3. **Educational Integration**
+   - Add optional information links for each consciousness level
+   - Provide brief explanations of the selected level's characteristics
+   - Include resources for practices to elevate consciousness
+
+4. **Future Visualization Features**
+   - Create timeline visualizations of consciousness progression
+   - Implement pattern recognition for consciousness level trends
+   - Develop insights based on correlations between activities and consciousness levels
+   - Add proactive support for users showing persistent low-level patterns
+
+### Technical Components
+
+1. **Database Updates**
+   - Add `consciousness_level` numeric field (0-1000) to diary_entries table
+   - Create mapping table for consciousness levels, descriptions, and visual properties
+
+2. **Frontend Components**
+   - Custom slider component with gradient background
+   - MDI icons for consciousness level visualization
+   - Animation utilities for smooth transitions
+   - Interactive tooltips for educational content
+
+3. **Backend Services**
+   - Enhanced DiaryService with consciousness level support
+   - Analysis service for pattern recognition and insights
+   - API endpoints for consciousness level data visualization
+
 ## Next Steps
 
 1. **Content Enhancement**

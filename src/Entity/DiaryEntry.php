@@ -16,6 +16,7 @@ class DiaryEntry implements JsonSerializable
     private bool $isFavorite = false;
     private ?array $tags = null;
     private ?string $mood = null;
+    private ?int $consciousnessLevel = null;
 
     public function __construct()
     {
@@ -143,6 +144,17 @@ class DiaryEntry implements JsonSerializable
         return $this;
     }
 
+    public function getConsciousnessLevel(): ?int
+    {
+        return $this->consciousnessLevel;
+    }
+
+    public function setConsciousnessLevel(?int $consciousnessLevel): self
+    {
+        $this->consciousnessLevel = $consciousnessLevel;
+        return $this;
+    }
+
     public function jsonSerialize(): array
     {
         return [
@@ -155,6 +167,7 @@ class DiaryEntry implements JsonSerializable
             'isFavorite' => $this->isFavorite,
             'tags' => $this->tags,
             'mood' => $this->mood,
+            'consciousnessLevel' => $this->consciousnessLevel,
             'contentFormatted' => $this->contentFormatted,
         ];
     }

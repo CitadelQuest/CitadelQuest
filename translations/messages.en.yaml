@@ -215,6 +215,13 @@ diary:
         mood_select: 'Select mood...'
         tags: 'Tags'
         tags_help: 'Separate tags with commas'
+        consciousness_level: 'Consciousness Level'
+        consciousness_level_help: "Based on Dr. David R. Hawkins's Map of Consciousness (0-1000)"
+        consciousness_level_none: 'Not specified'
+        consciousness_level_low: 'Low (0-200)'
+        consciousness_level_medium: 'Medium (200-500)'
+        consciousness_level_high: 'High (500-700)'
+        consciousness_level_enlightenment: 'Enlightenment (700-1000)'
         moods:
             happy: 'Happy'
             calm: 'Calm'

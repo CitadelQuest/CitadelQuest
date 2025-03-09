@@ -20,7 +20,7 @@ class DiaryController extends AbstractController
     }
 
     // "one route to rule them all"
-    #[Route('/', name: 'diary_index')]
+    #[Route('', name: 'diary_index')]
     #[Route('/new', name: 'diary_new')]
     #[Route('/{id}', name: 'diary_show', methods: ['GET'])]
     public function index(): Response
