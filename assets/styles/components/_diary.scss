@@ -1,5 +1,6 @@
 @use '../colors' as colors;
 @use '../variables' as vars;
+@use '../mixins' as mixins;
 
 // Diary animations and transitions
 .diary-entry-card {
@@ -7,6 +8,11 @@
                 opacity vars.$duration-quick vars.$ease-smooth,
                 box-shadow vars.$duration-quick vars.$ease-smooth;
 
+    .entry-full-content {
+        overflow-x: auto;
+        overflow-y: hidden;
+        @include mixins.cyber-scrollbar;
+    }  
     // Favorite icon transitions
     .favorite-static-icon,
     #toggleFavorite {
