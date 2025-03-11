@@ -49,6 +49,14 @@ yarn-error.log
 #VISIONS.md
 #DIARY-FEATURE.md
 cookies.txt
+
+# Deployment scripts and sensitive files
+/upload-assets.sh
+/deploy-to-dev.sh
+/git-push.sh
+/unzip-assets.php
+/assets.zip
+*.zip
 /assets/js/features/diary/index.js.backup
 
 # Upload scripts
