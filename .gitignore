@@ -58,8 +58,3 @@ cookies.txt
 /assets.zip
 *.zip
 /assets/js/features/diary/index.js.backup
-
-# Upload scripts
-/upload-assets.sh
-/deploy-to-dev.sh
-/git-push.sh

@@ -25,10 +25,6 @@ class DiaryController extends AbstractController
     #[Route('/{id}', name: 'diary_show', methods: ['GET'])]
     public function index(): Response
     {
-        $entries = $this->diaryService->findLatestEntries($this->getUser());
-        
-        return $this->render('diary/index.html.twig', [
-            'entries' => $entries
-        ]);
+        return $this->render('diary/index.html.twig');
     }
 }

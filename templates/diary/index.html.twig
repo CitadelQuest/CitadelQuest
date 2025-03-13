@@ -52,52 +52,6 @@
         </button>
     </div>
     <div class="diary-entries">
-        {% for entry in entries %}
-            <div class="diary-entry-card glass-panel mb-4" data-entry-id="{{ entry.id }}">
-                <div class="card-body body-color rounded p-4">
-                    <div class="entry-header d-flex justify-content-between">
-                        <h4 class="entry-title">
-                            {{ entry.title }}
-                        </h4>
-                        <div class="entry-actions">
-                            {% if entry.isFavorite %}
-                                <i class="mdi mdi-star text-warning favorite-static-icon" title="{{ 'diary.favorite.title'|trans }}"></i>
-                            {% else %}
-                                <i class="mdi mdi-star text-muted favorite-static-icon" title="{{ 'diary.favorite.not_favorite'|trans }}"></i>
-                            {% endif %}
-                            <span id="toggleFavorite" class="cursor-pointer p-0 me-2 d-none" title="{{ 'diary.favorite.toggle'|trans }}">
-                                <i class="mdi mdi-star {% if entry.isFavorite %}text-warning{% else %}text-muted{% endif %}"></i>
-                            </span>
-                        </div>
-                    </div>
-                    <!-- Cascade is my fellow developer bro :) -->
-                    <div class="entry-metadata mb-2">
-                        <small class="text-muted">
-                            {{ entry.createdAt|date('F j, Y g:i:s a') }}
-                            {% if entry.mood %}
-                                • <span class="entry-mood">{{ entry.mood }}</span>
-                            {% endif %}
-                        </small>
-                    </div>
-                    <div class="entry-content-original">
-                        <p class="entry-preview">{{ entry.content|striptags|slice(0, 150) }}...</p>
-                        {% if entry.tags %}
-                            <div class="entry-tags">
-                                {% for tag in entry.tags %}
-                                    <span class="badge bg-light text-cyber bg-opacity-10 me-1">{{ tag }}</span>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="entry-content-expanded d-none"></div>
-                    <div class="entry-content-expanded-before-edit d-none"></div>
-                </div>
-            </div>
-        {% else %}
-            <div class="alert glass-panel glass-panel-glow">
-                {{ 'diary.messages.no_entries'|trans }} <a href="#" data-action="new-entry">{{ 'diary.actions.new'|trans }}</a>!
-            </div>
-        {% endfor %}
     </div>
 </div>
 {% endblock %}
