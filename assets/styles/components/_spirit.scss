@@ -1,0 +1,187 @@
+@use '../colors' as colors;
+@use '../variables' as vars;
+@use '../mixins' as mix;
+
+// Spirit container
+.spirit-container {
+    @include mix.glass-panel;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    
+    .spirit-header {
+        margin-bottom: 2rem;
+        
+        h1 {
+            color: colors.$cyber;
+            margin-bottom: 0.5rem;
+        }
+        
+        p {
+            color: rgba(colors.$body-color, 0.8);
+        }
+    }
+}
+
+// Spirit creation form
+.spirit-creation-form {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 2rem;
+    @include mix.glass-panel;
+    
+    .form-label {
+        color: colors.$cyber;
+    }
+    
+    .form-control {
+        background-color: rgba(colors.$dark, 0.5);
+        border-color: colors.$cyber;
+        color: colors.$body-color;
+        
+        &:focus {
+            box-shadow: 0 0 0 0.25rem rgba(colors.$cyber, 0.25);
+        }
+    }
+    
+    .btn-create {
+        @include mix.cyber-button;
+    }
+}
+
+// Spirit visual container
+.spirit-visual-container {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    margin: 0 auto;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(colors.$cyber, 0.5);
+    background: radial-gradient(circle, rgba(colors.$dark, 0.2), rgba(colors.$dark, 0.8));
+    
+    canvas {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// Spirit stats
+#spirit-name-display {
+    color: colors.$cyber;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 10px rgba(colors.$cyber, 0.5);
+}
+
+.progress {
+    height: 0.75rem;
+    background-color: rgba(colors.$dark, 0.5);
+    border-radius: vars.$border-radius;
+    overflow: hidden;
+    
+    .progress-bar {
+        background-color: colors.$cyber;
+        background-image: linear-gradient(45deg, 
+            rgba(255, 255, 255, 0.15) 25%, 
+            transparent 25%, 
+            transparent 50%, 
+            rgba(255, 255, 255, 0.15) 50%, 
+            rgba(255, 255, 255, 0.15) 75%, 
+            transparent 75%, 
+            transparent);
+        background-size: 1rem 1rem;
+    }
+}
+
+// Spirit abilities and interactions
+#spirit-abilities,
+#spirit-interactions {
+    margin-bottom: 2rem;
+    
+    .list-group-item {
+        background-color: rgba(colors.$dark, 0.5);
+        border-color: rgba(colors.$cyber, 0.3);
+        color: colors.$body-color;
+        transition: all vars.$duration-quick vars.$ease-smooth;
+        
+        &:hover {
+            background-color: rgba(colors.$dark, 0.7);
+        }
+        
+        &.list-group-item-success {
+            background-color: rgba(colors.$success, 0.2);
+            border-color: rgba(colors.$success, 0.3);
+            color: colors.$body-color;
+        }
+        
+        &.list-group-item-secondary {
+            background-color: rgba(colors.$secondary, 0.2);
+            border-color: rgba(colors.$secondary, 0.3);
+            color: colors.$body-color;
+        }
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+// Spirit interaction form
+#spirit-interact-form {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    //@include mix.glass-panel;
+    
+    h4 {
+        color: colors.$cyber;
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        color: rgba(colors.$body-color, 0.8);
+    }
+    
+    .form-control, .form-select {
+        background-color: rgba(colors.$dark, 0.5);
+        border-color: rgba(colors.$cyber, 0.5);
+        color: colors.$body-color;
+        
+        &:focus {
+            box-shadow: 0 0 0 0.25rem rgba(colors.$cyber, 0.25);
+        }
+    }
+    
+    .btn-interact {
+        @include mix.cyber-button;
+    }
+}
+
+// Animations
+@keyframes spirit-glow {
+    0% {
+        box-shadow: 0 0 20px rgba(colors.$cyber, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 40px rgba(colors.$cyber, 0.7);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(colors.$cyber, 0.5);
+    }
+}
+
+.spirit-visual-container {
+    animation: spirit-glow 3s infinite ease-in-out;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    .spirit-visual-container {
+        width: 200px;
+        height: 200px;
+    }
+}

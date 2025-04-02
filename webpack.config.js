@@ -29,6 +29,7 @@ Encore
     .addEntry('js/toast', './assets/js/shared/toast.js')
     .addEntry('language-switcher', './assets/entries/language-switcher.js')
     .addEntry('diary', './assets/entries/diary.js')
+    .addEntry('spirit', './assets/entries/spirit.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()
