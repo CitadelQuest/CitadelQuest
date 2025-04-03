@@ -114,4 +114,30 @@ class SpiritApiController extends AbstractController
         
         return $this->json($ability);
     }
+    
+    #[Route('/update', name: 'app_api_spirit_update', methods: ['POST'])]
+    public function update(Request $request): JsonResponse
+    {
+        $spirit = $this->spiritService->getUserSpirit();
+        
+        if (!$spirit) {
+            return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+        }
+        
+        $data = json_decode($request->getContent(), true);
+        
+        // Update the spirit's system prompt and AI model
+        if (isset($data['systemPrompt'])) {
+            $spirit->setSystemPrompt($data['systemPrompt']);
+        }
+        
+        if (isset($data['aiModel'])) {
+            $spirit->setAiModel($data['aiModel']);
+        }
+        
+        // Save the updated spirit
+        $this->spiritService->updateSpirit($spirit);
+        
+        return $this->json($spirit);
+    }
 }

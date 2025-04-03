@@ -8,106 +8,120 @@
 {% endblock %}
 
 {% block body %}
-<div class="container-xxxl mt-4">
-    <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <div class="card_ glass-panel">
-                <div class="text-white p-4">
-                    <h2 class="mb-0">Your Spirit Companion</h2>
+<div class="container mt-4">
+    <div class="glass-panel">
+        <div class="text-white p-4">
+            <h2 class="mb-0">Your Spirit Companion</h2>
+        </div>
+        <div class="px-4 pb-4 pt-1">
+            <div id="spirit-container">
+                <div class="text-center mb-4" id="spirit-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Connecting with your Spirit...</p>
                 </div>
-                <div class="px-4 pb-4 pt-1">
-                    <div id="spirit-container">
-                        <div class="text-center mb-4" id="spirit-loading">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                
+                <div id="create-spirit-form" class="d-none">
+                    <h3 class="text-center mb-4">Create Your Spirit Companion</h3>
+                    <p class="text-center">Your Spirit will guide you through CitadelQuest, growing and evolving alongside you.</p>
+                    
+                    <form id="spirit-creation-form" class="mt-4">
+                        <div class="mb-3">
+                            <label for="spirit-name" class="form-label">Name your Spirit</label>
+                            <input type="text" class="form-control" id="spirit-name" placeholder="Enter a name" required>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-cyber">Create Spirit</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="spirit-display" class="d-none">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <div class="spirit-visual-container">
+                                <canvas id="spirit-canvas" width="250" height="250"></canvas>
                             </div>
-                            <p class="mt-2">Connecting with your Spirit...</p>
-                        </div>
-                        
-                        <div id="create-spirit-form" class="d-none">
-                            <h3 class="text-center mb-4">Create Your Spirit Companion</h3>
-                            <p class="text-center">Your Spirit will guide you through CitadelQuest, growing and evolving alongside you.</p>
-                            
-                            <form id="spirit-creation-form" class="mt-4">
-                                <div class="mb-3">
-                                    <label for="spirit-name" class="form-label">Name your Spirit</label>
-                                    <input type="text" class="form-control" id="spirit-name" placeholder="Enter a name" required>
-                                </div>
-                                <div class="text-center">
-                                    <button type="submit" class="btn btn-cyber">Create Spirit</button>
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <div id="spirit-display" class="d-none">
-                            <div class="row">
-                                <div class="col-md-5">
-                                    <div class="spirit-visual-container">
-                                        <canvas id="spirit-canvas" width="250" height="250"></canvas>
-                                    </div>
-                                    <div class="text-center mt-5">
-                                        <h3 id="spirit-name-display">Spirit Name</h3>
-                                        <div class="d-flex justify-content-center align-items-center">
-                                            <span class="badge bg-primary me-2">Level <span id="spirit-level">1</span></span>
-                                            <span class="badge bg-info">Consciousness <span id="spirit-consciousness">1</span></span>
-                                        </div>
-                                    </div>
-                                    <div class="progress mt-3">
-                                        <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
-                                             style="width: 0%">
-                                        </div>
-                                    </div>
-                                    <p class="text-center mt-1">
-                                        <small>Experience: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
-                                    </p>
-                                </div>
-                                <div class="col-md-7">
-                                    <h4>Abilities</h4>
-                                    <div id="spirit-abilities" class="mb-4">
-                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                            <span class="visually-hidden">Loading abilities...</span>
-                                        </div>
-                                        <span>Loading abilities...</span>
-                                    </div>
-                                    
-                                    <h4>Recent Interactions</h4>
-                                    <div id="spirit-interactions">
-                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                            <span class="visually-hidden">Loading interactions...</span>
-                                        </div>
-                                        <span>Loading interactions...</span>
-                                    </div>
+                            <div class="text-center mt-5">
+                                <h3 id="spirit-name-display">Spirit Name</h3>
+                                <div class="d-flex justify-content-center align-items-center">
+                                    <span class="badge bg-primary me-2">Level <span id="spirit-level">1</span></span>
+                                    <span class="badge bg-info">Consciousness <span id="spirit-consciousness">1</span></span>
                                 </div>
                             </div>
+                            <div class="progress mt-3">
+                                <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                        role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                                        style="width: 0%">
+                                </div>
+                            </div>
+                            <p class="text-center mt-1">
+                                <small>Experience: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
+                            </p>
                             
-                            <div class="row mt-4">
-                                <div class="col-12">
-                                    <div class="glass-panel">
-                                        <div class="px-4 pt-3 pb-2 bg-cyber-g rounded-top">
-                                            <h5 class="mb-0">Interact with your Spirit</h5>
+                            <div class="mt-4">
+                                <div class="form-group mb-3">
+                                    <label for="spirit-ai-model" class="form-label">AI Model</label>
+                                    <select id="spirit-ai-model" class="form-select">
+                                        <option value="anthropic/claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
+                                        <option value="anthropic/claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="spirit-system-prompt" class="form-label">System Prompt</label>
+                                    <textarea id="spirit-system-prompt" class="form-control" rows="6" placeholder="Define your Spirit's character and abilities..."></textarea>
+                                    <div class="form-text text-muted p-2">Define how your Spirit should behave and what knowledge it should have.</div>
+                                </div>
+                                <div class="text-center mt-2">
+                                    <button id="update-spirit-settings" class="btn btn-sm btn-cyber"><i class="mdi mdi-check me-1"></i>Save Settings</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-7">
+                            <h4>Abilities</h4>
+                            <div id="spirit-abilities" class="mb-4">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading abilities...</span>
+                                </div>
+                                <span>Loading abilities...</span>
+                            </div>
+                            
+                            <h4>Recent Interactions</h4>
+                            <div id="spirit-interactions">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading interactions...</span>
+                                </div>
+                                <span>Loading interactions...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="glass-panel">
+                                <div class="px-4 pt-3 pb-2 bg-cyber-g rounded-top">
+                                    <h5 class="mb-0">Interact with your Spirit</h5>
+                                </div>
+                                <div class="px-4 pt-0">
+                                    <form id="spirit-interact-form" class="mt-0">
+                                        <div class="mb-3">
+                                            <label for="interaction-type" class="form-label">Interaction Type</label>
+                                            <select class="form-select" id="interaction-type">
+                                                <option value="greeting">Greeting</option>
+                                                <option value="question">Question</option>
+                                                <option value="training">Training</option>
+                                                <option value="meditation">Meditation</option>
+                                            </select>
                                         </div>
-                                        <div class="px-4 pt-0">
-                                            <form id="spirit-interact-form" class="mt-0">
-                                                <div class="mb-3">
-                                                    <label for="interaction-type" class="form-label">Interaction Type</label>
-                                                    <select class="form-select" id="interaction-type">
-                                                        <option value="greeting">Greeting</option>
-                                                        <option value="question">Question</option>
-                                                        <option value="training">Training</option>
-                                                        <option value="meditation">Meditation</option>
-                                                    </select>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label for="interaction-context" class="form-label">Message (optional)</label>
-                                                    <textarea class="form-control" id="interaction-context" rows="2" placeholder="Enter a message for your Spirit"></textarea>
-                                                </div>
-                                                <div class="text-end">
-                                                    <button type="submit" class="btn btn-cyber">Send</button>
-                                                </div>
-                                            </form>
+                                        <div class="mb-3">
+                                            <label for="interaction-context" class="form-label">Message (optional)</label>
+                                            <textarea class="form-control" id="interaction-context" rows="2" placeholder="Enter a message for your Spirit"></textarea>
                                         </div>
-                                    </div>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-cyber">Send</button>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
                         </div>

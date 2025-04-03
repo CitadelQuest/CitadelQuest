@@ -24,6 +24,9 @@ export class SpiritManager {
         this.nextLevelDisplay = document.getElementById('spirit-next-level');
         this.abilitiesContainer = document.getElementById('spirit-abilities');
         this.interactionsContainer = document.getElementById('spirit-interactions');
+        this.systemPromptInput = document.getElementById('spirit-system-prompt');
+        this.aiModelSelect = document.getElementById('spirit-ai-model');
+        this.updateSettingsBtn = document.getElementById('update-spirit-settings');
         
         // Initialize
         this.initEventListeners();
@@ -55,6 +58,13 @@ export class SpiritManager {
                 
                 this.interactWithSpirit(interactionType, context);
                 interactForm.reset();
+            });
+        }
+        
+        // Spirit settings update button
+        if (this.updateSettingsBtn) {
+            this.updateSettingsBtn.addEventListener('click', () => {
+                this.updateSpiritSettings();
             });
         }
     }
@@ -298,6 +308,7 @@ export class SpiritManager {
     updateSpiritDisplay() {
         if (!this.spirit) return;
         
+        // Update basic info
         if (this.nameDisplay) {
             this.nameDisplay.textContent = this.spirit.name;
         }
@@ -310,6 +321,7 @@ export class SpiritManager {
             this.consciousnessDisplay.textContent = this.spirit.consciousnessLevel;
         }
         
+        // Update experience bar
         if (this.experienceBar) {
             const nextLevelExp = this.spirit.level * 100;
             const percentage = (this.spirit.experience / nextLevelExp) * 100;
@@ -323,6 +335,22 @@ export class SpiritManager {
         
         if (this.nextLevelDisplay) {
             this.nextLevelDisplay.textContent = this.spirit.level * 100;
+        }
+        
+        // Update system prompt and AI model fields
+        if (this.systemPromptInput) {
+            this.systemPromptInput.value = this.spirit.systemPrompt || '';
+        }
+        
+        if (this.aiModelSelect) {
+            // Set the selected option based on the spirit's AI model
+            const options = this.aiModelSelect.options;
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === this.spirit.aiModel) {
+                    this.aiModelSelect.selectedIndex = i;
+                    break;
+                }
+            }
         }
     }
     
@@ -515,5 +543,48 @@ export class SpiritManager {
      */
     translate(key, fallback) {
         return this.translations[key] || fallback;
+    }
+    
+    /**
+     * Update the spirit settings (system prompt and AI model)
+     */
+    async updateSpiritSettings() {
+        if (!this.spirit || !this.systemPromptInput || !this.aiModelSelect) return;
+        
+        try {
+            // Update the spirit object with new values
+            this.spirit.systemPrompt = this.systemPromptInput.value.trim();
+            this.spirit.aiModel = this.aiModelSelect.value;
+            
+            // Send the update to the server
+            const response = await fetch(this.apiEndpoints.update, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: this.spirit.id,
+                    systemPrompt: this.spirit.systemPrompt,
+                    aiModel: this.spirit.aiModel
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update spirit settings');
+            }
+            
+            // Show success message using toast if available
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.settings_updated', 'Spirit settings updated successfully'));
+            }
+            
+            // Reload the spirit to get the latest data
+            await this.reloadSpirit();
+            this.updateSpiritDisplay();
+            
+        } catch (error) {
+            console.error('Error updating spirit settings:', error);
+            this.showError(this.translate('error.updating_settings', 'Failed to update spirit settings'));
+        }
     }
 }

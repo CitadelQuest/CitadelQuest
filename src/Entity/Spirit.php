@@ -15,6 +15,8 @@ class Spirit implements JsonSerializable
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $lastInteraction;
     private array $abilities = [];
+    private ?string $systemPrompt = null;
+    private string $aiModel = 'anthropic/claude-3-7-sonnet-latest';
     
     public function __construct(string $name)
     {
@@ -26,6 +28,8 @@ class Spirit implements JsonSerializable
         $this->consciousnessLevel = 1;
         $this->createdAt = new \DateTime();
         $this->lastInteraction = new \DateTime();
+        $this->systemPrompt = null;
+        $this->aiModel = 'anthropic/claude-3-7-sonnet-latest';
     }
     
     public function getId(): string
@@ -183,6 +187,8 @@ class Spirit implements JsonSerializable
             'consciousnessLevel' => $this->consciousnessLevel,
             'createdAt' => $this->createdAt->format('c'),
             'lastInteraction' => $this->lastInteraction->format('c'),
+            'systemPrompt' => $this->systemPrompt,
+            'aiModel' => $this->aiModel,
             'abilities' => array_map(function($ability) {
                 return $ability->jsonSerialize();
             }, $this->abilities)
@@ -200,6 +206,36 @@ class Spirit implements JsonSerializable
         $spirit->setCreatedAt(new \DateTime($data['created_at']));
         $spirit->setLastInteraction(new \DateTime($data['last_interaction']));
         
+        if (isset($data['system_prompt'])) {
+            $spirit->setSystemPrompt($data['system_prompt']);
+        }
+        
+        if (isset($data['ai_model'])) {
+            $spirit->setAiModel($data['ai_model']);
+        }
+        
         return $spirit;
+    }
+    
+    public function getSystemPrompt(): ?string
+    {
+        return $this->systemPrompt;
+    }
+    
+    public function setSystemPrompt(?string $systemPrompt): self
+    {
+        $this->systemPrompt = $systemPrompt;
+        return $this;
+    }
+    
+    public function getAiModel(): string
+    {
+        return $this->aiModel;
+    }
+    
+    public function setAiModel(string $aiModel): self
+    {
+        $this->aiModel = $aiModel;
+        return $this;
     }
 }

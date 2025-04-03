@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
             apiEndpoints: {
                 get: '/api/spirit',
                 create: '/api/spirit',
+                update: '/api/spirit/update',
                 interact: '/api/spirit/interact',
                 interactions: '/api/spirit/interactions',
                 abilities: '/api/spirit/abilities',

@@ -139,7 +139,9 @@ class UserDatabaseManager
                 visual_state VARCHAR(50) DEFAULT "initial",
                 consciousness_level INTEGER DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP
+                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP,
+                system_prompt TEXT,
+                ai_model VARCHAR(50) DEFAULT ""
             )',
             'CREATE TABLE IF NOT EXISTS spirit_abilities (
                 id VARCHAR(36) PRIMARY KEY,

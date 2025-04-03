@@ -35,7 +35,7 @@ class SpiritService
     {
         $db = $this->getUserDb();
         
-        $result = $db->executeQuery('SELECT * FROM spirits LIMIT 1');
+        $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
         $data = $result->fetchAssociative();
         
         if (!$data) {
@@ -66,8 +66,8 @@ class SpiritService
         $spirit = new Spirit($name);
         
         $db->executeStatement(
-            'INSERT INTO spirits (id, name, level, experience, visual_state, consciousness_level, created_at, last_interaction) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO spirits (id, name, level, experience, visual_state, consciousness_level, created_at, last_interaction, system_prompt, ai_model) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $spirit->getId(),
                 $spirit->getName(),
@@ -76,7 +76,9 @@ class SpiritService
                 $spirit->getVisualState(),
                 $spirit->getConsciousnessLevel(),
                 $spirit->getCreatedAt()->format('Y-m-d H:i:s'),
-                $spirit->getLastInteraction()->format('Y-m-d H:i:s')
+                $spirit->getLastInteraction()->format('Y-m-d H:i:s'),
+                $spirit->getSystemPrompt(),
+                $spirit->getAiModel()
             ]
         );
         
@@ -111,7 +113,9 @@ class SpiritService
             experience = ?, 
             visual_state = ?, 
             consciousness_level = ?, 
-            last_interaction = ? 
+            last_interaction = ?,
+            system_prompt = ?,
+            ai_model = ? 
             WHERE id = ?',
             [
                 $spirit->getName(),
@@ -120,6 +124,8 @@ class SpiritService
                 $spirit->getVisualState(),
                 $spirit->getConsciousnessLevel(),
                 $spirit->getLastInteraction()->format('Y-m-d H:i:s'),
+                $spirit->getSystemPrompt(),
+                $spirit->getAiModel(),
                 $spirit->getId()
             ]
         );
