@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}User Settings{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-bottom-0 p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
+                        <i class="mdi mdi-cog me-2"></i> General
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                        <i class="mdi mdi-robot me-2"></i> AI Services
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                        <i class="mdi mdi-server-network me-2"></i> AI Gateways
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                        <i class="mdi mdi-brain me-2"></i> AI Models
+                    </a>
+                    <!-- Add more settings categories here as needed -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
+                    <h4 class="mb-0">General Settings</h4>
+                </div>
+                <div class="p-4">
+                    <p class="">Configure your general CitadelQuest settings here.</p>
+                    
+                    <!-- General settings form will go here in the future -->
+                    <div class="alert alert-info">
+                        <i class="mdi mdi-info-circle me-2"></i>
+                        More general settings will be available in future updates.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

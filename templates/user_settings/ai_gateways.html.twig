@@ -1,0 +1,294 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'settings.ai_gateways.title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                        <i class="mdi mdi-cog me-2"></i> General
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                        <i class="mdi mdi-robot me-2"></i> AI Services
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0 ps-4">
+                        <i class="mdi mdi-server-network me-2"></i> AI Gateways
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                        <i class="mdi mdi-brain me-2"></i> AI Models
+                    </a>
+                    <!-- Add more settings categories here as needed -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
+                    <h4 class="mb-0">AI Gateways</h4>
+                </div>
+                <div class="p-4">
+                    {% for message in app.flashes('success') %}
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                    
+                    <p class="mb-4">Manage your AI service gateways. These are the connections to AI service providers like Anthropic, <span style="text-decoration: line-through;">OpenAI</span>, and others.</p>
+                    
+                    <!-- Gateway List -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="border-top border-secondary border-1 pt-3">Your Gateways</h5>
+                            <button type="button" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#addGatewayModal">
+                                <i class="mdi mdi-plus me-1"></i> Add Gateway
+                            </button>
+                        </div>
+                        
+                        {% if aiGateways is empty %}
+                            <div class="alert alert-info">
+                                <i class="mdi mdi-information me-2"></i>
+                                You don't have any AI gateways configured yet. Add one to get started.
+                            </div>
+                        {% else %}
+                            <div class="table-responsive rounded">
+                                <table class="table table-hover rounded">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Endpoint</th>
+                                            {# <th>Models</th> #}
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for gateway in aiGateways %}
+                                            <tr>
+                                                <td>{{ gateway.name }}</td>
+                                                <td class="text-truncate" style="max-width: 200px;">{{ gateway.apiEndpointUrl }}</td>
+                                                {# <td>{% if gateway.models is defined %}{{ gateway.models|length }}{% else %}0{% endif %}</td> #}
+                                                <td>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-sm btn-outline-success edit-gateway" 
+                                                                data-id="{{ gateway.id }}"
+                                                                data-name="{{ gateway.name }}"
+                                                                data-endpoint="{{ gateway.apiEndpointUrl }}"
+                                                                data-api-key="{{ gateway.apiKey }}"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#editGatewayModal">
+                                                            <i class="mdi mdi-pencil"></i>
+                                                        </button>
+                                                        {# <button type="button" class="btn btn-sm btn-outline-danger delete-gateway"
+                                                                data-id="{{ gateway.id }}"
+                                                                data-name="{{ gateway.name }}"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#deleteGatewayModal">
+                                                            <i class="mdi mdi-delete"></i>
+                                                        </button> #}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Gateway Modal -->
+<div class="modal fade" id="addGatewayModal" tabindex="-1" aria-labelledby="addGatewayModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel glass-panel-glow">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title" id="addGatewayModalLabel">Add AI Gateway</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ path('app_user_settings_ai_gateways_add') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="gateway-name" class="form-label">Gateway Type</label>
+                        <select class="form-select" id="gateway-name" name="name" required>
+                            <option value="" selected disabled>Select a gateway type...</option>
+                            <option value="PortkeyAI direct">PortkeyAI direct</option>
+                            <option value="CQ AI Gateway">CQ AI Gateway</option>
+                        </select>
+                        <div class="form-text text-muted">Select which AI gateway provider to use</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gateway-endpoint" class="form-label">API Endpoint URL</label>
+                        <input type="url" class="form-control" id="gateway-endpoint" name="apiEndpointUrl" required>
+                        <div class="form-text text-muted">The base URL for the API</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="gateway-key" class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="gateway-key" name="apiKey" required>
+                        <div class="form-text text-muted">Your API key for this service. This will be stored securely.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyber">
+                        <i class="mdi mdi-content-save me-1"></i> Save Gateway
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Gateway Modal -->
+<div class="modal fade" id="editGatewayModal" tabindex="-1" aria-labelledby="editGatewayModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel glass-panel-glow">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title" id="editGatewayModalLabel">Edit AI Gateway</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ path('app_user_settings_ai_gateways_edit') }}">
+                <div class="modal-body">
+                    <input type="hidden" id="edit-gateway-id" name="id">
+                    <div class="mb-3">
+                        <label for="edit-gateway-name" class="form-label">Gateway Name</label>
+                        <input type="text" class="form-control" id="edit-gateway-name" name="name" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-gateway-endpoint" class="form-label">API Endpoint URL</label>
+                        <input type="url" class="form-control" id="edit-gateway-endpoint" name="apiEndpointUrl" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-gateway-key" class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="edit-gateway-key" name="apiKey" placeholder="Leave blank to keep current key">
+                        <div class="form-text text-muted ms-3">Leave blank to keep your current API key</div>
+                    </div>                    
+                    <div class="mb-3 border-top border-secondary border-1 pt-3 d-none" id="edit-gateway-virtual-keys-container">
+                        <label for="edit-gateway-virtual-keys" class="form-label">Virtual Keys</label>
+                        <div id="edit-gateway-virtual-keys" class="form-text text-muted">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-cyber">
+                        <i class="mdi mdi-content-save me-1"></i> Update Gateway
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Gateway Modal -->
+<div class="modal fade" id="deleteGatewayModal" tabindex="-1" aria-labelledby="deleteGatewayModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel glass-panel-glow">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-light fs-5" id="deleteGatewayModalLabel">Delete AI Gateway</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the gateway <strong id="delete-gateway-name"></strong>?</p>
+                <p class="text-danger">This action cannot be undone. All models associated with this gateway will also be removed.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{{ path('app_user_settings_ai_gateways_delete') }}">
+                    <input type="hidden" id="delete-gateway-id" name="id">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="mdi mdi-delete me-1"></i> Delete Gateway
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gateway name select change handler for Add Gateway modal
+        const gatewayNameSelect = document.getElementById('gateway-name');
+        const gatewayEndpointInput = document.getElementById('gateway-endpoint');
+        
+        gatewayNameSelect.addEventListener('change', function() {
+            const selectedGateway = this.value;
+            
+            // Set default endpoint URL based on selection
+            if (selectedGateway === 'PortkeyAI direct') {
+                gatewayEndpointInput.value = 'https://api.portkey.ai/v1';
+            } else if (selectedGateway === 'CQ AI Gateway') {
+                gatewayEndpointInput.value = 'https://ai-gw.citadelquest.com/api/v1';
+            } else {
+                gatewayEndpointInput.value = '';
+            }
+        });
+        
+        // Edit gateway modal
+        const editButtons = document.querySelectorAll('.edit-gateway');
+        editButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
+                const endpoint = this.getAttribute('data-endpoint');
+                
+                document.getElementById('edit-gateway-id').value = id;
+                document.getElementById('edit-gateway-name').value = name;
+                document.getElementById('edit-gateway-endpoint').value = endpoint;
+
+                // Retrieve PortkeyAI virtual keys
+                if (name === 'PortkeyAI direct') {
+                    document.getElementById('edit-gateway-virtual-keys-container').classList.remove('d-none');
+                    
+                    // fetch virtual keys from PortkeyAI API
+                    fetch(`${endpoint}/virtual-keys`, {
+                        method: 'GET',
+                        headers: {
+                            'x-portkey-api-key': this.getAttribute('data-api-key')
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('edit-gateway-virtual-keys').innerHTML = '';
+                        data.data.forEach(key => {
+                            document.getElementById('edit-gateway-virtual-keys').innerHTML += `
+                                <div class="mb-2">
+                                    <span class="badge bg-cyber text-white me-2 `+(key.active ? '' : 'bg-opacity-50')+`">${key.provider}</span>
+                                    ${key.name}
+                                </div>
+                            `;
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching virtual keys:', error);
+                        document.getElementById('edit-gateway-virtual-keys').textContent = 'Failed to load virtual keys.';
+                    });
+                } else {
+                    document.getElementById('edit-gateway-virtual-keys-container').classList.add('d-none');
+                }
+            });
+        });
+        
+        // Delete gateway modal
+        const deleteButtons = document.querySelectorAll('.delete-gateway');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
+                
+                document.getElementById('delete-gateway-id').value = id;
+                document.getElementById('delete-gateway-name').textContent = name;
+            });
+        });
+    });
+</script>
+{% endblock %}

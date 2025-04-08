@@ -1,0 +1,138 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}AI Service Settings{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                        <i class="mdi mdi-cog me-2"></i> General
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
+                        <i class="mdi mdi-robot me-2"></i> AI Services
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                        <i class="mdi mdi-server-network me-2"></i> AI Gateways
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                        <i class="mdi mdi-brain me-2"></i> AI Models
+                    </a>
+                    <!-- Add more settings categories here as needed -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
+                    <h4 class="mb-0">AI Service Settings</h4>
+                </div>
+                <div class="p-4">
+                    {% for message in app.flashes('success') %}
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                    
+                    <p class="mb-4">Configure your AI service settings to power your Spirit and other AI features.</p>
+                    
+                    <form method="post" action="{{ path('app_user_settings_ai') }}">
+                        <div class="mb-4">
+                            <h5 class="border-top border-secondary border-1 pt-3">AI Gateway</h5>
+                            <p class="">Select which AI service provider to use for your Citadel.</p>
+                            
+                            <div class="mb-3">
+                                <label for="gateway" class="form-label">AI Gateway</label>
+                                <select class="form-select" id="gateway" name="gateway" required>
+                                    <option value="" disabled {% if not aiSettings %}selected{% endif %}>Select a gateway...</option>
+                                    {% for gateway in aiGateways %}
+                                        <option value="{{ gateway.id }}" {% if aiSettings and aiSettings.aiGatewayId == gateway.id %}selected{% endif %}>
+                                            {{ gateway.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5 class="border-top border-secondary border-1 pt-3">AI Models</h5>
+                            <p class="">Select which AI models to use for different purposes.</p>
+                            
+                            <div class="mb-3">
+                                <label for="primary_model" class="form-label">Primary AI Model</label>
+                                <select class="form-select" id="primary_model" name="primary_model">
+                                    <option value="">None</option>
+                                    {% for model in aiModels %}
+                                        <option value="{{ model.id }}" {% if aiSettings and aiSettings.primaryAiServiceModelId == model.id %}selected{% endif %}>
+                                            {{ model.modelName }} ({{ model.modelSlug }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text text-muted">Used for Spirit's main chat/reasoning. Higher quality, potentially more expensive.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="secondary_model" class="form-label">Secondary AI Model</label>
+                                <select class="form-select" id="secondary_model" name="secondary_model">
+                                    <option value="">None</option>
+                                    {% for model in aiModels %}
+                                        <option value="{{ model.id }}" {% if aiSettings and aiSettings.secondaryAiServiceModelId == model.id %}selected{% endif %}>
+                                            {{ model.modelName }} ({{ model.modelSlug }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text text-muted">Used for secondary Spirit tasks and system tools. Good quality, more cost-effective.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mb-4">
+                            <div class="d-flex">
+                                <div class="me-3">
+                                    <i class="fas fa-info-circle fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h5 class="alert-heading">About AI Models</h5>
+                                    <p class="mb-0">Your Spirit uses AI models for different purposes:</p>
+                                    <ul class="mb-0">
+                                        <li><strong>Primary Model:</strong> Used for deep conversations, reasoning, and complex tasks.</li>
+                                        <li><strong>Secondary Model:</strong> Used for routine tasks, notifications, and background processing.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-cyber">
+                                <i class="mdi mdi-content-save me-2"></i> Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add any JavaScript for dynamic behavior here
+        const gatewaySelect = document.getElementById('gateway');
+        
+        // You could add logic here to filter models based on selected gateway
+        // For example:
+        /*
+        gatewaySelect.addEventListener('change', function() {
+            const gatewayId = this.value;
+            // Filter models by gateway
+        });
+        */
+    });
+</script>
+{% endblock %}
