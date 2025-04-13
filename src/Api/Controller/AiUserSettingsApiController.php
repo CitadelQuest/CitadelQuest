@@ -22,7 +22,7 @@ class AiUserSettingsApiController extends AbstractController
     #[Route('', name: 'app_api_ai_user_settings_get', methods: ['GET'])]
     public function get(): JsonResponse
     {
-        $settings = $this->aiUserSettingsService->findForUser($this->getUser());
+        $settings = $this->aiUserSettingsService->findForUser();
         
         if (!$settings) {
             return $this->json(['error' => 'No settings found'], Response::HTTP_NOT_FOUND);
@@ -43,7 +43,6 @@ class AiUserSettingsApiController extends AbstractController
         }
 
         $settings = $this->aiUserSettingsService->createSettings(
-            $this->getUser(),
             $data['aiGatewayId'],
             $data['primaryAiServiceModelId'] ?? null,
             $data['secondaryAiServiceModelId'] ?? null
@@ -64,7 +63,6 @@ class AiUserSettingsApiController extends AbstractController
         }
 
         $settings = $this->aiUserSettingsService->updateSettings(
-            $this->getUser(),
             $id,
             $data
         );
@@ -81,7 +79,7 @@ class AiUserSettingsApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_user_settings_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiUserSettingsService->deleteSettings($this->getUser(), $id);
+        $result = $this->aiUserSettingsService->deleteSettings($id);
         
         if (!$result) {
             return $this->json(['error' => 'Settings not found'], Response::HTTP_NOT_FOUND);

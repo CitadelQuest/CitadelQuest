@@ -9,18 +9,19 @@ use App\Service\UserDatabaseManager;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class AiUserSettingsService
 {
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly AiGatewayService $aiGatewayService,
-        private readonly AiServiceModelService $aiServiceModelService
+        private readonly AiServiceModelService $aiServiceModelService,
+        private readonly Security $security
     ) {
     }
 
     public function createSettings(
-        UserInterface $user,
         string $aiGatewayId,
         ?string $primaryAiServiceModelId = null,
         ?string $secondaryAiServiceModelId = null
@@ -35,7 +36,7 @@ class AiUserSettingsService
             $settings->setSecondaryAiServiceModelId($secondaryAiServiceModelId);
         }
         
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($this->security->getUser());
         $userDb->executeStatement(
             'INSERT INTO ai_user_settings (id, ai_gateway_id, primary_ai_service_model_id, secondary_ai_service_model_id, created_at, updated_at) 
              VALUES (?, ?, ?, ?, ?, ?)',
@@ -52,9 +53,9 @@ class AiUserSettingsService
         return $settings;
     }
 
-    public function findById(UserInterface $user, string $id): ?AiUserSettings
+    public function findById(string $id): ?AiUserSettings
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($this->security->getUser());
         $result = $userDb->executeQuery(
             'SELECT * FROM ai_user_settings WHERE id = ?',
             [$id]
@@ -67,21 +68,21 @@ class AiUserSettingsService
         $settings = AiUserSettings::fromArray($result);
         
         // Load related gateway
-        $gateway = $this->aiGatewayService->findById($user, $settings->getAiGatewayId());
+        $gateway = $this->aiGatewayService->findById($settings->getAiGatewayId());
         if ($gateway) {
             $settings->setAiGateway($gateway);
         }
         
         // Load related models if set
         if ($settings->getPrimaryAiServiceModelId()) {
-            $primaryModel = $this->aiServiceModelService->findById($user, $settings->getPrimaryAiServiceModelId());
+            $primaryModel = $this->aiServiceModelService->findById($settings->getPrimaryAiServiceModelId());
             if ($primaryModel) {
                 $settings->setPrimaryAiServiceModel($primaryModel);
             }
         }
         
         if ($settings->getSecondaryAiServiceModelId()) {
-            $secondaryModel = $this->aiServiceModelService->findById($user, $settings->getSecondaryAiServiceModelId());
+            $secondaryModel = $this->aiServiceModelService->findById($settings->getSecondaryAiServiceModelId());
             if ($secondaryModel) {
                 $settings->setSecondaryAiServiceModel($secondaryModel);
             }
@@ -90,9 +91,9 @@ class AiUserSettingsService
         return $settings;
     }
 
-    public function findForUser(UserInterface $user): ?AiUserSettings
+    public function findForUser(): ?AiUserSettings
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($this->security->getUser());
         $result = $userDb->executeQuery(
             'SELECT * FROM ai_user_settings ORDER BY created_at DESC LIMIT 1'
         )->fetchAssociative();
@@ -104,21 +105,21 @@ class AiUserSettingsService
         $settings = AiUserSettings::fromArray($result);
         
         // Load related gateway
-        $gateway = $this->aiGatewayService->findById($user, $settings->getAiGatewayId());
+        $gateway = $this->aiGatewayService->findById($settings->getAiGatewayId());
         if ($gateway) {
             $settings->setAiGateway($gateway);
         }
         
         // Load related models if set
         if ($settings->getPrimaryAiServiceModelId()) {
-            $primaryModel = $this->aiServiceModelService->findById($user, $settings->getPrimaryAiServiceModelId());
+            $primaryModel = $this->aiServiceModelService->findById($settings->getPrimaryAiServiceModelId());
             if ($primaryModel) {
                 $settings->setPrimaryAiServiceModel($primaryModel);
             }
         }
         
         if ($settings->getSecondaryAiServiceModelId()) {
-            $secondaryModel = $this->aiServiceModelService->findById($user, $settings->getSecondaryAiServiceModelId());
+            $secondaryModel = $this->aiServiceModelService->findById($settings->getSecondaryAiServiceModelId());
             if ($secondaryModel) {
                 $settings->setSecondaryAiServiceModel($secondaryModel);
             }
@@ -128,11 +129,10 @@ class AiUserSettingsService
     }
 
     public function updateSettings(
-        UserInterface $user,
         string $id,
         array $data
     ): ?AiUserSettings {
-        $settings = $this->findById($user, $id);
+        $settings = $this->findById($id);
         if (!$settings) {
             return null;
         }
@@ -151,7 +151,7 @@ class AiUserSettingsService
 
         $settings->updateUpdatedAt();
 
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($this->security->getUser());
         $userDb->executeStatement(
             'UPDATE ai_user_settings SET 
              ai_gateway_id = ?, 
@@ -171,9 +171,9 @@ class AiUserSettingsService
         return $settings;
     }
 
-    public function deleteSettings(UserInterface $user, string $id): bool
+    public function deleteSettings(string $id): bool
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($this->security->getUser());
         $result = $userDb->executeStatement(
             'DELETE FROM ai_user_settings WHERE id = ?',
             [$id]

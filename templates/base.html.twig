@@ -17,12 +17,17 @@
 
         {% block javascripts %}
             {{ encore_entry_script_tags('app') }}
+            {% if app.user %}
+                {{ encore_entry_script_tags('spirit-chat') }}
+            {% endif %}
         {% endblock %}
     </head>
     <body class="position-relative min-vh-100 citadel-background">
         {{ include('components/_navigation.html.twig') }}
 
         <div id="toast-container" class="toast-container position-fixed top-0 start-0 p-3"></div>
+        
+        {{ include('components/_spirit_chat.html.twig') }}
         
         {# Initialize flashes as toasts #}
         {% set allFlashes = {}

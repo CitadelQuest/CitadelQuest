@@ -17,6 +17,11 @@
         <!-- Navigation Items -->
         <ul class="nav align-items-center">
         {% if app.user %}
+            <!-- Spirit Icon -->
+            <li class="nav-item">
+                {{ include('components/_spirit_icon.html.twig') }}
+            </li>
+
             <!-- User Menu -->
             <li class="nav-item dropdown">
                 <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">

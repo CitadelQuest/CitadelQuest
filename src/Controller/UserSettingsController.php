@@ -27,13 +27,13 @@ class UserSettingsController extends AbstractController
     public function index(): Response
     {
         // Get user's AI settings
-        $aiSettings = $this->aiUserSettingsService->findForUser($this->getUser());
+        $aiSettings = $this->aiUserSettingsService->findForUser();
         
         // Get all available AI gateways
-        $aiGateways = $this->aiGatewayService->findAll($this->getUser());
+        $aiGateways = $this->aiGatewayService->findAll();
         
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll($this->getUser(), true);
+        $aiModels = $this->aiServiceModelService->findAll(true);
         
         return $this->render('user_settings/index.html.twig', [
             'aiSettings' => $aiSettings,
@@ -46,13 +46,13 @@ class UserSettingsController extends AbstractController
     public function aiSettings(Request $request): Response
     {
         // Get user's AI settings
-        $aiSettings = $this->aiUserSettingsService->findForUser($this->getUser());
+        $aiSettings = $this->aiUserSettingsService->findForUser();
         
         // Get all available AI gateways
-        $aiGateways = $this->aiGatewayService->findAll($this->getUser());
+        $aiGateways = $this->aiGatewayService->findAll();
         
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll($this->getUser(), true);
+        $aiModels = $this->aiServiceModelService->findAll(true);
         
         // Handle form submission
         if ($request->isMethod('POST')) {
@@ -63,7 +63,6 @@ class UserSettingsController extends AbstractController
             if ($aiSettings) {
                 // Update existing settings
                 $this->aiUserSettingsService->updateSettings(
-                    $this->getUser(),
                     $aiSettings->getId(),
                     [
                         'aiGatewayId' => $gatewayId,
@@ -76,7 +75,6 @@ class UserSettingsController extends AbstractController
             } else {
                 // Create new settings
                 $this->aiUserSettingsService->createSettings(
-                    $this->getUser(),
                     $gatewayId,
                     $primaryModelId,
                     $secondaryModelId
@@ -99,7 +97,7 @@ class UserSettingsController extends AbstractController
     public function aiGateways(): Response
     {
         // Get all available AI gateways
-        $aiGateways = $this->aiGatewayService->findAll($this->getUser());
+        $aiGateways = $this->aiGatewayService->findAll();
         
         return $this->render('user_settings/ai_gateways.html.twig', [
             'aiGateways' => $aiGateways,
@@ -120,7 +118,6 @@ class UserSettingsController extends AbstractController
         
         // Create new gateway using the service
         $this->aiGatewayService->createGateway(
-            $this->getUser(),
             $name,
             $apiKey,
             $apiEndpointUrl
@@ -144,7 +141,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Find the gateway
-        $gateway = $this->aiGatewayService->findById($this->getUser(), $id);
+        $gateway = $this->aiGatewayService->findById($id);
         
         if (!$gateway) {
             $this->addFlash('danger', 'Gateway not found.');
@@ -162,7 +159,7 @@ class UserSettingsController extends AbstractController
             $updateData['apiKey'] = $apiKey;
         }
         
-        $this->aiGatewayService->updateGateway($this->getUser(), $id, $updateData);
+        $this->aiGatewayService->updateGateway($id, $updateData);
         
         $this->addFlash('success', 'AI gateway updated successfully.');
         return $this->redirectToRoute('app_user_settings_ai_gateways');
@@ -179,7 +176,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Find the gateway
-        $gateway = $this->aiGatewayService->findById($this->getUser(), $id);
+        $gateway = $this->aiGatewayService->findById($id);
         
         if (!$gateway) {
             $this->addFlash('danger', 'Gateway not found.');
@@ -187,14 +184,14 @@ class UserSettingsController extends AbstractController
         }
         
         // Check if this gateway is in use by the user's settings
-        $aiSettings = $this->aiUserSettingsService->findForUser($this->getUser());
+        $aiSettings = $this->aiUserSettingsService->findForUser();
         if ($aiSettings && $aiSettings->getAiGatewayId() === $id) {
             $this->addFlash('danger', 'This gateway is currently in use in your AI settings. Please select a different gateway in AI Services settings first.');
             return $this->redirectToRoute('app_user_settings_ai_gateways');
         }
         
         // Delete gateway and its models
-        $this->aiGatewayService->deleteGateway($this->getUser(), $id);
+        $this->aiGatewayService->deleteGateway($id);
         
         $this->addFlash('success', 'AI gateway deleted successfully.');
         return $this->redirectToRoute('app_user_settings_ai_gateways');
@@ -204,10 +201,10 @@ class UserSettingsController extends AbstractController
     public function aiModels(): Response
     {
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll($this->getUser());
+        $aiModels = $this->aiServiceModelService->findAll(true);
         
         // Get all available AI gateways for the dropdown
-        $aiGateways = $this->aiGatewayService->findAll($this->getUser());
+        $aiGateways = $this->aiGatewayService->findAll();
         
         return $this->render('user_settings/ai_models.html.twig', [
             'aiModels' => $aiModels,
@@ -237,7 +234,6 @@ class UserSettingsController extends AbstractController
         
         // Create new model using the service
         $this->aiServiceModelService->createModel(
-            $this->getUser(),
             $aiGatewayId,
             $modelName,
             $modelSlug,
@@ -277,7 +273,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Find the model
-        $model = $this->aiServiceModelService->findById($this->getUser(), $id);
+        $model = $this->aiServiceModelService->findById($id);
         
         if (!$model) {
             $this->addFlash('danger', 'Model not found.');
@@ -303,7 +299,7 @@ class UserSettingsController extends AbstractController
             $updateData['virtualKey'] = $virtualKey;
         }
         
-        $this->aiServiceModelService->updateModel($this->getUser(), $id, $updateData);
+        $this->aiServiceModelService->updateModel($id, $updateData);
         
         $this->addFlash('success', 'AI model updated successfully.');
         return $this->redirectToRoute('app_user_settings_ai_models');
@@ -320,7 +316,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Find the model
-        $model = $this->aiServiceModelService->findById($this->getUser(), $id);
+        $model = $this->aiServiceModelService->findById($id);
         
         if (!$model) {
             $this->addFlash('danger', 'Model not found.');
@@ -328,7 +324,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Check if this model is in use by the user's settings
-        $aiSettings = $this->aiUserSettingsService->findForUser($this->getUser());
+        $aiSettings = $this->aiUserSettingsService->findForUser();
         if ($aiSettings && 
             ($aiSettings->getPrimaryAiServiceModelId() === $id || 
              $aiSettings->getSecondaryAiServiceModelId() === $id)) {
@@ -337,7 +333,7 @@ class UserSettingsController extends AbstractController
         }
         
         // Delete model
-        $this->aiServiceModelService->deleteModel($this->getUser(), $id);
+        $this->aiServiceModelService->deleteModel($id);
         
         $this->addFlash('success', 'AI model deleted successfully.');
         return $this->redirectToRoute('app_user_settings_ai_models');

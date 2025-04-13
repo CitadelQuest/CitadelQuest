@@ -94,6 +94,18 @@ class AiGateway implements JsonSerializable
         $this->updatedAt = new \DateTime();
         return $this;
     }
+
+    public function getType(): ?string
+    {
+        switch ($this->name) {
+            case 'PortkeyAI direct':
+                return 'portkey';
+            case 'CQ AI Gateway':
+                return 'cq_ai_gateway';
+            default:
+                return null;
+        }
+    }
     
     public function jsonSerialize(): array
     {

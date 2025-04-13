@@ -12,13 +12,22 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 class AiServiceUseLogService
 {
+    private ?AiGatewayService $aiGatewayService = null;
+    
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
-        private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiServiceResponseService $aiServiceResponseService
     ) {
+    }
+    
+    /**
+     * Set the AI gateway service
+     */
+    public function setAiGatewayService(AiGatewayService $aiGatewayService): void
+    {
+        $this->aiGatewayService = $aiGatewayService;
     }
 
     public function createLog(
@@ -113,22 +122,24 @@ class AiServiceUseLogService
         $log = AiServiceUseLog::fromArray($result);
         
         // Load related entities
-        $gateway = $this->aiGatewayService->findById($user, $log->getAiGatewayId());
-        if ($gateway) {
-            $log->setAiGateway($gateway);
+        if ($this->aiGatewayService) {
+            $gateway = $this->aiGatewayService->findById($log->getAiGatewayId());
+            if ($gateway) {
+                $log->setAiGateway($gateway);
+            }
         }
         
-        $model = $this->aiServiceModelService->findById($user, $log->getAiServiceModelId());
+        $model = $this->aiServiceModelService->findById($log->getAiServiceModelId());
         if ($model) {
             $log->setAiServiceModel($model);
         }
         
-        $request = $this->aiServiceRequestService->findById($user, $log->getAiServiceRequestId());
+        $request = $this->aiServiceRequestService->findById($log->getAiServiceRequestId());
         if ($request) {
             $log->setAiServiceRequest($request);
         }
         
-        $response = $this->aiServiceResponseService->findById($user, $log->getAiServiceResponseId());
+        $response = $this->aiServiceResponseService->findById($log->getAiServiceResponseId());
         if ($response) {
             $log->setAiServiceResponse($response);
         }
@@ -260,7 +271,7 @@ class AiServiceUseLogService
 
         // Enhance with model details
         foreach ($results as &$result) {
-            $model = $this->aiServiceModelService->findById($user, $result['ai_service_model_id']);
+            $model = $this->aiServiceModelService->findById($result['ai_service_model_id']);
             if ($model) {
                 $result['model_name'] = $model->getModelName();
                 $result['model_slug'] = $model->getModelSlug();

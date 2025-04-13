@@ -52,6 +52,38 @@ class SpiritService
     }
     
     /**
+     * Get a spirit by ID or the primary spirit if ID is null
+     */
+    public function getSpirit(?string $spiritId = null): ?Spirit
+    {
+        $db = $this->getUserDb();
+        
+        if ($spiritId === null) {
+            // Get primary spirit (first created)
+            $stmt = $db->prepare('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
+            $stmt->execute();
+        } else {
+            // Get specific spirit by ID
+            $stmt = $db->prepare('SELECT * FROM spirits WHERE id = ?');
+            $stmt->execute([$spiritId]);
+        }
+        
+        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if (!$data) {
+            return null;
+        }
+        
+        $spirit = Spirit::fromArray($data);
+        
+        // Load spirit abilities
+        $abilities = $this->getSpiritAbilities($spirit->getId());
+        $spirit->setAbilities($abilities);
+        
+        return $spirit;
+    }
+    
+    /**
      * Create a new spirit for the user
      */
     public function createSpirit(string $name): Spirit

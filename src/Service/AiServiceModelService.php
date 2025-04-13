@@ -3,20 +3,32 @@
 namespace App\Service;
 
 use App\Entity\AiServiceModel;
+use App\Entity\User;
 use App\Service\UserDatabaseManager;
 use App\Service\AiGatewayService;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 class AiServiceModelService
 {
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
-        private readonly AiGatewayService $aiGatewayService
+        private readonly AiGatewayService $aiGatewayService,
+        private readonly Security $security
     ) {
+    }
+    
+    /**
+     * Get a fresh database connection for the current user
+     */
+    private function getUserDb()
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+        return $this->userDatabaseManager->getDatabaseConnection($user);
     }
 
     public function createModel(
-        UserInterface $user,
         string $aiGatewayId,
         string $modelName,
         string $modelSlug,
@@ -64,7 +76,7 @@ class AiServiceModelService
         }
 
         // Store in user's database
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO ai_service_model (
                 id, ai_gateway_id, virtual_key, model_name, model_slug, 
@@ -92,9 +104,9 @@ class AiServiceModelService
         return $model;
     }
 
-    public function findById(UserInterface $user, string $id): ?AiServiceModel
+    public function findById(string $id): ?AiServiceModel
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
             'SELECT * FROM ai_service_model WHERE id = ?',
             [$id]
@@ -107,7 +119,7 @@ class AiServiceModelService
         $model = AiServiceModel::fromArray($result);
         
         // Load related gateway
-        $gateway = $this->aiGatewayService->findById($user, $model->getAiGatewayId());
+        $gateway = $this->aiGatewayService->findById($model->getAiGatewayId());
         if ($gateway) {
             $model->setAiGateway($gateway);
         }
@@ -115,9 +127,9 @@ class AiServiceModelService
         return $model;
     }
 
-    public function findByGateway(UserInterface $user, string $gatewayId): array
+    public function findByGateway(string $gatewayId): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_model WHERE ai_gateway_id = ? ORDER BY model_name ASC',
             [$gatewayId]
@@ -126,9 +138,9 @@ class AiServiceModelService
         return array_map(fn($data) => AiServiceModel::fromArray($data), $results);
     }
 
-    public function findAll(UserInterface $user, bool $activeOnly = false): array
+    public function findAll(bool $activeOnly = false): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $query = 'SELECT * FROM ai_service_model';
         $params = [];
         
@@ -144,11 +156,10 @@ class AiServiceModelService
     }
 
     public function updateModel(
-        UserInterface $user,
         string $id,
         array $data
     ): ?AiServiceModel {
-        $model = $this->findById($user, $id);
+        $model = $this->findById($id);
         if (!$model) {
             return null;
         }
@@ -195,7 +206,7 @@ class AiServiceModelService
 
         $model->updateUpdatedAt();
 
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'UPDATE ai_service_model SET 
              model_name = ?, 
@@ -229,9 +240,9 @@ class AiServiceModelService
         return $model;
     }
 
-    public function deleteModel(UserInterface $user, string $id): bool
+    public function deleteModel(string $id): bool
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeStatement(
             'DELETE FROM ai_service_model WHERE id = ?',
             [$id]

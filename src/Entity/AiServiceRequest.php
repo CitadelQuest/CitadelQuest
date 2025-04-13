@@ -10,8 +10,8 @@ class AiServiceRequest implements JsonSerializable
     private string $aiServiceModelId;
     private ?AiServiceModel $aiServiceModel = null;
     private string $messages; // JSON string
-    private ?int $maxTokens = null;
-    private ?float $temperature = null;
+    private ?int $maxTokens = 1000;
+    private ?float $temperature = 0.7;
     private ?string $stopSequence = null;
     private \DateTimeInterface $createdAt;
     
@@ -20,7 +20,7 @@ class AiServiceRequest implements JsonSerializable
         $this->id = uuid_create();
         $this->aiServiceModelId = $aiServiceModelId;
         $this->messages = json_encode($messages);
-        $this->createdAt = new \DateTime();
+        $this->createdAt = new \DateTime();        
     }
     
     public function getId(): string

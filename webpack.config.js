@@ -30,6 +30,7 @@ Encore
     .addEntry('language-switcher', './assets/entries/language-switcher.js')
     .addEntry('diary', './assets/entries/diary.js')
     .addEntry('spirit', './assets/entries/spirit.js')
+    .addEntry('spirit-chat', './assets/entries/spirit-chat.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

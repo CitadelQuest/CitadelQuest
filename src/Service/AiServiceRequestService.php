@@ -4,20 +4,32 @@ namespace App\Service;
 
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Entity\User;
 use App\Service\UserDatabaseManager;
 use App\Service\AiServiceModelService;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 class AiServiceRequestService
 {
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
-        private readonly AiServiceModelService $aiServiceModelService
+        private readonly AiServiceModelService $aiServiceModelService,
+        private readonly Security $security
     ) {
+    }
+    
+    /**
+     * Get a fresh database connection for the current user
+     */
+    private function getUserDb()
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+        return $this->userDatabaseManager->getDatabaseConnection($user);
     }
 
     public function createRequest(
-        UserInterface $user,
         string $aiServiceModelId,
         array $messages,
         ?int $maxTokens = null,
@@ -39,7 +51,7 @@ class AiServiceRequestService
         }
 
         // Store in user's database
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO ai_service_request (
                 id, ai_service_model_id, messages, max_tokens, temperature, stop_sequence, created_at
@@ -58,9 +70,9 @@ class AiServiceRequestService
         return $request;
     }
 
-    public function findById(UserInterface $user, string $id): ?AiServiceRequest
+    public function findById(string $id): ?AiServiceRequest
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
             'SELECT * FROM ai_service_request WHERE id = ?',
             [$id]
@@ -73,7 +85,7 @@ class AiServiceRequestService
         $request = AiServiceRequest::fromArray($result);
         
         // Load related model
-        $model = $this->aiServiceModelService->findById($user, $request->getAiServiceModelId());
+        $model = $this->aiServiceModelService->findById($request->getAiServiceModelId());
         if ($model) {
             $request->setAiServiceModel($model);
         }
@@ -81,9 +93,9 @@ class AiServiceRequestService
         return $request;
     }
 
-    public function findByModel(UserInterface $user, string $modelId, int $limit = 100): array
+    public function findByModel(string $modelId, int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_request WHERE ai_service_model_id = ? ORDER BY created_at DESC LIMIT ?',
             [$modelId, $limit]
@@ -92,9 +104,9 @@ class AiServiceRequestService
         return array_map(fn($data) => AiServiceRequest::fromArray($data), $results);
     }
 
-    public function findRecent(UserInterface $user, int $limit = 100): array
+    public function findRecent(int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_request ORDER BY created_at DESC LIMIT ?',
             [$limit]
@@ -103,9 +115,9 @@ class AiServiceRequestService
         return array_map(fn($data) => AiServiceRequest::fromArray($data), $results);
     }
 
-    public function deleteRequest(UserInterface $user, string $id): bool
+    public function deleteRequest(string $id): bool
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeStatement(
             'DELETE FROM ai_service_request WHERE id = ?',
             [$id]

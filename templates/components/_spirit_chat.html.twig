@@ -1,0 +1,82 @@
+{% if app.user %}
+<div class="modal fade" id="spiritChatModal" tabindex="-1" aria-labelledby="spiritChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g">
+                <h5 class="modal-title" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-4 text-center">
+                        <div class="spirit-avatar-container">
+                            <div id="spiritChatAvatar" class="spirit-avatar"></div>
+                        </div>
+                        <h5 id="spiritName" class="mt-2">{{ 'spirit.loading'|trans }}</h5>
+                        <div class="spirit-info">
+                            <span id="spiritLevel" class="badge bg-cyber">{{ 'spirit.level'|trans }}: 1</span>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6>{{ 'spirit.chat.conversations'|trans }}</h6>
+                            <button id="newConversationBtn" class="btn btn-sm btn-cyber">
+                                <i class="mdi mdi-plus-circle"></i> {{ 'spirit.chat.new_conversation'|trans }}
+                            </button>
+                        </div>
+                        <div id="conversationsList" class="list-group conversation-list">
+                            <div class="text-center p-3">
+                                <div class="spinner-border text-cyber" role="status">
+                                    <span class="visually-hidden">{{ 'loading'|trans }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="chatContainer" class="chat-container d-none">
+                    <div id="chatMessages" class="chat-messages mb-3">
+                        <div class="text-center p-3 loading-indicator">
+                            <div class="spinner-border text-cyber" role="status">
+                                <span class="visually-hidden">{{ 'loading'|trans }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input">
+                        <form id="chatForm" class="d-flex">
+                            <input type="text" id="messageInput" class="form-control me-2" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off">
+                            <button type="submit" class="btn btn-cyber">
+                                <i class="mdi mdi-send"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="newConversationModal" tabindex="-1" aria-labelledby="newConversationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g">
+                <h5 class="modal-title" id="newConversationModalLabel">{{ 'spirit.chat.new_conversation'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newConversationForm">
+                    <div class="mb-3">
+                        <label for="conversationTitle" class="form-label">{{ 'spirit.chat.conversation_title'|trans }}</label>
+                        <input type="text" class="form-control" id="conversationTitle" required>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">{{ 'cancel'|trans }}</button>
+                        <button type="submit" class="btn btn-cyber">{{ 'create'|trans }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
