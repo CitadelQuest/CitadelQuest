@@ -28,10 +28,10 @@ class AiServiceUseLogApiController extends AbstractController
         $limit = $request->query->getInt('limit', 100);
         
         $logs = match(true) {
-            $gatewayId !== null => $this->aiServiceUseLogService->findByGateway($this->getUser(), $gatewayId, $limit),
-            $modelId !== null => $this->aiServiceUseLogService->findByModel($this->getUser(), $modelId, $limit),
-            $purpose !== null => $this->aiServiceUseLogService->findByPurpose($this->getUser(), $purpose, $limit),
-            default => $this->aiServiceUseLogService->findRecent($this->getUser(), $limit),
+            $gatewayId !== null => $this->aiServiceUseLogService->findByGateway($gatewayId, $limit),
+            $modelId !== null => $this->aiServiceUseLogService->findByModel($modelId, $limit),
+            $purpose !== null => $this->aiServiceUseLogService->findByPurpose($purpose, $limit),
+            default => $this->aiServiceUseLogService->findRecent($limit),
         };
 
         return $this->json([
@@ -50,7 +50,6 @@ class AiServiceUseLogApiController extends AbstractController
         }
 
         $log = $this->aiServiceUseLogService->createLog(
-            $this->getUser(),
             $data['aiGatewayId'],
             $data['aiServiceModelId'],
             $data['aiServiceRequestId'],
@@ -72,7 +71,7 @@ class AiServiceUseLogApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_use_log_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $log = $this->aiServiceUseLogService->findById($this->getUser(), $id);
+        $log = $this->aiServiceUseLogService->findById($id);
         
         if (!$log) {
             return $this->json(['error' => 'Log not found'], Response::HTTP_NOT_FOUND);
@@ -98,7 +97,6 @@ class AiServiceUseLogApiController extends AbstractController
         }
         
         $summary = $this->aiServiceUseLogService->getUsageSummary(
-            $this->getUser(),
             $startDate,
             $endDate
         );
@@ -123,7 +121,6 @@ class AiServiceUseLogApiController extends AbstractController
         }
         
         $summary = $this->aiServiceUseLogService->getUsageByModel(
-            $this->getUser(),
             $startDate,
             $endDate
         );
@@ -136,7 +133,7 @@ class AiServiceUseLogApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_use_log_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiServiceUseLogService->deleteLog($this->getUser(), $id);
+        $result = $this->aiServiceUseLogService->deleteLog($id);
         
         if (!$result) {
             return $this->json(['error' => 'Log not found'], Response::HTTP_NOT_FOUND);

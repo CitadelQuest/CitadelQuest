@@ -1,6 +1,7 @@
 // Spirit Chat Styles
 @use '../colors' as colors;
 @use '../variables' as vars;
+@use '../mixins' as mixins;
 
 // Spirit Icon in Navigation
 .spirit-icon-container {
@@ -96,6 +97,10 @@
     }
 }
 
+.modal-body {
+    @include mixins.cyber-scrollbar;
+}
+
 // Chat Container
 .chat-container {
     border-top: 1px solid rgba(colors.$cyber, 0.2);
@@ -114,7 +119,7 @@
                 justify-content: flex-end;
                 
                 .chat-bubble {
-                    background-color: rgba(colors.$cyber, 0.2);
+                    background-color: rgba(colors.$cyber, 0.3);
                     border-radius: 1rem 1rem 0 1rem;
                 }
             }
@@ -123,13 +128,13 @@
                 justify-content: flex-start;
                 
                 .chat-bubble {
-                    background-color: rgba(colors.$dark, 0.2);
+                    background-color: rgba(colors.$dark, 0.5);
                     border-radius: 1rem 1rem 1rem 0;
                 }
             }
             
             .chat-bubble {
-                max-width: 80%;
+                max-width: 90%;
                 padding: 0.75rem 1rem;
                 position: relative;
                 

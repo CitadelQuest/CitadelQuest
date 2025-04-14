@@ -23,7 +23,7 @@ class AiServiceResponseApiController extends AbstractController
     public function list(Request $request): JsonResponse
     {
         $limit = $request->query->getInt('limit', 100);
-        $responses = $this->aiServiceResponseService->findRecent($this->getUser(), $limit);
+        $responses = $this->aiServiceResponseService->findRecent($limit);
 
         return $this->json([
             'responses' => array_map(fn($resp) => $resp->jsonSerialize(), $responses)
@@ -40,7 +40,6 @@ class AiServiceResponseApiController extends AbstractController
         }
 
         $response = $this->aiServiceResponseService->createResponse(
-            $this->getUser(),
             $data['aiServiceRequestId'],
             $data['message'],
             $data['finishReason'] ?? null,
@@ -57,7 +56,7 @@ class AiServiceResponseApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_response_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $response = $this->aiServiceResponseService->findById($this->getUser(), $id);
+        $response = $this->aiServiceResponseService->findById($id);
         
         if (!$response) {
             return $this->json(['error' => 'Response not found'], Response::HTTP_NOT_FOUND);
@@ -71,7 +70,7 @@ class AiServiceResponseApiController extends AbstractController
     #[Route('/request/{requestId}', name: 'app_api_ai_service_response_by_request', methods: ['GET'])]
     public function getByRequest(string $requestId): JsonResponse
     {
-        $response = $this->aiServiceResponseService->findByRequest($this->getUser(), $requestId);
+        $response = $this->aiServiceResponseService->findByRequest($requestId);
         
         if (!$response) {
             return $this->json(['error' => 'Response not found'], Response::HTTP_NOT_FOUND);
@@ -85,7 +84,7 @@ class AiServiceResponseApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_response_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiServiceResponseService->deleteResponse($this->getUser(), $id);
+        $result = $this->aiServiceResponseService->deleteResponse($id);
         
         if (!$result) {
             return $this->json(['error' => 'Response not found'], Response::HTTP_NOT_FOUND);

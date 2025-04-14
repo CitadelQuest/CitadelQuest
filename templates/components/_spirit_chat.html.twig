@@ -3,7 +3,7 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g">
-                <h5 class="modal-title" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }}</h5>
+                <h5 class="modal-title" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }} <span class="spiritName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -12,7 +12,7 @@
                         <div class="spirit-avatar-container">
                             <div id="spiritChatAvatar" class="spirit-avatar"></div>
                         </div>
-                        <h5 id="spiritName" class="mt-2">{{ 'spirit.loading'|trans }}</h5>
+                        <h5 class="spiritName mt-2">{{ 'spirit.loading'|trans }}</h5>
                         <div class="spirit-info">
                             <span id="spiritLevel" class="badge bg-cyber">{{ 'spirit.level'|trans }}: 1</span>
                         </div>

@@ -16,7 +16,7 @@ export class SpiritChatManager {
         this.spiritIcon = document.getElementById('spiritIcon');
         this.spiritChatModal = document.getElementById('spiritChatModal');
         this.spiritChatButton = document.getElementById('spiritChatButton');
-        this.spiritName = document.getElementById('spiritName');
+        this.spiritNames = document.querySelectorAll('.spiritName');
         this.spiritLevel = document.getElementById('spiritLevel');
         this.spiritChatAvatar = document.getElementById('spiritChatAvatar');
         this.conversationsList = document.getElementById('conversationsList');
@@ -93,8 +93,8 @@ export class SpiritChatManager {
             this.currentSpiritId = spirit.id;
             
             // Update UI with spirit info
-            if (this.spiritName) {
-                this.spiritName.textContent = spirit.name;
+            if (this.spiritNames && this.spiritNames.length > 0) {
+                this.spiritNames.forEach(name => name.textContent = spirit.name);
             }
             
             if (this.spiritLevel) {

@@ -26,8 +26,8 @@ class AiServiceRequestApiController extends AbstractController
         $limit = $request->query->getInt('limit', 100);
         
         $requests = match(true) {
-            $modelId !== null => $this->aiServiceRequestService->findByModel($this->getUser(), $modelId, $limit),
-            default => $this->aiServiceRequestService->findRecent($this->getUser(), $limit),
+            $modelId !== null => $this->aiServiceRequestService->findByModel($modelId, $limit),
+            default => $this->aiServiceRequestService->findRecent($limit),
         };
 
         return $this->json([
@@ -45,7 +45,6 @@ class AiServiceRequestApiController extends AbstractController
         }
 
         $aiRequest = $this->aiServiceRequestService->createRequest(
-            $this->getUser(),
             $data['aiServiceModelId'],
             $data['messages'],
             $data['maxTokens'] ?? null,
@@ -61,7 +60,7 @@ class AiServiceRequestApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_request_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $aiRequest = $this->aiServiceRequestService->findById($this->getUser(), $id);
+        $aiRequest = $this->aiServiceRequestService->findById($id);
         
         if (!$aiRequest) {
             return $this->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);
@@ -75,7 +74,7 @@ class AiServiceRequestApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_request_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiServiceRequestService->deleteRequest($this->getUser(), $id);
+        $result = $this->aiServiceRequestService->deleteRequest($id);
         
         if (!$result) {
             return $this->json(['error' => 'Request not found'], Response::HTTP_NOT_FOUND);

@@ -4,9 +4,9 @@
         <div class="d-flex align-items-center">
             <a class="navbar-brand d-flex align-items-center" href="{{ path('app_home') }}">
                 <img src="{{ asset('build/images/logo-sm.png') }}" alt="CitadelQuest" height="43" class="me-2">
-                <div>
+                <div class="d-none d-sm-block">
                     <span>{{ 'app.name'|trans }}</span>
-                    <div class="small text-muted-light d-none d-sm-block">{{ citadel_version }}</div>
+                    <div class="small text-muted-light">{{ citadel_version }}</div>
                 </div>
             </a>
             <button id="theme-toggle" class="btn btn-sm btn-link text-light p-0" title="Toggle theme">
@@ -41,12 +41,12 @@
                             {{ 'diary.title'|trans }}
                         </a>
                     </li>
-                    <li>
+                    {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_visual_design') }}">
                             <i class="mdi mdi-palette me-3{% if app.request.pathInfo == path('app_visual_design') %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.visual_design'|trans }}
                         </a>
-                    </li>
+                    </li> #}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
                             <i class="mdi mdi-cog me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% endif %}"></i>

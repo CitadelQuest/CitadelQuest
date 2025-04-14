@@ -12,6 +12,8 @@ use App\Service\UserDatabaseManager;
 use App\Service\PortkeyAiGateway;
 use App\Service\AiGatewayInterface;
 use App\Service\AiUserSettingsService;
+use App\Service\AiServiceUseLogService;
+use App\Service\AiServiceResponseService;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -22,6 +24,7 @@ class AiGatewayService
     
     private ?AiServiceUseLogService $aiServiceUseLogService = null;
     private ?AiUserSettingsService $aiUserSettingsService = null;
+    private ?AiServiceResponseService $aiServiceResponseService = null;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
@@ -46,7 +49,7 @@ class AiGatewayService
     /**
      * Set the AI service use log service
      */
-    public function setAiServiceUseLogService(AiServiceUseLogService $aiServiceUseLogService): void
+    public function setAiServiceUseLogService(?AiServiceUseLogService $aiServiceUseLogService): void
     {
         $this->aiServiceUseLogService = $aiServiceUseLogService;
     }
@@ -54,11 +57,22 @@ class AiGatewayService
     /**
      * Set the AI user settings service
      */
-    public function setAiUserSettingsService(AiUserSettingsService $aiUserSettingsService): void
+    public function setAiUserSettingsService(?AiUserSettingsService $aiUserSettingsService): void
     {
         $this->aiUserSettingsService = $aiUserSettingsService;
     }
 
+    /**
+     * Set the AI service response service
+     */
+    public function setAiServiceResponseService(?AiServiceResponseService $aiServiceResponseService): void
+    {
+        $this->aiServiceResponseService = $aiServiceResponseService;
+    }
+
+    /**
+     * Create a new AI gateway
+     */
     public function createGateway(
         string $name,
         string $apiKey,
@@ -66,19 +80,18 @@ class AiGatewayService
         string $type = 'portkey'
     ): AiGateway {
         $gateway = new AiGateway($name, $apiKey, $apiEndpointUrl);
-        $gateway->setType($type);
+        //$gateway->setType($type);
 
         // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
-            'INSERT INTO ai_gateway (id, name, api_key, api_endpoint_url, type, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO ai_gateway (id, name, api_key, api_endpoint_url, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?)',
             [
                 $gateway->getId(),
                 $gateway->getName(),
                 $gateway->getApiKey(),
                 $gateway->getApiEndpointUrl(),
-                $gateway->getType(),
                 $gateway->getCreatedAt()->format('Y-m-d H:i:s'),
                 $gateway->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -245,7 +258,7 @@ class AiGatewayService
     /**
      * Send a request to an AI service
      */
-    public function sendRequest(AiServiceRequest $request): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request, string $purpose): AiServiceResponse
     {
         // Get the model
         $aiServiceModel = $this->getAiServiceModel($request->getAiServiceModelId());
@@ -267,9 +280,19 @@ class AiGatewayService
         
         // Send the request
         $response = $gatewayImplementation->sendRequest($aiGateway, $aiServiceModel, $request);
+
+        // Save the response
+        $response = $this->aiServiceResponseService->createResponse(
+            $request->getId(),
+            $response->getMessage(),
+            $response->getFinishReason(),
+            $response->getInputTokens(),
+            $response->getOutputTokens(),
+            $response->getTotalTokens()
+        );
         
-        // Log the usage
-        $this->logServiceUse($aiGateway, $aiServiceModel, $request, $response);
+        // Log the service use
+        $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
         
         return $response;
     }
@@ -294,17 +317,15 @@ class AiGatewayService
     
     /**
      * Log the AI service usage
+     * TODO: move this to AiServiceUseLogService
      */
-    private function logServiceUse(AiGateway $aiGateway, AiServiceModel $aiServiceModel, AiServiceRequest $request, AiServiceResponse $response): void
+    public function logServiceUse(string $purpose, AiGateway $aiGateway, AiServiceModel $aiServiceModel, AiServiceRequest $request, AiServiceResponse $response): void
     {
         // Skip logging if the service is not set
         if (!$this->aiServiceUseLogService) {
             return;
         }
         
-        // Get current user
-        $user = $this->security->getUser();
-        $username = $user->getUserIdentifier();
         $useLog = new AiServiceUseLog(
             $aiGateway->getId(),
             $aiServiceModel->getId(),
@@ -312,19 +333,19 @@ class AiGatewayService
             $response->getId()
         );
         
-        $useLog->setPurpose($request->getPurpose());
+        $useLog->setPurpose($purpose);
         $useLog->setInputTokens($response->getInputTokens());
         $useLog->setOutputTokens($response->getOutputTokens());
         $useLog->setTotalTokens($response->getTotalTokens());
         
-        // Calculate prices based on model pricing
-        if ($response->getInputTokens() !== null && $aiServiceModel->getInputPrice() !== null) {
-            $inputPrice = ($response->getInputTokens() / 1000) * $aiServiceModel->getInputPrice();
+        // Calculate prices based on model pricing [InputPrice = price per million tokens]
+        if ($response->getInputTokens() !== null && $aiServiceModel->getPpmInput() !== null) {
+            $inputPrice = ($response->getInputTokens() / 1000000) * $aiServiceModel->getPpmInput();
             $useLog->setInputPrice($inputPrice);
         }
         
-        if ($response->getOutputTokens() !== null && $aiServiceModel->getOutputPrice() !== null) {
-            $outputPrice = ($response->getOutputTokens() / 1000) * $aiServiceModel->getOutputPrice();
+        if ($response->getOutputTokens() !== null && $aiServiceModel->getPpmOutput() !== null) {
+            $outputPrice = ($response->getOutputTokens() / 1000000) * $aiServiceModel->getPpmOutput();
             $useLog->setOutputPrice($outputPrice);
         }
         
@@ -333,6 +354,18 @@ class AiGatewayService
         $useLog->setTotalPrice($totalPrice);
         
         // Save the log
-        $this->aiServiceUseLogService->createLog($this->security->getUser(), $useLog->getAiGatewayId(), $useLog->getAiServiceModelId(), $useLog->getAiServiceRequestId(), $useLog->getAiServiceResponseId(), $useLog->getPurpose(), $useLog->getInputTokens(), $useLog->getOutputTokens(), $useLog->getTotalTokens(), $useLog->getInputPrice(), $useLog->getOutputPrice(), $useLog->getTotalPrice());
+        $this->aiServiceUseLogService->createLog(
+            $useLog->getAiGatewayId(),
+            $useLog->getAiServiceModelId(),
+            $useLog->getAiServiceRequestId(),
+            $useLog->getAiServiceResponseId(),
+            $useLog->getPurpose(),
+            $useLog->getInputTokens(),
+            $useLog->getOutputTokens(),
+            $useLog->getTotalTokens(),
+            $useLog->getInputPrice(),
+            $useLog->getOutputPrice(),
+            $useLog->getTotalPrice()
+        );
     }
 }

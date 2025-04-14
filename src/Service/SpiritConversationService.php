@@ -4,8 +4,12 @@ namespace App\Service;
 
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AiServiceUseLogService;
 use App\Entity\Spirit;
 use App\Entity\AiUserSettings;
+use App\Service\AiUserSettingsService;
+use App\Service\AiServiceRequestService;
+use App\Service\AiServiceResponseService;
 use App\Entity\SpiritConversation;
 use App\Entity\SpiritConversationRequest;
 use App\Entity\User;
@@ -13,30 +17,16 @@ use Symfony\Bundle\SecurityBundle\Security;
 
 class SpiritConversationService
 {
-    private UserDatabaseManager $userDatabaseManager;
-    private AiGatewayService $aiGatewayService;
-    private AiServiceRequestService $aiServiceRequestService;
-    private AiServiceResponseService $aiServiceResponseService;
-    private AiUserSettingsService $aiUserSettingsService;
-    private SpiritService $spiritService;
-    private Security $security;
-    
     public function __construct(
-        UserDatabaseManager $userDatabaseManager,
-        AiGatewayService $aiGatewayService,
-        AiServiceRequestService $aiServiceRequestService,
-        AiServiceResponseService $aiServiceResponseService,
-        AiUserSettingsService $aiUserSettingsService,
-        SpiritService $spiritService,
-        Security $security
+        private readonly UserDatabaseManager $userDatabaseManager,
+        private readonly AiGatewayService $aiGatewayService,
+        private readonly AiServiceRequestService $aiServiceRequestService,
+        private readonly AiServiceResponseService $aiServiceResponseService,
+        private readonly AiUserSettingsService $aiUserSettingsService,
+        private readonly AiServiceUseLogService $aiServiceUseLogService,
+        private readonly SpiritService $spiritService,
+        private readonly Security $security
     ) {
-        $this->userDatabaseManager = $userDatabaseManager;
-        $this->aiGatewayService = $aiGatewayService;
-        $this->aiServiceRequestService = $aiServiceRequestService;
-        $this->aiServiceResponseService = $aiServiceResponseService;
-        $this->aiUserSettingsService = $aiUserSettingsService;
-        $this->spiritService = $spiritService;
-        $this->security = $security;
     }
     
     /**
@@ -156,9 +146,11 @@ class SpiritConversationService
         ];
         $conversation->addMessage($userMessage);
 
+        // TODO: Remove this when the AiGatewayService is refactored
         $this->aiGatewayService->setAiUserSettingsService($this->aiUserSettingsService);
         $this->aiGatewayService->setAiServiceUseLogService($this->aiServiceUseLogService);
-        
+        $this->aiGatewayService->setAiServiceResponseService($this->aiServiceResponseService);
+
         // Get user's primary AI gateway and model
         $aiGateway = $this->aiGatewayService->getPrimaryAiGateway();
         $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
@@ -196,17 +188,7 @@ class SpiritConversationService
         );
         
         // Send the request to the AI service
-        $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest);
-        
-        // Save the response
-        $this->aiServiceResponseService->createResponse(
-            $aiServiceResponse->getAiServiceRequestId(),
-            $aiServiceResponse->getMessage(),
-            $aiServiceResponse->getFinishReason(),
-            $aiServiceResponse->getInputTokens(),
-            $aiServiceResponse->getOutputTokens(),
-            $aiServiceResponse->getTotalTokens()
-        );
+        $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Spirit Conversation');
         
         // Extract the assistant message from the response
         $assistantMessage = [

@@ -26,8 +26,8 @@ class AiServiceModelApiController extends AbstractController
         $activeOnly = $request->query->getBoolean('active', false);
         
         $models = match(true) {
-            $gatewayId !== null => $this->aiServiceModelService->findByGateway($this->getUser(), $gatewayId),
-            default => $this->aiServiceModelService->findAll($this->getUser(), $activeOnly),
+            $gatewayId !== null => $this->aiServiceModelService->findByGateway($gatewayId),
+            default => $this->aiServiceModelService->findAll($activeOnly),
         };
 
         return $this->json([
@@ -45,7 +45,6 @@ class AiServiceModelApiController extends AbstractController
         }
 
         $model = $this->aiServiceModelService->createModel(
-            $this->getUser(),
             $data['aiGatewayId'],
             $data['modelName'],
             $data['modelSlug'],
@@ -67,7 +66,7 @@ class AiServiceModelApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_model_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $model = $this->aiServiceModelService->findById($this->getUser(), $id);
+        $model = $this->aiServiceModelService->findById($id);
         
         if (!$model) {
             return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);
@@ -88,7 +87,6 @@ class AiServiceModelApiController extends AbstractController
         }
 
         $model = $this->aiServiceModelService->updateModel(
-            $this->getUser(),
             $id,
             $data
         );
@@ -105,7 +103,7 @@ class AiServiceModelApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_service_model_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiServiceModelService->deleteModel($this->getUser(), $id);
+        $result = $this->aiServiceModelService->deleteModel($id);
         
         if (!$result) {
             return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);

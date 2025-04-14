@@ -22,7 +22,7 @@ class AiGatewayApiController extends AbstractController
     #[Route('', name: 'app_api_ai_gateway_list', methods: ['GET'])]
     public function list(): JsonResponse
     {
-        $gateways = $this->aiGatewayService->findAll($this->getUser());
+        $gateways = $this->aiGatewayService->findAll();
 
         return $this->json([
             'gateways' => array_map(fn($gateway) => $gateway->jsonSerialize(), $gateways)
@@ -39,7 +39,6 @@ class AiGatewayApiController extends AbstractController
         }
 
         $gateway = $this->aiGatewayService->createGateway(
-            $this->getUser(),
             $data['name'],
             $data['apiKey'],
             $data['apiEndpointUrl']
@@ -53,7 +52,7 @@ class AiGatewayApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_gateway_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
-        $gateway = $this->aiGatewayService->findById($this->getUser(), $id);
+        $gateway = $this->aiGatewayService->findById($id);
         
         if (!$gateway) {
             return $this->json(['error' => 'Gateway not found'], Response::HTTP_NOT_FOUND);
@@ -65,7 +64,7 @@ class AiGatewayApiController extends AbstractController
     #[Route('/{id}/full', name: 'app_api_ai_gateway_get_full', methods: ['GET'])]
     public function getFullDetails(string $id): JsonResponse
     {
-        $gateway = $this->aiGatewayService->findById($this->getUser(), $id);
+        $gateway = $this->aiGatewayService->findById($id);
         
         if (!$gateway) {
             return $this->json(['error' => 'Gateway not found'], Response::HTTP_NOT_FOUND);
@@ -92,7 +91,6 @@ class AiGatewayApiController extends AbstractController
         }
 
         $gateway = $this->aiGatewayService->updateGateway(
-            $this->getUser(),
             $id,
             $data
         );
@@ -109,7 +107,7 @@ class AiGatewayApiController extends AbstractController
     #[Route('/{id}', name: 'app_api_ai_gateway_delete', methods: ['DELETE'])]
     public function delete(string $id): JsonResponse
     {
-        $result = $this->aiGatewayService->deleteGateway($this->getUser(), $id);
+        $result = $this->aiGatewayService->deleteGateway($id);
         
         if (!$result) {
             return $this->json(['error' => 'Gateway not found'], Response::HTTP_NOT_FOUND);

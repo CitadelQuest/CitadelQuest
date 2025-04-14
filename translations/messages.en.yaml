@@ -144,10 +144,10 @@ spirit:
         unlock_success: 'Ability unlocked!'
         unlock_error: 'Failed to unlock ability. Please try again.'
     menu:
-        talk: 'Talk with Spirit'
+        talk: 'Talk'
         settings: 'Spirit Profile'
     chat:
-        title: 'Spirit Chat'
+        title: 'Talk with '
         conversations: 'Conversations'
         new_conversation: 'New Conversation'
         conversation_title: 'Conversation Title'

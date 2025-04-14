@@ -144,10 +144,10 @@ spirit:
         unlock_success: 'Schopnosť odomknutá!'
         unlock_error: 'Nepodarilo sa odomknúť schopnosť. Skúste to prosím znova.'
     menu:
-        talk: 'Hovoriť s Duchom'
+        talk: 'Rozhovor'
         settings: 'Duch - profil'
     chat:
-        title: 'Chat s Duchom'
+        title: 'Rozhovor s Duchom '
         conversations: 'Konverzácie'
         new_conversation: 'Nová konverzácia'
         conversation_title: 'Názov konverzácie'

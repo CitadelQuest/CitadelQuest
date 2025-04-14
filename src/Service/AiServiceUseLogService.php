@@ -8,7 +8,7 @@ use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiServiceResponseService;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class AiServiceUseLogService
 {
@@ -18,8 +18,19 @@ class AiServiceUseLogService
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly AiServiceRequestService $aiServiceRequestService,
-        private readonly AiServiceResponseService $aiServiceResponseService
+        private readonly AiServiceResponseService $aiServiceResponseService,
+        private readonly Security $security
     ) {
+    }
+
+    /**
+     * Get a fresh database connection for the current user
+     */
+    private function getUserDb()
+    {
+        /** @var User $user */
+        $user = $this->security->getUser();
+        return $this->userDatabaseManager->getDatabaseConnection($user);
     }
     
     /**
@@ -31,7 +42,6 @@ class AiServiceUseLogService
     }
 
     public function createLog(
-        UserInterface $user,
         string $aiGatewayId,
         string $aiServiceModelId,
         string $aiServiceRequestId,
@@ -80,7 +90,7 @@ class AiServiceUseLogService
         }
 
         // Store in user's database
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO ai_service_use_log (
                 id, ai_gateway_id, ai_service_model_id, ai_service_request_id, ai_service_response_id,
@@ -107,9 +117,9 @@ class AiServiceUseLogService
         return $log;
     }
 
-    public function findById(UserInterface $user, string $id): ?AiServiceUseLog
+    public function findById(string $id): ?AiServiceUseLog
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
             'SELECT * FROM ai_service_use_log WHERE id = ?',
             [$id]
@@ -147,9 +157,9 @@ class AiServiceUseLogService
         return $log;
     }
 
-    public function findByGateway(UserInterface $user, string $gatewayId, int $limit = 100): array
+    public function findByGateway(string $gatewayId, int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_use_log WHERE ai_gateway_id = ? ORDER BY created_at DESC LIMIT ?',
             [$gatewayId, $limit]
@@ -158,9 +168,9 @@ class AiServiceUseLogService
         return array_map(fn($data) => AiServiceUseLog::fromArray($data), $results);
     }
 
-    public function findByModel(UserInterface $user, string $modelId, int $limit = 100): array
+    public function findByModel(string $modelId, int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_use_log WHERE ai_service_model_id = ? ORDER BY created_at DESC LIMIT ?',
             [$modelId, $limit]
@@ -169,9 +179,9 @@ class AiServiceUseLogService
         return array_map(fn($data) => AiServiceUseLog::fromArray($data), $results);
     }
 
-    public function findByPurpose(UserInterface $user, string $purpose, int $limit = 100): array
+    public function findByPurpose(string $purpose, int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_use_log WHERE purpose LIKE ? ORDER BY created_at DESC LIMIT ?',
             ['%' . $purpose . '%', $limit]
@@ -180,9 +190,9 @@ class AiServiceUseLogService
         return array_map(fn($data) => AiServiceUseLog::fromArray($data), $results);
     }
 
-    public function findRecent(UserInterface $user, int $limit = 100): array
+    public function findRecent(int $limit = 100): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $results = $userDb->executeQuery(
             'SELECT * FROM ai_service_use_log ORDER BY created_at DESC LIMIT ?',
             [$limit]
@@ -191,9 +201,9 @@ class AiServiceUseLogService
         return array_map(fn($data) => AiServiceUseLog::fromArray($data), $results);
     }
 
-    public function getUsageSummary(UserInterface $user, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
+    public function getUsageSummary(?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $query = 'SELECT 
             SUM(input_tokens) as total_input_tokens, 
             SUM(output_tokens) as total_output_tokens, 
@@ -234,9 +244,9 @@ class AiServiceUseLogService
         ];
     }
 
-    public function getUsageByModel(UserInterface $user, ?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
+    public function getUsageByModel(?\DateTimeInterface $startDate = null, ?\DateTimeInterface $endDate = null): array
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $query = 'SELECT 
             ai_service_model_id,
             SUM(input_tokens) as total_input_tokens, 
@@ -284,9 +294,9 @@ class AiServiceUseLogService
         return $results;
     }
 
-    public function deleteLog(UserInterface $user, string $id): bool
+    public function deleteLog(string $id): bool
     {
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $userDb = $this->getUserDb();
         $result = $userDb->executeStatement(
             'DELETE FROM ai_service_use_log WHERE id = ?',
             [$id]
