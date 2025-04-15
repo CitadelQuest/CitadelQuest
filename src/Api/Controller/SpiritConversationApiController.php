@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/api/spirit-conversation')]
 class SpiritConversationApiController extends AbstractController
@@ -23,7 +24,7 @@ class SpiritConversationApiController extends AbstractController
     }
     
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
-    public function listConversations(string $spiritId): JsonResponse
+    public function listConversations(string $spiritId, Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof UserInterface) {
@@ -87,7 +88,7 @@ class SpiritConversationApiController extends AbstractController
     }
     
     #[Route('/{id}/send', name: 'api_spirit_conversation_send', methods: ['POST'])]
-    public function sendMessage(string $id, Request $request): JsonResponse
+    public function sendMessage(string $id, Request $request, TranslatorInterface $translator): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof UserInterface) {
@@ -100,10 +101,12 @@ class SpiritConversationApiController extends AbstractController
         }
         
         try {
+            $locale = $request->getSession()->get('_locale');
             // Send message
             $messages = $this->conversationService->sendMessage(
                 $id,
-                $data['message']
+                $data['message'],
+                $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')'
             );
             
             return $this->json(['messages' => $messages]);

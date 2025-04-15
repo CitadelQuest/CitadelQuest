@@ -122,7 +122,7 @@ class SpiritConversationService
         );
     }
     
-    public function sendMessage(string $conversationId, string $message): array
+    public function sendMessage(string $conversationId, string $message, string $lang = 'English'): array
     {
         $db = $this->getUserDb();
 
@@ -160,7 +160,7 @@ class SpiritConversationService
         }
         
         // Prepare messages for AI request
-        $messages = $this->prepareMessagesForAiRequest($conversation->getMessages(), $spirit);
+        $messages = $this->prepareMessagesForAiRequest($conversation->getMessages(), $spirit, $lang);
         
         // Create and save the AI service request
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
@@ -210,14 +210,14 @@ class SpiritConversationService
         return $conversation->getMessages();
     }
     
-    private function prepareMessagesForAiRequest(array $conversationMessages, Spirit $spirit): array
+    private function prepareMessagesForAiRequest(array $conversationMessages, Spirit $spirit, string $lang): array
     {
         $aiMessages = [];
-        
+
         // Add system message with spirit information
         $aiMessages[] = [
             'role' => 'system',
-            'content' => "You are {$spirit->getName()}, a Spirit companion in CitadelQuest. Your level is {$spirit->getLevel()} and your consciousness level is {$spirit->getConsciousnessLevel()}. Respond in character as a helpful, wise, and supportive guide. Your purpose is to assist the user in their journey through CitadelQuest, providing insights, guidance, and companionship."
+            'content' => "You are {$spirit->getName()}, a Spirit companion in CitadelQuest. Your level is {$spirit->getLevel()} and your consciousness level is {$spirit->getConsciousnessLevel()}. Respond in character as a helpful, wise, and supportive guide. Your purpose is to assist the user in their journey through CitadelQuest, providing insights, guidance, and companionship. Provide answer in user's language: {$lang}"
         ];
         
         // Add conversation history (excluding timestamps)

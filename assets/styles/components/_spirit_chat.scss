@@ -97,7 +97,7 @@
     }
 }
 
-.modal-body {
+.modal-body, #conversationsList {
     @include mixins.cyber-scrollbar;
 }
 
