@@ -11,16 +11,19 @@
                     <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-cog me-2"></i> General
                     </a>
-                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
+                        <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
                     <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0 ps-4">
                         <i class="mdi mdi-server-network me-2"></i> AI Gateways
                     </a>
-                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
                         <i class="mdi mdi-brain me-2"></i> AI Models
                     </a>
                     <!-- Add more settings categories here as needed -->

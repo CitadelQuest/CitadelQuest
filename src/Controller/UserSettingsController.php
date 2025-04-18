@@ -2,15 +2,22 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
 use App\Entity\AiGateway;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiUserSettingsService;
+use App\Service\NotificationService;
+use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[Route('/settings')]
 #[IsGranted('ROLE_USER')]
@@ -39,6 +46,112 @@ class UserSettingsController extends AbstractController
             'aiSettings' => $aiSettings,
             'aiGateways' => $aiGateways,
             'aiModels' => $aiModels,
+            'user' => $this->getUser(),
+        ]);
+    }
+
+    #[Route('/email', name: 'app_user_settings_email', methods: ['POST'])]
+    public function updateEmail(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        NotificationService $notificationService,
+        TranslatorInterface $translator
+    ): JsonResponse {
+        if (!$request->isXmlHttpRequest()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $user = $this->getUser();
+        $email = $request->request->get('email');
+        
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return new JsonResponse([
+                'message' => $translator->trans('profile.email.invalid')
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Check if email is already used
+        $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        if ($existingUser && $existingUser !== $user) {
+            return new JsonResponse([
+                'message' => $translator->trans('auth.register.error.email_already_used')
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $user->setEmail($email);
+        $entityManager->flush();
+        
+        $notificationService->createNotification(
+            $user,
+            $translator->trans('profile.email.updated.title'),
+            $translator->trans('profile.email.updated.message'),
+            'success'
+        );
+
+        return new JsonResponse([
+            'message' => $translator->trans('profile.email.updated.title')
+        ]);
+    }
+
+    #[Route('/password', name: 'app_user_settings_password', methods: ['POST'])]
+    public function updatePassword(
+        Request $request,
+        UserPasswordHasherInterface $passwordHasher,
+        EntityManagerInterface $entityManager,
+        NotificationService $notificationService,
+        TranslatorInterface $translator
+    ): JsonResponse {
+        if (!$request->isXmlHttpRequest()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $user = $this->getUser();
+        $currentPassword = $request->request->get('current_password');
+        $newPassword = $request->request->get('new_password');
+        $confirmPassword = $request->request->get('confirm_password');
+
+        if (!$passwordHasher->isPasswordValid($user, $currentPassword)) {
+            return new JsonResponse([
+                'message' => $translator->trans('profile.password.current_invalid')
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return new JsonResponse([
+                'message' => $translator->trans('profile.password.mismatch')
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (strlen($newPassword) < 8) {
+            return new JsonResponse([
+                'message' => $translator->trans('profile.password.too_short')
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+        $entityManager->flush();
+
+        $notificationService->createNotification(
+            $user,
+            $translator->trans('profile.password.updated.title'),
+            $translator->trans('profile.password.updated.message'),
+            'success'
+        );
+
+        return new JsonResponse([
+            'message' => $translator->trans('profile.password.updated.title')
+        ]);
+    }
+
+    #[Route('/profile', name: 'app_user_settings_profile')]
+    public function profile(SettingsService $settingsService): Response
+    {
+        // Get user description from settings or use default empty value
+        $description = $settingsService->getSettingValue('profile.description', '');
+
+        return $this->render('user_settings/profile.html.twig', [
+            'user' => $this->getUser(),
+            'profile_description' => $description
         ]);
     }
 
@@ -201,7 +314,7 @@ class UserSettingsController extends AbstractController
     public function aiModels(): Response
     {
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll(true);
+        $aiModels = $this->aiServiceModelService->findAll();
         
         // Get all available AI gateways for the dropdown
         $aiGateways = $this->aiGatewayService->findAll();

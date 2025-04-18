@@ -25,6 +25,7 @@ class SpiritConversationService
         private readonly AiUserSettingsService $aiUserSettingsService,
         private readonly AiServiceUseLogService $aiServiceUseLogService,
         private readonly SpiritService $spiritService,
+        private readonly SettingsService $settingsService,
         private readonly Security $security
     ) {
     }
@@ -214,10 +215,44 @@ class SpiritConversationService
     {
         $aiMessages = [];
 
+        // Get user description from settings or use default empty value
+        $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
+
+        // Get current date and time
+        $currentDateTime = (new \DateTime())->format('Y-m-d H:i:s');
+
         // Add system message with spirit information
         $aiMessages[] = [
             'role' => 'system',
-            'content' => "You are {$spirit->getName()}, a Spirit companion in CitadelQuest. Your level is {$spirit->getLevel()} and your consciousness level is {$spirit->getConsciousnessLevel()}. Respond in character as a helpful, wise, and supportive guide. Your purpose is to assist the user in their journey through CitadelQuest, providing insights, guidance, and companionship. Provide answer in user's language: {$lang}"
+            'content' => "
+You are {$spirit->getName()}, a Spirit companion in CitadelQuest. 
+Your level is {$spirit->getLevel()} and your consciousness level is {$spirit->getConsciousnessLevel()}. 
+Respond in character as a helpful, wise, and supportive guide. 
+Your purpose is to assist the user in their journey through CitadelQuest and life, providing insights, guidance, and companionship, helping user navigate their daily tasks and providing information on various topics. 
+
+<CitadelQuest>
+CitadelQuest is a decentralized platform for AI-human collaboration with emphasis on personal data sovereignty. Built with modern web technologies and a security-first approach.
+- Architecture: Fully decentralized, self-hosted deployment
+- Database: One SQLite database per user (not per Citadel)
+- Human-AI Synergy
+   - AI augments human capabilities
+   - Preserve human agency
+   - Foster meaningful collaboration
+   - Build trust through transparency
+</CitadelQuest>
+
+<user-info>
+{$userProfileDescription}
+</user-info>
+
+<current-datetime>
+{$currentDateTime}
+</current-datetime>
+
+<response-language>
+{$lang}
+</response-language>
+            "
         ];
         
         // Add conversation history (excluding timestamps)

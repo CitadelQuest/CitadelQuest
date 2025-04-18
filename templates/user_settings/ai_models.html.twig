@@ -11,13 +11,16 @@
                     <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-cog me-2"></i> General
                     </a>
-                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent">
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
+                        <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
-                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
                         <i class="mdi mdi-server-network me-2"></i> AI Gateways
                     </a>
                     <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0 ps-4">
@@ -33,7 +36,7 @@
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
                     <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">AI Models</h4>
-                        <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#addModelModal">
+                        <button type="button" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#addModelModal">
                             <i class="mdi mdi-plus me-1"></i> Add Model
                         </button>
                     </div>
@@ -63,22 +66,25 @@
                                 <i class="mdi mdi-information-outline me-2"></i>No AI models found. Add your first model to get started.
                             </div>
                         {% else %}
-                            <div class="table-responsive">
+                            <div class="table-responsive rounded">
                                 <table class="table table-hover">
                                     <thead class="bg-cyber-g text-light">
                                         <tr>
                                             <th>Name</th>
-                                            <th>Slug</th>
+                                            <!-- <th>Slug</th> -->
                                             <th>Gateway</th>
-                                            <th>Status</th>
+                                            <!-- <th>Status</th> -->
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {% for model in aiModels %}
                                             <tr>
-                                                <td>{{ model.modelName }}</td>
-                                                <td><code>{{ model.modelSlug }}</code></td>
+                                                <td>
+                                                    {{ model.modelName }}<br>
+                                                    <span class="badge bg-secondary {% if model.isActive %}text-cyber{% else %}text-light{% endif %}">{{ model.modelSlug }}</span>
+                                                </td>
+                                                <!-- <td><code>{{ model.modelSlug }}</code></td> -->
                                                 <td>
                                                     {% for gateway in aiGateways %}
                                                         {% if gateway.id == model.aiGatewayId %}
@@ -86,13 +92,13 @@
                                                         {% endif %}
                                                     {% endfor %}
                                                 </td>
-                                                <td>
+                                                <!-- <td>
                                                     {% if model.isActive %}
                                                         <span class="badge bg-success">Active</span>
                                                     {% else %}
                                                         <span class="badge bg-secondary">Inactive</span>
                                                     {% endif %}
-                                                </td>
+                                                </td> -->
                                                 <td>
                                                     <button type="button" class="btn btn-sm btn-outline-primary edit-model"
                                                             data-bs-toggle="modal" data-bs-target="#editModelModal"

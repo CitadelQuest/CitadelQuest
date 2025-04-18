@@ -1,6 +1,7 @@
 // Using global window.toast service
+import * as bootstrap from 'bootstrap';
 
-export class ProfileManager {
+export class SettingsGeneralManager {
     constructor() {
         const container = document.querySelector('[data-translations]');
         this.translations = container ? JSON.parse(container.dataset.translations) : {};
@@ -20,6 +21,8 @@ export class ProfileManager {
         const formData = new FormData(form);
         const submitButton = form.querySelector('button[type="submit"]');
         const spinner = submitButton.querySelector('.spinner-border');
+        const modal = document.getElementById('emailModal');
+        const modalInstance = bootstrap.Modal.getInstance(modal);
 
         try {
             // Show loading state
@@ -42,6 +45,11 @@ export class ProfileManager {
                 document.getElementById('current-email').textContent = formData.get('email');
                 form.reset();
                 
+                // Close modal
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                
                 // Show success message
                 this.showToast('success', this.translations.email_updated, ':)');
             } else {
@@ -63,6 +71,8 @@ export class ProfileManager {
         const formData = new FormData(form);
         const submitButton = form.querySelector('button[type="submit"]');
         const spinner = submitButton.querySelector('.spinner-border');
+        const modal = document.getElementById('passwordModal');
+        const modalInstance = bootstrap.Modal.getInstance(modal);
 
         try {
             // Show loading state
@@ -82,6 +92,12 @@ export class ProfileManager {
 
             if (response.ok) {
                 form.reset();
+                
+                // Close modal
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                
                 this.showToast('success', this.translations.password_updated);
             } else {
                 this.showToast('error', data.message || this.translations.password_error);

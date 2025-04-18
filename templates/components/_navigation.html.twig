@@ -29,12 +29,12 @@
                     <span class="d-none d-sm-inline ms-1">{{ app.user.userIdentifier }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
-                    <li>
+                    {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_profile') }}">
                             <i class="mdi mdi-account-edit me-3{% if app.request.pathInfo == path('app_profile') %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.profile'|trans }}
                         </a>
-                    </li>
+                    </li> #}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('diary_index') }}">
                             <i class="mdi mdi-book me-3{% if app.request.pathInfo == path('diary_index') %} text-cyber{% endif %}"></i>

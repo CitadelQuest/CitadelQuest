@@ -3,24 +3,35 @@
 {% block title %}User Settings{% endblock %}
 
 {% block body %}
+<div data-translations="{{ {
+        'email_updated': 'profile.email.updated.title'|trans,
+        'email_error': 'profile.email.error'|trans,
+        'password_updated': 'profile.password.updated.title'|trans,
+        'password_error': 'profile.password.error'|trans,
+        'connection_error': 'profile.error.connection'|trans
+    }|json_encode|e('html_attr') }}">
+
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
-                <div class="card-header bg-transparent border-bottom-0 p-3">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
                     <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent">
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
                         <i class="mdi mdi-cog me-2"></i> General
                     </a>
-                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
+                        <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
-                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4 d-none">
                         <i class="mdi mdi-server-network me-2"></i> AI Gateways
                     </a>
-                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent ps-4">
+                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4 d-none">
                         <i class="mdi mdi-brain me-2"></i> AI Models
                     </a>
                     <!-- Add more settings categories here as needed -->
@@ -35,9 +46,38 @@
                 </div>
                 <div class="p-4">
                     <p class="">Configure your general CitadelQuest settings here.</p>
-                    
+
+                    <hr>
+
+                    <!-- User login information -->
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <h6>Login information</h6>
+                        </div>
+                        <div class="col-12 col-md-6 mb-3">
+                            <p class="mb-3">
+                                <span>{{ 'profile.username'|trans }}</span><br>
+                                <code>{{ user.username }}</code><br><br>
+                                <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#passwordModal">
+                                    <i class="mdi mdi-lock-reset me-2"></i>{{ 'profile.password.change'|trans }}
+                                </button>
+                            </p>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <p>
+                                <span>{{ 'profile.email.label'|trans }}</span><br>
+                                <code id="current-email">{{ user.email }}</code><br><br>
+                                <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#emailModal">
+                                    <i class="mdi mdi-email-edit me-2"></i>{{ 'profile.email.change'|trans }}
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+
+                    <hr>
+
                     <!-- General settings form will go here in the future -->
-                    <div class="alert alert-info">
+                    <div class="alert alert-info opacity-50">
                         <i class="mdi mdi-info-circle me-2"></i>
                         More general settings will be available in future updates.
                     </div>
@@ -46,4 +86,71 @@
         </div>
     </div>
 </div>
+
+<!-- Email Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="emailModalLabel">{{ 'profile.email.change'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="email-form" action="{{ path('app_user_settings_email') }}" method="post">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">{{ 'profile.email.new'|trans }}</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                        <button type="submit" class="btn btn-cyber">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            {{ 'profile.email.update'|trans }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal fade" id="passwordModal" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="passwordModalLabel">{{ 'profile.password.change'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="password-form" action="{{ path('app_user_settings_password') }}" method="post">
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">{{ 'profile.password.current'|trans }}</label>
+                        <input type="password" class="form-control" id="current_password" name="current_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">{{ 'profile.password.new'|trans }}</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">{{ 'profile.password.confirm'|trans }}</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                        <button type="submit" class="btn btn-cyber">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            {{ 'profile.password.update'|trans }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-general') }}
 {% endblock %}
