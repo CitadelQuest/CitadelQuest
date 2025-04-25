@@ -46,6 +46,9 @@ Thumbs.db
 npm-debug.log
 yarn-error.log
 ###< symfony/webpack-encore-bundle ###
+
+# personal documentation
+GH-RELEASE.md
 VISIONS.md
 DIARY-FEATURE.md
 ATP-AUTH.md
