@@ -156,9 +156,9 @@ export class SpiritChatManager {
                 item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
                 item.dataset.id = conversation.id;
                 
-                // Format date
+                // Format date and time
                 const date = new Date(conversation.lastInteraction);
-                const formattedDate = date.toLocaleDateString();
+                const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 
                 item.innerHTML = `
                     <div>
@@ -264,6 +264,11 @@ export class SpiritChatManager {
         
         // Render each message
         messages.forEach(message => {
+            let msgContent = this.formatMessageContent(message.content);
+            if (msgContent === '') {
+                return;
+            }
+
             const messageEl = document.createElement('div');
             messageEl.className = `chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`;
             
@@ -277,7 +282,7 @@ export class SpiritChatManager {
             
             messageEl.innerHTML = `
                 <div class="chat-bubble">
-                    <div class="chat-content">${this.formatMessageContent(message.content)}</div>
+                    <div class="chat-content">${msgContent}</div>
                     ${timestampHtml}
                 </div>
             `;
@@ -286,7 +291,7 @@ export class SpiritChatManager {
         });
         
         // Scroll to bottom
-        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
         
         // Focus input
         if (this.messageInput) {
@@ -300,7 +305,9 @@ export class SpiritChatManager {
      * @returns {string} - Formatted HTML content
      */
     formatMessageContent(content) {
-        if (!content) return '';
+        if (typeof content !== 'string' || content.trim() === '') {
+            return '';
+        }
         
         // Convert line breaks to <br>
         let formatted = content.replace(/\n/g, '<br>');
@@ -349,7 +356,7 @@ export class SpiritChatManager {
                 `;
                 
                 this.chatMessages.appendChild(messageEl);
-                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
             
             // Add loading indicator for assistant response
@@ -367,7 +374,7 @@ export class SpiritChatManager {
             
             if (this.chatMessages) {
                 this.chatMessages.appendChild(loadingEl);
-                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
             
             // Send message to API

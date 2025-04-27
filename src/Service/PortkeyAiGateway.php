@@ -32,7 +32,7 @@ class PortkeyAiGateway implements AiGatewayInterface
         $requestData = [
             'model' => $model->getModelSlug(),
             'messages' => $request->getMessages()
-        ];
+        ];        
         if ($request->getMaxTokens() !== null) {
             $requestData['max_tokens'] = $request->getMaxTokens();
         }
@@ -41,6 +41,16 @@ class PortkeyAiGateway implements AiGatewayInterface
         }
         if ($request->getStopSequence() !== null) {
             $requestData['stop'] = $request->getStopSequence();
+        }
+        if ($request->getTools() !== null && count($request->getTools()) > 0) {
+            $requestData['tools'] = $request->getTools();
+            $requestData['tool_choice'] = 'auto';
+        }
+        // all messages must have non-empty content (anthropic)
+        foreach ($requestData['messages'] as &$message) {
+            if (empty($message['content']) || $message['content'] === '') {
+                $message['content'] = '...';
+            }
         }
         
         // Prepare headers

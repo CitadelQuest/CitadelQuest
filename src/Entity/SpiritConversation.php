@@ -90,6 +90,14 @@ class SpiritConversation implements JsonSerializable
         $this->lastInteraction = new \DateTime();
         return $this;
     }
+
+    public function removeToolCallsAndResultsFromMessages(): self
+    {
+        $messages = $this->getMessages();
+        $messages = array_filter($messages, fn($message) => !isset($message['tool_calls']) && !isset($message['tool_result']));
+        $this->messages = json_encode($messages);
+        return $this;
+    }
     
     public function getCreatedAt(): \DateTimeInterface
     {

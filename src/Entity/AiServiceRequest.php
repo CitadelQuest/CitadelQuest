@@ -13,13 +13,18 @@ class AiServiceRequest implements JsonSerializable
     private ?int $maxTokens = 1000;
     private ?float $temperature = 0.7;
     private ?string $stopSequence = null;
+    private string $tools; // JSON string
     private \DateTimeInterface $createdAt;
     
-    public function __construct(string $aiServiceModelId, array $messages)
+    public function __construct(string $aiServiceModelId, array $messages, ?int $maxTokens = 1000, ?float $temperature = 0.7, ?string $stopSequence = null, ?array $tools = [])
     {
         $this->id = uuid_create();
         $this->aiServiceModelId = $aiServiceModelId;
         $this->messages = json_encode($messages);
+        $this->maxTokens = $maxTokens;
+        $this->temperature = $temperature;
+        $this->stopSequence = $stopSequence;
+        $this->tools = json_encode($tools);
         $this->createdAt = new \DateTime();        
     }
     
@@ -108,6 +113,22 @@ class AiServiceRequest implements JsonSerializable
         return $this;
     }
     
+    public function getTools(): ?array
+    {
+        return json_decode($this->tools, true);
+    }
+    
+    public function getToolsRaw(): ?string
+    {
+        return $this->tools;
+    }
+    
+    public function setTools(?array $tools): self
+    {
+        $this->tools = json_encode($tools);
+        return $this;
+    }
+    
     public function getCreatedAt(): \DateTimeInterface
     {
         return $this->createdAt;
@@ -128,6 +149,7 @@ class AiServiceRequest implements JsonSerializable
             'maxTokens' => $this->maxTokens,
             'temperature' => $this->temperature,
             'stopSequence' => $this->stopSequence,
+            'tools' => $this->getTools(),
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM)
         ];
     }
@@ -139,20 +161,13 @@ class AiServiceRequest implements JsonSerializable
             $messages = [];
         }
         
-        $request = new self($data['ai_service_model_id'], $messages);
+        $tools = json_decode($data['tools'], true);
+        if (!$tools) {
+            $tools = [];
+        }
+        
+        $request = new self($data['ai_service_model_id'], $messages, $data['max_tokens']??1000, $data['temperature']??0.7, $data['stop_sequence']??null, $tools);
         $request->setId($data['id']);
-        
-        if (isset($data['max_tokens'])) {
-            $request->setMaxTokens($data['max_tokens']);
-        }
-        
-        if (isset($data['temperature'])) {
-            $request->setTemperature($data['temperature']);
-        }
-        
-        if (isset($data['stop_sequence'])) {
-            $request->setStopSequence($data['stop_sequence']);
-        }
         
         if (isset($data['created_at'])) {
             $request->setCreatedAt(new \DateTime($data['created_at']));

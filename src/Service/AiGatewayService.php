@@ -254,6 +254,29 @@ class AiGatewayService
         
         return AiServiceModel::fromArray($result);
     }
+
+    public function getSecondaryAiServiceModel(): ?AiServiceModel
+    {
+        // Try to get from user settings first
+        if ($this->aiUserSettingsService) {
+            $settings = $this->aiUserSettingsService->findForUser();
+            if ($settings && $settings->getSecondaryAiServiceModelId()) {
+                return $this->getAiServiceModel($settings->getSecondaryAiServiceModelId());
+            }
+        }
+        
+        // Fallback to the first model if no settings found
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM ai_service_model ORDER BY created_at ASC LIMIT 1'
+        )->fetchAssociative();
+        
+        if (!$result) {
+            return null;
+        }
+        
+        return AiServiceModel::fromArray($result);
+    }
     
     /**
      * Send a request to an AI service

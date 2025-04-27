@@ -8,10 +8,11 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/api/spirit-conversation')]
+#[IsGranted('ROLE_USER')]
 class SpiritConversationApiController extends AbstractController
 {
     private SpiritConversationService $conversationService;
@@ -26,11 +27,6 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
     public function listConversations(string $spiritId, Request $request): JsonResponse
     {
-        $user = $this->getUser();
-        if (!$user instanceof UserInterface) {
-            return $this->json(['error' => 'User not authenticated'], 401);
-        }
-        
         // Get conversations
         $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
         
@@ -40,11 +36,6 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/create', name: 'api_spirit_conversation_create', methods: ['POST'])]
     public function createConversation(Request $request): JsonResponse
     {
-        $user = $this->getUser();
-        if (!$user instanceof UserInterface) {
-            return $this->json(['error' => 'User not authenticated'], 401);
-        }
-        
         $data = json_decode($request->getContent(), true);
         if (!isset($data['spiritId']) || !isset($data['title'])) {
             return $this->json(['error' => 'Missing required parameters'], 400);
@@ -73,11 +64,6 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
     public function getConversation(string $id): JsonResponse
     {
-        $user = $this->getUser();
-        if (!$user instanceof UserInterface) {
-            return $this->json(['error' => 'User not authenticated'], 401);
-        }
-        
         // Get conversation
         $conversation = $this->conversationService->getConversation($id);
         if (!$conversation) {
@@ -90,11 +76,6 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/{id}/send', name: 'api_spirit_conversation_send', methods: ['POST'])]
     public function sendMessage(string $id, Request $request, TranslatorInterface $translator): JsonResponse
     {
-        $user = $this->getUser();
-        if (!$user instanceof UserInterface) {
-            return $this->json(['error' => 'User not authenticated'], 401);
-        }
-        
         $data = json_decode($request->getContent(), true);
         if (!isset($data['message'])) {
             return $this->json(['error' => 'Missing message parameter'], 400);
@@ -118,11 +99,6 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/{id}', name: 'api_spirit_conversation_delete', methods: ['DELETE'])]
     public function deleteConversation(string $id): JsonResponse
     {
-        $user = $this->getUser();
-        if (!$user instanceof UserInterface) {
-            return $this->json(['error' => 'User not authenticated'], 401);
-        }
-        
         // Check if conversation exists
         $conversation = $this->conversationService->getConversation($id);
         if (!$conversation) {
