@@ -164,6 +164,10 @@ class AiServiceModelService
             return null;
         }
 
+        if (isset($data['aiGatewayId'])) {
+            $model->setAiGatewayId($data['aiGatewayId']);
+        }
+
         if (isset($data['modelName'])) {
             $model->setModelName($data['modelName']);
         }
@@ -209,6 +213,7 @@ class AiServiceModelService
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'UPDATE ai_service_model SET 
+             ai_gateway_id = ?,
              model_name = ?, 
              model_slug = ?, 
              virtual_key = ?, 
@@ -222,6 +227,7 @@ class AiServiceModelService
              updated_at = ? 
              WHERE id = ?',
             [
+                $model->getAiGatewayId(),
                 $model->getModelName(),
                 $model->getModelSlug(),
                 $model->getVirtualKey(),

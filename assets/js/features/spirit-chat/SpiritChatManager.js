@@ -11,6 +11,8 @@ export class SpiritChatManager {
         this.currentSpiritId = null;
         this.currentConversationId = null;
         this.isLoadingMessages = false;
+        this.isLoadingConversations = false;
+        this.conversations = [];
         
         // DOM Elements
         this.spiritIcon = document.getElementById('spiritIcon');
@@ -28,6 +30,7 @@ export class SpiritChatManager {
         this.newConversationModal = document.getElementById('newConversationModal');
         this.newConversationForm = document.getElementById('newConversationForm');
         this.conversationTitle = document.getElementById('conversationTitle');
+        this.spiritChatModalTitle = document.getElementById('spiritChatModalTitle');
     }
     
     /**
@@ -50,7 +53,9 @@ export class SpiritChatManager {
         // Spirit chat modal events
         if (this.spiritChatModal) {
             this.spiritChatModal.addEventListener('shown.bs.modal', () => {
-                this.loadConversations();
+                if (this.conversations.length === 0) {
+                    this.loadConversations(true);
+                }
             });
         }
         
@@ -66,6 +71,9 @@ export class SpiritChatManager {
         if (this.newConversationBtn) {
             this.newConversationBtn.addEventListener('click', () => {
                 const newConversationModal = new bootstrap.Modal(this.newConversationModal);
+                this.newConversationModal.addEventListener('shown.bs.modal', () => {
+                    this.conversationTitle.focus();
+                });
                 newConversationModal.show();
             });
         }
@@ -122,8 +130,10 @@ export class SpiritChatManager {
     /**
      * Load conversations for the current spirit
      */
-    async loadConversations() {
+    async loadConversations(loadLastConversation = false) {
         if (!this.currentSpiritId || !this.conversationsList) return;
+
+        this.isLoadingConversations = true;
         
         try {
             // Show loading indicator
@@ -161,11 +171,11 @@ export class SpiritChatManager {
                 const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 
                 item.innerHTML = `
-                    <div>
-                        <div class="fw-bold text-secondary">${conversation.title}</div>
-                        <small class="text-muted">${formattedDate}</small>
+                    <div class="cursor-pointer w-100">
+                        <div class="text-light"><i class="mdi mdi-message text-cyber me-2"></i>${conversation.title}</div>
+                        <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2">${conversation.messagesCount}</span>
+                        <small class="text-muted pt-1 float-end">${formattedDate}</small>
                     </div>
-                    <span class="badge bg-cyber rounded-pill">${conversation.messages.length}</span>
                 `;
                 
                 item.addEventListener('click', (e) => {
@@ -174,6 +184,13 @@ export class SpiritChatManager {
                 });
                 
                 this.conversationsList.appendChild(item);
+
+                this.conversations.push(conversation);
+
+                if (loadLastConversation) {
+                    this.loadConversation(conversation.id);
+                    loadLastConversation = false;
+                }
             });
             
         } catch (error) {
@@ -183,6 +200,8 @@ export class SpiritChatManager {
                     ${error.message || 'Failed to load conversations'}
                 </div>
             `;
+        } finally {
+            this.isLoadingConversations = false;
         }
     }
     
@@ -212,19 +231,28 @@ export class SpiritChatManager {
             }
             
             // Update active conversation in list
-            if (this.conversationsList) {
-                const items = this.conversationsList.querySelectorAll('.list-group-item');
-                items.forEach(item => {
-                    item.classList.remove('active');
-                    if (item.dataset.id === conversationId) {
-                        item.classList.add('active');
-                    }
-                });
+            // remove active class from all items
+            const items = this.conversationsList.querySelectorAll('.list-group-item');
+            items.forEach(item => {
+                item.classList.remove('active', 'bg-cyber-g');
+            });            
+            // add active class to the selected item
+            while (this.isLoadingConversations) {
+                console.log('Waiting for conversations to load...');
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            const activeItem = this.conversationsList.querySelector(`[data-id="${conversationId}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active', 'bg-cyber-g');
+                activeItem.scrollIntoView({ behavior: 'smooth' });
             }
             
             // Fetch conversation
             const conversation = await this.apiService.getConversation(conversationId);
             this.currentConversationId = conversationId;
+            
+            // Update modal title
+            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-message text-light ms-2 fs-6 opacity-75"></i>';
             
             // Render messages
             this.renderMessages(conversation.messages);
@@ -264,7 +292,7 @@ export class SpiritChatManager {
         
         // Render each message
         messages.forEach(message => {
-            let msgContent = this.formatMessageContent(message.content);
+            let msgContent = this.formatMessageContent(typeof message.content === 'string' ? message.content : message.content[0]['text']??message.content /* old FIX: typeof message.content === 'string' ? message.content : message.content[0]??message.content) */);
             if (msgContent === '') {
                 return;
             }

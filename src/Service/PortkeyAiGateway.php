@@ -6,17 +6,34 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AiGatewayService;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class PortkeyAiGateway implements AiGatewayInterface
 {
+    private AiGatewayService $aiGatewayService;
+
     public function __construct(
         private readonly HttpClientInterface $httpClient
     ) {
     }
     
-    public function sendRequest(AiGateway $aiGateway, AiServiceModel $model, AiServiceRequest $request): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request, AiGatewayService $aiGatewayService): AiServiceResponse
     {
+        $this->aiGatewayService = $aiGatewayService;
+
+        // Get the model
+        $aiServiceModel = $this->aiGatewayService->getAiServiceModel($request->getAiServiceModelId());
+        if (!$aiServiceModel) {
+            throw new \Exception('AI Service Model not found');
+        }
+
+        // Get the gateway
+        $aiGateway = $this->aiGatewayService->findById($aiServiceModel->getAiGatewayId());
+        if (!$aiGateway) {
+            throw new \Exception('AI Gateway not found');
+        }
+        
         // Get API key from gateway
         $apiKey = $aiGateway->getApiKey();
         
@@ -24,13 +41,13 @@ class PortkeyAiGateway implements AiGatewayInterface
             throw new \Exception('Portkey API key not configured');
         }
 
-        if (!$model->getVirtualKey()) {
-            throw new \Exception('Portkey virtual key for model ' . $model->getModelName() . ' not configured');
+        if (!$aiServiceModel->getVirtualKey()) {
+            throw new \Exception('Portkey virtual key for model ' . $aiServiceModel->getModelName() . ' not configured');
         }
         
         // Prepare request data
         $requestData = [
-            'model' => $model->getModelSlug(),
+            'model' => $aiServiceModel->getModelSlug(),
             'messages' => $request->getMessages()
         ];        
         if ($request->getMaxTokens() !== null) {
@@ -42,10 +59,10 @@ class PortkeyAiGateway implements AiGatewayInterface
         if ($request->getStopSequence() !== null) {
             $requestData['stop'] = $request->getStopSequence();
         }
-        if ($request->getTools() !== null && count($request->getTools()) > 0) {
+        /* if ($request->getTools() !== null && count($request->getTools()) > 0) {
             $requestData['tools'] = $request->getTools();
             $requestData['tool_choice'] = 'auto';
-        }
+        } */
         // all messages must have non-empty content (anthropic)
         foreach ($requestData['messages'] as &$message) {
             if (empty($message['content']) || $message['content'] === '') {
@@ -57,7 +74,7 @@ class PortkeyAiGateway implements AiGatewayInterface
         $headers = [
             'Content-Type' => 'application/json',
             'x-portkey-api-key' => $apiKey,
-            'x-portkey-virtual-key' => $model->getVirtualKey(),
+            'x-portkey-virtual-key' => $aiServiceModel->getVirtualKey(),
         ];
         
         try {
@@ -80,7 +97,8 @@ class PortkeyAiGateway implements AiGatewayInterface
             // Create response entity
             $aiServiceResponse = new AiServiceResponse(
                 $request->getId(),
-                $message
+                $message,
+                $responseData
             );
             
             // Calculate tokens if available in response
@@ -98,6 +116,7 @@ class PortkeyAiGateway implements AiGatewayInterface
             // Handle other errors
             $errorResponse = new AiServiceResponse(
                 $request->getId(),
+                ['error' => $e->getMessage()],
                 ['error' => $e->getMessage()]
             );
             
@@ -125,55 +144,12 @@ class PortkeyAiGateway implements AiGatewayInterface
             return 'groq';
         }
         
-        if (strpos($modelIdentifier, 'gpt') !== false) {
-            return 'openai';
-        }
-        
-        // Default to openai if unknown
-        return 'openai';
+        // Default to empty string if unknown
+        return '';
     }
     
     public function getAvailableModels(AiGateway $aiGateway): array
     {
-        // For Portkey, we'll return a predefined list of common models, same as in AI Settings:
-        /*
-        // Set default slug based on selection
-            if (selectedModel === 'Claude 3.7 Sonnet') {
-                modelSlugInput.value = 'claude-3-7-sonnet-20250219';
-            } else if (selectedModel === 'Claude 3.5 Haiku') {
-                modelSlugInput.value = 'claude-3-5-haiku-20241022';
-            } else if (selectedModel === 'Claude 3 Opus') {
-                modelSlugInput.value = 'claude-3-opus-20240229';
-            } else if (selectedModel === 'Claude 3 Sonnet') {
-                modelSlugInput.value = 'claude-3-sonnet-20240229';
-            } else if (selectedModel === 'Claude 3 Haiku') {
-                modelSlugInput.value = 'claude-3-haiku-20240307';
-            } else if (selectedModel === 'Claude 2') {
-                modelSlugInput.value = 'claude-2.0';
-            } else if (selectedModel === 'Llama 4 Scout') {
-                modelSlugInput.value = 'meta-llama/llama-4-scout-17b-16e-instruct';
-            } else if (selectedModel === 'Llama 4 Maverick') {
-                modelSlugInput.value = 'meta-llama/llama-4-maverick-17b-128e-instruct';
-            } else if (selectedModel === 'Llama 3.3 Versatile') {
-                modelSlugInput.value = 'llama-3.3-70b-versatile';
-            } else if (selectedModel === 'Llama 3.1 Instant') {
-                modelSlugInput.value = 'llama-3.1-8b-instant';
-            } else if (selectedModel === 'Gemma 2') {
-                modelSlugInput.value = 'gemma2-9b-it';
-            } else if (selectedModel === 'Qwen QWQ') {
-                modelSlugInput.value = 'qwen-qwq-32b';
-            } else if (selectedModel === 'Qwen 2.5 Coder') {
-                modelSlugInput.value = 'qwen-2.5-coder-32b';
-            } else if (selectedModel === 'Qwen 2.5') {
-                modelSlugInput.value = 'qwen-2.5-32b';
-            } else if (selectedModel === 'DeepSeek R1 Distill') {
-                modelSlugInput.value = 'deepseek-r1-distill-llama-70b';
-            } else {
-                modelSlugInput.value = '';
-            }
-        */
-        // In a real implementation, you might want to query Portkey API for available models
-        
         return [
             // Anthropic models
             ['id' => 'claude-3-7-sonnet-20250219', 'name' => 'Claude 3.7 Sonnet', 'provider' => 'anthropic'],
@@ -192,5 +168,87 @@ class PortkeyAiGateway implements AiGatewayInterface
             ['id' => 'qwen-2.5-32b', 'name' => 'Qwen 2.5', 'provider' => 'groq'],
             ['id' => 'deepseek-r1-distill-llama-70b', 'name' => 'DeepSeek R1 Distill', 'provider' => 'groq'],
         ];
+    }
+    
+    /**
+     * Get available tools for the AI service
+     */
+    public function getAvailableTools(): array
+    {
+        // Portkey sucks at supporting tools, so we'll return []
+        return [];
+    }
+
+    /**
+     * Handle tool calls
+     */
+    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, AiGatewayService $aiGatewayService, AiServiceRequestService $aiServiceRequestService, string $lang = 'English'): AiServiceResponse
+    {
+        // Portkey sucks at supporting tools, so we'll return the original response
+        return $response;
+
+        /*
+        // PortkeyAI Gateway - buggy as f**k, that's why we have own Anthropic gateway and Groq gateway
+        $toolCalls = $aiServiceResponse->getMessage()['tool_calls'] ?? [];
+        if (!empty($toolCalls)) {
+            // Extract the assistant message from the response
+            $assistantMessage = [
+                'role' => 'assistant',
+                'content' => 'Tool calls request comment - will not be visible to user: ' . ($aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response :( '.($aiServiceResponse->getMessage()['error'] ?? '')),
+                'tool_calls' => $toolCalls,
+                'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
+            ];
+        
+            // Add assistant message to conversation
+            $conversation->addMessage($assistantMessage);
+        }
+
+        // Process tool_calls
+        $i = 1;
+        foreach ($toolCalls as $toolCall) {
+            // Call tool
+            $toolResult = $this->callTool($toolCall['name'], $lang);
+
+            // Handle tool result
+            $toolMessage = [
+                'role' => 'tool',
+                'content' => json_encode($toolResult), // from Portkey Docs, but did not work for anthropic
+                'tool_result' => $toolResult, // anthropic specific
+                'tool_call_id' => $toolCall['id'],
+                'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
+            ];
+            $conversation->addMessage($toolMessage);
+
+            // Create and save the AI service request
+            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+                $aiServiceModel->getId(),
+                $conversation->getMessages(),
+                1000, 0.7, null, $tools
+            );
+
+            // Create spirit conversation request
+            $spiritConversationRequest = new SpiritConversationRequest(
+                $conversation->getId(),
+                $aiServiceRequest->getId()
+            );
+            
+            // Save the spirit conversation request
+            $db->executeStatement(
+                'INSERT INTO spirit_conversation_request (id, spirit_conversation_id, ai_service_request_id, created_at) VALUES (?, ?, ?, ?)',
+                [
+                    $spiritConversationRequest->getId(),
+                    $spiritConversationRequest->getSpiritConversationId(),
+                    $spiritConversationRequest->getAiServiceRequestId(),
+                    $spiritConversationRequest->getCreatedAt()->format('Y-m-d H:i:s')
+                ]
+            );
+
+            // Send the request to the AI service
+            $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Spirit Conversation [tool call ' . $i . '.]');
+
+            $conversation->removeToolCallsAndResultsFromMessages();
+
+            $i++;
+        } */
     }
 }

@@ -10,17 +10,19 @@ class AiServiceResponse implements JsonSerializable
     private string $aiServiceRequestId;
     private ?AiServiceRequest $aiServiceRequest = null;
     private string $message; // JSON string
+    private string $fullResponse; // JSON string
     private ?string $finishReason = null;
     private ?int $inputTokens = null;
     private ?int $outputTokens = null;
     private ?int $totalTokens = null;
     private \DateTimeInterface $createdAt;
     
-    public function __construct(string $aiServiceRequestId, array $message)
+    public function __construct(string $aiServiceRequestId, array $message, array $fullResponse)
     {
         $this->id = uuid_create();
         $this->aiServiceRequestId = $aiServiceRequestId;
         $this->message = json_encode($message);
+        $this->fullResponse = json_encode($fullResponse);
         $this->createdAt = new \DateTime();
     }
     
@@ -73,6 +75,22 @@ class AiServiceResponse implements JsonSerializable
     public function setMessage(array $message): self
     {
         $this->message = json_encode($message);
+        return $this;
+    }
+    
+    public function getFullResponse(): array
+    {
+        return json_decode($this->fullResponse, true);
+    }
+    
+    public function getFullResponseRaw(): string
+    {
+        return $this->fullResponse;
+    }
+    
+    public function setFullResponse(array $fullResponse): self
+    {
+        $this->fullResponse = json_encode($fullResponse);
         return $this;
     }
     
@@ -137,6 +155,7 @@ class AiServiceResponse implements JsonSerializable
             'id' => $this->id,
             'aiServiceRequestId' => $this->aiServiceRequestId,
             'message' => $this->getMessage(),
+            'fullResponse' => $this->getFullResponse(),
             'finishReason' => $this->finishReason,
             'inputTokens' => $this->inputTokens,
             'outputTokens' => $this->outputTokens,
@@ -152,7 +171,12 @@ class AiServiceResponse implements JsonSerializable
             $message = [];
         }
         
-        $response = new self($data['ai_service_request_id'], $message);
+        $fullResponse = json_decode($data['full_response'], true);
+        if (!$fullResponse) {
+            $fullResponse = [];
+        }
+        
+        $response = new self($data['ai_service_request_id'], $message, $fullResponse);
         $response->setId($data['id']);
         
         if (isset($data['finish_reason'])) {

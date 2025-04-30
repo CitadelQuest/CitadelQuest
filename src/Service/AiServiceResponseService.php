@@ -31,12 +31,13 @@ class AiServiceResponseService
     public function createResponse(
         string $aiServiceRequestId,
         array $message,
+        array $fullResponse,
         ?string $finishReason = null,
         ?int $inputTokens = null,
         ?int $outputTokens = null,
         ?int $totalTokens = null
     ): AiServiceResponse {
-        $response = new AiServiceResponse($aiServiceRequestId, $message);
+        $response = new AiServiceResponse($aiServiceRequestId, $message, $fullResponse);
         
         if ($finishReason !== null) {
             $response->setFinishReason($finishReason);
@@ -53,18 +54,19 @@ class AiServiceResponseService
         if ($totalTokens !== null) {
             $response->setTotalTokens($totalTokens);
         }
-
+        
         // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO ai_service_response (
-                id, ai_service_request_id, message, finish_reason, 
+                id, ai_service_request_id, message, full_response, finish_reason, 
                 input_tokens, output_tokens, total_tokens, created_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $response->getId(),
                 $response->getAiServiceRequestId(),
                 $response->getMessageRaw(),
+                $response->getFullResponseRaw(),
                 $response->getFinishReason(),
                 $response->getInputTokens(),
                 $response->getOutputTokens(),

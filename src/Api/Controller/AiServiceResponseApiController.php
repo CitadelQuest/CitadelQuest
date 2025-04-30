@@ -42,6 +42,7 @@ class AiServiceResponseApiController extends AbstractController
         $response = $this->aiServiceResponseService->createResponse(
             $data['aiServiceRequestId'],
             $data['message'],
+            $data['fullResponse'],
             $data['finishReason'] ?? null,
             $data['inputTokens'] ?? null,
             $data['outputTokens'] ?? null,

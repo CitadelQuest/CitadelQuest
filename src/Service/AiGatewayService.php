@@ -10,10 +10,13 @@ use App\Entity\AiServiceUseLog;
 use App\Entity\User;
 use App\Service\UserDatabaseManager;
 use App\Service\PortkeyAiGateway;
+use App\Service\AnthropicGateway;
+use App\Service\GroqGateway;
 use App\Service\AiGatewayInterface;
 use App\Service\AiUserSettingsService;
 use App\Service\AiServiceUseLogService;
 use App\Service\AiServiceResponseService;
+use App\Service\AiServiceRequestService;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -21,19 +24,29 @@ class AiGatewayService
 {
     private array $gatewayImplementations = [];
     private ?PortkeyAiGateway $portkeyGateway = null;
+    private ?AnthropicGateway $anthropicGateway = null;
+    private ?GroqGateway $groqGateway = null;
     
     private ?AiServiceUseLogService $aiServiceUseLogService = null;
     private ?AiUserSettingsService $aiUserSettingsService = null;
     private ?AiServiceResponseService $aiServiceResponseService = null;
+    private ?AiServiceRequestService $aiServiceRequestService = null;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
-        ?PortkeyAiGateway $portkeyGateway = null
+        ?PortkeyAiGateway $portkeyGateway = null,
+        ?AnthropicGateway $anthropicGateway = null,
+        ?GroqGateway $groqGateway = null
     ) {
         $this->portkeyGateway = $portkeyGateway;
+        $this->anthropicGateway = $anthropicGateway;
+        $this->groqGateway = $groqGateway;
+        
         // Register gateway implementations
         $this->registerGatewayImplementation('portkey', 'portkey');
+        $this->registerGatewayImplementation('anthropic', 'anthropic');
+        $this->registerGatewayImplementation('groq', 'groq');
     }
     
     /**
@@ -62,6 +75,13 @@ class AiGatewayService
         $this->aiUserSettingsService = $aiUserSettingsService;
     }
 
+    /**
+     * Set the AI service request service
+     */
+    public function setAiServiceRequestService(?AiServiceRequestService $aiServiceRequestService): void
+    {
+        $this->aiServiceRequestService = $aiServiceRequestService;
+    }
     /**
      * Set the AI service response service
      */
@@ -200,7 +220,64 @@ class AiGatewayService
             return $this->portkeyGateway;
         }
         
+        if ($type === 'anthropic' && $this->anthropicGateway) {
+            return $this->anthropicGateway;
+        }
+        
+        if ($type === 'groq' && $this->groqGateway) {
+            return $this->groqGateway;
+        }
+        
         return null;
+    }
+    
+    /**
+     * Get available models from a gateway
+     * 
+     * @param string $gatewayId The ID of the gateway
+     * @return array List of available models
+     * @throws \Exception If gateway not found or implementation not available
+     */
+    public function getAvailableModels(string $gatewayId): array
+    {
+        $gateway = $this->findById($gatewayId);
+        
+        if (!$gateway) {
+            throw new \Exception('Gateway not found');
+        }
+        
+        $type = $gateway->getType();
+        $implementation = $this->getGatewayImplementation($type);
+        
+        if (!$implementation) {
+            throw new \Exception('No implementation found for gateway type: ' . $type);
+        }
+        
+        return $implementation->getAvailableModels($gateway);
+    }
+    
+    /**
+     * Get available tools for AI services
+     * 
+     * @param string $gatewayId The ID of the gateway
+     * @return array List of available tools
+     */
+    public function getAvailableTools(string $gatewayId): array
+    {
+        $gateway = $this->findById($gatewayId);
+        
+        if (!$gateway) {
+            throw new \Exception('Gateway not found');
+        }
+        
+        $type = $gateway->getType();
+        $implementation = $this->getGatewayImplementation($type);
+        
+        if (!$implementation) {
+            throw new \Exception('No implementation found for gateway type: ' . $type);
+        }
+        
+        return $implementation->getAvailableTools();
     }
     
     /**
@@ -281,7 +358,7 @@ class AiGatewayService
     /**
      * Send a request to an AI service
      */
-    public function sendRequest(AiServiceRequest $request, string $purpose): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English'): AiServiceResponse
     {
         // Get the model
         $aiServiceModel = $this->getAiServiceModel($request->getAiServiceModelId());
@@ -296,18 +373,19 @@ class AiGatewayService
         }
         
         // Get the gateway implementation
-        $gatewayImplementation = $this->getGatewayImplementation($aiGateway->getType() ?? 'portkey');
+        $gatewayImplementation = $this->getGatewayImplementation($aiGateway->getType());
         if (!$gatewayImplementation) {
-            throw new \Exception('Gateway implementation not found for type: ' . ($aiGateway->getType() ?? 'portkey'));
+            throw new \Exception('Gateway implementation not found for type: ' . $aiGateway->getType());
         }
         
         // Send the request
-        $response = $gatewayImplementation->sendRequest($aiGateway, $aiServiceModel, $request);
+        $response = $gatewayImplementation->sendRequest($request, $this);
 
         // Save the response
         $response = $this->aiServiceResponseService->createResponse(
             $request->getId(),
             $response->getMessage(),
+            $response->getFullResponse(),
             $response->getFinishReason(),
             $response->getInputTokens(),
             $response->getOutputTokens(),
@@ -317,6 +395,9 @@ class AiGatewayService
         // Log the service use
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
         
+        // Handle tool calls
+        $response = $gatewayImplementation->handleToolCalls($request, $response, $this, $this->aiServiceRequestService, $lang);
+
         return $response;
     }
     

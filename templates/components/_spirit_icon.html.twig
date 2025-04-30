@@ -1,6 +1,6 @@
 {% if app.user %}
 <div class="spirit-icon-container">
-    <div id="spiritIcon" class="spirit-icon" data-bs-toggle="dropdown" aria-expanded="false">
+    {# <div id="spiritIcon" class="spirit-icon" data-bs-toggle="dropdown" aria-expanded="false">
         <div class="spirit-glow"></div>
     </div>
     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="spiritIcon">
@@ -10,6 +10,10 @@
         <li><a class="dropdown-item link-light" href="{{ path('spirit_index') }}" id="spiritSettingsButton">
             <i class="mdi mdi-ghost me-2"></i> <span class="spiritName">{{ 'spirit.menu.settings'|trans }}</span>
         </a></li>
-    </ul>
+    </ul> #}
+    <div id="spiritIcon" class="spirit-icon">
+        <a href="#" id="spiritChatButton" data-bs-toggle="modal" data-bs-target="#spiritChatModal" class="d-inline-block w-100 h-100"></a>
+        <div class="spirit-glow" style="pointer-events: none;"></div>
+    </div>
 </div>
 {% endif %}

@@ -151,19 +151,19 @@ class SpiritConversationService
         $this->aiGatewayService->setAiUserSettingsService($this->aiUserSettingsService);
         $this->aiGatewayService->setAiServiceUseLogService($this->aiServiceUseLogService);
         $this->aiGatewayService->setAiServiceResponseService($this->aiServiceResponseService);
+        $this->aiGatewayService->setAiServiceRequestService($this->aiServiceRequestService);
 
         // Get user's primary AI gateway and model
-        //$aiGateway = $this->aiGatewayService->getPrimaryAiGateway(); // ??
         $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
-        if (/* !$aiGateway || */ !$aiServiceModel) {
-            throw new \Exception('AI Gateway or Model not configured');
+        if (!$aiServiceModel) {
+            throw new \Exception('AI Service Model not configured');
         }
         
         // Prepare messages for AI request
         $messages = $this->prepareMessagesForAiRequest($conversation->getMessages(), $spirit, $lang);
 
         // Add tools to request
-        $tools = $this->getTools();
+        $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
         
         // Create and save the AI service request
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
@@ -190,49 +190,14 @@ class SpiritConversationService
         );
         
         // Send the request to the AI service
-        $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Spirit Conversation');
+        $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Spirit Conversation', $lang);
 
-        // Get tool_calls from response
-        $toolCalls = $aiServiceResponse->getMessage()['tool_calls'] ?? [];
-        if (!empty($toolCalls)) {
-            // Extract the assistant message from the response
-            $assistantMessage = [
-                'role' => 'assistant',
-                'content' => 'Tool calls request comment - will not be visible to user: ' . ($aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response :( '.($aiServiceResponse->getMessage()['error'] ?? '')),
-                'tool_calls' => $toolCalls,
-                'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
-            ];
-        
-            // Add assistant message to conversation
-            $conversation->addMessage($assistantMessage);
-        }
-        // Process tool_calls
-        $i = 1;
-        foreach ($toolCalls as $toolCall) {
-            // Call tool
-            $toolResult = $this->callTool($toolCall['function'], $lang);
-
-            // Handle tool result
-            $toolMessage = [
-                'role' => 'tool',
-                'content' => json_encode($toolResult), // from Portkey Docs, but did not work for anthropic
-                'tool_result' => $toolResult, // anthropic specific
-                'tool_call_id' => $toolCall['id'],
-                'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
-            ];
-            $conversation->addMessage($toolMessage);
-
-            // Create and save the AI service request
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-                $aiServiceModel->getId(),
-                $conversation->getMessages(),
-                1000, 0.7, null, $tools
-            );
-
-            // Create spirit conversation request
+        // If AiServiceRequestId is different, after tool call then: Create + save new spirit conversation request
+        if ($aiServiceResponse->getAiServiceRequestId() !== $aiServiceRequest->getId()) {
+            // Create + save new spirit conversation request
             $spiritConversationRequest = new SpiritConversationRequest(
                 $conversation->getId(),
-                $aiServiceRequest->getId()
+                $aiServiceResponse->getAiServiceRequestId()
             );
             
             // Save the spirit conversation request
@@ -245,19 +210,12 @@ class SpiritConversationService
                     $spiritConversationRequest->getCreatedAt()->format('Y-m-d H:i:s')
                 ]
             );
-
-            // Send the request to the AI service
-            $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Spirit Conversation [tool call ' . $i . '.]');
-
-            $conversation->removeToolCallsAndResultsFromMessages();
-
-            $i++;
         }
         
         // Extract the assistant message from the response
         $assistantMessage = [
             'role' => 'assistant',
-            'content' => $aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response.\n'.($aiServiceResponse->getMessage()['error'] ?? ''),
+            'content' => $aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response. [*'.($aiServiceResponse->getFullResponse()['error']['message'] ?? '').'*]',
             'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
         ];
         
@@ -269,6 +227,8 @@ class SpiritConversationService
 
         // Update spirit's last interaction time
         $spirit->setLastInteraction(new \DateTime());
+        // and add spirit's experience
+        $spirit->addExperience(1);
         $this->spiritService->updateSpirit($spirit);
         
         return $conversation->getMessages();
@@ -329,125 +289,4 @@ class SpiritConversationService
         return $aiMessages;
     }
 
-    private function getTools(): array
-    {
-        // we will use demo tool from docs first:
-        $tool_getWeather = [
-            'type' => 'function',
-            'function' => [
-                'name' => 'getWeather',
-                'description' => 'Get the current weather in a given location',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'location' => [
-                            'type' => 'string',
-                            'description' => 'The city and state',
-                        ],
-                        'unit' => ['type' => 'string', 'enum' => ['celsius', 'fahrenheit']],
-                    ],
-                    'required' => ['location'],
-                ],
-            ],
-        ];
-
-        // CitadelQuest User Profile - update description
-        $tool_updateUserProfile = [
-            'type' => 'function',
-            'function' => [
-                'name' => 'updateUserProfile',
-                'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'newInfo' => [
-                            'type' => 'string',
-                            'description' => 'The new information added to the profile description',
-                        ],
-                    ],
-                    'required' => ['newInfo'],
-                ],
-            ],
-        ];
-
-        return [$tool_getWeather, $tool_updateUserProfile];
-    }
-
-    private function callTool(array $tool, string $lang): array
-    {
-        if (!isset($tool['name']) || !isset($tool['arguments'])) {
-            return [];
-        }
-
-        try {
-            $arguments = json_decode($tool['arguments'], true);
-            $arguments['lang'] = $lang;
-
-            switch ($tool['name']) {
-                case 'getWeather':
-                    return $this->getWeather($arguments);
-                case 'updateUserProfile':
-                    return $this->updateUserProfile($arguments);
-                default:
-                    return [];
-            }
-        } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
-        }
-    }
-
-    private function getWeather(array $arguments): array
-    {
-        // random mock weather
-        $weather = [
-            'temperature' => (20 + rand(-5, 5)) . '°' . ($arguments['unit']=='celsius' ? 'C' : 'F'),
-            'condition' => ['sunny', 'cloudy'][rand(0, 1)],
-            'location' => $arguments['location'],
-        ];
-        return $weather;
-    }
-
-    private function updateUserProfile(array $arguments): array
-    {
-        // get current profile description
-        $currentDescription = $this->settingsService->getSettingValue('profile.description', '');
-
-        // update(save) profile description
-        $currentDescription .= ($arguments['newInfo'] ? "\n\n" . $arguments['newInfo'] : '');
-        $this->settingsService->setSetting('profile.description', $currentDescription);
-        
-
-        // get current profile description newInfo counter
-        $newInfoCounter = intval($this->settingsService->getSettingValue('profile.new_info_counter', 0));
-
-        // increment newInfo counter
-        $newInfoCounter++;
-        $this->settingsService->setSetting('profile.new_info_counter', strval($newInfoCounter));
-
-        // rewrite profile description every N newInfo added
-        $rewriteProfileDescriptionEveryN = 10;
-        if ($newInfoCounter % $rewriteProfileDescriptionEveryN == 0) {
-            // make and send new ai service request to rewrite profile description
-            $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                $this->aiServiceRequestService->createRequest(
-                    $this->aiGatewayService->getSecondaryAiServiceModel()->getId(),
-                    [
-                        [
-                            'role' => 'system',
-                            'content' => "You are a helpful assistant that consolidates/refines user profiles, you are best in your profession, very experienced, always on-point, never miss a detail. {$rewriteProfileDescriptionEveryN} new information has been added to the profile description - so it needs to be consolidated to make it more readable, less repetitive, keep all the important information. Please respond only with the new profile description - it will be saved in the database. <response-language>{$arguments['lang']}</response-language>"
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => "Consolidate the following profile description: {$currentDescription}"
-                        ]
-                    ],
-                    4000, 0.1, null, []
-                ),
-                'tool_call: updateUserProfile (Profile Description Consolidation)'
-            );
-            $this->settingsService->setSetting('profile.description', $aiServiceResponse->getMessage()['content'] ?? $currentDescription);
-        }
-        
-        return ['success' => true];
-    }
 }

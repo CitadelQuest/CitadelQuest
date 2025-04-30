@@ -173,27 +173,8 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="model-name" class="form-label">Model Name</label>
-                            <select class="form-select" id="model-name" name="modelName" required>
-                                <option value="" selected>Select a model...</option>
-                                <optgroup label="Anthropic">
-                                    <option value="Claude 3.7 Sonnet">Claude 3.7 Sonnet</option>
-                                    <option value="Claude 3.5 Haiku">Claude 3.5 Haiku</option>
-                                    <option value="Claude 3 Opus">Claude 3 Opus</option>
-                                    <option value="Claude 3 Sonnet">Claude 3 Sonnet</option>
-                                    <option value="Claude 3 Haiku">Claude 3 Haiku</option>
-                                    <option value="Claude 2">Claude 2</option>
-                                </optgroup>
-                                <optgroup label="Groq">
-                                    <option value="Llama 4 Scout">Llama 4 Scout (17B)</option>
-                                    <option value="Llama 4 Maverick">Llama 4 Maverick (17B)</option>
-                                    <option value="Llama 3.3 Versatile">Llama 3.3 Versatile (70B)</option>
-                                    <option value="Llama 3.1 Instant">Llama 3.1 Instant (8B)</option>
-                                    <option value="Gemma 2">Gemma 2 (9B)</option>
-                                    <option value="Qwen QWQ">Qwen QWQ (32B)</option>
-                                    <option value="Qwen 2.5 Coder">Qwen 2.5 Coder (32B)</option>
-                                    <option value="Qwen 2.5">Qwen 2.5 (32B)</option>
-                                    <option value="DeepSeek R1 Distill">DeepSeek R1 Distill (70B)</option>
-                                </optgroup>
+                            <select class="form-select" id="model-name" name="modelName" required disabled>
+                                <option value="" selected>Select a gateway first...</option>
                             </select>
                             <div class="form-text text-muted">The display name for this model</div>
                         </div>
@@ -496,8 +477,64 @@
             }
         }
         
+        // Function to fetch models from a gateway and populate the model dropdown
+        function fetchModelsForGateway(gatewayId, modelSelectElement, modelSlugInputElement) {
+            // Clear and disable the model dropdown while loading
+            modelSelectElement.innerHTML = '<option value="" selected>Loading models...</option>';
+            modelSelectElement.disabled = true;
+            
+            // Fetch models from the API
+            fetch(`/api/ai/gateway/${gatewayId}/models`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear the dropdown
+                modelSelectElement.innerHTML = '<option value="" selected>Select a model...</option>';
+                
+                // Group models by provider if available
+                const modelsByProvider = {};
+                
+                data.forEach(model => {
+                    const provider = model.provider || 'Other';
+                    if (!modelsByProvider[provider]) {
+                        modelsByProvider[provider] = [];
+                    }
+                    modelsByProvider[provider].push(model);
+                });
+                
+                // Add models to dropdown grouped by provider
+                Object.keys(modelsByProvider).forEach(provider => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = provider.charAt(0).toUpperCase() + provider.slice(1); // Capitalize provider name
+                    
+                    modelsByProvider[provider].forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = model.name;
+                        option.dataset.slug = model.id; // Store the model ID/slug as a data attribute
+                        optgroup.appendChild(option);
+                    });
+                    
+                    modelSelectElement.appendChild(optgroup);
+                });
+                
+                // Enable the model dropdown
+                modelSelectElement.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error fetching models:', error);
+                modelSelectElement.innerHTML = '<option value="" selected>Error loading models</option>';
+                modelSelectElement.disabled = false;
+            });
+        }
+        
         // Handle gateway change for add modal
         gatewaySelect.addEventListener('change', function() {
+            // Handle virtual keys
             handleGatewayChange(
                 this, // gatewaySelectElement
                 virtualKeysSelect, // virtualKeysSelectElement
@@ -506,10 +543,24 @@
                 virtualKeyInput, // virtualKeyInputElement
                 false // isEditMode
             );
+            
+            // Fetch models for the selected gateway
+            const selectedGatewayId = this.value;
+            if (selectedGatewayId) {
+                fetchModelsForGateway(selectedGatewayId, modelNameSelect, modelSlugInput);
+            } else {
+                // Reset and disable the model dropdown if no gateway is selected
+                modelNameSelect.innerHTML = '<option value="" selected>Select a gateway first...</option>';
+                modelNameSelect.disabled = true;
+            }
         });
         
         // Handle gateway change for edit modal
+        const editModelNameSelect = document.getElementById('edit-model-name');
+        const editModelSlugInput = document.getElementById('edit-model-slug');
+        
         editGatewaySelect.addEventListener('change', function() {
+            // Handle virtual keys
             handleGatewayChange(
                 this, // gatewaySelectElement
                 editVirtualKeysSelect, // virtualKeysSelectElement
@@ -518,45 +569,38 @@
                 editVirtualKeyInput, // virtualKeyInputElement
                 true // isEditMode
             );
+            
+            // Fetch models for the selected gateway
+            const selectedGatewayId = this.value;
+            if (selectedGatewayId) {
+                fetchModelsForGateway(selectedGatewayId, editModelNameSelect, editModelSlugInput);
+            } else {
+                editModelNameSelect.innerHTML = '<option value="" selected>Select a gateway first...</option>';
+                editModelNameSelect.disabled = true;
+            }
         });
         
         // Model name select change handler - these variables were already declared above
         modelNameSelect.addEventListener('change', function() {
-            const selectedModel = this.value;
+            const selectedOption = this.options[this.selectedIndex];
             
-            // Set default slug based on selection
-            if (selectedModel === 'Claude 3.7 Sonnet') {
-                modelSlugInput.value = 'claude-3-7-sonnet-20250219';
-            } else if (selectedModel === 'Claude 3.5 Haiku') {
-                modelSlugInput.value = 'claude-3-5-haiku-20241022';
-            } else if (selectedModel === 'Claude 3 Opus') {
-                modelSlugInput.value = 'claude-3-opus-20240229';
-            } else if (selectedModel === 'Claude 3 Sonnet') {
-                modelSlugInput.value = 'claude-3-sonnet-20240229';
-            } else if (selectedModel === 'Claude 3 Haiku') {
-                modelSlugInput.value = 'claude-3-haiku-20240307';
-            } else if (selectedModel === 'Claude 2') {
-                modelSlugInput.value = 'claude-2.0';
-            } else if (selectedModel === 'Llama 4 Scout') {
-                modelSlugInput.value = 'meta-llama/llama-4-scout-17b-16e-instruct';
-            } else if (selectedModel === 'Llama 4 Maverick') {
-                modelSlugInput.value = 'meta-llama/llama-4-maverick-17b-128e-instruct';
-            } else if (selectedModel === 'Llama 3.3 Versatile') {
-                modelSlugInput.value = 'llama-3.3-70b-versatile';
-            } else if (selectedModel === 'Llama 3.1 Instant') {
-                modelSlugInput.value = 'llama-3.1-8b-instant';
-            } else if (selectedModel === 'Gemma 2') {
-                modelSlugInput.value = 'gemma2-9b-it';
-            } else if (selectedModel === 'Qwen QWQ') {
-                modelSlugInput.value = 'qwen-qwq-32b';
-            } else if (selectedModel === 'Qwen 2.5 Coder') {
-                modelSlugInput.value = 'qwen-2.5-coder-32b';
-            } else if (selectedModel === 'Qwen 2.5') {
-                modelSlugInput.value = 'qwen-2.5-32b';
-            } else if (selectedModel === 'DeepSeek R1 Distill') {
-                modelSlugInput.value = 'deepseek-r1-distill-llama-70b';
+            // Get the model slug from the data attribute we set when populating the dropdown
+            if (selectedOption && selectedOption.dataset.slug) {
+                modelSlugInput.value = selectedOption.dataset.slug;
             } else {
                 modelSlugInput.value = '';
+            }
+        });
+        
+        // Edit model name select change handler
+        editModelNameSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            
+            // Get the model slug from the data attribute we set when populating the dropdown
+            if (selectedOption && selectedOption.dataset.slug) {
+                editModelSlugInput.value = selectedOption.dataset.slug;
+            } else {
+                editModelSlugInput.value = '';
             }
         });
         
@@ -579,14 +623,42 @@
                 
                 document.getElementById('edit-model-id').value = id;
                 
-                // For the dropdown, we need to find the option that matches the model name
+                // First set the gateway, which will trigger the model fetch
                 const editModelNameSelect = document.getElementById('edit-model-name');
-                for (let i = 0; i < editModelNameSelect.options.length; i++) {
-                    if (editModelNameSelect.options[i].value === name) {
-                        editModelNameSelect.selectedIndex = i;
-                        break;
+                
+                // Set the gateway dropdown value
+                editGatewaySelect.value = gateway;
+                
+                // Trigger the change event to fetch models
+                const changeEvent = new Event('change');
+                editGatewaySelect.dispatchEvent(changeEvent);
+                
+                // We need to wait for the models to be fetched before we can select the right one
+                // This is a simple polling approach
+                const selectModelInterval = setInterval(() => {
+                    // Check if models have been loaded
+                    if (!editModelNameSelect.disabled && editModelNameSelect.options.length > 1) {
+                        clearInterval(selectModelInterval);
+                        
+                        // Find the option with the matching name
+                        let foundMatch = false;
+                        for (let i = 0; i < editModelNameSelect.options.length; i++) {
+                            if (editModelNameSelect.options[i].value === name) {
+                                editModelNameSelect.selectedIndex = i;
+                                foundMatch = true;
+                                break;
+                            }
+                        }
+                        
+                        // If no match found, just set the first non-empty option
+                        if (!foundMatch && editModelNameSelect.options.length > 1) {
+                            editModelNameSelect.selectedIndex = 1;
+                        }
+                        
+                        // Set the model slug manually since we might not have found a match
+                        editModelSlugInput.value = slug;
                     }
-                }
+                }, 100); // Check every 100ms
                 
                 document.getElementById('edit-model-slug').value = slug;
                 document.getElementById('edit-model-gateway').value = gateway;

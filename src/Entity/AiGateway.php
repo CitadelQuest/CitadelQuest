@@ -98,6 +98,10 @@ class AiGateway implements JsonSerializable
     public function getType(): ?string
     {
         switch ($this->name) {
+            case 'Anthropic':
+                return 'anthropic';
+            case 'Groq':
+                return 'groq';
             case 'PortkeyAI direct':
                 return 'portkey';
             case 'CQ AI Gateway':

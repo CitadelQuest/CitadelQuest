@@ -44,7 +44,7 @@
                         </div>
                     {% endfor %}
                     
-                    <p class="mb-4">Manage your AI service gateways. These are the connections to AI service providers like Anthropic, <span style="text-decoration: line-through;">OpenAI</span>, and others.</p>
+                    <p class="mb-4">Manage your AI service gateways. These are the connections to AI service providers Anthropic, Groq, and CQ AI Gateway.</p>
                     
                     <!-- Gateway List -->
                     <div class="mb-4">
@@ -124,7 +124,9 @@
                         <label for="gateway-name" class="form-label">Gateway Type</label>
                         <select class="form-select" id="gateway-name" name="name" required>
                             <option value="" selected disabled>Select a gateway type...</option>
-                            <option value="PortkeyAI direct">PortkeyAI direct</option>
+                            <option value="Anthropic">Anthropic (Direct)</option>
+                            <option value="Groq">Groq (Direct)</option>
+                            {# <option value="PortkeyAI direct">PortkeyAI (Middleware)</option> #}
                             <option value="CQ AI Gateway">CQ AI Gateway</option>
                         </select>
                         <div class="form-text text-muted">Select which AI gateway provider to use</div>
@@ -202,7 +204,7 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete the gateway <strong id="delete-gateway-name"></strong>?</p>
-                <p class="text-danger">This action cannot be undone. All models associated with this gateway will also be removed.</p>
+                <p class="text-danger">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -227,7 +229,11 @@
             const selectedGateway = this.value;
             
             // Set default endpoint URL based on selection
-            if (selectedGateway === 'PortkeyAI direct') {
+            if (selectedGateway === 'Anthropic') {
+                gatewayEndpointInput.value = 'https://api.anthropic.com';
+            } else if (selectedGateway === 'Groq') {
+                gatewayEndpointInput.value = 'https://api.groq.com/openai/v1';
+            } else if (selectedGateway === 'PortkeyAI direct') {
                 gatewayEndpointInput.value = 'https://api.portkey.ai/v1';
             } else if (selectedGateway === 'CQ AI Gateway') {
                 gatewayEndpointInput.value = 'https://ai-gw.citadelquest.com/api/v1';

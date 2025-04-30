@@ -29,3 +29,13 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # AI Gateway Services
+    App\Service\PortkeyAiGateway:
+        autowire: true
+
+    App\Service\AnthropicGateway:
+        autowire: true
+
+    App\Service\GroqGateway:
+        autowire: true

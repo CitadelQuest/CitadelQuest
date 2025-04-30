@@ -10,6 +10,7 @@ export class SpiritManager {
         this.spirit = null;
         this.abilities = [];
         this.interactions = [];
+        this.conversations = [];
         
         // DOM elements
         this.spiritContainer = document.getElementById('spirit-container');
@@ -27,6 +28,7 @@ export class SpiritManager {
         this.systemPromptInput = document.getElementById('spirit-system-prompt');
         this.aiModelSelect = document.getElementById('spirit-ai-model');
         this.updateSettingsBtn = document.getElementById('update-spirit-settings');
+        this.conversationsList = document.getElementById('conversations-list');
         
         // Initialize
         this.initEventListeners();
@@ -90,6 +92,9 @@ export class SpiritManager {
             this.showSpirit();
             this.loadAbilities();
             this.loadInteractions();
+
+            // Load spirit chat conversations list
+            this.loadConversations();
             
         } catch (error) {
             console.error('Error loading spirit:', error);
@@ -228,6 +233,26 @@ export class SpiritManager {
         } catch (error) {
             console.error('Error loading interactions:', error);
             this.showError(this.translate('error.loading_interactions', 'Failed to load interactions'));
+        }
+    }
+    
+    /**
+     * Load the spirit's conversations
+     */
+    async loadConversations() {
+        try {
+            const response = await fetch(this.apiEndpoints.conversations.replace('{id}', this.spirit.id));
+            
+            if (!response.ok) {
+                throw new Error('Failed to load conversations');
+            }
+            
+            this.conversations = await response.json();
+            this.renderConversations();
+            
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+            this.showError(this.translate('error.loading_conversations', 'Failed to load conversations'));
         }
     }
     
@@ -510,6 +535,66 @@ export class SpiritManager {
         this.interactionsContainer.innerHTML = '';
         this.interactionsContainer.appendChild(interactionsList);
     }
+
+    /**
+     * Render the conversations list
+     */
+    renderConversations() {
+        if (!this.conversationsList) return;
+
+        if (this.conversations.length === 0) {
+            this.conversationsList.innerHTML = '<div class="text-center">No conversations available</div>';
+            return;
+        }
+
+        const conversationsList = document.createElement('ul');
+        conversationsList.className = 'list-group';
+        
+        this.conversations.forEach(conversation => {
+            const item = document.createElement('li');
+            item.className = 'list-group-item';
+            
+            const date = new Date(conversation.createdAt);
+            const formattedDate = date.toLocaleString();
+
+            const messagesCount = conversation.messagesCount;
+            
+            item.innerHTML = `
+                <div class="cursor-pointer">
+                    <div><i class="mdi mdi-message me-2 mt-1 text-cyber"></i> ${conversation.title}</div>
+                    <div class="float-end">
+                        <small class="text-muted me-2">${formattedDate}</small>
+                        <span class="badge bg-dark bg-opacity-50 text-cyber">${messagesCount}</span>
+                    </div>
+                </div>
+            `;
+
+            item.dataset.id = conversation.id;
+            item.addEventListener('click', async () => {
+                // load conversation when modal is shown
+                document.getElementById('spiritChatModal').addEventListener('shown.bs.modal', async () => {
+                    if (item.dataset.id) {
+                        // wait for loading to finish
+                        while (window.spiritChatManager.isLoadingConversations || window.spiritChatManager.isLoadingMessages) {
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                        window.spiritChatManager.loadConversation(item.dataset.id);
+                    }
+                }, { once: true });
+
+                // open modal first
+                document.getElementById('spiritChatButton').dispatchEvent(new Event('click'));
+
+            });
+            conversationsList.appendChild(item);
+        });
+        
+        this.conversationsList.innerHTML = '';
+        this.conversationsList.appendChild(conversationsList);
+    }
+
+    /**
+     
     
     /**
      * Show an error message

@@ -24,7 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 interact: '/api/spirit/interact',
                 interactions: '/api/spirit/interactions',
                 abilities: '/api/spirit/abilities',
-                unlockAbility: '/api/spirit/abilities/{id}/unlock'
+                unlockAbility: '/api/spirit/abilities/{id}/unlock',
+                conversations: '/api/spirit-conversation/list/{id}'
             }
         });
     }

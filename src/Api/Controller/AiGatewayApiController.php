@@ -115,4 +115,23 @@ class AiGatewayApiController extends AbstractController
         
         return $this->json(null, Response::HTTP_NO_CONTENT);
     }
+    
+    #[Route('/{id}/models', name: 'app_api_ai_gateway_models', methods: ['GET'])]
+    public function getModels(string $id): JsonResponse
+    {
+        $gateway = $this->aiGatewayService->findById($id);
+        
+        if (!$gateway) {
+            return $this->json(['error' => 'Gateway not found'], Response::HTTP_NOT_FOUND);
+        }
+        
+        try {
+            // Fetch available models using the service
+            $models = $this->aiGatewayService->getAvailableModels($id);
+            
+            return $this->json($models);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }

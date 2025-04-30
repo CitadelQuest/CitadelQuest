@@ -95,8 +95,13 @@
 
 // Spirit abilities and interactions
 #spirit-abilities,
-#spirit-interactions {
+#spirit-interactions,
+#conversations-list {
     margin-bottom: 2rem;
+    max-height: 50vh;
+    overflow-y: auto;
+
+    @include mix.cyber-scrollbar;
     
     .list-group-item {
         background-color: rgba(colors.$dark, 0.5);

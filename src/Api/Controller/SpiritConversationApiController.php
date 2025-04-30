@@ -27,8 +27,14 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
     public function listConversations(string $spiritId, Request $request): JsonResponse
     {
-        // Get conversations
+        // Get conversations, without 'messages' field
         $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
+        $conversations = array_map(function($conversation) {
+            $data = $conversation->jsonSerialize();
+            unset($data['messages']);
+            $data['messagesCount'] = count($conversation->getMessages());
+            return $data;
+        }, $conversations);
         
         return $this->json($conversations);
     }
