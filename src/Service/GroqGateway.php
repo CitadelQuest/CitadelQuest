@@ -151,8 +151,10 @@ class GroqGateway implements AiGatewayInterface
             $toolCalls = $response->getFullResponse()['choices'][0]['message']['tool_calls'];
             
             $messages = $request->getMessages();
+
             // add current assistant message
             $messages[] = $response->getFullResponse()['choices'][0]['message'];
+
             // Process tool_calls
             $toolMessageContents = [];
             foreach ($toolCalls as $toolCall) {

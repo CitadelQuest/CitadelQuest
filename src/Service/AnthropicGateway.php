@@ -175,6 +175,13 @@ class AnthropicGateway implements AiGatewayInterface
                 'role' => 'assistant',
                 'content' => $response->getFullResponse()['content']
             ];
+            
+            // get original response text
+            $originalResponseText = array_filter($response->getFullResponse()['content'], fn($message) => $message['type'] === 'text');
+            if ($originalResponseText) {
+                $originalResponseText = $originalResponseText[0]['text'];
+            }
+
             // Process tool_calls
             $toolMessageContents = [];
             foreach ($toolCalls as $toolCall) {
@@ -202,6 +209,26 @@ class AnthropicGateway implements AiGatewayInterface
             
             // Send the request to the AI service
             $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['name'] . ']');
+
+            // add original response text to aiServiceResponse message['content'][0]['text'] - as first item
+            if ($originalResponseText) {
+                $fullMessageContent = $aiServiceResponse->getMessage()['content'];
+                // check if message content is available - sometimes anthropic returns empty content [] :-/
+                if (isset($fullMessageContent[0]) && isset($fullMessageContent[0]['text'])) {
+                    $fullMessageContent[0]['text'] = $originalResponseText . "\n\n•\n\n" . $fullMessageContent[0]['text'];
+                } else {
+                    $fullMessageContent = [
+                        [
+                            'type' => 'text',
+                            'text' => $originalResponseText . "\n\n•"
+                        ]
+                    ];
+                }
+                $aiServiceResponse->setMessage([
+                    'role' => $aiServiceResponse->getMessage()['role'],
+                    'content' => $fullMessageContent
+                ]);
+            }
 
             $response = $aiServiceResponse;
         }

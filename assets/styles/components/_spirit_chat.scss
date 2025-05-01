@@ -13,7 +13,7 @@
         width: 32px;
         height: 32px;
         border-radius: 50%;
-        background-color: rgba(colors.$cyber, 0.2);
+        background-color: rgba(colors.$cyber, 0.1);
         position: relative;
         display: flex;
         align-items: center;
@@ -22,10 +22,10 @@
         overflow: hidden;
         
         &:hover {
-            background-color: rgba(colors.$cyber, 0.4);
+            background-color: rgba(colors.$cyber, 0.1);
             
             .spirit-glow {
-                opacity: 0.8;
+                opacity: 0.4;
             }
         }
         

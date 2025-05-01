@@ -292,7 +292,7 @@ export class SpiritChatManager {
         
         // Render each message
         messages.forEach(message => {
-            let msgContent = this.formatMessageContent(typeof message.content === 'string' ? message.content : message.content[0]['text']??message.content /* old FIX: typeof message.content === 'string' ? message.content : message.content[0]??message.content) */);
+            let msgContent = this.formatMessageContent(typeof message.content === 'string' ? message.content : (typeof message.content[0] === 'object' && message.content[0]['text'] ? message.content[0]['text'] : message.content));
             if (msgContent === '') {
                 return;
             }
