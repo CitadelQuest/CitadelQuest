@@ -269,7 +269,7 @@ strong, .strong {
 }
 
 // Form styles
-.form-control {
+.form-control, .form-select {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: colors.$text-light;
@@ -280,6 +280,12 @@ strong, .strong {
         color: colors.$text-light;
         box-shadow: 0 0 0 0.2rem rgba(bs.$primary, 0.25);
     }
+}
+.form-select option {
+    color: colors.$dark;
+}
+textarea {
+    @include mix.cyber-scrollbar;
 }
 
 // Animations

@@ -48,6 +48,9 @@
                         </a>
                     </li> #}
                     <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
                             <i class="mdi mdi-cog me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% endif %}"></i>
                             Settings

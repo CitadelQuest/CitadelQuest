@@ -55,10 +55,11 @@
                         {{ profile_description|nl2br }}
                     </p>
 
-                    <button type="button" id="edit-description-button" class="btn btn-cyber" 
+                    <button type="button" id="edit-description-button" class="btn btn-cyber float-end" 
                             data-bs-toggle="modal" data-bs-target="#descriptionModal" data-description="{{ profile_description }}">
                         <i class="mdi mdi-account-edit me-2"></i>{{ 'Change description'|trans }}
                     </button>
+                    <div class="clearfix"></div>
                 </div>
             </div>
         </div>
@@ -68,7 +69,7 @@
 
 <!-- Description Modal -->
 <div class="modal fade" id="descriptionModal" tabindex="-1" aria-labelledby="descriptionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="descriptionModalLabel">{{ 'Change description'|trans }}</h5>
@@ -78,7 +79,7 @@
                 <form id="description-form" action="/api/settings/profile.description" method="post">
                     <div class="mb-3">
                         <label for="edit-description" class="form-label">{{ 'Description'|trans }}</label>
-                        <textarea class="form-control" id="edit-description" name="edit-description" rows="6" required></textarea>
+                        <textarea class="form-control" id="edit-description" name="edit-description" rows="12" style="height: 72vh !important;" required></textarea>
                     </div>
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
