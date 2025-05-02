@@ -31,11 +31,35 @@ services:
     # please note that last definitions always *replace* previous ones
 
     # AI Gateway Services
+    ai_tool_call.service_locator:
+        class: Symfony\Component\DependencyInjection\ServiceLocator
+        tags: ['container.service_locator']
+        arguments:
+            -
+                App\Service\AIToolCallService: '@App\Service\AIToolCallService'
+                App\Service\AiGatewayService: '@App\Service\AiGatewayService'
+                App\Service\AiServiceModelService: '@App\Service\AiServiceModelService'
+                App\Service\AiServiceRequestService: '@App\Service\AiServiceRequestService'
+                App\Service\AiServiceResponseService: '@App\Service\AiServiceResponseService'
+                App\Service\AiServiceUseLogService: '@App\Service\AiServiceUseLogService'
+                App\Service\AiUserSettingsService: '@App\Service\AiUserSettingsService'
+    
     App\Service\PortkeyAiGateway:
         autowire: true
+        arguments:
+            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
 
     App\Service\AnthropicGateway:
         autowire: true
+        arguments:
+            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
 
     App\Service\GroqGateway:
         autowire: true
+        arguments:
+            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
+
+    App\Service\AiGatewayService:
+        autowire: true
+        arguments:
+            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator

@@ -19,6 +19,7 @@ use App\Service\AiServiceResponseService;
 use App\Service\AiServiceRequestService;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 
 class AiGatewayService
 {
@@ -27,14 +28,10 @@ class AiGatewayService
     private ?AnthropicGateway $anthropicGateway = null;
     private ?GroqGateway $groqGateway = null;
     
-    private ?AiServiceUseLogService $aiServiceUseLogService = null;
-    private ?AiUserSettingsService $aiUserSettingsService = null;
-    private ?AiServiceResponseService $aiServiceResponseService = null;
-    private ?AiServiceRequestService $aiServiceRequestService = null;
-    
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
+        private readonly ServiceLocator $serviceLocator,
         ?PortkeyAiGateway $portkeyGateway = null,
         ?AnthropicGateway $anthropicGateway = null,
         ?GroqGateway $groqGateway = null
@@ -57,37 +54,6 @@ class AiGatewayService
         /** @var User $user */
         $user = $this->security->getUser();
         return $this->userDatabaseManager->getDatabaseConnection($user);
-    }
-    
-    /**
-     * Set the AI service use log service
-     */
-    public function setAiServiceUseLogService(?AiServiceUseLogService $aiServiceUseLogService): void
-    {
-        $this->aiServiceUseLogService = $aiServiceUseLogService;
-    }
-    
-    /**
-     * Set the AI user settings service
-     */
-    public function setAiUserSettingsService(?AiUserSettingsService $aiUserSettingsService): void
-    {
-        $this->aiUserSettingsService = $aiUserSettingsService;
-    }
-
-    /**
-     * Set the AI service request service
-     */
-    public function setAiServiceRequestService(?AiServiceRequestService $aiServiceRequestService): void
-    {
-        $this->aiServiceRequestService = $aiServiceRequestService;
-    }
-    /**
-     * Set the AI service response service
-     */
-    public function setAiServiceResponseService(?AiServiceResponseService $aiServiceResponseService): void
-    {
-        $this->aiServiceResponseService = $aiServiceResponseService;
     }
 
     /**
@@ -281,39 +247,14 @@ class AiGatewayService
     }
     
     /**
-     * Get the primary AI gateway for a user
-     */
-    public function getPrimaryAiGateway(): ?AiGateway
-    {
-        // Try to get from user settings first
-        if ($this->aiUserSettingsService) {
-            $settings = $this->aiUserSettingsService->findForUser();
-            if ($settings && $settings->getAiGatewayId()) {
-                return $this->findById($settings->getAiGatewayId());
-            }
-        }
-        
-        // Fallback to the first gateway if no settings found
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM ai_gateway ORDER BY created_at ASC LIMIT 1'
-        )->fetchAssociative();
-        
-        if (!$result) {
-            return null;
-        }
-        
-        return AiGateway::fromArray($result);
-    }
-    
-    /**
      * Get the primary AI service model for a user
      */
     public function getPrimaryAiServiceModel(): ?AiServiceModel
     {
+        $aiUserSettingsService = $this->serviceLocator->get(AiUserSettingsService::class);
         // Try to get from user settings first
-        if ($this->aiUserSettingsService) {
-            $settings = $this->aiUserSettingsService->findForUser();
+        if ($aiUserSettingsService) {
+            $settings = $aiUserSettingsService->findForUser();
             if ($settings && $settings->getPrimaryAiServiceModelId()) {
                 return $this->getAiServiceModel($settings->getPrimaryAiServiceModelId());
             }
@@ -334,9 +275,10 @@ class AiGatewayService
 
     public function getSecondaryAiServiceModel(): ?AiServiceModel
     {
+        $aiUserSettingsService = $this->serviceLocator->get(AiUserSettingsService::class);
         // Try to get from user settings first
-        if ($this->aiUserSettingsService) {
-            $settings = $this->aiUserSettingsService->findForUser();
+        if ($aiUserSettingsService) {
+            $settings = $aiUserSettingsService->findForUser();
             if ($settings && $settings->getSecondaryAiServiceModelId()) {
                 return $this->getAiServiceModel($settings->getSecondaryAiServiceModelId());
             }
@@ -360,6 +302,8 @@ class AiGatewayService
      */
     public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English'): AiServiceResponse
     {
+        $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
+        
         // Get the model
         $aiServiceModel = $this->getAiServiceModel($request->getAiServiceModelId());
         if (!$aiServiceModel) {
@@ -382,7 +326,7 @@ class AiGatewayService
         $response = $gatewayImplementation->sendRequest($request, $this);
 
         // Save the response
-        $response = $this->aiServiceResponseService->createResponse(
+        $response = $aiServiceResponseService->createResponse(
             $request->getId(),
             $response->getMessage(),
             $response->getFullResponse(),
@@ -396,7 +340,7 @@ class AiGatewayService
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
         
         // Handle tool calls
-        $response = $gatewayImplementation->handleToolCalls($request, $response, $this, $this->aiServiceRequestService, $lang);
+        $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
 
         return $response;
     }
@@ -425,10 +369,7 @@ class AiGatewayService
      */
     public function logServiceUse(string $purpose, AiGateway $aiGateway, AiServiceModel $aiServiceModel, AiServiceRequest $request, AiServiceResponse $response): void
     {
-        // Skip logging if the service is not set
-        if (!$this->aiServiceUseLogService) {
-            return;
-        }
+        $aiServiceUseLogService = $this->serviceLocator->get(AiServiceUseLogService::class);
         
         $useLog = new AiServiceUseLog(
             $aiGateway->getId(),
@@ -458,7 +399,7 @@ class AiGatewayService
         $useLog->setTotalPrice($totalPrice);
         
         // Save the log
-        $this->aiServiceUseLogService->createLog(
+        $aiServiceUseLogService->createLog(
             $useLog->getAiGatewayId(),
             $useLog->getAiServiceModelId(),
             $useLog->getAiServiceRequestId(),

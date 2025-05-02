@@ -5,15 +5,13 @@ namespace App\Service;
 use App\Entity\AiGateway;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
-use App\Service\AiGatewayService;
-use App\Service\AiServiceRequestService;
 
 interface AiGatewayInterface
 {
     /**
      * Send a request to the AI service
      */
-    public function sendRequest(AiServiceRequest $request, AiGatewayService $aiGatewayService): AiServiceResponse;
+    public function sendRequest(AiServiceRequest $request): AiServiceResponse;
     
     /**
      * Get available models from the AI service
@@ -28,5 +26,5 @@ interface AiGatewayInterface
     /**
      * Handle tool calls
      */
-    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, AiGatewayService $aiGatewayService, AiServiceRequestService $aiServiceRequestService, string $lang = 'English'): AiServiceResponse;
+    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse;
 }

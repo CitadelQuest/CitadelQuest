@@ -7,29 +7,28 @@ use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
 use App\Service\AiGatewayService;
+use App\Service\AiServiceModelService;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class PortkeyAiGateway implements AiGatewayInterface
 {
-    private AiGatewayService $aiGatewayService;
-
     public function __construct(
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly ServiceLocator $serviceLocator
     ) {
     }
     
-    public function sendRequest(AiServiceRequest $request, AiGatewayService $aiGatewayService): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request): AiServiceResponse
     {
-        $this->aiGatewayService = $aiGatewayService;
-
         // Get the model
-        $aiServiceModel = $this->aiGatewayService->getAiServiceModel($request->getAiServiceModelId());
+        $aiServiceModel = $this->serviceLocator->get(AiServiceModelService::class)->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
             throw new \Exception('AI Service Model not found');
         }
 
         // Get the gateway
-        $aiGateway = $this->aiGatewayService->findById($aiServiceModel->getAiGatewayId());
+        $aiGateway = $this->serviceLocator->get(AiGatewayService::class)->findById($aiServiceModel->getAiGatewayId());
         if (!$aiGateway) {
             throw new \Exception('AI Gateway not found');
         }
@@ -182,7 +181,7 @@ class PortkeyAiGateway implements AiGatewayInterface
     /**
      * Handle tool calls
      */
-    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, AiGatewayService $aiGatewayService, AiServiceRequestService $aiServiceRequestService, string $lang = 'English'): AiServiceResponse
+    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse
     {
         // Portkey sucks at supporting tools, so we'll return the original response
         return $response;

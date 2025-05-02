@@ -6,33 +6,39 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiGatewayService;
 use App\Service\SettingsService;
+use App\Service\AiServiceModelService;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class AnthropicGateway implements AiGatewayInterface
 {
-    private AiGatewayService $aiGatewayService;
-    private AiServiceRequestService $aiServiceRequestService;
-    
     public function __construct(
         private readonly HttpClientInterface $httpClient,
-        private readonly SettingsService $settingsService
+        private readonly SettingsService $settingsService,
+        private readonly ServiceLocator $serviceLocator
     ) {
     }
     
-    public function sendRequest(AiServiceRequest $request, AiGatewayService $aiGatewayService): AiServiceResponse
+    /**
+     * Send a request to the AI service
+     */
+    public function sendRequest(AiServiceRequest $request): AiServiceResponse
     {
-        $this->aiGatewayService = $aiGatewayService;
+        // Get services
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         
         // Get the model
-        $aiServiceModel = $this->aiGatewayService->getAiServiceModel($request->getAiServiceModelId());
+        $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
             throw new \Exception('AI Service Model not found');
         }
         // Get the gateway
-        $aiGateway = $this->aiGatewayService->findById($aiServiceModel->getAiGatewayId());
+        $aiGateway = $aiGatewayService->findById($aiServiceModel->getAiGatewayId());
         if (!$aiGateway) {
             throw new \Exception('AI Gateway not found');
         }
@@ -156,14 +162,16 @@ class AnthropicGateway implements AiGatewayInterface
             return $errorResponse;
         }
     }
-
+    
     /**
      * Handle tool calls
      */
-    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, AiGatewayService $aiGatewayService, AiServiceRequestService $aiServiceRequestService, string $lang = 'English'): AiServiceResponse
+    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse
     {
-        $this->aiGatewayService = $aiGatewayService;
-        $this->aiServiceRequestService = $aiServiceRequestService;
+        // Get services
+        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
+        $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
+        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         
         if ($response->getFinishReason() === 'tool_use') {
             // get all tool_use content[type="tool_use"] messages
@@ -185,11 +193,11 @@ class AnthropicGateway implements AiGatewayInterface
             // Process tool_calls
             $toolMessageContents = [];
             foreach ($toolCalls as $toolCall) {
-                // Call tool and add result
+                // Call tool and add result using AIToolCallService
                 $toolMessageContents[] = [
                     'type' => 'tool_result',
                     'tool_use_id' => $toolCall['id'],
-                    'content' => json_encode($this->callTool($toolCall, $lang))
+                    'content' => json_encode($aiToolCallService->executeTool($toolCall['name'], $toolCall['input'] ?? [], $lang))
                 ];
             }
             
@@ -201,14 +209,14 @@ class AnthropicGateway implements AiGatewayInterface
             $messages[] = $toolMessage;
             
             // Create and save the AI service request
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+            $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
                 1000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
-            $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['name'] . ']');
+            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['name'] . ']');
 
             // add original response text to aiServiceResponse message['content'][0]['text'] - as first item
             if ($originalResponseText) {
@@ -233,92 +241,6 @@ class AnthropicGateway implements AiGatewayInterface
             $response = $aiServiceResponse;
         }
         return $response;
-    }
-
-    /**
-     * Call a tool
-     */
-    private function callTool(array $tool, string $lang): array
-    {
-        if (!isset($tool['name'])) {
-            return [];
-        }
-
-        try {
-            $arguments = isset($tool['input']) ? (is_array($tool['input']) ? $tool['input'] : json_decode($tool['input'], true)) : [];
-            $arguments['lang'] = $lang;
-
-            switch ($tool['name']) {
-                case 'getWeather':
-                    return $this->getWeather($arguments);
-                case 'updateUserProfile':
-                    return $this->updateUserProfile($arguments);
-                default:
-                    return [];
-            }
-        } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
-        }
-    }
-
-    private function getWeather(array $arguments): array
-    {
-        // random mock weather
-        $weather = [
-            'temperature' => (20 + rand(-5, 5)) . '°' . ($arguments['unit']=='celsius' ? 'C' : 'F'),
-            'condition' => ['sunny', 'cloudy'][rand(0, 1)],
-            'location' => $arguments['location'],
-        ];
-        return $weather;
-    }
-
-    private function updateUserProfile(array $arguments): array
-    {
-        // get current profile description
-        $currentDescription = $this->settingsService->getSettingValue('profile.description', '');
-
-        // update(save) profile description
-        $currentDescription .= ($arguments['newInfo'] ? "\n\n" . $arguments['newInfo'] : '');
-        $this->settingsService->setSetting('profile.description', $currentDescription);
-        
-
-        // get current profile description newInfo counter
-        $newInfoCounter = intval($this->settingsService->getSettingValue('profile.new_info_counter', 0));
-
-        // increment newInfo counter
-        $newInfoCounter++;
-        $this->settingsService->setSetting('profile.new_info_counter', strval($newInfoCounter));
-
-        // rewrite profile description every N newInfo added
-        $rewriteProfileDescriptionEveryN = 10;
-        if ($newInfoCounter % $rewriteProfileDescriptionEveryN == 0) {
-            // make and send new ai service request to rewrite profile description
-            try {
-                $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                    $this->aiServiceRequestService->createRequest(
-                        $this->aiGatewayService->getSecondaryAiServiceModel()->getId(),
-                        [
-                            [
-                                'role' => 'system',
-                                'content' => "You are a helpful assistant that consolidates/refines user profiles, you are best in your profession, very experienced, always on-point, never miss a detail. {$rewriteProfileDescriptionEveryN} new information has been added to the profile description - so it needs to be consolidated to make it more readable, less repetitive, keep all the important information. Please respond only with the new profile description - it will be saved in the database. <response-language>{$arguments['lang']}</response-language>"
-                            ],
-                            [
-                                'role' => 'user',
-                                'content' => "Consolidate the following profile description: {$currentDescription}"
-                            ]
-                        ],
-                        4000, 0.1, null, []
-                    ),
-                    'tool_call: updateUserProfile (Profile Description Consolidation)'
-                );
-                $this->settingsService->setSetting('profile.description', $aiServiceResponse->getMessage()['content'] ?? $currentDescription);
-            } catch (\Exception $e) {
-                // Log error
-                //error_log('Error updating profile description: ' . $e->getMessage());
-            }
-        }
-        
-        return ['success' => true];
     }
     
     /**
@@ -391,46 +313,72 @@ class AnthropicGateway implements AiGatewayInterface
     }
     
     /**
-     * Get available tools for the AI service
+     * Get available tools for Anthropic
      */
     public function getAvailableTools(): array
     {
-        // Weather tool (demo mock tool)
-        $tool_getWeather = [
-            'name' => 'getWeather',
-            'description' => 'Get the current weather in a given location',
-            'input_schema' => [
-                'type' => 'object',
-                'properties' => [
-                    'location' => [
-                        'type' => 'string',
-                        'description' => 'The city and state',
-                    ],
-                    'unit' => [
-                        'type' => 'string',
-                        'enum' => ['celsius', 'fahrenheit'],
-                    ],
-                ],
-                'required' => ['location'],
-            ],
-        ];
+        /*
+        curl https://api.anthropic.com/v1/messages \
+            --header "x-api-key: $ANTHROPIC_API_KEY" \
+            --header "anthropic-version: 2023-06-01" \
+            --header "content-type: application/json" \
+            --data \
+            '{
+                "model": "claude-3-7-sonnet-20250219",
+                "max_tokens": 1024,
+                "tools": [{
+                    "name": "get_weather",
+                    "description": "Get the current weather in a given location",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA"
+                            },
+                            "unit": {
+                                "type": "string",
+                                "enum": ["celsius", "fahrenheit"],
+                                "description": "The unit of temperature, either 'celsius' or 'fahrenheit'"
+                            }
+                        },
+                        "required": ["location"]
+                    }
+                },
+                {
+                    "name": "get_time",
+                    "description": "Get the current time in a given time zone",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "timezone": {
+                                "type": "string",
+                                "description": "The IANA time zone name, e.g. America/Los_Angeles"
+                            }
+                        },
+                        "required": ["timezone"]
+                    }
+                }],
+                "messages": [{
+                    "role": "user",
+                    "content": "What is the weather like right now in New York? Also what time is it there?"
+                }]
+            }'
+        */
 
-        // CitadelQuest User Profile - update description
-        $tool_updateUserProfile = [
-            'name' => 'updateUserProfile',
-            'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
-            'input_schema' => [
-                'type' => 'object',
-                'properties' => [
-                    'newInfo' => [
-                        'type' => 'string',
-                        'description' => 'The new information added to the profile description',
-                    ],
-                ],
-                'required' => ['newInfo'],
-            ],
-        ];
-        
-        return [$tool_getWeather, $tool_updateUserProfile];
+        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
+        $toolsBase = $aiToolCallService->getToolsDefinitions();
+
+        // Convert to Anthropic format - Anthropic has a different schema than OpenAI/Groq
+        $tools = [];
+        foreach ($toolsBase as $toolDef) {
+            $tools[] = [
+                'name' => $toolDef['name'],
+                'description' => $toolDef['description'],
+                'input_schema' => $toolDef['parameters']
+            ];
+        }
+
+        return $tools;
     }
 }

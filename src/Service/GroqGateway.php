@@ -6,33 +6,39 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiGatewayService;
 use App\Service\SettingsService;
+use App\Service\AiServiceModelService;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class GroqGateway implements AiGatewayInterface
 {
-    private AiGatewayService $aiGatewayService;
-    private AiServiceRequestService $aiServiceRequestService;    
-    
     public function __construct(
         private readonly HttpClientInterface $httpClient,
-        private readonly SettingsService $settingsService
+        private readonly SettingsService $settingsService,
+        private readonly ServiceLocator $serviceLocator
     ) {
     }
     
-    public function sendRequest(AiServiceRequest $request, AiGatewayService $aiGatewayService): AiServiceResponse
+    /**
+     * Send a request to the AI service
+     */
+    public function sendRequest(AiServiceRequest $request): AiServiceResponse
     {
-        $this->aiGatewayService = $aiGatewayService;
+        // Get services
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         
         // Get the model
-        $aiServiceModel = $this->aiGatewayService->getAiServiceModel($request->getAiServiceModelId());
+        $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
             throw new \Exception('AI Service Model not found');
         }
         // Get the gateway
-        $aiGateway = $this->aiGatewayService->findById($aiServiceModel->getAiGatewayId());
+        $aiGateway = $aiGatewayService->findById($aiServiceModel->getAiGatewayId());
         if (!$aiGateway) {
             throw new \Exception('AI Gateway not found');
         }        
@@ -122,32 +128,15 @@ class GroqGateway implements AiGatewayInterface
     /**
      * Handle tool calls
      */
-    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, AiGatewayService $aiGatewayService, AiServiceRequestService $aiServiceRequestService, string $lang = 'English'): AiServiceResponse
+    public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse
     {
-        $this->aiGatewayService = $aiGatewayService;
-        $this->aiServiceRequestService = $aiServiceRequestService;
+        // Get services
+        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
+        $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
+        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         
         if ($response->getFinishReason() === 'tool_calls') {
-            // get all tool calls from fullResponse:
-            /*
-                "model": "llama-3.3-70b-versatile",
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "tool_calls": [{
-                            "id": "call_d5wg",
-                            "type": "function",
-                            "function": {
-                                "name": "get_weather",
-                                "arguments": "{\"location\": \"New York, NY\"}"
-                            }
-                        }]
-                    },
-                    "logprobs": null,
-                    "finish_reason": "tool_calls"
-                }],
-            */
+            // get all tool calls from fullResponse
             $toolCalls = $response->getFullResponse()['choices'][0]['message']['tool_calls'];
             
             $messages = $request->getMessages();
@@ -158,12 +147,21 @@ class GroqGateway implements AiGatewayInterface
             // Process tool_calls
             $toolMessageContents = [];
             foreach ($toolCalls as $toolCall) {
-                // Call tool and add result
+                // Call tool and add result using AIToolCallService
                 $toolMessageContents[] = [
                     'tool_call_id' => $toolCall['id'],
                     'role' => 'tool',
                     'name' => $toolCall['function']['name'],
-                    'content' => json_encode($this->callTool($toolCall['function'], $lang))
+                    'content' => json_encode($aiToolCallService->executeTool(
+                        $toolCall['function']['name'], 
+                        isset($toolCall['function']['arguments']) ? 
+                            (is_array($toolCall['function']['arguments']) ? 
+                                $toolCall['function']['arguments'] : 
+                                json_decode($toolCall['function']['arguments'], true)
+                            ) : 
+                            [],
+                        $lang
+                    ))
                 ];
             }
             
@@ -171,14 +169,14 @@ class GroqGateway implements AiGatewayInterface
             $messages[] = count($toolMessageContents) > 1 ? $toolMessageContents : $toolMessageContents[0];
             
             // Create and save the AI service request
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+            $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
                 1000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
-            $aiServiceResponse = $this->aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['function']['name'] . ']');
+            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['function']['name'] . ']');
 
             $response = $aiServiceResponse;
         }
@@ -186,91 +184,8 @@ class GroqGateway implements AiGatewayInterface
     }
 
     /**
-     * Call a tool
+     * Get available models from the AI service
      */
-    private function callTool(array $tool, string $lang): array
-    {
-        if (!isset($tool['name'])) {
-            return [];
-        }
-
-        try {
-            $arguments = isset($tool['arguments']) ? (is_array($tool['arguments']) ? $tool['arguments'] : json_decode($tool['arguments'], true)) : [];
-            $arguments['lang'] = $lang;
-
-            switch ($tool['name']) {
-                case 'getWeather':
-                    return $this->getWeather($arguments);
-                case 'updateUserProfile':
-                    return $this->updateUserProfile($arguments);
-                default:
-                    return [];
-            }
-        } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
-        }
-    }
-
-    private function getWeather(array $arguments): array
-    {
-        // random mock weather
-        $weather = [
-            'temperature' => (20 + rand(-5, 5)) . '°' . ($arguments['unit']=='celsius' ? 'C' : 'F'),
-            'condition' => ['sunny', 'cloudy'][rand(0, 1)],
-            'location' => $arguments['location'],
-        ];
-        return $weather;
-    }
-
-    private function updateUserProfile(array $arguments): array
-    {
-        // get current profile description
-        $currentDescription = $this->settingsService->getSettingValue('profile.description', '');
-
-        // update(save) profile description
-        $currentDescription .= ($arguments['newInfo'] ? "\n\n" . $arguments['newInfo'] : '');
-        $this->settingsService->setSetting('profile.description', $currentDescription);
-        
-
-        // get current profile description newInfo counter
-        $newInfoCounter = intval($this->settingsService->getSettingValue('profile.new_info_counter', 0));
-
-        // increment newInfo counter
-        $newInfoCounter++;
-        $this->settingsService->setSetting('profile.new_info_counter', strval($newInfoCounter));
-
-        // rewrite profile description every N newInfo added
-        $rewriteProfileDescriptionEveryN = 10;
-        if ($newInfoCounter % $rewriteProfileDescriptionEveryN == 0) {
-            // make and send new ai service request to rewrite profile description
-            try {
-                $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                    $this->aiServiceRequestService->createRequest(
-                        $this->aiGatewayService->getSecondaryAiServiceModel()->getId(),
-                        [
-                            [
-                                'role' => 'system',
-                                'content' => "You are a helpful assistant that consolidates/refines user profiles, you are best in your profession, very experienced, always on-point, never miss a detail. {$rewriteProfileDescriptionEveryN} new information has been added to the profile description - so it needs to be consolidated to make it more readable, less repetitive, keep all the important information. Please respond only with the new profile description - it will be saved in the database. <response-language>{$arguments['lang']}</response-language>"
-                            ],
-                            [
-                                'role' => 'user',
-                                'content' => "Consolidate the following profile description: {$currentDescription}"
-                            ]
-                        ],
-                        4000, 0.1, null, []
-                    ),
-                    'tool_call: updateUserProfile (Profile Description Consolidation)'
-                );
-                $this->settingsService->setSetting('profile.description', $aiServiceResponse->getMessage()['content'] ?? $currentDescription);
-            } catch (\Exception $e) {
-                // Log error
-                //error_log('Error updating profile description: ' . $e->getMessage());
-            }
-        }
-        
-        return ['success' => true];
-    }
-    
     public function getAvailableModels(AiGateway $aiGateway): array
     {
         // Get API key from gateway
@@ -365,55 +280,71 @@ class GroqGateway implements AiGatewayInterface
             ['id' => 'meta-llama/llama-4-maverick-17b-128e-instruct', 'name' => 'Llama 4 Maverick', 'provider' => 'groq']
         ];
     }
-    
+
     /**
-     * Get available tools for the AI service
+     * Get available tools for Groq/OpenAI
      */
     public function getAvailableTools(): array
     {
-        // Weather tool (demo mock tool)
-        $tool_getWeather = [
-            'type' => 'function',
-            'function' => [
-                'name' => 'getWeather',
-                'description' => 'Get the current weather in a given location',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'location' => [
-                            'type' => 'string',
-                            'description' => 'The city and state',
-                        ],
-                        'unit' => [
-                            'type' => 'string',
-                            'enum' => ['celsius', 'fahrenheit'],
-                        ],
-                    ],
-                    'required' => ['location'],
-                ],
-            ]
-        ];
-
-        // CitadelQuest User Profile - update description
-        $tool_updateUserProfile = [
-            'type' => 'function',
-            'function' => [
-                'name' => 'updateUserProfile',
-                'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'newInfo' => [
-                            'type' => 'string',
-                            'description' => 'The new information added to the profile description',
-                        ],
-                    ],
-                    'required' => ['newInfo'],
-                ],
+        /*
+            {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {
+                "role": "system",
+                "content": "You are a weather assistant. Use the get_weather function to retrieve weather information for a given location."
+                },
+                {
+                "role": "user",
+                "content": "What's the weather like in New York today?"
+                }
             ],
-        ];
-        
-        return [$tool_getWeather, $tool_updateUserProfile];
-    }
+            "tools": [
+                {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get the current weather for a location",
+                    "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA"
+                        },
+                        "unit": {
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                        "description": "The unit of temperature to use. Defaults to fahrenheit."
+                        }
+                    },
+                    "required": ["location"]
+                    }
+                }
+                }
+            ],
+            "tool_choice": "auto",
+            "max_completion_tokens": 4096
+        }
+        */
 
+        // Use the static getInstance method to avoid circular dependencies
+        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
+        $toolsBase = $aiToolCallService->getToolsDefinitions();
+
+        // Convert to Groq/OpenAI format - Groq/OpenAI uses 'parameters' directly
+        $tools = [];
+        foreach ($toolsBase as $toolDef) {
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => $toolDef['name'],
+                    'description' => $toolDef['description'],
+                    'parameters' => $toolDef['parameters']
+                ]
+            ];
+        }
+
+        return $tools;
+    }
 }

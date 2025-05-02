@@ -89,6 +89,12 @@ class SpiritConversationApiController extends AbstractController
         
         try {
             $locale = $request->getSession()->get('_locale');
+            if (!$locale) {
+                $locale = $request->getSession()->get('citadel_locale');
+            }
+            if (!$locale) {
+                $locale = 'en';
+            }
             // Send message
             $messages = $this->conversationService->sendMessage(
                 $id,

@@ -147,12 +147,6 @@ class SpiritConversationService
         ];
         $conversation->addMessage($userMessage);
 
-        // TODO: Remove this when the AiGatewayService is refactored
-        $this->aiGatewayService->setAiUserSettingsService($this->aiUserSettingsService);
-        $this->aiGatewayService->setAiServiceUseLogService($this->aiServiceUseLogService);
-        $this->aiGatewayService->setAiServiceResponseService($this->aiServiceResponseService);
-        $this->aiGatewayService->setAiServiceRequestService($this->aiServiceRequestService);
-
         // Get user's primary AI gateway and model
         $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
         if (!$aiServiceModel) {
