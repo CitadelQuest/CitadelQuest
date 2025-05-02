@@ -157,7 +157,7 @@
                             </select>
                             <div class="form-text text-muted">The gateway this model belongs to</div>
                         </div>
-                        <div class="col-md-6">
+                        {# <div class="col-md-6">
                             <label for="model-virtual-key" class="form-label">Virtual Key (Optional)</label>
                             <div id="virtual-key-input-container">
                                 <input type="password" class="form-control" id="model-virtual-key" name="virtualKey">
@@ -168,7 +168,7 @@
                                 </select>
                             </div>
                             <div class="form-text text-muted">A model-specific API key, if different from the gateway key</div>
-                        </div>
+                        </div> #}
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
@@ -263,7 +263,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        {# <div class="col-md-6">
                             <label for="edit-model-virtual-key" class="form-label">Virtual Key (Optional)</label>
                             <div id="edit-virtual-key-input-container">
                                 <input type="password" class="form-control" id="edit-model-virtual-key" name="virtualKey" placeholder="Leave empty to keep current key">
@@ -273,7 +273,7 @@
                                     <option value="" selected>Select a virtual key...</option>
                                 </select>
                             </div>
-                        </div>
+                        </div> #}
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
@@ -406,75 +406,8 @@
             const selectedGatewayId = gatewaySelectElement.value;
             const selectedGatewayName = gatewaySelectElement.options[gatewaySelectElement.selectedIndex].text;
             
-            if (selectedGatewayName.includes('PortkeyAI')) {
-                // Get the gateway details to fetch virtual keys
-                fetch(`/api/ai/gateway/${selectedGatewayId}/full`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(gateway => {
-                    // Try to fetch virtual keys
-                    fetch(`${gateway.apiEndpointUrl}/virtual-keys`, {
-                        method: 'GET',
-                        headers: {
-                            'x-portkey-api-key': gateway.apiKey
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(`${isEditMode ? 'Edit' : 'Add'} modal virtual keys response:`, data);
-                        // Clear and populate the virtual keys dropdown
-                        virtualKeysSelectElement.innerHTML = '<option value="" selected>Select a virtual key...</option>';
-                        
-                        // Check the structure of the response
-                        const keys = data.data || data.keys || data;
-                        
-                        if (Array.isArray(keys)) {
-                            keys.forEach(key => {
-                                if (key.active !== false) { // Include if active or if active property doesn't exist
-                                    const option = document.createElement('option');
-                                    option.value = key.slug;
-                                    option.textContent = `${key.provider || ''} - ${key.name || key.slug}`;
-                                    
-                                    // Check if this option should be selected (matches the current virtual key)
-                                    if (isEditMode && virtualKeyInputElement) {
-                                        const currentVirtualKey = virtualKeyInputElement.value;
-                                        if (key.slug === currentVirtualKey) {
-                                            option.selected = true;
-                                        }
-                                    }
-                                    
-                                    virtualKeysSelectElement.appendChild(option);
-                                }
-                            });
-                        } else {
-                            console.error('Unexpected response format:', data);
-                        }
-                        
-                        // Show the virtual keys dropdown, hide the input
-                        virtualKeysContainerElement.classList.remove('d-none');
-                        virtualKeyInputContainerElement.classList.add('d-none');
-                    })
-                    .catch(error => {
-                        console.error('Error fetching virtual keys:', error);
-                        // Show the regular input if we can't fetch virtual keys
-                        virtualKeysContainerElement.classList.add('d-none');
-                        virtualKeyInputContainerElement.classList.remove('d-none');
-                    });
-                })
-                .catch(error => {
-                    console.error('Error fetching gateway details:', error);
-                    virtualKeysContainerElement.classList.add('d-none');
-                    virtualKeyInputContainerElement.classList.remove('d-none');
-                });
-            } else {
-                // For non-PortkeyAI gateways, show the regular input
-                virtualKeysContainerElement.classList.add('d-none');
-                virtualKeyInputContainerElement.classList.remove('d-none');
-            }
+            //virtualKeysContainerElement.classList.add('d-none');
+            //virtualKeyInputContainerElement.classList.remove('d-none');
         }
         
         // Function to fetch models from a gateway and populate the model dropdown
@@ -670,15 +603,6 @@
                 document.getElementById('edit-model-ppm-input').value = ppmInput;
                 document.getElementById('edit-model-ppm-output').value = ppmOutput;
                 document.getElementById('edit-model-is-active').checked = isActive;
-                
-                // Check if it's a PortkeyAI gateway and fetch virtual keys if needed
-                const selectedGatewayElement = document.getElementById('edit-model-gateway');
-                const selectedGatewayName = selectedGatewayElement.options[selectedGatewayElement.selectedIndex].text;
-                
-                if (selectedGatewayName.includes('PortkeyAI')) {
-                    // Trigger the change event to fetch virtual keys
-                    selectedGatewayElement.dispatchEvent(new Event('change'));
-                }
             });
         });
         

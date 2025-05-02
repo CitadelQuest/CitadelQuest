@@ -102,8 +102,6 @@ class AiGateway implements JsonSerializable
                 return 'anthropic';
             case 'Groq':
                 return 'groq';
-            case 'PortkeyAI direct':
-                return 'portkey';
             case 'CQ AI Gateway':
                 return 'cq_ai_gateway';
             default:

@@ -6,7 +6,6 @@ use App\Entity\User;
 use App\Entity\AiGateway;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
-use App\Service\AiUserSettingsService;
 use App\Service\NotificationService;
 use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -26,26 +25,18 @@ class UserSettingsController extends AbstractController
     public function __construct(
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
-        private readonly AiUserSettingsService $aiUserSettingsService
+        private readonly SettingsService $settingsService
     ) {
     }
 
     #[Route('', name: 'app_user_settings')]
     public function index(): Response
     {
-        // Get user's AI settings
-        $aiSettings = $this->aiUserSettingsService->findForUser();
-        
-        // Get all available AI gateways
-        $aiGateways = $this->aiGatewayService->findAll();
-        
-        // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll(true);
+        // Get user's settings
+        $settings = $this->settingsService->getAllSettings();
         
         return $this->render('user_settings/index.html.twig', [
-            'aiSettings' => $aiSettings,
-            'aiGateways' => $aiGateways,
-            'aiModels' => $aiModels,
+            'settings' => $settings,
             'user' => $this->getUser(),
         ]);
     }
@@ -158,50 +149,25 @@ class UserSettingsController extends AbstractController
     #[Route('/ai', name: 'app_user_settings_ai')]
     public function aiSettings(Request $request): Response
     {
-        // Get user's AI settings
-        $aiSettings = $this->aiUserSettingsService->findForUser();
-        
-        // Get all available AI gateways
-        $aiGateways = $this->aiGatewayService->findAll();
+        // Get user's settings
+        $settings = $this->settingsService->getAllSettings();
         
         // Get all available AI models
         $aiModels = $this->aiServiceModelService->findAll(true);
         
         // Handle form submission
         if ($request->isMethod('POST')) {
-            $gatewayId = $request->request->get('gateway');
-            $primaryModelId = $request->request->get('primary_model');
-            $secondaryModelId = $request->request->get('secondary_model');
+            // Update existing settings
+            $this->settingsService->setSetting('ai.primary_ai_service_model_id', $request->request->get('primary_model', ''));
+            $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $request->request->get('secondary_model', ''));
             
-            if ($aiSettings) {
-                // Update existing settings
-                $this->aiUserSettingsService->updateSettings(
-                    $aiSettings->getId(),
-                    [
-                        'aiGatewayId' => $gatewayId,
-                        'primaryAiServiceModelId' => $primaryModelId,
-                        'secondaryAiServiceModelId' => $secondaryModelId,
-                    ]
-                );
-                
-                $this->addFlash('success', 'AI settings updated successfully.');
-            } else {
-                // Create new settings
-                $this->aiUserSettingsService->createSettings(
-                    $gatewayId,
-                    $primaryModelId,
-                    $secondaryModelId
-                );
-                
-                $this->addFlash('success', 'AI settings created successfully.');
-            }
+            $this->addFlash('success', 'AI settings updated successfully.');
             
             return $this->redirectToRoute('app_user_settings_ai');
         }
         
         return $this->render('user_settings/ai.html.twig', [
-            'aiSettings' => $aiSettings,
-            'aiGateways' => $aiGateways,
+            'settings' => $settings,
             'aiModels' => $aiModels,
         ]);
     }
@@ -296,14 +262,7 @@ class UserSettingsController extends AbstractController
             return $this->redirectToRoute('app_user_settings_ai_gateways');
         }
         
-        // Check if this gateway is in use by the user's settings
-        $aiSettings = $this->aiUserSettingsService->findForUser();
-        if ($aiSettings && $aiSettings->getAiGatewayId() === $id) {
-            $this->addFlash('danger', 'This gateway is currently in use in your AI settings. Please select a different gateway in AI Services settings first.');
-            return $this->redirectToRoute('app_user_settings_ai_gateways');
-        }
-        
-        // Delete gateway and its models
+        // Delete gateway [todo: and its models]
         $this->aiGatewayService->deleteGateway($id);
         
         $this->addFlash('success', 'AI gateway deleted successfully.');
@@ -332,12 +291,12 @@ class UserSettingsController extends AbstractController
         $modelName = $request->request->get('modelName');
         $modelSlug = $request->request->get('modelSlug');
         $virtualKey = $request->request->get('virtualKey');
-        $contextWindow = $request->request->getInt('contextWindow');
+        $contextWindow = $request->request->get('contextWindow');
         $maxInput = $request->request->get('maxInput');
         $maxInputImageSize = $request->request->get('maxInputImageSize');
-        $maxOutput = $request->request->getInt('maxOutput');
-        $ppmInput = $request->request->get('ppmInput') ? (float) $request->request->get('ppmInput') : null;
-        $ppmOutput = $request->request->get('ppmOutput') ? (float) $request->request->get('ppmOutput') : null;
+        $maxOutput = $request->request->get('maxOutput');
+        $ppmInput = $request->request->get('ppmInput');
+        $ppmOutput = $request->request->get('ppmOutput');
         $isActive = $request->request->getBoolean('isActive');
         
         if (!$aiGatewayId || !$modelName || !$modelSlug) {
@@ -351,12 +310,12 @@ class UserSettingsController extends AbstractController
             $modelName,
             $modelSlug,
             $virtualKey,
-            $contextWindow ?: null,
-            $maxInput ?: null,
-            $maxInputImageSize ?: null,
-            $maxOutput ?: null,
-            $ppmInput,
-            $ppmOutput,
+            $contextWindow ? (int) $contextWindow : 64000,
+            $maxInput,
+            $maxInputImageSize,
+            $maxOutput ? (int) $maxOutput : 8192,
+            $ppmInput ? (float) $ppmInput : null,
+            $ppmOutput ? (float) $ppmOutput : null,
             $isActive
         );
         
@@ -398,10 +357,10 @@ class UserSettingsController extends AbstractController
             'aiGatewayId' => $aiGatewayId,
             'modelName' => $modelName,
             'modelSlug' => $modelSlug,
-            'contextWindow' => $contextWindow ? (int) $contextWindow : null,
+            'contextWindow' => $contextWindow ? (int) $contextWindow : 64000,
             'maxInput' => $maxInput,
             'maxInputImageSize' => $maxInputImageSize,
-            'maxOutput' => $maxOutput ? (int) $maxOutput : null,
+            'maxOutput' => $maxOutput ? (int) $maxOutput : 8192,
             'ppmInput' => $ppmInput ? (float) $ppmInput : null,
             'ppmOutput' => $ppmOutput ? (float) $ppmOutput : null,
             'isActive' => $isActive
@@ -437,10 +396,9 @@ class UserSettingsController extends AbstractController
         }
         
         // Check if this model is in use by the user's settings
-        $aiSettings = $this->aiUserSettingsService->findForUser();
-        if ($aiSettings && 
-            ($aiSettings->getPrimaryAiServiceModelId() === $id || 
-             $aiSettings->getSecondaryAiServiceModelId() === $id)) {
+        $settings = $this->settingsService->getAllSettings();
+        if ($settings && 
+            ($settings['ai.primary_ai_service_model_id'] === $id || $settings['ai.secondary_ai_service_model_id'] === $id)) {
             $this->addFlash('danger', 'This model is currently in use in your AI settings. Please select a different model in AI Services settings first.');
             return $this->redirectToRoute('app_user_settings_ai_models');
         }

@@ -112,6 +112,8 @@ class SettingsService
 
     /**
      * Get all settings
+     * 
+     * @return Settings[] as key => value
      */
     public function getAllSettings(): array
     {
@@ -120,6 +122,7 @@ class SettingsService
             'SELECT * FROM settings ORDER BY `key` ASC'
         )->fetchAllAssociative();
 
-        return array_map(fn($data) => Settings::fromArray($data), $results);
+        $settings = array_map(fn($data) => Settings::fromArray($data), $results);
+        return array_combine(array_map(fn($setting) => $setting->getKey(), $settings), array_map(fn($setting) => $setting->getValue(), $settings));
     }
 }

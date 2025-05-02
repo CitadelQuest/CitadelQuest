@@ -126,7 +126,6 @@
                             <option value="" selected disabled>Select a gateway type...</option>
                             <option value="Anthropic">Anthropic (Direct)</option>
                             <option value="Groq">Groq (Direct)</option>
-                            {# <option value="PortkeyAI direct">PortkeyAI (Middleware)</option> #}
                             <option value="CQ AI Gateway">CQ AI Gateway</option>
                         </select>
                         <div class="form-text text-muted">Select which AI gateway provider to use</div>
@@ -233,8 +232,6 @@
                 gatewayEndpointInput.value = 'https://api.anthropic.com';
             } else if (selectedGateway === 'Groq') {
                 gatewayEndpointInput.value = 'https://api.groq.com/openai/v1';
-            } else if (selectedGateway === 'PortkeyAI direct') {
-                gatewayEndpointInput.value = 'https://api.portkey.ai/v1';
             } else if (selectedGateway === 'CQ AI Gateway') {
                 gatewayEndpointInput.value = 'https://ai-gw.citadelquest.com/api/v1';
             } else {
@@ -254,36 +251,7 @@
                 document.getElementById('edit-gateway-name').value = name;
                 document.getElementById('edit-gateway-endpoint').value = endpoint;
 
-                // Retrieve PortkeyAI virtual keys
-                if (name === 'PortkeyAI direct') {
-                    document.getElementById('edit-gateway-virtual-keys-container').classList.remove('d-none');
-                    
-                    // fetch virtual keys from PortkeyAI API
-                    fetch(`${endpoint}/virtual-keys`, {
-                        method: 'GET',
-                        headers: {
-                            'x-portkey-api-key': this.getAttribute('data-api-key')
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('edit-gateway-virtual-keys').innerHTML = '';
-                        data.data.forEach(key => {
-                            document.getElementById('edit-gateway-virtual-keys').innerHTML += `
-                                <div class="mb-2">
-                                    <span class="badge bg-cyber text-white me-2 `+(key.active ? '' : 'bg-opacity-50')+`">${key.provider}</span>
-                                    ${key.name}
-                                </div>
-                            `;
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching virtual keys:', error);
-                        document.getElementById('edit-gateway-virtual-keys').textContent = 'Failed to load virtual keys.';
-                    });
-                } else {
-                    document.getElementById('edit-gateway-virtual-keys-container').classList.add('d-none');
-                }
+                document.getElementById('edit-gateway-virtual-keys-container').classList.add('d-none');
             });
         });
         

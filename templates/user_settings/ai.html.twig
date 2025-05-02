@@ -47,22 +47,6 @@
                     <p class="mb-4">Configure your AI service settings to power your Spirit and other AI features.</p>
                     
                     <form method="post" action="{{ path('app_user_settings_ai') }}">
-                        <!--<div class="mb-4">
-                            <h5 class="border-top border-secondary border-1 pt-3">AI Gateway</h5>
-                            <p class="">Select which AI service provider to use for your Citadel.</p>
-                            
-                            <div class="mb-3">
-                                <label for="gateway" class="form-label">AI Gateway</label>
-                                <select class="form-select" id="gateway" name="gateway" required>
-                                    <option value="" disabled {% if not aiSettings %}selected{% endif %}>Select a gateway...</option>
-                                    {% for gateway in aiGateways %}
-                                        <option value="{{ gateway.id }}" {% if aiSettings and aiSettings.aiGatewayId == gateway.id %}selected{% endif %}>
-                                            {{ gateway.name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>-->
                         
                         <div class="mb-4">
                             <h5 class="border-top border-secondary border-1 pt-3">AI Models</h5>
@@ -73,7 +57,7 @@
                                 <select class="form-select" id="primary_model" name="primary_model">
                                     <option value="">None</option>
                                     {% for model in aiModels %}
-                                        <option value="{{ model.id }}" {% if aiSettings and aiSettings.primaryAiServiceModelId == model.id %}selected{% endif %}>
+                                        <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
                                             {{ model.modelName }} ({{ model.modelSlug }})
                                         </option>
                                     {% endfor %}
@@ -86,7 +70,7 @@
                                 <select class="form-select" id="secondary_model" name="secondary_model">
                                     <option value="">None</option>
                                     {% for model in aiModels %}
-                                        <option value="{{ model.id }}" {% if aiSettings and aiSettings.secondaryAiServiceModelId == model.id %}selected{% endif %}>
+                                        <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
                                             {{ model.modelName }} ({{ model.modelSlug }})
                                         </option>
                                     {% endfor %}
@@ -95,7 +79,7 @@
                             </div>
                         </div>
                         
-                        <div class="alert alert-info mb-4">
+                        {# <div class="alert alert-info mb-4">
                             <div class="d-flex">
                                 <div class="me-3">
                                     <i class="fas fa-info-circle fa-2x"></i>
@@ -109,7 +93,7 @@
                                     </ul>
                                 </div>
                             </div>
-                        </div>
+                        </div> #}
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="submit" class="btn btn-cyber">
@@ -123,19 +107,4 @@
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Add any JavaScript for dynamic behavior here
-        const gatewaySelect = document.getElementById('gateway');
-        
-        // You could add logic here to filter models based on selected gateway
-        // For example:
-        /*
-        gatewaySelect.addEventListener('change', function() {
-            const gatewayId = this.value;
-            // Filter models by gateway
-        });
-        */
-    });
-</script>
 {% endblock %}

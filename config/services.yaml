@@ -42,12 +42,7 @@ services:
                 App\Service\AiServiceRequestService: '@App\Service\AiServiceRequestService'
                 App\Service\AiServiceResponseService: '@App\Service\AiServiceResponseService'
                 App\Service\AiServiceUseLogService: '@App\Service\AiServiceUseLogService'
-                App\Service\AiUserSettingsService: '@App\Service\AiUserSettingsService'
-    
-    App\Service\PortkeyAiGateway:
-        autowire: true
-        arguments:
-            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
+                App\Service\SettingsService: '@App\Service\SettingsService'
 
     App\Service\AnthropicGateway:
         autowire: true

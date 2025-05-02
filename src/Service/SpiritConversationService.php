@@ -6,8 +6,6 @@ use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
 use App\Service\AiServiceUseLogService;
 use App\Entity\Spirit;
-use App\Entity\AiUserSettings;
-use App\Service\AiUserSettingsService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiServiceResponseService;
 use App\Entity\SpiritConversation;
@@ -22,7 +20,6 @@ class SpiritConversationService
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiServiceResponseService $aiServiceResponseService,
-        private readonly AiUserSettingsService $aiUserSettingsService,
         private readonly AiServiceUseLogService $aiServiceUseLogService,
         private readonly SpiritService $spiritService,
         private readonly SettingsService $settingsService,

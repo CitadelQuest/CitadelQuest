@@ -9,11 +9,9 @@ use App\Entity\AiServiceResponse;
 use App\Entity\AiServiceUseLog;
 use App\Entity\User;
 use App\Service\UserDatabaseManager;
-use App\Service\PortkeyAiGateway;
 use App\Service\AnthropicGateway;
 use App\Service\GroqGateway;
 use App\Service\AiGatewayInterface;
-use App\Service\AiUserSettingsService;
 use App\Service\AiServiceUseLogService;
 use App\Service\AiServiceResponseService;
 use App\Service\AiServiceRequestService;
@@ -24,7 +22,6 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 class AiGatewayService
 {
     private array $gatewayImplementations = [];
-    private ?PortkeyAiGateway $portkeyGateway = null;
     private ?AnthropicGateway $anthropicGateway = null;
     private ?GroqGateway $groqGateway = null;
     
@@ -32,16 +29,13 @@ class AiGatewayService
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly ServiceLocator $serviceLocator,
-        ?PortkeyAiGateway $portkeyGateway = null,
         ?AnthropicGateway $anthropicGateway = null,
         ?GroqGateway $groqGateway = null
     ) {
-        $this->portkeyGateway = $portkeyGateway;
         $this->anthropicGateway = $anthropicGateway;
         $this->groqGateway = $groqGateway;
         
         // Register gateway implementations
-        $this->registerGatewayImplementation('portkey', 'portkey');
         $this->registerGatewayImplementation('anthropic', 'anthropic');
         $this->registerGatewayImplementation('groq', 'groq');
     }
@@ -63,10 +57,9 @@ class AiGatewayService
         string $name,
         string $apiKey,
         string $apiEndpointUrl,
-        string $type = 'portkey'
+        string $type
     ): AiGateway {
         $gateway = new AiGateway($name, $apiKey, $apiEndpointUrl);
-        //$gateway->setType($type);
 
         // Store in user's database
         $userDb = $this->getUserDb();
@@ -124,7 +117,7 @@ class AiGatewayService
             $gateway->setName($data['name']);
         }
 
-        if (isset($data['apiKey'])) {
+        if (isset($data['apiKey']) && $data['apiKey'] !== '') {
             $gateway->setApiKey($data['apiKey']);
         }
 
@@ -182,9 +175,9 @@ class AiGatewayService
             return null;
         }
         
-        if ($type === 'portkey' && $this->portkeyGateway) {
+        /* if ($type === 'portkey' && $this->portkeyGateway) {
             return $this->portkeyGateway;
-        }
+        } */
         
         if ($type === 'anthropic' && $this->anthropicGateway) {
             return $this->anthropicGateway;
@@ -247,54 +240,32 @@ class AiGatewayService
     }
     
     /**
-     * Get the primary AI service model for a user
+     * Get the primary AI service model for a user, from `settings`
      */
     public function getPrimaryAiServiceModel(): ?AiServiceModel
     {
-        $aiUserSettingsService = $this->serviceLocator->get(AiUserSettingsService::class);
-        // Try to get from user settings first
-        if ($aiUserSettingsService) {
-            $settings = $aiUserSettingsService->findForUser();
-            if ($settings && $settings->getPrimaryAiServiceModelId()) {
-                return $this->getAiServiceModel($settings->getPrimaryAiServiceModelId());
-            }
-        }
-        
-        // Fallback to the first model if no settings found
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM ai_service_model ORDER BY created_at ASC LIMIT 1'
-        )->fetchAssociative();
-        
-        if (!$result) {
+        $settingsService = $this->serviceLocator->get(SettingsService::class);
+
+        $primaryAiServiceModelId = $settingsService->getSettingValue('ai.primary_ai_service_model_id');
+        if ($primaryAiServiceModelId) {
+            $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+            return $aiServiceModelService->findById($primaryAiServiceModelId);
+        } else {
             return null;
         }
-        
-        return AiServiceModel::fromArray($result);
     }
 
     public function getSecondaryAiServiceModel(): ?AiServiceModel
     {
-        $aiUserSettingsService = $this->serviceLocator->get(AiUserSettingsService::class);
-        // Try to get from user settings first
-        if ($aiUserSettingsService) {
-            $settings = $aiUserSettingsService->findForUser();
-            if ($settings && $settings->getSecondaryAiServiceModelId()) {
-                return $this->getAiServiceModel($settings->getSecondaryAiServiceModelId());
-            }
-        }
+        $settingsService = $this->serviceLocator->get(SettingsService::class);
         
-        // Fallback to the first model if no settings found
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM ai_service_model ORDER BY created_at ASC LIMIT 1'
-        )->fetchAssociative();
-        
-        if (!$result) {
+        $secondaryAiServiceModelId = $settingsService->getSettingValue('ai.secondary_ai_service_model_id');
+        if ($secondaryAiServiceModelId) {
+            $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+            return $aiServiceModelService->findById($secondaryAiServiceModelId);
+        } else {
             return null;
         }
-        
-        return AiServiceModel::fromArray($result);
     }
     
     /**
@@ -303,9 +274,10 @@ class AiGatewayService
     public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English'): AiServiceResponse
     {
         $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         
         // Get the model
-        $aiServiceModel = $this->getAiServiceModel($request->getAiServiceModelId());
+        $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
             throw new \Exception('AI Service Model not found');
         }
@@ -343,24 +315,6 @@ class AiGatewayService
         $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
 
         return $response;
-    }
-    
-    /**
-     * Get an AI service model by ID
-     */
-    public function getAiServiceModel(string $modelId): ?AiServiceModel
-    {
-        $userDb = $this->getUserDb();
-        $data = $userDb->executeQuery(
-            'SELECT * FROM ai_service_model WHERE id = ?',
-            [$modelId]
-        )->fetchAssociative();
-        
-        if (!$data) {
-            return null;
-        }
-        
-        return AiServiceModel::fromArray($data);
     }
     
     /**

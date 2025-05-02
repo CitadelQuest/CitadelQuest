@@ -16,7 +16,7 @@ class Spirit implements JsonSerializable
     private \DateTimeInterface $lastInteraction;
     private array $abilities = [];
     private ?string $systemPrompt = null;
-    private string $aiModel = 'anthropic/claude-3-7-sonnet-latest';
+    private string $aiModel;
     
     public function __construct(string $name)
     {
@@ -29,7 +29,7 @@ class Spirit implements JsonSerializable
         $this->createdAt = new \DateTime();
         $this->lastInteraction = new \DateTime();
         $this->systemPrompt = null;
-        $this->aiModel = 'anthropic/claude-3-7-sonnet-latest';
+        $this->aiModel = '';
     }
     
     public function getId(): string
