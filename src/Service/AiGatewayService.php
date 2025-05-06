@@ -11,6 +11,7 @@ use App\Entity\User;
 use App\Service\UserDatabaseManager;
 use App\Service\AnthropicGateway;
 use App\Service\GroqGateway;
+use App\Service\CQAIGateway;
 use App\Service\AiGatewayInterface;
 use App\Service\AiServiceUseLogService;
 use App\Service\AiServiceResponseService;
@@ -24,20 +25,24 @@ class AiGatewayService
     private array $gatewayImplementations = [];
     private ?AnthropicGateway $anthropicGateway = null;
     private ?GroqGateway $groqGateway = null;
+    private ?CQAIGateway $CQAIGateway = null;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly ServiceLocator $serviceLocator,
         ?AnthropicGateway $anthropicGateway = null,
-        ?GroqGateway $groqGateway = null
+        ?GroqGateway $groqGateway = null,
+        ?CQAIGateway $CQAIGateway = null
     ) {
         $this->anthropicGateway = $anthropicGateway;
         $this->groqGateway = $groqGateway;
+        $this->CQAIGateway = $CQAIGateway;
         
         // Register gateway implementations
-        $this->registerGatewayImplementation('anthropic', 'anthropic');
-        $this->registerGatewayImplementation('groq', 'groq');
+        $this->registerGatewayImplementation('anthropic');
+        $this->registerGatewayImplementation('groq');
+        $this->registerGatewayImplementation('cqaigateway');
     }
     
     /**
@@ -57,7 +62,7 @@ class AiGatewayService
         string $name,
         string $apiKey,
         string $apiEndpointUrl,
-        string $type
+        string $type = ''
     ): AiGateway {
         $gateway = new AiGateway($name, $apiKey, $apiEndpointUrl);
 
@@ -161,9 +166,9 @@ class AiGatewayService
     /**
      * Register a gateway implementation
      */
-    public function registerGatewayImplementation(string $type, string $serviceId): void
+    public function registerGatewayImplementation(string $type): void
     {
-        $this->gatewayImplementations[$type] = $serviceId;
+        $this->gatewayImplementations[$type] = $type;
     }
     
     /**
@@ -175,16 +180,16 @@ class AiGatewayService
             return null;
         }
         
-        /* if ($type === 'portkey' && $this->portkeyGateway) {
-            return $this->portkeyGateway;
-        } */
-        
         if ($type === 'anthropic' && $this->anthropicGateway) {
             return $this->anthropicGateway;
         }
         
         if ($type === 'groq' && $this->groqGateway) {
             return $this->groqGateway;
+        }
+        
+        if ($type === 'cqaigateway' && $this->CQAIGateway) {
+            return $this->CQAIGateway;
         }
         
         return null;

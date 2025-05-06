@@ -44,7 +44,23 @@
                         </div>
                     {% endfor %}
                     
-                    <p class="mb-4">Manage your AI service gateways. These are the connections to AI service providers Anthropic, Groq, and CQ AI Gateway.</p>
+                    <div class="w-100 mb-2">
+                        Manage your AI service gateways connections to AI service providers.
+                    </div>
+                    <div class="w-50 float-start">
+                        <strong>Official Gateway (All Features)</strong>
+                        <ul>
+                            <li><a href="https://cqaigateway.com/" target="_blank" title="CQ AI Gateway">CQ AI Gateway</a><i class="mdi mdi-open-in-new ms-1"></i></li>
+                        </ul>
+                    </div>
+                    <div class="w-50 float-end">
+                        <strong>Direct Gateways (Limited Features)</strong>
+                        <ul>
+                            <li>Anthropic</li>
+                            <li>Groq</li>
+                        </ul>
+                    </div>
+                    <div class="w-100 clear-both"></div>
                     
                     <!-- Gateway List -->
                     <div class="mb-4">
@@ -88,13 +104,13 @@
                                                                 data-bs-target="#editGatewayModal">
                                                             <i class="mdi mdi-pencil"></i>
                                                         </button>
-                                                        {# <button type="button" class="btn btn-sm btn-outline-danger delete-gateway"
+                                                        <button type="button" class="btn btn-sm btn-outline-danger delete-gateway"
                                                                 data-id="{{ gateway.id }}"
                                                                 data-name="{{ gateway.name }}"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#deleteGatewayModal">
                                                             <i class="mdi mdi-delete"></i>
-                                                        </button> #}
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -124,9 +140,13 @@
                         <label for="gateway-name" class="form-label">Gateway Type</label>
                         <select class="form-select" id="gateway-name" name="name" required>
                             <option value="" selected disabled>Select a gateway type...</option>
-                            <option value="Anthropic">Anthropic (Direct)</option>
-                            <option value="Groq">Groq (Direct)</option>
-                            <option value="CQ AI Gateway">CQ AI Gateway</option>
+                            <optgroup label="Official Gateways (All Features)">
+                                <option value="CQ AI Gateway">CQ AI Gateway</option>
+                            </optgroup>
+                            <optgroup label="Direct Gateways (Limited Features)">
+                                <option value="Anthropic">Anthropic</option>
+                                <option value="Groq">Groq</option>
+                            </optgroup>
                         </select>
                         <div class="form-text text-muted">Select which AI gateway provider to use</div>
                     </div>
@@ -233,7 +253,7 @@
             } else if (selectedGateway === 'Groq') {
                 gatewayEndpointInput.value = 'https://api.groq.com/openai/v1';
             } else if (selectedGateway === 'CQ AI Gateway') {
-                gatewayEndpointInput.value = 'https://ai-gw.citadelquest.com/api/v1';
+                gatewayEndpointInput.value = 'https://cqaigateway.com/api/ai';
             } else {
                 gatewayEndpointInput.value = '';
             }

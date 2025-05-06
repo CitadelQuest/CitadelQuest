@@ -54,6 +54,11 @@ services:
         arguments:
             $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
 
+    App\Service\CQAIGateway:
+        autowire: true
+        arguments:
+            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
+
     App\Service\AiGatewayService:
         autowire: true
         arguments:

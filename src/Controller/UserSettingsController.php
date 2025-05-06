@@ -199,7 +199,8 @@ class UserSettingsController extends AbstractController
         $this->aiGatewayService->createGateway(
             $name,
             $apiKey,
-            $apiEndpointUrl
+            $apiEndpointUrl,
+            strtolower($name)
         );
         
         $this->addFlash('success', 'AI gateway added successfully.');

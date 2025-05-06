@@ -160,7 +160,7 @@ class SpiritConversationService
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
             $aiServiceModel->getId(),
             $messages,
-            1000, 0.7, null, $tools
+            4000, 0.7, null, $tools
         );
         
         // Create spirit conversation request
@@ -267,7 +267,7 @@ class SpiritConversationService
                 {$lang}
                 </response-language>
             "
-        ];
+        ]; 
         
         // Add conversation history (excluding timestamps)
         foreach ($conversationMessages as $message) {

@@ -106,7 +106,6 @@
                                                             data-name="{{ model.modelName }}"
                                                             data-slug="{{ model.modelSlug }}"
                                                             data-gateway="{{ model.aiGatewayId }}"
-                                                            data-virtual-key="{{ model.virtualKey }}"
                                                             data-context-window="{{ model.contextWindow }}"
                                                             data-max-input="{{ model.maxInput }}"
                                                             data-max-input-image-size="{{ model.maxInputImageSize }}"
@@ -278,27 +277,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-name" class="form-label">Model Name</label>
-                            <select class="form-select" id="edit-model-name" name="modelName" required>
-                                <option value="" selected>Select a model...</option>
-                                <optgroup label="Anthropic">
-                                    <option value="Claude 3.7 Sonnet">Claude 3.7 Sonnet</option>
-                                    <option value="Claude 3.5 Haiku">Claude 3.5 Haiku</option>
-                                    <option value="Claude 3 Opus">Claude 3 Opus</option>
-                                    <option value="Claude 3 Sonnet">Claude 3 Sonnet</option>
-                                    <option value="Claude 3 Haiku">Claude 3 Haiku</option>
-                                    <option value="Claude 2">Claude 2</option>
-                                </optgroup>
-                                <optgroup label="Groq">
-                                    <option value="Llama 4 Scout">Llama 4 Scout (17B)</option>
-                                    <option value="Llama 4 Maverick">Llama 4 Maverick (17B)</option>
-                                    <option value="Llama 3.3 Versatile">Llama 3.3 Versatile (70B)</option>
-                                    <option value="Llama 3.1 Instant">Llama 3.1 Instant (8B)</option>
-                                    <option value="Gemma 2">Gemma 2 (9B)</option>
-                                    <option value="Qwen QWQ">Qwen QWQ (32B)</option>
-                                    <option value="Qwen 2.5 Coder">Qwen 2.5 Coder (32B)</option>
-                                    <option value="Qwen 2.5">Qwen 2.5 (32B)</option>
-                                    <option value="DeepSeek R1 Distill">DeepSeek R1 Distill (70B)</option>
-                                </optgroup>
+                            <select class="form-select" id="edit-model-name" name="modelName" required>                                
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -389,14 +368,14 @@
         const modelNameSelect = document.getElementById('model-name');
         const modelSlugInput = document.getElementById('model-slug');
         const gatewaySelect = document.getElementById('model-gateway');
-        const virtualKeyInput = document.getElementById('model-virtual-key');
+        /* const virtualKeyInput = document.getElementById('model-virtual-key');
         const virtualKeysContainer = document.getElementById('virtual-keys-container');
         const virtualKeyInputContainer = document.getElementById('virtual-key-input-container');
-        const virtualKeysSelect = document.getElementById('model-virtual-keys');
+        const virtualKeysSelect = document.getElementById('model-virtual-keys'); */
         
         // Edit modal elements
         const editGatewaySelect = document.getElementById('edit-model-gateway');
-        const editVirtualKeyInput = document.getElementById('edit-model-virtual-key');
+        /* const editVirtualKeyInput = document.getElementById('edit-model-virtual-key');
         const editVirtualKeysContainer = document.getElementById('edit-virtual-keys-container');
         const editVirtualKeyInputContainer = document.getElementById('edit-virtual-key-input-container');
         const editVirtualKeysSelect = document.getElementById('edit-model-virtual-keys');
@@ -408,7 +387,7 @@
             
             //virtualKeysContainerElement.classList.add('d-none');
             //virtualKeyInputContainerElement.classList.remove('d-none');
-        }
+        } */
         
         // Function to fetch models from a gateway and populate the model dropdown
         function fetchModelsForGateway(gatewayId, modelSelectElement, modelSlugInputElement) {
@@ -468,14 +447,14 @@
         // Handle gateway change for add modal
         gatewaySelect.addEventListener('change', function() {
             // Handle virtual keys
-            handleGatewayChange(
+            /* handleGatewayChange(
                 this, // gatewaySelectElement
                 virtualKeysSelect, // virtualKeysSelectElement
                 virtualKeysContainer, // virtualKeysContainerElement
                 virtualKeyInputContainer, // virtualKeyInputContainerElement
                 virtualKeyInput, // virtualKeyInputElement
                 false // isEditMode
-            );
+            ); */
             
             // Fetch models for the selected gateway
             const selectedGatewayId = this.value;
@@ -494,14 +473,14 @@
         
         editGatewaySelect.addEventListener('change', function() {
             // Handle virtual keys
-            handleGatewayChange(
+            /* handleGatewayChange(
                 this, // gatewaySelectElement
                 editVirtualKeysSelect, // virtualKeysSelectElement
                 editVirtualKeysContainer, // virtualKeysContainerElement
                 editVirtualKeyInputContainer, // virtualKeyInputContainerElement
                 editVirtualKeyInput, // virtualKeyInputElement
                 true // isEditMode
-            );
+            ); */
             
             // Fetch models for the selected gateway
             const selectedGatewayId = this.value;
@@ -545,7 +524,7 @@
                 const name = this.getAttribute('data-name');
                 const slug = this.getAttribute('data-slug');
                 const gateway = this.getAttribute('data-gateway');
-                const virtualKey = this.getAttribute('data-virtual-key');
+                //const virtualKey = this.getAttribute('data-virtual-key');
                 const contextWindow = this.getAttribute('data-context-window');
                 const maxInput = this.getAttribute('data-max-input');
                 const maxInputImageSize = this.getAttribute('data-max-input-image-size');
@@ -595,7 +574,7 @@
                 
                 document.getElementById('edit-model-slug').value = slug;
                 document.getElementById('edit-model-gateway').value = gateway;
-                document.getElementById('edit-model-virtual-key').value = virtualKey;
+                /* document.getElementById('edit-model-virtual-key').value = virtualKey; */
                 document.getElementById('edit-model-context-window').value = contextWindow;
                 document.getElementById('edit-model-max-input').value = maxInput;
                 document.getElementById('edit-model-max-input-image-size').value = maxInputImageSize;
