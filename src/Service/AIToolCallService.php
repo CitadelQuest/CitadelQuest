@@ -140,7 +140,7 @@ class AIToolCallService
                         [
                             [
                                 'role' => 'system',
-                                'content' => "You are a helpful assistant that consolidates/refines user profiles, you are best in your profession, very experienced, always on-point, never miss a detail. {$rewriteProfileDescriptionEveryN} new information has been added to the profile description - so it needs to be consolidated to make it more readable, less repetitive, keep all the important information. Please respond only with the new profile description - it will be saved in the database. <response-language>{$arguments['lang']}</response-language>"
+                                'content' => "You are a helpful assistant that consolidates/refines user profiles, you are best in your profession, very experienced, always on-point, never miss a detail. {$rewriteProfileDescriptionEveryN} new information has been added to the profile description - so it needs to be consolidated to make it more readable, less repetitive, keep all the important information and do not reduce information. This process is called on regular basis to keep profile description up-to-date and readable - it will grow in size, it's OK. Do not reduce informations. Please respond only with the new profile description - it will be saved in the database. <response-language>{$arguments['lang']}</response-language>"
                             ],
                             [
                                 'role' => 'user',
@@ -151,7 +151,21 @@ class AIToolCallService
                     ),
                     'tool_call: updateUserProfile (Profile Description Consolidation)'
                 );
-                $this->settingsService->setSetting('profile.description', $aiServiceResponse->getMessage()['content'] ?? $currentDescription);
+                
+                // get message from response
+                $message = $aiServiceResponse->getMessage();
+                $content = $currentDescription;
+                if (isset($message['content']) 
+                    && is_array($message['content']) 
+                    && count($message['content']) > 0 
+                    && isset($message['content'][0]['text'])) {
+
+                    $content = $message['content'][0]['text'];
+                }
+
+                // update profile description
+                $this->settingsService->setSetting('profile.description', $content);
+
             } catch (\Exception $e) {
                 // return error
                 return ['error' => 'Error updating profile description: ' . $e->getMessage()];
