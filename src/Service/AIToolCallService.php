@@ -130,7 +130,7 @@ class AIToolCallService
         $this->settingsService->setSetting('profile.new_info_counter', strval($newInfoCounter));
 
         // rewrite profile description every N newInfo added
-        $rewriteProfileDescriptionEveryN = 10;
+        $rewriteProfileDescriptionEveryN = 7777777;//10;
         if ($newInfoCounter % $rewriteProfileDescriptionEveryN == 0) {
             // make and send new ai service request to rewrite profile description
             try {

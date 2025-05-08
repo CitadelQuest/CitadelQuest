@@ -4,9 +4,35 @@ class UserMigration_20250403151428
 {
     public function up(PDO $db): void
     {
-        // Add system_prompt and ai_model columns to spirits table
-        $db->exec('ALTER TABLE spirits ADD COLUMN system_prompt TEXT');
-        $db->exec('ALTER TABLE spirits ADD COLUMN ai_model VARCHAR(50) DEFAULT ""');
+        // Check if column exists before adding it
+        $result = $db->query("PRAGMA table_info(spirits)");
+        $columnExists = false;
+        
+        while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['name'] === 'system_prompt') {
+                $columnExists = true;
+                break;
+            }
+        }
+        
+        if (!$columnExists) {            
+            $db->exec('ALTER TABLE spirits ADD COLUMN system_prompt TEXT');
+        }
+
+        // Check if column exists before adding it
+        $result = $db->query("PRAGMA table_info(spirits)");
+        $columnExists = false;
+        
+        while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['name'] === 'ai_model') {
+                $columnExists = true;
+                break;
+            }
+        }
+        
+        if (!$columnExists) {
+            $db->exec('ALTER TABLE spirits ADD COLUMN ai_model VARCHAR(50) DEFAULT ""');
+        }
     }
     
     public function down(PDO $db): void

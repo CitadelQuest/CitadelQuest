@@ -71,6 +71,9 @@ class UserDatabaseManager
 
         // Initialize database schema
         $this->initializeDatabaseSchema($connection);
+
+        // Run migrations for this user database
+        $this->runMigrationsForUserDatabase($connection, $dbFullPath);
     }
 
     /**
