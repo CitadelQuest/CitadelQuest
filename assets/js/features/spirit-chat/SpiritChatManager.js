@@ -91,7 +91,15 @@ export class SpiritChatManager {
      * Fetch the user's primary spirit
      */
     async fetchPrimarySpirit() {
+        // Check if we're in onboarding mode
+        const isOnboarding = window.location.pathname.includes('/welcome');
+        if (isOnboarding) {
+            console.log('Skipping spirit fetch during onboarding');
+            return;
+        }
+        
         try {
+            console.log('Fetching primary spirit...');
             const response = await fetch('/api/spirit');
             if (!response.ok) {
                 throw new Error('Failed to fetch primary spirit');

@@ -32,6 +32,7 @@ Encore
     .addEntry('diary', './assets/entries/diary.js')
     .addEntry('spirit', './assets/entries/spirit.js')
     .addEntry('spirit-chat', './assets/entries/spirit-chat.js')
+    .addEntry('welcome-onboarding', './assets/entries/welcome-onboarding.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

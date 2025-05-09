@@ -29,6 +29,34 @@ class SpiritService
     }
     
     /**
+     * Get all spirits for the current user
+     * 
+     * @return Spirit[]
+     */
+    public function findAll(): array
+    {
+        $db = $this->getUserDb();
+        
+        $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC');
+        $data = $result->fetchAllAssociative();
+        
+        if (!$data) {
+            return [];
+        }
+        
+        $spirits = [];
+        foreach ($data as $spiritData) {
+            $spirit = Spirit::fromArray($spiritData);
+            // Load spirit abilities
+            $abilities = $this->getSpiritAbilities($spirit->getId());
+            $spirit->setAbilities($abilities);
+            $spirits[] = $spirit;
+        }
+        
+        return $spirits;
+    }
+    
+    /**
      * Get the user's primary spirit
      */
     public function getUserSpirit(): ?Spirit
@@ -60,15 +88,13 @@ class SpiritService
         
         if ($spiritId === null) {
             // Get primary spirit (first created)
-            $stmt = $db->prepare('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
-            $stmt->execute();
+            $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
         } else {
             // Get specific spirit by ID
-            $stmt = $db->prepare('SELECT * FROM spirits WHERE id = ?');
-            $stmt->execute([$spiritId]);
+            $result = $db->executeQuery('SELECT * FROM spirits WHERE id = ?', [$spiritId]);
         }
         
-        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $data = $result->fetchAssociative();
         
         if (!$data) {
             return null;
@@ -85,8 +111,12 @@ class SpiritService
     
     /**
      * Create a new spirit for the user
+     * 
+     * @param string $name The name of the spirit
+     * @param string|null $color The color for the spirit (hex code)
+     * @return Spirit
      */
-    public function createSpirit(string $name): Spirit
+    public function createSpirit(string $name, ?string $color = null): Spirit
     {
         $db = $this->getUserDb();
         
@@ -96,6 +126,11 @@ class SpiritService
         }
         
         $spirit = new Spirit($name);
+        
+        // Set color if provided
+        if ($color) {
+            $spirit->setVisualState(json_encode(['color' => $color]));
+        }
         
         $db->executeStatement(
             'INSERT INTO spirits (id, name, level, experience, visual_state, consciousness_level, created_at, last_interaction, system_prompt, ai_model) 
@@ -129,6 +164,25 @@ class SpiritService
         );
         
         return $spirit;
+    }
+    
+    /**
+     * Update a spirit's AI model
+     * 
+     * @param string $spiritId The ID of the spirit to update
+     * @param string $modelId The ID of the AI model to use
+     * @return void
+     */
+    public function updateSpiritModel(string $spiritId, string $modelId): void
+    {
+        $spirit = $this->getSpirit($spiritId);
+        
+        if (!$spirit) {
+            throw new \RuntimeException('Spirit not found');
+        }
+        
+        $spirit->setAiModel($modelId);
+        $this->updateSpirit($spirit);
     }
     
     /**

@@ -276,3 +276,32 @@ diary:
     placeholders:
         content: 'Write your thoughts...'
         tags: 'Add tags (optional)'
+
+welcome:
+    onboarding:
+        welcome: "Welcome to CitadelQuest"
+        subtitle: "Let's set up your personal AI assistant"
+        step1:
+            title: "Connect to CQ AI Gateway"
+            description: "First, let's connect to the CQ AI Gateway to access the latest AI models."
+            api_key_label: "CQ AI Gateway API Key"
+            api_key_placeholder: "Enter your CQ AI Gateway API key"
+            get_key: "Need an API key?"
+            validate: "Validate & Continue"
+        step2:
+            title: "Create Your Spirit"
+            description: "Your Spirit is your personal AI assistant. Give it a name and choose its appearance."
+            name_label: "Spirit Name"
+            name_placeholder: "Enter a name for your Spirit"
+            model_label: "Select AI Model"
+            model_claude: "Claude"
+            model_gemini: "Gemini"
+            model_grok: "Grok"
+            color_label: "Choose a color"
+            back: "Back"
+            create: "Create Spirit"
+        step3:
+            title: "Ready to Begin"
+            description: "Your Spirit has been created and is ready to assist you."
+            start_journey: "Start Your Journey"
+        completed: "Onboarding completed successfully!"
