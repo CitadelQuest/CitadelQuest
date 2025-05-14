@@ -259,9 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Show loading state
             button.disabled = true;
-            spinner.classList.remove('d-none');
-            statusText.classList.remove('d-none');
-            buttonText.textContent = Translator.trans('auth.key_generation.generating_keys');
+            //spinner.classList.remove('d-none');
+            //statusText.classList.remove('d-none');
+            //buttonText.textContent = Translator.trans('auth.key_generation.generating_keys');
 
             try {
                 // Get form data

@@ -92,7 +92,7 @@ export class SpiritChatManager {
      */
     async fetchPrimarySpirit() {
         // Check if we're in onboarding mode
-        const isOnboarding = window.location.pathname.includes('/welcome');
+        const isOnboarding = window.location.pathname.includes('/welcome') && localStorage.getItem('currentStep') !== null;
         if (isOnboarding) {
             console.log('Skipping spirit fetch during onboarding');
             return;
@@ -131,7 +131,7 @@ export class SpiritChatManager {
         } catch (error) {
             console.error('Error fetching primary spirit:', error);
             // Show error message
-            window.toast.error(error.message || 'Failed to load spirit information');
+            //window.toast.error(error.message || 'Failed to load spirit information');
         }
     }
     

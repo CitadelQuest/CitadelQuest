@@ -11,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -22,7 +23,8 @@ class WelcomeController extends AbstractController
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly SettingsService $settingsService,
-        private readonly SpiritService $spiritService
+        private readonly SpiritService $spiritService,
+        private readonly HttpClientInterface $httpClient
     ) {}
     
     #[Route('', name: 'app_welcome_onboarding')]
@@ -36,74 +38,21 @@ class WelcomeController extends AbstractController
             return $this->redirectToRoute('app_home');
         }
         
-        // Get existing gateways and models
-        $aiGateways = $this->aiGatewayService->findAll();
-        $aiModels = $this->aiServiceModelService->findAll(true);
-        
-        // Convert models to array for easier JSON serialization
-        $aiModelsArray = [];
-        foreach ($aiModels as $model) {
-            $aiModelsArray[$model->getId()] = [
-                'id' => $model->getId(),
-                'name' => $model->getModelName(),
-                'modelSlug' => $model->getModelSlug(),
-                'gatewayId' => $model->getAiGatewayId()
-            ];
-        }
-        
-        // If no models are available, add fallback models
-        if (empty($aiModelsArray)) {
-            error_log('No AI models found, adding fallback models');
-            $fallbackModels = [
-                'claude' => [
-                    'id' => 'claude-fallback',
-                    'name' => 'Claude 3 Sonnet',
-                    'modelSlug' => 'anthropic/claude-3-sonnet-20240229',
-                    'gatewayId' => 'fallback'
-                ],
-                'gemini' => [
-                    'id' => 'gemini-fallback',
-                    'name' => 'Gemini Pro',
-                    'modelSlug' => 'google/gemini-pro',
-                    'gatewayId' => 'fallback'
-                ],
-                'grok' => [
-                    'id' => 'grok-fallback',
-                    'name' => 'Grok',
-                    'modelSlug' => 'xai/grok-1',
-                    'gatewayId' => 'fallback'
-                ]
-            ];
-            $aiModelsArray = $fallbackModels;
-        }
-        
-        error_log('AI Models for onboarding: ' . json_encode($aiModelsArray));
-        
-        // Check if user has a CQ AI Gateway configured
-        $hasCqGateway = false;
-        foreach ($aiGateways as $gateway) {
-            if (str_contains(strtolower($gateway->getName()), 'cq') || 
-                str_contains(strtolower($gateway->getApiEndpointUrl()), 'cqaigateway.com')) {
-                $hasCqGateway = true;
-                break;
-            }
-        }
-        
-        // Check if user has any spirits
-        $spirits = $this->spiritService->findAll();
-        
-        return $this->render('welcome/onboarding.html.twig', [
-            'hasCqGateway' => $hasCqGateway,
-            'hasSpirits' => count($spirits) > 0,
-            'aiGateways' => $aiGateways,
-            'aiModels' => $aiModels,
-            'aiModelsArray' => $aiModelsArray
-        ]);
+        return $this->render('welcome/onboarding.html.twig', []);
     }
     
     #[Route('/add-gateway', name: 'app_welcome_add_gateway', methods: ['POST'])]
     public function addGateway(Request $request): JsonResponse
     {
+        // check if 'onboarding.completed' is still false
+        $hasCompletedOnboarding = $this->settingsService->getSettingValue('onboarding.completed', false);
+        if ($hasCompletedOnboarding) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Onboarding already completed'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $apiKey = $request->request->get('apiKey');
         
         if (!$apiKey) {
@@ -114,64 +63,96 @@ class WelcomeController extends AbstractController
         }
         
         try {
-            // Create CQ AI Gateway
-            $gateway = $this->aiGatewayService->createGateway(
-                'CQ AI Gateway',
-                $apiKey,
-                'https://cqaigateway.com/api/ai',
-                'cq_ai_gateway'
+            // Validate key
+            //  request models from CQ AI Gateway via http client
+            $responseModels = $this->httpClient->request(
+                'GET',
+                'https://cqaigateway.com/api/ai/models', 
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $apiKey
+                    ]
+                ]
             );
+            //  check response status
+            $responseStatus = $responseModels->getStatusCode(false);
+            if ($responseStatus !== Response::HTTP_OK) {
+                if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'message' => 'Invalid API key'
+                    ], Response::HTTP_UNAUTHORIZED);
+                } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
+                            || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
+                            || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
+                            || $responseStatus === Response::HTTP_BAD_GATEWAY
+                            || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
+                            || $responseStatus === Response::HTTP_NOT_FOUND) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'message' => 'CQ AI Gateway is currently unavailable, please try again later'
+                    ], Response::HTTP_SERVICE_UNAVAILABLE);
+                } else {
+                    return new JsonResponse([
+                        'success' => false,
+                        'message' => 'Failed to validate API key (' . $responseStatus . ')'
+                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+            }
             
-            // Add default models
-            $this->aiServiceModelService->createModel(
-                $gateway->getId(),
-                'Claude 3.5 Haiku',
-                'anthropic/claude-3.5-haiku',
-                null,
-                131072,
-                131072,
-                0,
-                8192,
-                null,
-                null,
-                true
-            );
+            // Get models from response
+            $cq_ai_models = json_decode($responseModels->getContent(), true)['models']??[];
+            $models = [];
+
+            if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
+                return new JsonResponse([
+                    'success' => false,
+                    'message' => 'No models found on CQ AI Gateway'
+                ], Response::HTTP_SERVICE_UNAVAILABLE);
+            }
+
+            // Create CQ AI Gateway if not already created
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if (!$gateway) {
+                $gateway = $this->aiGatewayService->createGateway(
+                    'CQ AI Gateway',
+                    $apiKey,
+                    'https://cqaigateway.com/api',
+                    'cq_ai_gateway'
+                );
+            }
             
-            $this->aiServiceModelService->createModel(
-                $gateway->getId(),
-                'Gemini 2.5 Pro',
-                'google/gemini-2.5-pro-preview',
-                null,
-                131072,
-                131072,
-                0,
-                8192,
-                null,
-                null,
-                true
-            );
-            
-            $this->aiServiceModelService->createModel(
-                $gateway->getId(),
-                'Grok',
-                'x-ai/grok-3-beta',
-                null,
-                131072,
-                131072,
-                0,
-                8192,
-                null,
-                null,
-                true
-            );
-            
-            // Set Claude Sonnet as primary model
-            $models = $this->aiServiceModelService->findAll(true);
-            foreach ($models as $model) {
-                if ($model->getModelSlug() === 'google/gemini-2.5-pro-preview') {
-                    $this->settingsService->setSetting('ai.primary_ai_service_model_id', $model->getId());
-                    $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $model->getId());
-                    break;
+            // Add models to database
+            foreach ($cq_ai_models as $model) {
+                $modelSlug = $model['id'];
+                $modelSlugProvider = substr($modelSlug, 0, strpos($modelSlug, '/'));
+
+                if ($modelSlugProvider === 'citadelquest') {            
+                    $maxOutputTokens = isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : null;
+                    $pricingInput = isset($model['pricing']) && isset($model['pricing']['prompt']) ? $model['pricing']['prompt'] : null;
+                    $pricingOutput = isset($model['pricing']) && isset($model['pricing']['completion']) ? $model['pricing']['completion'] : null;
+        
+                    $newModel = $this->aiServiceModelService->createModel(
+                        $gateway->getId(),          // gateway id
+                        $model['name'],             // model name
+                        $modelSlug,                 // model slug
+                        null,                       // virtual key = null, deprecated
+                        $model['context_length'],   // context length
+                        $model['context_length'],   // max input
+                        0,                          // maxInputImageSize
+                        $maxOutputTokens,           // max output(response) tokens
+                        $pricingInput,              // ppmInput
+                        $pricingOutput,             // ppmOutput
+                        true                        // is active
+                    );
+
+                    $models[] = $newModel;
+
+                    // Set first model as primary model
+                    if (count($models) === 1) {
+                        $this->settingsService->setSetting('ai.primary_ai_service_model_id', $newModel->getId());
+                        $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $newModel->getId());
+                    }
                 }
             }
             
@@ -181,8 +162,9 @@ class WelcomeController extends AbstractController
                 'gateway' => [
                     'id' => $gateway->getId(),
                     'name' => $gateway->getName()
-                ]
-            ]);
+                ],
+                'models' => $models
+            ], Response::HTTP_OK);
         } catch (\Exception $e) {
             return new JsonResponse([
                 'success' => false,
@@ -194,6 +176,15 @@ class WelcomeController extends AbstractController
     #[Route('/create-spirit', name: 'app_welcome_create_spirit', methods: ['POST'])]
     public function createSpirit(Request $request): JsonResponse
     {
+        // check if 'onboarding.completed' is still false
+        $hasCompletedOnboarding = $this->settingsService->getSettingValue('onboarding.completed', false);
+        if ($hasCompletedOnboarding) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Onboarding already completed'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $name = $request->request->get('name');
         $modelId = $request->request->get('modelId');
         $color = $request->request->get('color', '#6c5ce7');
@@ -234,6 +225,10 @@ class WelcomeController extends AbstractController
             // Set model for spirit
             error_log('Setting spirit model to: ' . $modelId);
             $this->spiritService->updateSpiritModel($spirit->getId(), $modelId);
+
+            // Set spirit as primary ai service model
+            $this->settingsService->setSetting('ai.primary_ai_service_model_id', $modelId);
+            $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $modelId);
             
             // Mark onboarding as completed
             $this->settingsService->setSetting('onboarding.completed', true);
@@ -246,7 +241,7 @@ class WelcomeController extends AbstractController
                     'name' => $spirit->getName(),
                     'model' => $modelId
                 ]
-            ]);
+            ], Response::HTTP_OK);
         } catch (\Exception $e) {
             error_log('Create Spirit Exception: ' . $e->getMessage() . '
 ' . $e->getTraceAsString());
@@ -255,17 +250,5 @@ class WelcomeController extends AbstractController
                 'message' => 'Error creating spirit: ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-    }
-    
-    #[Route('/complete', name: 'app_welcome_complete', methods: ['POST'])]
-    public function completeOnboarding(): JsonResponse
-    {
-        // Mark onboarding as completed
-        $this->settingsService->setSetting('onboarding.completed', true);
-        
-        return new JsonResponse([
-            'success' => true,
-            'message' => 'Onboarding completed'
-        ]);
     }
 }

@@ -211,7 +211,7 @@ class AiServiceModel implements JsonSerializable
         return [
             'id' => $this->id,
             'aiGatewayId' => $this->aiGatewayId,
-            'virtualKey' => $this->virtualKey ? '********' : null, // Don't expose the actual virtual key
+            // deprecated: 'virtualKey' => $this->virtualKey ? '********' : null, // Don't expose the actual virtual key
             'modelName' => $this->modelName,
             'modelSlug' => $this->modelSlug,
             'contextWindow' => $this->contextWindow,

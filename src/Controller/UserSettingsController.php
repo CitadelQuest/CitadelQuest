@@ -17,6 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[Route('/settings')]
 #[IsGranted('ROLE_USER')]
@@ -25,7 +26,8 @@ class UserSettingsController extends AbstractController
     public function __construct(
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
-        private readonly SettingsService $settingsService
+        private readonly SettingsService $settingsService,
+        private readonly HttpClientInterface $httpClient
     ) {
     }
 
@@ -152,23 +154,72 @@ class UserSettingsController extends AbstractController
         // Get user's settings
         $settings = $this->settingsService->getAllSettings();
         
-        // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll(true);
-        
         // Handle form submission
         if ($request->isMethod('POST')) {
-            // Update existing settings
-            $this->settingsService->setSetting('ai.primary_ai_service_model_id', $request->request->get('primary_model', ''));
-            $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $request->request->get('secondary_model', ''));
-            
-            $this->addFlash('success', 'AI settings updated successfully.');
+            // Update existing settings:
+            // 1. API key
+            $request_api_key = $request->request->get('cq_ai_gateway_api_key');
+            if ($request_api_key && $request_api_key !== '') {
+                $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+                if ($gateway) {
+                    $gateway->setApiKey($request_api_key);
+                    $this->entityManager->flush();
+                    $this->addFlash('success', 'API key updated successfully.');
+                }
+            }
+            // 2. Primary and secondary AI models
+            $request_primary_model = $request->request->get('primary_model');
+            $request_secondary_model = $request->request->get('secondary_model');
+            if ($request_primary_model && $request_primary_model !== '') {
+                $this->settingsService->setSetting('ai.primary_ai_service_model_id', $request_primary_model);
+            }
+            if ($request_secondary_model && $request_secondary_model !== '') {
+                $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $request_secondary_model);
+            }
+            if ($request_primary_model || $request_secondary_model) {
+                $this->addFlash('success', 'AI models saved successfully.');
+            }
             
             return $this->redirectToRoute('app_user_settings_ai');
         }
         
+        // Check if API key is set in aiGateway 'CQ AI Gateway'
+        $CQ_AI_GatewayCredits = null;
+        $apiKeyState = 'not_set';
+        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+        if ($gateway) {            
+            if ($gateway->getApiKey() !== '') {
+                $apiKeyState = 'not_validated';
+            }
+            // Validate key
+            //  request CQ AI Gateway via http client
+            $responseProfile = $this->httpClient->request(
+                'GET',
+                $gateway->getApiEndpointUrl() . '/payment/balance', 
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $gateway->getApiKey()
+                    ]
+                ]
+            );
+            //  check response status
+            $responseStatus = $responseProfile->getStatusCode(false);
+            if ($responseStatus !== Response::HTTP_OK) {
+                $apiKeyState = 'not_valid';
+            } else {
+                $apiKeyState = 'set_and_valid';
+                $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
+            }
+        }
+
+        // Get all available AI models
+        $aiModels = $this->aiServiceModelService->findAll(true);
+        
         return $this->render('user_settings/ai.html.twig', [
             'settings' => $settings,
             'aiModels' => $aiModels,
+            'api_key_state' => $apiKeyState,
+            'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-'
         ]);
     }
     

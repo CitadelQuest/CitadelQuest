@@ -31,7 +31,7 @@
                         <div class="mb-3">
                             {{ form_label(registrationForm.username, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.username, {
-                                'attr': {'class': 'form-control', 'placeholder': 'auth.register.username'|trans}
+                                'attr': { 'class': 'form-control'}
                             }) }}
                             {% if not registrationForm.username.vars.valid %}
                                 <div class="alert alert-danger mt-2">
@@ -48,7 +48,7 @@
                         <div class="mb-3">
                             {{ form_label(registrationForm.email, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.email, {
-                                'attr': {'class': 'form-control', 'placeholder': 'auth.register.email_help'|trans}
+                                'attr': { 'class': 'form-control' }
                             }) }}
                             {% if not registrationForm.email.vars.valid %}
                                 <div class="alert alert-danger mt-2">
@@ -62,7 +62,7 @@
                         <div class="mb-3">
                             {{ form_label(registrationForm.password.first, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.password.first, {
-                                'attr': {'class': 'form-control', 'placeholder': 'auth.register.password_help'|trans}
+                                'attr': { 'class': 'form-control' }
                             }) }}
                             {% if not registrationForm.password.first.vars.valid %}
                                 <div class="alert alert-danger mt-2">
@@ -87,7 +87,7 @@
                         <div class="mb-4">
                             {{ form_label(registrationForm.password.second, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.password.second, {
-                                'attr': {'class': 'form-control', 'placeholder': 'auth.register.repeat_password'|trans}
+                                'attr': { 'class': 'form-control' }
                             }) }}
                             {% if not registrationForm.password.second.vars.valid %}
                                 <div class="alert alert-danger mt-2">

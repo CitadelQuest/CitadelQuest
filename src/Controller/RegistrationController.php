@@ -13,6 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Component\Security\Http\Authentication\UserAuthenticatorInterface;
+use App\Security\LoginFormAuthenticator;
 
 class RegistrationController extends AbstractController
 {
@@ -25,7 +27,9 @@ class RegistrationController extends AbstractController
         UserPasswordHasherInterface $userPasswordHasher,
         EntityManagerInterface $entityManager,
         UserDatabaseManager $databaseManager,
-        UserKeyManager $keyManager
+        UserKeyManager $keyManager,
+        UserAuthenticatorInterface $userAuthenticator,
+        LoginFormAuthenticator $authenticator
     ): Response {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
@@ -75,7 +79,12 @@ class RegistrationController extends AbstractController
             // Add flash message
             $this->addFlash('success', $this->translator->trans('auth.register.success'));
 
-            return $this->redirectToRoute('app_login');
+            // Login the user
+            $userAuthenticator->authenticateUser($user, $authenticator, $request);
+
+            // NICE-TO-HAVE: create `CQ AI Gateway` user account(while we have the raw password) via API, to get the API key
+
+            return $this->redirectToRoute('app_welcome_onboarding');
         }
 
         return $this->render('registration/register.html.twig', [

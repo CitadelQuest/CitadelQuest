@@ -42,7 +42,7 @@ class RegistrationType extends AbstractType
             ->add('email', EmailType::class, [
                 'label' => 'auth.register.email',
                 'attr' => [
-                    'placeholder' => 'auth.register.email_help',
+                    'placeholder' => ''/* 'auth.register.email_help' */,
                 ],
                 'constraints' => [
                     new NotBlank([
@@ -75,13 +75,13 @@ class RegistrationType extends AbstractType
                     'label' => 'auth.register.password',
                     'help' => 'auth.register.password_help',
                     'attr' => [
-                        'placeholder' => 'auth.register.password'
+                        'placeholder' => ''/* 'auth.register.password' */
                     ]
                 ],
                 'second_options' => [
                     'label' => 'auth.register.repeat_password',
                     'attr' => [
-                        'placeholder' => 'auth.register.repeat_password'
+                        'placeholder' => ''/* 'auth.register.repeat_password' */
                     ]
                 ],
                 'constraints' => [

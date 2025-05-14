@@ -3,7 +3,18 @@
  * 
  * Handles the interactive onboarding process for new users
  */
-import { showNotification } from '../../shared/notifications';
+
+import { SpiritChatManager } from '../spirit-chat';
+
+// save currentStep to localStorage
+function saveCurrentStep(currentStep) {
+    localStorage.setItem('currentStep', currentStep);
+}
+
+// load currentStep from localStorage
+function loadCurrentStep() {
+    return parseInt(localStorage.getItem('currentStep')) || parseInt(sessionStorage.getItem('currentStep')) || 1;
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     // Disable spirit chat during onboarding to prevent errors
@@ -15,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
         spiritChatButton.style.opacity = '0.5';
         
         // Prevent the default SpiritChatManager from initializing
-        spiritChatButton.classList.remove('spirit-chat-trigger');
+        //spiritChatButton.classList.remove('spirit-chat-trigger'); // ??
     }
     // Elements
     const apiKeyInput = document.getElementById('apiKey');
@@ -33,98 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!apiKeyInput || !validateApiKeyBtn) return;
     
     // State
-    let currentStep = 1;
+    let currentStep = loadCurrentStep();
     let selectedColor = '#6c5ce7';
-    let selectedModelId = '';
-    
-    // Initialize model selection
-    const modelRadios = document.querySelectorAll('input[name="aiModel"]');
-    
-    // Get all available models from the server
-    const availableModelsElement = document.getElementById('availableModels');
-    let availableModels = {};
-    let gatewayId = null;
-    
-    // Debug the models data
-    console.log('Raw models data:', availableModelsElement?.dataset?.models);
-    
-    try {
-        if (availableModelsElement && availableModelsElement.dataset.models) {
-            availableModels = JSON.parse(availableModelsElement.dataset.models);
-            console.log('Parsed models:', availableModels);
-        } else {
-            console.warn('No models data found in the DOM');
-        }
-    } catch (e) {
-        console.error('Error parsing models data:', e);
-    }
-    
-    // Function to fetch models directly from the gateway API
-    function fetchModelsFromGateway() {
-        console.log('Fetching models from gateway...');
-        // First, we need to get the gateway ID
-        fetch('/api/ai/gateway', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(gateways => {
-            console.log('Available gateways:', gateways);
-            if (gateways && gateways.length > 0) {
-                // Find the CQ gateway
-                const cqGateway = gateways.find(g => 
-                    g.name.toLowerCase().includes('cq') || 
-                    g.apiEndpointUrl.toLowerCase().includes('cqaigateway.com')
-                );
-                
-                if (cqGateway) {
-                    gatewayId = cqGateway.id;
-                    console.log('Found CQ gateway with ID:', gatewayId);
-                    
-                    // Now fetch models for this gateway
-                    return fetch(`/api/ai/gateway/${gatewayId}/models`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                } else {
-                    console.warn('No CQ gateway found');
-                    throw new Error('No CQ gateway found');
-                }
-            } else {
-                console.warn('No gateways found');
-                throw new Error('No gateways found');
-            }
-        })
-        .then(response => response.json())
-        .then(models => {
-            console.log('Fetched models from API:', models);
-            
-            // Convert models to the format we need
-            availableModels = {};
-            models.forEach(model => {
-                availableModels[model.id] = {
-                    id: model.id,
-                    name: model.name,
-                    modelSlug: model.id,
-                    gatewayId: gatewayId
-                };
-            });
-            
-            console.log('Processed models:', availableModels);
-        })
-        .catch(error => {
-            console.error('Error fetching models:', error);
-        });
-    }
-    
-    // If no models found, try to fetch them directly
-    if (Object.keys(availableModels).length === 0) {
-        fetchModelsFromGateway();
-    }
     
     // Color picker functionality
     const colorOptions = document.querySelectorAll('.color-option');
@@ -136,6 +57,8 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('selected');
             // Update selected color
             selectedColor = this.dataset.color;
+            // update SVG glow color
+            document.getElementById('spiritImage').style.filter = `drop-shadow(0 0 10px ${selectedColor}) !important`;
         });
     });
     
@@ -181,9 +104,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 spiritImage.classList.add('spirit-active');
                 
                 // Populate model selection with actual models
-                updateModelSelection();
+                updateModelSelection(data.models);
                 
-                // Move to step 2
+                // Move to step 2                
                 goToStep(2);
             } else {
                 showError(data.message || 'Failed to validate API key');
@@ -209,58 +132,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Get selected model ID based on radio button value
-        const selectedModelValue = document.querySelector('input[name="aiModel"]:checked').value;
-        console.log('Selected model value:', selectedModelValue);
-        
-        // Find the corresponding model ID from hidden inputs
-        const modelInput = document.querySelector(`input[name="modelId"][data-model="${selectedModelValue}"]`);
-        if (modelInput) {
-            selectedModelId = modelInput.value;
-            console.log('Found model ID from hidden input:', selectedModelId);
-        } else {
-            // Fallback to the old method if hidden input not found
-            switch (selectedModelValue) {
-                case 'claude':
-                    selectedModelId = findModelIdBySlug('claude');
-                    break;
-                case 'gemini':
-                    selectedModelId = findModelIdBySlug('gemini');
-                    break;
-                case 'grok':
-                    selectedModelId = findModelIdBySlug('grok');
-                    break;
-                default:
-                    selectedModelId = findModelIdBySlug('claude');
-            }
-            console.log('Found model ID using slug search:', selectedModelId);
-        }
-        
-        // If we have models from the API but couldn't find a match, try a more flexible search
-        if (!selectedModelId && Object.keys(availableModels).length > 0) {
-            console.log('Trying flexible model search...');
-            // Try to find any model that matches the selected type
-            for (const [id, model] of Object.entries(availableModels)) {
-                const modelName = model.name.toLowerCase();
-                const modelSlug = (model.modelSlug || '').toLowerCase();
-                
-                if ((selectedModelValue === 'claude' && (modelName.includes('claude') || modelSlug.includes('claude'))) ||
-                    (selectedModelValue === 'gemini' && (modelName.includes('gemini') || modelSlug.includes('gemini'))) ||
-                    (selectedModelValue === 'grok' && (modelName.includes('grok') || modelSlug.includes('grok')))) {
-                    selectedModelId = id;
-                    console.log('Found model with flexible search:', selectedModelId, model);
-                    break;
-                }
-            }
-        }
-        
-        // If still no model ID, try to get any model ID as fallback
-        if (!selectedModelId) {
-            const anyModelInput = document.querySelector('input[name="modelId"]');
-            if (anyModelInput) {
-                selectedModelId = anyModelInput.value;
-                console.log('Using fallback model ID:', selectedModelId);
-            }
-        }
+        const selectedModelId = document.querySelector('input[name="aiModel"]:checked').value;
+        console.log('Selected modelId value:', selectedModelId);
         
         if (!selectedModelId) {
             showError('Please select an AI model');
@@ -305,6 +178,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 // Update UI for step 3
                 spiritNameDisplay.textContent = spiritName;
+
+                // save spiritId to localStorage for step 3
+                localStorage.setItem('spiritId', data.spirit.id);
                 
                 // Move to step 3
                 goToStep(3);
@@ -323,30 +199,48 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Back button functionality
-    backToStep1Btn.addEventListener('click', function() {
-        goToStep(1);
-    });
+    if (backToStep1Btn) {
+        backToStep1Btn.addEventListener('click', function() {
+            goToStep(1);
+        });
+    }
     
     // Start journey button
-    startJourneyBtn.addEventListener('click', function() {
-        // Mark onboarding as complete
-        fetch('/welcome/complete', {
+    startJourneyBtn.addEventListener('click', async function() {
+        // remove onboarding from localStorage
+        localStorage.removeItem('currentStep');
+
+        // enable spiritChatButton
+        spiritChatButton.style.pointerEvents = 'auto';
+        spiritChatButton.style.opacity = '1';
+
+        // Create 'first' spirit_conversation
+        await fetch('/api/spirit-conversation/create', {
             method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ spiritId: localStorage.getItem('spiritId'), title: 'First conversation' })
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                // Redirect to spirit chat
-                window.location.href = '/spirit';
+            if (data.title && data.id) {
+                if (window.spiritChatManager) {
+                    // destroy the current spiritChatManager
+                    window.spiritChatManager = null;
+                }
+                // Initialize Spirit chat functionality
+                window.spiritChatManager = new SpiritChatManager();
+                window.spiritChatManager.init();
+                
+                // Open spirit chat modal
+                document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
+                // hide this button
+                startJourneyBtn.classList.add('d-none');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            // Redirect anyway
-            window.location.href = '/spirit';
+            console.error('Error creating spirit_conversation:', error);
         });
     });
     
@@ -354,6 +248,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function goToStep(stepNumber) {
         // Update current step
         currentStep = stepNumber;
+        saveCurrentStep(currentStep);
         
         // Hide all steps
         steps.forEach(step => step.classList.remove('active'));
@@ -377,59 +272,63 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Helper function to show error message
     function showError(message) {
-        // Check if notification system is available
-        if (typeof showNotification === 'function') {
-            showNotification('danger', message);
-        } else {
-            alert(message);
-        }
+        window.toast.error(message);
     }
     
     // Helper function to update model selection based on available models
-    function updateModelSelection() {
-        // This function would populate the model selection with actual models
-        // from the server, but for simplicity we're using the predefined radio buttons
+    function updateModelSelection(models) {
+        // We have data from the server in the `models` parameter
+        console.log('Updating model selection with models:', models);
+        
+        // Clear existing models
+        const modelSelection = document.getElementById('modelSelection');
+        modelSelection.innerHTML = '';
+        
+        // Add new models
+        models.forEach(model => {
+            const modelId = model.id;
+            const modelName = model.modelName;
+
+            // Create the label element
+            const modelLabel = document.createElement('label');
+            modelLabel.className = 'form-check-label form-check form-control';
+            modelLabel.htmlFor = 'model-' + modelId;
+
+            // Create the radio input element
+            const modelRadio = document.createElement('input');
+            modelRadio.className = 'form-check-input ms-1 me-3';
+            modelRadio.type = 'radio';
+            modelRadio.name = 'aiModel';
+            modelRadio.id = 'model-' + modelId;
+            modelRadio.value = modelId;
+
+            // Set the first radio button as checked
+            if (modelSelection.children.length === 0) {
+                modelRadio.checked = true;
+            }
+
+            // Append the radio input to the label
+            modelLabel.appendChild(modelRadio);
+
+            // Append the model name to the label
+            modelLabel.appendChild(document.createTextNode(modelName));
+
+            // Append the label to the model selection container
+            modelSelection.appendChild(modelLabel);
+        });
     }
-    
-    // Helper function to find model ID by slug
-    function findModelIdBySlug(slugPart) {
-        console.log('Finding model ID for slug part:', slugPart);
-        console.log('Available models:', availableModels);
-        
-        // Default to first model if no matches found
-        if (!availableModels || Object.keys(availableModels).length === 0) {
-            console.log('No available models found, using fallback');
-            const fallbackId = document.querySelector('input[name="modelId"]')?.value || '';
-            console.log('Fallback model ID:', fallbackId);
-            return fallbackId;
-        }
-        
-        // Find model by slug
-        for (const [id, model] of Object.entries(availableModels)) {
-            console.log('Checking model:', id, model);
-            
-            // Check model slug
-            if (model.modelSlug && model.modelSlug.toLowerCase().includes(slugPart.toLowerCase())) {
-                console.log('Found matching model by modelSlug:', id);
-                return id;
-            }
-            
-            // Also check model name
-            if (model.name && model.name.toLowerCase().includes(slugPart.toLowerCase())) {
-                console.log('Found matching model by name:', id);
-                return id;
-            }
-            
-            // Check the ID itself
-            if (id.toLowerCase().includes(slugPart.toLowerCase())) {
-                console.log('Found matching model by ID:', id);
-                return id;
+
+    if (currentStep > 1) {
+        console.log('Going to step:', currentStep);
+
+        if (currentStep === 2) {
+            // get models from session
+            const modelsFromSession = JSON.parse(sessionStorage.getItem('models'));
+            if (modelsFromSession) {
+                updateModelSelection(modelsFromSession);   
             }
         }
-        
-        // Return first model ID as fallback
-        const firstId = Object.keys(availableModels)[0] || '';
-        console.log('Using first model as fallback:', firstId);
-        return firstId;
-    }
+
+        goToStep(currentStep);
+    }    
 });

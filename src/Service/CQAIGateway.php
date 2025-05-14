@@ -80,7 +80,7 @@ class CQAIGateway implements AiGatewayInterface
         
         try {
             // Send request to CQAIGateway API
-            $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . '/chat/completions', [
+            $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . '/ai/chat/completions', [
                 'headers' => $headers,
                 'json' => $requestData,
             ]);
@@ -89,44 +89,8 @@ class CQAIGateway implements AiGatewayInterface
             $statusCode = $response->getStatusCode(false);
             $responseContent = $response->getContent(false);
 
-            /* sample response:
-            {
-                "id": "gen-1746222835-aNYPyuYk85N8N6ubSbUv",
-                "provider": "DeepSeek",
-                "model": "deepseek-chat",
-                "object": "chat.completion",
-                "created": 1746222835,
-                "choices": [
-                    {
-                    "logprobs": null,
-                    "finish_reason": "stop",
-                    "native_finish_reason": "stop",
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": "Hello! How can I assist you today?",
-                        "refusal": null,
-                        "reasoning": null
-                    }
-                    }
-                ],
-                "system_fingerprint": null,
-                "usage": {
-                    "prompt_tokens": 8,
-                    "completion_tokens": 10,
-                    "total_tokens": 18,
-                    "prompt_tokens_details": {
-                    "cached_tokens": 0
-                    },
-                    "completion_tokens_details": {
-                    "reasoning_tokens": 0
-                    }
-                }
-            }            
-            */
-
             // Parse response data
-            $responseData = json_decode($responseContent, true);
+            $responseData = json_decode($responseContent, true) ?? [];
             $choices = $responseData['choices'] ?? [];
             $message = $choices[0]['message'] ?? [];
             $finishReason = $choices[0]['finish_reason'] ?? null;
@@ -231,7 +195,7 @@ class CQAIGateway implements AiGatewayInterface
     {
         try {
             // Fetch models from CQAIGateway API
-            $response = $this->httpClient->request('GET', $aiGateway->getApiEndpointUrl() . '/models', [
+            $response = $this->httpClient->request('GET', $aiGateway->getApiEndpointUrl() . '/ai/models', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $aiGateway->getApiKey(),
                     'Content-Type' => 'application/json'
@@ -364,30 +328,12 @@ class CQAIGateway implements AiGatewayInterface
                 }
             }
             
-            // If no models were found, return a default list
-            //if (empty($models)) {
-            //    $this->getDefaultOpenRouterModels();
-            //}
-            
             return $models;
             
         } catch (\Exception $e) {
             // In case of error, return default models
-            return [$e->getMessage()];//$this->getDefaultOpenRouterModels();
+            return [$e->getMessage()];
         }
-    }
-    
-    /**
-     * Get a default list of CQAIGateway models in case the API call fails
-     */
-    private function getDefaultOpenRouterModels(): array
-    {
-        return [
-            ['id' => 'anthropic/claude-3-7-sonnet', 'name' => 'Claude 3.7 Sonnet', 'provider' => 'cqaigateway'],
-            ['id' => 'anthropic/claude-3-5-haiku', 'name' => 'Claude 3.5 Haiku', 'provider' => 'cqaigateway'],
-            ['id' => 'meta-llama/llama-4-scout-17b-16e-instruct', 'name' => 'Llama 4 Scout', 'provider' => 'cqaigateway'],
-            ['id' => 'meta-llama/llama-4-maverick-17b-128e-instruct', 'name' => 'Llama 4 Maverick', 'provider' => 'cqaigateway']
-        ];
     }
 
     /**

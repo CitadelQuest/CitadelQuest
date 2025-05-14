@@ -583,7 +583,7 @@ export class SpiritManager {
                 }, { once: true });
 
                 // open modal first
-                document.getElementById('spiritChatButton').dispatchEvent(new Event('click'));
+                document.getElementById('spiritChatButton').dispatchEvent(new Event('click', { bubbles: true }));
 
             });
             conversationsList.appendChild(item);

@@ -20,12 +20,12 @@
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
-                    <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
+                    {# <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
                         <i class="mdi mdi-server-network me-2"></i> AI Gateways
                     </a>
                     <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
                         <i class="mdi mdi-brain me-2"></i> AI Models
-                    </a>
+                    </a> #}
                     <!-- Add more settings categories here as needed -->
                 </div>
             </div>
@@ -34,7 +34,7 @@
         <div class="col-md-9">
             <div class="glass-panel">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
-                    <h4 class="mb-0">AI Service Settings</h4>
+                    <h4 class="mb-0"><i class="mdi mdi-robot me-3"></i>AI Service Settings</h4>
                 </div>
                 <div class="p-4">
                     {% for message in app.flashes('success') %}
@@ -45,37 +45,74 @@
                     {% endfor %}
                     
                     <p class="mb-4">Configure your AI service settings to power your Spirit and other AI features.</p>
+
+                    <form method="post" action="{{ path('app_user_settings_ai') }}">
+                        
+                        <div class="mb-4">
+                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-server-network me-3"></i>AI Gateway</h5>
+                            <p class="">The <a href="https://cqaigateway.com/" target="_blank" class="text-cyber">CQ AI Gateway</a><i class="mdi mdi-open-in-new ms-1"></i> is a secure and reliable way to access AI services.</p>
+                            
+                            <div class="mb-3">
+                                <label for="cq_ai_gateway_api_key" class="form-label">
+                                    Your API key is: 
+                                    {% if api_key_state == 'not_set' %}
+                                        <span class="badge bg-danger">Not Set <i class="mdi mdi-close"></i></span>
+                                    {% elseif api_key_state == 'not_validated' %}
+                                        <span class="badge bg-warning">Not Validated <i class="mdi mdi-help-circle"></i></span>
+                                    {% elseif api_key_state == 'not_valid' %}
+                                        <span class="badge bg-warning">Not Valid <i class="mdi mdi-cancel"></i></span>
+                                    {% elseif api_key_state == 'set_and_valid' %}
+                                        <span class="badge bg-success me-2">Set and Valid <i class="mdi mdi-check"></i></span>
+                                        Credits: <span class="badge {% if CQ_AI_GatewayCredits < 60 %}bg-danger{% elseif CQ_AI_GatewayCredits < 120 %}bg-warning{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
+                                    {% endif %}
+                                </label>
+                                <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value="" placeholder="Leave blank to keep your current API key"
+                                    oninput="let akuBtn = document.getElementById('update_api_key'); if (this.value !== '') { akuBtn.disabled = false;} else { akuBtn.disabled = true; }">
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-3">
+                            <button type="submit" class="btn btn-cyber" id="update_api_key" disabled>
+                                <i class="mdi mdi-key me-2"></i> Update API Key
+                            </button>
+                        </div>
+                        
+                    </form>
+                                            
                     
                     <form method="post" action="{{ path('app_user_settings_ai') }}">
                         
                         <div class="mb-4">
-                            <h5 class="border-top border-secondary border-1 pt-3">AI Models</h5>
+                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-brain me-3"></i>AI Models</h5>
                             <p class="">Select which AI models to use for different purposes.</p>
                             
-                            <div class="mb-3">
-                                <label for="primary_model" class="form-label">Primary AI Model</label>
-                                <select class="form-select" id="primary_model" name="primary_model">
-                                    <option value="">None</option>
-                                    {% for model in aiModels %}
-                                        <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                            {{ model.modelName }} ({{ model.modelSlug }})
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text text-muted">Used for Spirit's main chat/reasoning. Higher quality, potentially more expensive.</div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="secondary_model" class="form-label">Secondary AI Model</label>
-                                <select class="form-select" id="secondary_model" name="secondary_model">
-                                    <option value="">None</option>
-                                    {% for model in aiModels %}
-                                        <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                            {{ model.modelName }} ({{ model.modelSlug }})
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text text-muted">Used for secondary Spirit tasks and system tools. Good quality, more cost-effective.</div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="primary_model" class="form-label">Primary AI Model</label>
+                                    <select class="form-select" id="primary_model" name="primary_model">
+                                        <option value="">None</option>
+                                        {% for model in aiModels %}
+                                            <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
+                                                {{ model.modelName }} ({{ model.modelSlug }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted">Used for Spirit's main chat/reasoning. Higher quality, potentially more expensive.</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="secondary_model" class="form-label">Secondary AI Model</label>
+                                    <select class="form-select" id="secondary_model" name="secondary_model">
+                                        <option value="">None</option>
+                                        {% for model in aiModels %}
+                                            <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
+                                                {{ model.modelName }} ({{ model.modelSlug }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted">Used for secondary Spirit tasks and system tools. Good quality, more cost-effective.</div>
+                                </div>
                             </div>
                         </div>
                         

@@ -99,6 +99,21 @@ class AiGatewayService
         return AiGateway::fromArray($result);
     }
 
+    public function findByName(string $name): ?AiGateway
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM ai_gateway WHERE name = ?',
+            [$name]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return AiGateway::fromArray($result);
+    }
+
     public function findAll(): array
     {
         $userDb = $this->getUserDb();

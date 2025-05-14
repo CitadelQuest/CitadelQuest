@@ -20,9 +20,9 @@ auth:
         generating_keys: 'Generujem bezpečnostné kľúče...'
         generating_your_keys: 'Generujem vaše bezpečnostné kľúče...'
         loading: 'Načítavam...'
-        creating_citadel: 'Vytváram Vašu Citadelu...'
+        creating_citadel: 'Vytváram Váš CitadelQuest účet...'
         error: 'Chyba pri generovaní kľúčov. Prosím skúste to znova.'
-        button_text: 'Vytvoriť Moju Citadelu'
+        button_text: 'Vytvoriť Môj CitadelQuest účet'
     register:
         error:
             username_blank: 'Prosím zadajte používateľské meno'
@@ -56,7 +56,7 @@ auth:
         submit: 'Vytvoriť CitadelQuest účet'
         have_account: 'Už máte účet?'
         login_link: 'Prihlásiť sa'
-        success: 'Registrácia úspešná! Teraz sa môžete prihlásiť.'
+        success: 'Registrácia úspešná!'
 
 notifications:
     title: Notifikácie
