@@ -115,12 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Test notification
-    document.getElementById('test-notification')?.addEventListener('click', () => {
+    /* document.getElementById('test-notification')?.addEventListener('click', () => {
         fetch('/notifications/test', {
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-    });
+    }); */
 
     // SSE Connection Management
     let eventSource = null;

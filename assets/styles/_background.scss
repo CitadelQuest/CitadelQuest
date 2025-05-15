@@ -3,7 +3,7 @@
 // CitadelQuest Background System
 
 // Background Variables
-$bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
+$bg-overlay-opacity: 0.25;  // Decreased opacity for better readability
 
 // Theme-specific backgrounds
 :root {
@@ -25,6 +25,10 @@ $bg-overlay-opacity: 0.5;  // Decreased opacity for better readability
 
     &[data-theme='night-3'] .citadel-background::before {
         background-image: url('../images/night-forest-sky.webp');
+    }
+
+    &[data-theme='clear'] .citadel-background::before {
+        background-image: none;
     }
 }
 

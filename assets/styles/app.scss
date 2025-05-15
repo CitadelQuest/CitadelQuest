@@ -287,6 +287,9 @@ strong, .strong {
 textarea {
     @include mix.cyber-scrollbar;
 }
+.form-control::placeholder {
+    color: colors.$text-muted !important;
+}
 
 // Animations
 @keyframes fadeIn {

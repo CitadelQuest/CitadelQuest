@@ -17,12 +17,14 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-cog me-2"></i>Settings</h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent">
-                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
-                        <i class="mdi mdi-cog me-2"></i> General
-                    </a>
+                    {% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}
+                        <a href="{{ path('app_user_settings_admin') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                            <i class="mdi mdi-account-cowboy-hat me-2"></i> Admin
+                        </a>
+                    {% endif %}
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
                         <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
                     </a>
@@ -51,8 +53,23 @@
                     <hr>
 
                     <h5><i class="mdi mdi-text-account me-3"></i>{{ 'User description'|trans }}</h5>
-                    <p id="profile-description">
-                        {{ profile_description|nl2br }}
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            Is used as your identity, so your Spirit can understand who you are, and provide really personalized communication.<br>
+                            <span class="text-cyber">More details</span> = <span class="text-cyber">better experience</span>
+                            <!-- TODO: It will also be used to generate your avatar. -->
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            Description content is managed:
+                            <ul>
+                                <li>Manually by you at any time</li>
+                                <li class="text-cyber">Automatically by the Spirit when you interact with it</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p id="profile-description" class="p-3 border border-secondary border-1 rounded mb-4">
+                        {{ profile_description|trim|nl2br }}
                     </p>
 
                     <button type="button" id="edit-description-button" class="btn btn-cyber float-end" 
@@ -72,7 +89,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
-                <h5 class="modal-title" id="descriptionModalLabel">{{ 'Change description'|trans }}</h5>
+                <h5 class="modal-title" id="descriptionModalLabel"><i class="mdi mdi-account-edit me-2"></i>{{ 'Change description'|trans }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -82,10 +99,12 @@
                         <textarea class="form-control" id="edit-description" name="edit-description" rows="12" style="height: 72vh !important;" required></textarea>
                     </div>
                     <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                            <i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}
+                        </button>
                         <button type="submit" class="btn btn-cyber">
                             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                            {{ 'Update'|trans }}
+                            <i class="mdi mdi-content-save me-2"></i>{{ 'Save'|trans }}
                         </button>
                     </div>
                 </form>

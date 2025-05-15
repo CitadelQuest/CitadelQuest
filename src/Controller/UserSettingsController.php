@@ -136,6 +136,12 @@ class UserSettingsController extends AbstractController
         ]);
     }
 
+    #[Route('/admin', name: 'app_user_settings_admin')]
+    public function admin(): Response
+    {
+        return $this->render('user_settings/admin.html.twig');
+    }
+
     #[Route('/profile', name: 'app_user_settings_profile')]
     public function profile(SettingsService $settingsService): Response
     {
@@ -149,7 +155,7 @@ class UserSettingsController extends AbstractController
     }
 
     #[Route('/ai', name: 'app_user_settings_ai')]
-    public function aiSettings(Request $request): Response
+    public function aiSettings(Request $request, EntityManagerInterface $entityManager): Response
     {
         // Get user's settings
         $settings = $this->settingsService->getAllSettings();
@@ -163,7 +169,7 @@ class UserSettingsController extends AbstractController
                 $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
                 if ($gateway) {
                     $gateway->setApiKey($request_api_key);
-                    $this->entityManager->flush();
+                    $entityManager->flush();
                     $this->addFlash('success', 'API key updated successfully.');
                 }
             }

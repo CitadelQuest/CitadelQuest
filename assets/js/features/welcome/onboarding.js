@@ -57,8 +57,15 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('selected');
             // Update selected color
             selectedColor = this.dataset.color;
-            // update SVG glow color
-            document.getElementById('spiritImage').style.filter = `drop-shadow(0 0 10px ${selectedColor}) !important`;
+            // update avatar glow color
+            let spiritAvatar = document.querySelectorAll(
+                '.spirit-icon-container > .spirit-icon > .spirit-glow, .spirit-avatar-container > .spirit-avatar > .spirit-glow');
+            if (spiritAvatar) {
+                let color = selectedColor;
+                if (color) {
+                    spiritAvatar.forEach(glow => glow.style.backgroundColor = color);
+                }
+            }
         });
     });
     
@@ -100,8 +107,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 // Update UI to show success
-                spiritImage.classList.remove('spirit-inactive');
-                spiritImage.classList.add('spirit-active');
+                spiritImage?.classList?.remove('spirit-inactive');
+                spiritImage?.classList?.add('spirit-active');
                 
                 // Populate model selection with actual models
                 updateModelSelection(data.models);

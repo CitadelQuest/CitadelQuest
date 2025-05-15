@@ -44,6 +44,11 @@ export class SpiritChatManager {
         
         // Fetch the user's primary spirit
         this.fetchPrimarySpirit();
+
+        // Show the modal if it was open before
+        if (localStorage.getItem('spiritChatModal') === 'true') {
+            this.spiritChatButton.dispatchEvent(new Event('click'));
+        }
     }
     
     /**
@@ -56,8 +61,14 @@ export class SpiritChatManager {
                 if (this.conversations.length === 0) {
                     this.loadConversations(true);
                 }
+                localStorage.setItem('spiritChatModal', 'true');
+            });
+            
+            this.spiritChatModal.addEventListener('hidden.bs.modal', () => {
+                localStorage.removeItem('spiritChatModal');
             });
         }
+
         
         // Chat form submission
         if (this.chatForm) {
@@ -85,6 +96,14 @@ export class SpiritChatManager {
                 this.createNewConversation();
             });
         }
+
+        // Message input textarea - dynamic rows
+        if (this.messageInput) {
+            this.messageInput.addEventListener('input', () => {
+                this.messageInput.rows = 1;
+                this.messageInput.rows = Math.min( Math.max(this.messageInput.value.split('\n').length, 2), 9 );
+            });
+        }
     }
     
     /**
@@ -94,12 +113,10 @@ export class SpiritChatManager {
         // Check if we're in onboarding mode
         const isOnboarding = window.location.pathname.includes('/welcome') && localStorage.getItem('currentStep') !== null;
         if (isOnboarding) {
-            console.log('Skipping spirit fetch during onboarding');
             return;
         }
         
         try {
-            console.log('Fetching primary spirit...');
             const response = await fetch('/api/spirit');
             if (!response.ok) {
                 throw new Error('Failed to fetch primary spirit');
@@ -118,20 +135,26 @@ export class SpiritChatManager {
                 this.spiritLevel.textContent = `${levelText}: ${spirit.level}`;
             }
             
-            // Initialize 3D avatar if available
-            if (this.spiritChatAvatar && window.SpiritVisualizer) {
+            // Initialize 3D avatar if available - not implemented yet
+            /* if (this.spiritChatAvatar && window.SpiritVisualizer) {
                 const visualizer = new window.SpiritVisualizer(this.spiritChatAvatar, {
                     size: 120,
                     visualState: spirit.visualState,
                     level: spirit.level
                 });
                 visualizer.init();
+            } */
+            let spiritAvatar = document.querySelectorAll(
+                '.spirit-icon-container > .spirit-icon > .spirit-glow, .spirit-avatar-container > .spirit-avatar > .spirit-glow');
+            if (spiritAvatar) {
+                let color = JSON.parse(spirit.visualState)?.color??null;
+                if (color) {
+                    spiritAvatar.forEach(glow => glow.style.backgroundColor = color);
+                }
             }
             
         } catch (error) {
             console.error('Error fetching primary spirit:', error);
-            // Show error message
-            //window.toast.error(error.message || 'Failed to load spirit information');
         }
     }
     
@@ -246,7 +269,6 @@ export class SpiritChatManager {
             });            
             // add active class to the selected item
             while (this.isLoadingConversations) {
-                console.log('Waiting for conversations to load...');
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
             const activeItem = this.conversationsList.querySelector(`[data-id="${conversationId}"]`);
@@ -260,7 +282,7 @@ export class SpiritChatManager {
             this.currentConversationId = conversationId;
             
             // Update modal title
-            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-message text-light ms-2 fs-6 opacity-75"></i>';
+            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-forum text-light ms-2 fs-6 opacity-75"></i>';
             
             // Render messages
             this.renderMessages(conversation.messages);

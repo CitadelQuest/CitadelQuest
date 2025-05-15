@@ -25,7 +25,7 @@
             <!-- User Menu -->
             <li class="nav-item dropdown">
                 <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="mdi mdi-account"></i>
+                    <i class="mdi mdi-account{% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}-cowboy-hat{% endif %}"></i>
                     <span class="d-none d-sm-inline ms-1">{{ app.user.userIdentifier }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
@@ -52,13 +52,13 @@
                     </li>
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
-                            <i class="mdi mdi-book me-3{% if app.request.pathInfo == path('app_user_settings_profile') %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-account me-3{% if app.request.pathInfo == path('app_user_settings_profile') %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.profile'|trans }}
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
-                            <i class="mdi mdi-cog me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-tune-vertical me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% endif %}"></i>
                             Settings
                         </a>
                     </li>

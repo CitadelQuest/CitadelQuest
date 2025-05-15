@@ -1,7 +1,7 @@
 /**
  * SpiritManager - Manages the Spirit feature UI and API interactions
  */
-import * as THREE from 'three';
+//import * as THREE from 'three';
 
 export class SpiritManager {
     constructor(config) {
@@ -323,7 +323,7 @@ export class SpiritManager {
         if (this.spiritDisplay) {
             this.spiritDisplay.classList.remove('d-none');
             this.updateSpiritDisplay();
-            this.initSpiritVisualization();
+            //this.initSpiritVisualization();
         }
     }
     
@@ -561,7 +561,7 @@ export class SpiritManager {
             
             item.innerHTML = `
                 <div class="cursor-pointer">
-                    <div><i class="mdi mdi-message me-2 mt-1 text-cyber"></i> ${conversation.title}</div>
+                    <div><i class="mdi mdi-forum me-2 mt-1 text-cyber"></i> ${conversation.title}</div>
                     <div class="float-end">
                         <small class="text-muted me-2">${formattedDate}</small>
                         <span class="badge bg-dark bg-opacity-50 text-cyber">${messagesCount}</span>
