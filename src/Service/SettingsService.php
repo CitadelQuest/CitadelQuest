@@ -23,49 +23,56 @@ class SettingsService
     {
         /** @var User $user */
         $user = $this->security->getUser();
+        if (!$user) {
+            throw new \Exception('User not found');
+        }
         return $this->userDatabaseManager->getDatabaseConnection($user);
     }
 
     /**
      * Create or update a setting
      */
-    public function setSetting(string $key, ?string $value): Settings
+    public function setSetting(string $key, ?string $value): ?Settings
     {
-        $userDb = $this->getUserDb();
-        
-        // Check if setting already exists
-        $existingSetting = $this->getSetting($key);
-        
-        if ($existingSetting) {
-            // Update existing setting
-            $existingSetting->setValue($value);
+        try {
+            $userDb = $this->getUserDb();
             
-            $userDb->executeStatement(
-                'UPDATE settings SET value = ?, updated_at = ? WHERE id = ?',
-                [
-                    $existingSetting->getValue(),
-                    $existingSetting->getUpdatedAt()->format('Y-m-d H:i:s'),
-                    $existingSetting->getId()
-                ]
-            );
+            // Check if setting already exists
+            $existingSetting = $this->getSetting($key);
             
-            return $existingSetting;
-        } else {
-            // Create new setting
-            $setting = new Settings($key, $value);
-            
-            $userDb->executeStatement(
-                'INSERT INTO settings (id, `key`, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-                [
-                    $setting->getId(),
-                    $setting->getKey(),
-                    $setting->getValue(),
-                    $setting->getCreatedAt()->format('Y-m-d H:i:s'),
-                    $setting->getUpdatedAt()->format('Y-m-d H:i:s')
-                ]
-            );
-            
-            return $setting;
+            if ($existingSetting) {
+                // Update existing setting
+                $existingSetting->setValue($value);
+                
+                $userDb->executeStatement(
+                    'UPDATE settings SET value = ?, updated_at = ? WHERE id = ?',
+                    [
+                        $existingSetting->getValue(),
+                        $existingSetting->getUpdatedAt()->format('Y-m-d H:i:s'),
+                        $existingSetting->getId()
+                    ]
+                );
+                
+                return $existingSetting;
+            } else {
+                // Create new setting
+                $setting = new Settings($key, $value);
+                
+                $userDb->executeStatement(
+                    'INSERT INTO settings (id, `key`, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+                    [
+                        $setting->getId(),
+                        $setting->getKey(),
+                        $setting->getValue(),
+                        $setting->getCreatedAt()->format('Y-m-d H:i:s'),
+                        $setting->getUpdatedAt()->format('Y-m-d H:i:s')
+                    ]
+                );
+                
+                return $setting;
+            }
+        } catch (\Exception $e) {
+            return null;
         }
     }
 
@@ -74,17 +81,21 @@ class SettingsService
      */
     public function getSetting(string $key): ?Settings
     {
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM settings WHERE `key` = ?',
-            [$key]
-        )->fetchAssociative();
+        try {
+            $userDb = $this->getUserDb();
+            $result = $userDb->executeQuery(
+                'SELECT * FROM settings WHERE `key` = ?',
+                [$key]
+            )->fetchAssociative();
 
-        if (!$result) {
+            if (!$result) {
+                return null;
+            }
+
+            return Settings::fromArray($result);
+        } catch (\Exception $e) {
             return null;
         }
-
-        return Settings::fromArray($result);
     }
 
     /**
@@ -101,13 +112,17 @@ class SettingsService
      */
     public function deleteSetting(string $key): bool
     {
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeStatement(
-            'DELETE FROM settings WHERE `key` = ?',
-            [$key]
-        );
+        try {
+            $userDb = $this->getUserDb();
+            $result = $userDb->executeStatement(
+                'DELETE FROM settings WHERE `key` = ?',
+                [$key]
+            );
 
-        return $result > 0;
+            return $result > 0;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
@@ -117,12 +132,16 @@ class SettingsService
      */
     public function getAllSettings(): array
     {
-        $userDb = $this->getUserDb();
-        $results = $userDb->executeQuery(
-            'SELECT * FROM settings ORDER BY `key` ASC'
-        )->fetchAllAssociative();
+        try {
+            $userDb = $this->getUserDb();
+            $results = $userDb->executeQuery(
+                'SELECT * FROM settings ORDER BY `key` ASC'
+            )->fetchAllAssociative();
 
-        $settings = array_map(fn($data) => Settings::fromArray($data), $results);
-        return array_combine(array_map(fn($setting) => $setting->getKey(), $settings), array_map(fn($setting) => $setting->getValue(), $settings));
+            $settings = array_map(fn($data) => Settings::fromArray($data), $results);
+            return array_combine(array_map(fn($setting) => $setting->getKey(), $settings), array_map(fn($setting) => $setting->getValue(), $settings));
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 }

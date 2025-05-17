@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 email.classList.add('is-valid');
             }
         
-            if (!passwordRegex.test(password.value)) {
+            if (!passwordRegex.test(password.value) || (password.value.length < 8)) {
                 password.classList.add('is-invalid');
                 passwordRequirements.classList.remove('d-none');
                 
