@@ -171,7 +171,7 @@ export class SpiritChatManager {
             this.conversationsList.innerHTML = `
                 <div class="text-center p-3">
                     <div class="spinner-border text-cyber" role="status">
-                        <span class="visually-hidden">${window.translations && window.translations['loading'] ? window.translations['loading'] : 'Loading...'}</span>
+                        <span class="visually-hidden">${window.translations && window.translations['auth.key_generation.loading'] ? window.translations['loading'] : 'Loading...'}</span>
                     </div>
                 </div>
             `;
@@ -424,7 +424,7 @@ export class SpiritChatManager {
                 <div class="chat-bubble">
                     <div class="chat-content">
                         <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                            <span class="visually-hidden">${window.translations && window.translations['loading'] ? window.translations['loading'] : 'Loading...'}</span>
+                            <span class="visually-hidden">${window.translations && window.translations['auth.key_generation.loading'] ? window.translations['loading'] : 'Loading...'}</span>
                         </div>
                     </div>
                 </div>

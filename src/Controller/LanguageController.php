@@ -8,13 +8,14 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use App\Service\SettingsService;
 
 class LanguageController extends AbstractController
 {
     private const SUPPORTED_LOCALES = ['en', 'cs', 'sk'];
 
     #[Route('/language/{locale}', name: 'app_language_switch')]
-    public function switch(Request $request, string $locale): Response
+    public function switch(Request $request, string $locale, SettingsService $settingsService): Response
     {
         // Validate locale
         if (!in_array($locale, self::SUPPORTED_LOCALES)) {
@@ -23,6 +24,9 @@ class LanguageController extends AbstractController
 
         // Store the locale in session
         $request->getSession()->set('_locale', $locale);
+        
+        // Store the locale in settings
+        $settingsService->setSetting('_locale', $locale);
         
         // Create response
         if ($request->isXmlHttpRequest()) {

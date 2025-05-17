@@ -171,6 +171,119 @@ class UserSettingsController extends AbstractController
                     $gateway->setApiKey($request_api_key);
                     $entityManager->flush();
                     $this->addFlash('success', 'API key updated successfully.');
+                } else {
+                    try {
+                        // Validate key
+                        //  request models from CQ AI Gateway via http client
+                        $responseModels = $this->httpClient->request(
+                            'GET',
+                            'https://cqaigateway.com/api/ai/models', 
+                            [
+                                'headers' => [
+                                    'Authorization' => 'Bearer ' . $request_api_key
+                                ]
+                            ]
+                        );
+                        //  check response status
+                        $responseStatus = $responseModels->getStatusCode(false);
+                        if ($responseStatus !== Response::HTTP_OK) {
+                            if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
+                                return new JsonResponse([
+                                    'success' => false,
+                                    'message' => 'Invalid API key'
+                                ], Response::HTTP_UNAUTHORIZED);
+                            } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
+                                        || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
+                                        || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
+                                        || $responseStatus === Response::HTTP_BAD_GATEWAY
+                                        || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
+                                        || $responseStatus === Response::HTTP_NOT_FOUND) {
+                                return new JsonResponse([
+                                    'success' => false,
+                                    'message' => 'CQ AI Gateway is currently unavailable, please try again later'
+                                ], Response::HTTP_SERVICE_UNAVAILABLE);
+                            } else {
+                                return new JsonResponse([
+                                    'success' => false,
+                                    'message' => 'Failed to validate API key (' . $responseStatus . ')'
+                                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                            }
+                        }
+                        
+                        // Get models from response
+                        $cq_ai_models = json_decode($responseModels->getContent(), true)['models']??[];
+                        $models = [];
+            
+                        if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
+                            return new JsonResponse([
+                                'success' => false,
+                                'message' => 'No models found on CQ AI Gateway'
+                            ], Response::HTTP_SERVICE_UNAVAILABLE);
+                        }
+            
+                        // Create CQ AI Gateway if not already created
+                        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+                        if (!$gateway) {
+                            $gateway = $this->aiGatewayService->createGateway(
+                                'CQ AI Gateway',
+                                $request_api_key,
+                                'https://cqaigateway.com/api',
+                                'cq_ai_gateway'
+                            );
+                        }
+                        
+                        // Add models to database
+                        foreach ($cq_ai_models as $model) {
+                            $modelSlug = $model['id'];
+                            $modelSlugProvider = substr($modelSlug, 0, strpos($modelSlug, '/'));
+            
+                            if ($modelSlugProvider === 'citadelquest') {            
+                                $maxOutputTokens = isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : null;
+                                $pricingInput = isset($model['pricing']) && isset($model['pricing']['prompt']) ? $model['pricing']['prompt'] : null;
+                                $pricingOutput = isset($model['pricing']) && isset($model['pricing']['completion']) ? $model['pricing']['completion'] : null;
+                    
+                                $newModel = $this->aiServiceModelService->createModel(
+                                    $gateway->getId(),          // gateway id
+                                    $model['name'],             // model name
+                                    $modelSlug,                 // model slug
+                                    null,                       // virtual key = null, deprecated
+                                    $model['context_length'],   // context length
+                                    $model['context_length'],   // max input
+                                    0,                          // maxInputImageSize
+                                    $maxOutputTokens,           // max output(response) tokens
+                                    $pricingInput,              // ppmInput
+                                    $pricingOutput,             // ppmOutput
+                                    true                        // is active
+                                );
+            
+                                $models[] = $newModel;
+            
+                                // Set first model as primary model
+                                if (count($models) === 1) {
+                                    $this->settingsService->setSetting('ai.primary_ai_service_model_id', $newModel->getId());
+                                    $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $newModel->getId());
+                                }
+                            }
+                        }
+            
+                        return new JsonResponse([
+                            'success' => true,
+                            'message' => 'CQ AI Gateway added successfully',
+                            'gateway' => [
+                                'id' => $gateway->getId(),
+                                'name' => $gateway->getName()
+                            ],
+                            'models' => $models
+                        ], Response::HTTP_OK);
+                    } catch (\Exception $e) {
+                        return new JsonResponse([
+                            'success' => false,
+                            'message' => 'Error adding gateway: ' . $e->getMessage()
+                        ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                    }
+                    
+            
+                    $this->addFlash('success', 'API key updated successfully.');
                 }
             }
             // 2. Primary and secondary AI models

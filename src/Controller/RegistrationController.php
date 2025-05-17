@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Form\RegistrationType;
 use App\Service\UserDatabaseManager;
 use App\Service\UserKeyManager;
+use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,6 +16,8 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\Security\Http\Authentication\UserAuthenticatorInterface;
 use App\Security\LoginFormAuthenticator;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 class RegistrationController extends AbstractController
 {
@@ -29,7 +32,10 @@ class RegistrationController extends AbstractController
         UserDatabaseManager $databaseManager,
         UserKeyManager $keyManager,
         UserAuthenticatorInterface $userAuthenticator,
-        LoginFormAuthenticator $authenticator
+        LoginFormAuthenticator $authenticator,
+        HttpClientInterface $httpClient,
+        SettingsService $settingsService,
+        SessionInterface $session
     ): Response {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
@@ -76,19 +82,60 @@ class RegistrationController extends AbstractController
                 throw $e;
             }
 
+            // Save user's locale, from cookie
+            $session->set('_locale', $request->cookies->get('citadel_locale', 'en'));
+            $settingsService->setSetting('_locale', $session->get('_locale'));
+
             // Add flash message
             $this->addFlash('success', $this->translator->trans('auth.register.success'));
 
             // Login the user
             $userAuthenticator->authenticateUser($user, $authenticator, $request);
 
-            // NICE-TO-HAVE: create `CQ AI Gateway` user account(while we have the raw password) via API, to get the API key
+            // Create `CQ AI Gateway` user account(while we have the raw password) via API, to get the CQ AI API key
+            if ($form->get('createAlsoCQAIGatewayAccount')->getData()) {
+            
+                $citadelQuestURL = $request->getScheme() . '://' . $request->getHost();
+                
+                try {
+                    $response = $httpClient->request(
+                        'POST',
+                        'https://cqaigateway.com/api/user/register',
+                        [
+                            'json' => [
+                                'username' => $user->getUsername(),
+                                'email' => $user->getEmail(),
+                                'password' => $form->get('password')->getData(),
+                                'citadelquest_url' => $citadelQuestURL
+                            ]
+                        ]
+                    );
+                    
+                    $statusCode = $response->getStatusCode();
+                    $content = $response->getContent();
+                    
+                    $data = json_decode($content, true);
+                    
+                    if ($statusCode !== Response::HTTP_CREATED && $statusCode !== Response::HTTP_OK) {
+                        return $this->redirectToRoute('app_register');
+                    }
+                    
+                    $apiKey = $data['user_api_key'];
+
+                    // save API key to user settings - it will be used in onboarding, pre-filled in the form
+                    $settingsService->setSetting('cqaigateway.api_key', $apiKey);
+                    
+                } catch (\Exception $e) {
+                    $this->addFlash('error', $this->translator->trans('auth.register.error') . ' (' . $e->getMessage() . ')');
+                    return $this->redirectToRoute('app_register');
+                }
+            }
 
             return $this->redirectToRoute('app_welcome_onboarding');
         }
 
         return $this->render('registration/register.html.twig', [
-            'registrationForm' => $form->createView(),
+            'registrationForm' => $form->createView()
         ]);
     }
 }

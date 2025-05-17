@@ -13,7 +13,7 @@ auth:
         username: 'Username'
         password: 'Password'
         remember_me: 'Remember me'
-        submit: 'Sign in'
+        submit: 'Log in'
         no_account: "Don't have an account?"
         register_link: 'Create one now'
     key_generation:
@@ -41,7 +41,7 @@ auth:
         username: 'Choose your username'
         email: 'Email address'
         email_help: 'Enter your email address'
-        username_help: 'Letters, numbers and underscores only'
+        username_help: 'Letters, numbers and underscores only _'
         password: 'Choose your password'
         password_help: 'Choose a strong password'
         password_requirements:
@@ -50,13 +50,17 @@ auth:
             uppercase: 'One uppercase letter'
             lowercase: 'One lowercase letter'
             number: 'One number'
-            special: 'One special character (@$!%*?&)'
+            special: 'One special character: @$!%*?&'
         repeat_password: 'Repeat password'
         agree_terms: 'I agree to the terms of service'
-        submit: 'Create CitadelQuest Account'
+        submit: 'Create Account'
         have_account: 'Already have an account?'
-        login_link: 'Sign in'
-        success: 'Registration successful!'
+        login_link: 'Log in'
+        success: 'Account created successfully!'
+        createAlsoCQAIGatewayAccount: 'Auto-create also <a href="https://cqaigateway.com/" target="_blank" class="text-cyber" title="Simplest Access to Top AI Services for your CitadelQuest">CQ AI Gateway</a> account'
+        createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>With free credits</li><li>No credit card required</li><li>No personal data required</li></div><div class="col"><li>No data collection</li><li>No tracking</li><li>No ads</li></div></ul>'
+        createAlsoCQAIGatewayAccountConfirm: 'Do you already have CQ AI Gateway account and API key? :)' 
+        createAlsoCQAIGatewayAccountClaim: 'Bring your Spirit to life and enhance all tools with power of AI'
 
 notifications:
     title: Notifications
@@ -295,9 +299,6 @@ welcome:
             name_label: "Spirit Name"
             name_placeholder: "Enter a name for your Spirit"
             model_label: "Select AI Spirit model"
-            model_claude: "Solaris"
-            model_gemini: "Gaia"
-            model_grok: "Sylvan"
             color_label: "Choose a color"
             back: "Back"
             create: "Create Spirit"

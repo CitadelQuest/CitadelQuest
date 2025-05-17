@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 #[Route('/welcome')]
 #[IsGranted('ROLE_USER')]
@@ -28,8 +29,10 @@ class WelcomeController extends AbstractController
     ) {}
     
     #[Route('', name: 'app_welcome_onboarding')]
-    public function index(): Response
+    public function index(SessionInterface $session, Request $request): Response
     {
+        $session->set('_locale', $request->cookies->get('citadel_locale', 'en'));
+        
         // Check if user has completed onboarding
         $hasCompletedOnboarding = $this->settingsService->getSettingValue('onboarding.completed', false);
         
@@ -37,12 +40,17 @@ class WelcomeController extends AbstractController
         if ($hasCompletedOnboarding) {
             return $this->redirectToRoute('app_home');
         }
+
+        $apiKey = $this->settingsService->getSettingValue('cqaigateway.api_key');
         
-        return $this->render('welcome/onboarding.html.twig', []);
+        return $this->render('welcome/onboarding.html.twig', [
+            'apiKey' => $apiKey,
+            '_locale' => $session->get('_locale')
+        ]);
     }
     
     #[Route('/add-gateway', name: 'app_welcome_add_gateway', methods: ['POST'])]
-    public function addGateway(Request $request): JsonResponse
+    public function addGateway(Request $request, SessionInterface $session): JsonResponse
     {
         // check if 'onboarding.completed' is still false
         $hasCompletedOnboarding = $this->settingsService->getSettingValue('onboarding.completed', false);
@@ -155,6 +163,8 @@ class WelcomeController extends AbstractController
                     }
                 }
             }
+
+            $session->set('models', json_encode($models));
             
             return new JsonResponse([
                 'success' => true,

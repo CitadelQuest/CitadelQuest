@@ -19,11 +19,13 @@
                         {% endif %}
 
                         <div class="mb-3">
+                            <i class="mdi mdi-account me-2 text-cyber"></i>
                             <label for="username" class="form-label">{{ 'auth.login.username'|trans }}</label>
                             <input type="text" value="{{ last_username }}" name="_username" id="username" class="form-control" autocomplete="username" required autofocus>
                         </div>
 
                         <div class="mb-3">
+                            <i class="mdi mdi-lock me-2 text-cyber"></i>
                             <label for="password" class="form-label">{{ 'auth.login.password'|trans }}</label>
                             <input type="password" name="_password" id="password" class="form-control" autocomplete="current-password" required>
                         </div>

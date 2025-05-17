@@ -35,7 +35,7 @@
                     
                     <div class="form-group mb-3">
                         <label for="apiKey">{{ 'welcome.onboarding.step1.api_key_label'|trans }}</label>
-                        <input type="password" class="form-control api-key-input mt-1" id="apiKey" placeholder="{{ 'welcome.onboarding.step1.api_key_placeholder'|trans }}">
+                        <input type="password" class="form-control api-key-input mt-1" id="apiKey" value="{{ apiKey }}" placeholder="{{ 'welcome.onboarding.step1.api_key_placeholder'|trans }}">
                     </div>
                     
                     <div class="mb-4 w-100">
@@ -46,10 +46,20 @@
                         </a>
                     </div>
                     <div class="w-100">
-                        <button id="validateApiKey" class="btn btn-cyber w-100" disabled>
+                        <button id="validateApiKey" class="btn btn-cyber w-100" {% if apiKey is empty %}disabled{% endif %}>
                             <i class="mdi mdi-check"></i>
                             {{ 'welcome.onboarding.step1.validate'|trans|default('Validate & Continue') }}
                         </button>
+                        {% if apiKey is not empty %}
+                            {# Auto validate API key if it is not empty #}
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    setTimeout(function() {
+                                        document.getElementById('validateApiKey').dispatchEvent(new Event('click'));
+                                    }, 1000);
+                                });
+                            </script>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-md-6 text-center py-5">
@@ -76,19 +86,7 @@
                     
                     <div class="form-group mb-4">
                         <label>{{ 'welcome.onboarding.step2.model_label'|trans }}</label>
-                        <div class="d-flex flex-wrap gap-2" id="modelSelection">{# 
-                            <label class="form-check-label form-check form-control" for="modelSolaris">
-                                <input class="form-check-input ms-1 me-3" type="radio" name="aiModel" id="modelSolaris" value="citadelquest/solaris" checked>
-                                Solaris
-                            </label>
-                            <label class="form-check-label form-check form-control" for="modelGaia">
-                                <input class="form-check-input ms-1 me-3" type="radio" name="aiModel" id="modelGaia" value="citadelquest/gaia">
-                                Gaia
-                            </label>
-                            <label class="form-check-label form-check form-control" for="modelSylvan">
-                                <input class="form-check-input ms-1 me-3" type="radio" name="aiModel" id="modelSylvan" value="citadelquest/sylvan">
-                                Sylvan
-                            </label> #}
+                        <div class="d-flex flex-wrap gap-2" id="modelSelection">
                         </div>
                     </div>
                     
@@ -104,13 +102,9 @@
                     </div>
                     
                     <div class="d-flex justify-content-between align-items-center">
-                        {# <button id="backToStep1" class="btn btn-outline-light">
-                            <i class="mdi mdi-arrow-left"></i>
-                            {{ 'welcome.onboarding.step2.back'|trans }}
-                        </button> #}
                         <button id="createSpirit" class="btn btn-cyber" disabled>
                             <i class="mdi mdi-shimmer"></i>
-                            {{ 'welcome.onboarding.step2.create'|trans }}
+                            {{ 'welcome.onboarding.step2.create'|trans }} & {{ 'welcome.onboarding.step3.start_journey'|trans }}
                         </button>
                     </div>
                 </div>
@@ -123,21 +117,15 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Step 3: Start Journey -->
-        <div class="step-container" id="step3">
-            <div class="text-center">
-                <h2>{{ 'welcome.onboarding.step3.title'|trans }}</h2>
-                <p class="lead">{{ 'welcome.onboarding.step3.description'|trans }}</p>
-                
-                <div class="my-5">
-                    <img src="{{ asset('images/spirit-active.svg') }}" alt="Spirit" class="img-fluid spirit-active" style="max-height: 200px;">
-                    <h3 id="spiritNameDisplay" class="mt-3">Spirit</h3>
-                </div>
-                
-                <button id="startJourney" class="btn btn-cyber btn-lg mb-3">
-                    {{ 'welcome.onboarding.step3.start_journey'|trans }}
-                </button>
+
+    </div>
+</div>
+<div class="container onboarding-complete-container d-none">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="text-center my-4">
+                <h1 class="display-4 mb-5">{{ 'welcome.onboarding.completed'|trans }}</h1>
+                <p><a href="{{ path('app_home') }}" class="btn btn-cyber">{{ 'app.welcome'|trans }}</a></p>
             </div>
         </div>
     </div>

@@ -20,9 +20,9 @@ auth:
         generating_keys: 'Generujem bezpečnostné kľúče...'
         generating_your_keys: 'Generujem vaše bezpečnostné kľúče...'
         loading: 'Načítavam...'
-        creating_citadel: 'Vytváram Váš CitadelQuest účet...'
+        creating_citadel: 'Vytváram Váš účet...'
         error: 'Chyba pri generovaní kľúčov. Prosím skúste to znova.'
-        button_text: 'Vytvoriť Môj CitadelQuest účet'
+        button_text: 'Vytvoriť účet'
     register:
         error:
             username_blank: 'Prosím zadajte používateľské meno'
@@ -38,10 +38,10 @@ auth:
             password_mismatch: 'Heslá sa musia zhodovať'
             password_requirements: 'Heslo musí obsahovať aspoň jedno veľké písmeno, jedno malé písmeno, jedno číslo a jeden špeciálny znak'
         title: 'Vytvorte si CitadelQuest účet'
-        username: 'Zvoľte si používateľské meno'
+        username: 'Zvoľte si užívateľské meno'
         email: 'E-mailová adresa'
         email_help: 'Zadajte svoju e-mailovú adresu'
-        username_help: 'Len písmená, čísla a podtržníky'
+        username_help: 'Len písmená, čísla a podtržníky _'
         password: 'Zvoľte si heslo'
         password_help: 'Zvoľte si silné heslo'
         password_requirements:
@@ -50,13 +50,17 @@ auth:
             uppercase: 'Jedno veľké písmeno'
             lowercase: 'Jedno malé písmeno'
             number: 'Jedno číslo'
-            special: 'Jeden špeciálny znak (@$!%*?&)'
+            special: 'Jeden špeciálny znak: @$!%*?&'
         repeat_password: 'Zopakujte heslo'
         agree_terms: 'Súhlasím s podmienkami služby'
-        submit: 'Vytvoriť CitadelQuest účet'
+        submit: 'Vytvoriť účet'
         have_account: 'Už máte účet?'
         login_link: 'Prihlásiť sa'
         success: 'Registrácia úspešná!'
+        createAlsoCQAIGatewayAccount: 'Automaticky vytvoriť účet <a href="https://cqaigateway.com/" target="_blank" class="text-cyber" title="Najjednoduchší prístup k najlepším službám umelej inteligencie pre váš CitadelQuest">CQ AI Gateway</a>'
+        createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>S bezplatnými kreditmi</li><li>Kreditná karta nie je potrebná</li><li>Osobné údaje nie sú potrebné</li></div><div class="col"><li>Žiadny zber údajov</li><li>Žiadne sledovanie</li><li>Žiadne reklamy</li></div></ul>'
+        createAlsoCQAIGatewayAccountConfirm: 'Už máte účet a API kľúč CQ AI Gateway? :)' 
+        createAlsoCQAIGatewayAccountClaim: 'Vdýchnite život svojmu sprievodcovi a vylepšite nástroje silou AI'
 
 notifications:
     title: Notifikácie
@@ -76,7 +80,7 @@ notifications:
 
 home:
     actions:
-        create_citadel: 'Vytvoriť CitadelQuest účet'
+        create_citadel: 'Vytvoriť účet'
         login: 'Prihlásiť'
     features:
         data_control:
@@ -153,7 +157,7 @@ spirit:
         conversation_title: 'Názov konverzácie'
         conversation_created: 'Konverzácia úspešne vytvorená'
         no_conversations: 'Zatiaľ žiadne konverzácie'
-        type_message: 'Napíšte vašu správu tu...'
+        type_message: 'Napíšte vašu správu...'
         no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu!'
         loading_response: 'Duch rozmýšľa...'
 
@@ -270,3 +274,29 @@ diary:
         content: 'Napíšte svoje myšlienky...'
         tags: 'Pridajte štítky (voliteľné)'
 
+welcome:
+    onboarding:
+        welcome: "Vitajte v CitadelQuest"
+        subtitle: "Nastavme si vášho osobného AI asistenta"
+        step1:
+            title: "Pripojte sa k CQ AI Gateway"
+            description: "Najprv sa pripojme k CQ AI Gateway, aby sme mohli pristupovať k najnovším AI modelom a službám."
+            api_key_label: "CQ AI Gateway API kľúč"
+            api_key_placeholder: "Zadajte váš CQ AI Gateway API kľúč"
+            get_key: "Potrebujete API kľúč?"
+            get_key_url_text: "Získajte ho tu"
+            validate: "Overiť a pokračovať"
+        step2:
+            title: "Vytvorte si svojho Ducha"
+            description: "Váš Duch je váš osobný AI sprievodca a spoločník. <br/> Dajte mu meno a vyberte AI model pre jeho dušu."
+            name_label: "Meno Ducha"
+            name_placeholder: "Zadajte meno pre vášho Ducha"
+            model_label: "Vyberte AI model Ducha"
+            color_label: "Vyberte farbu"
+            back: "Späť"
+            create: "Vytvoriť Ducha"
+        step3:
+            title: "Pripravení začať"
+            description: "Váš Duch bol vytvorený a je pripravený vám pomáhať."
+            start_journey: "Začnite svoju cestu"
+        completed: "Úvodné nastavenie bolo úspešne dokončené!"

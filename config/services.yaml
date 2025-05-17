@@ -19,6 +19,9 @@ services:
         arguments:
             $defaultLocale: '%kernel.default_locale%'
         tags: ['kernel.event_subscriber']
+            
+    App\EventListener\AuthenticationSuccessListener:
+        tags: ['kernel.event_subscriber']
 
     App\:
         resource: '../src/'

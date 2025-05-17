@@ -16,6 +16,31 @@
     {{ encore_entry_script_tags('crypto') }}
 {% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .is-invalid {
+            border-color: var(--bs-warning) !important;
+            box-shadow: none !important;
+        }
+        
+        .is-invalid + .form-text {
+            color: var(--bs-warning) !important;
+            box-shadow: none !important;
+        }
+
+        .is-valid {
+            border-color: var(--bs-success) !important;
+            box-shadow: none !important;
+        }
+
+        .is-valid + .form-text {
+            color: var(--bs-success) !important;
+            box-shadow: none !important;
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
     <div class="container">
         <div class="row justify-content-center">
@@ -28,7 +53,8 @@
                     {% endfor %}
 
                     {{ form_start(registrationForm) }}
-                        <div class="mb-3">
+                        <div class="mb-4">
+                            <i class="mdi mdi-account me-2 text-cyber"></i>
                             {{ form_label(registrationForm.username, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.username, {
                                 'attr': { 'class': 'form-control'}
@@ -40,12 +66,13 @@
                                     {% endfor %}
                                 </div>
                             {% endif %}
-                            <small class="text-light-50">
+                            <small class="text-light-50 ms-2 usernameHelp">
                                 {{ 'auth.register.username_help'|trans }}
                             </small>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-4">
+                            <i class="mdi mdi-email me-2 text-cyber"></i>
                             {{ form_label(registrationForm.email, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.email, {
                                 'attr': { 'class': 'form-control' }
@@ -60,6 +87,7 @@
                         </div>
 
                         <div class="mb-3">
+                            <i class="mdi mdi-lock me-2 text-cyber"></i>
                             {{ form_label(registrationForm.password.first, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.password.first, {
                                 'attr': { 'class': 'form-control' }
@@ -73,18 +101,23 @@
                             {% endif %}
                             
                             <div class="password-requirements text-light-50 small mt-2">
-                                {{ 'auth.register.password_requirements.title'|trans }}
-                                <ul class="mb-0">
-                                    <li>{{ 'auth.register.password_requirements.min_length'|trans }}</li>
-                                    <li>{{ 'auth.register.password_requirements.uppercase'|trans }}</li>
-                                    <li>{{ 'auth.register.password_requirements.lowercase'|trans }}</li>
-                                    <li>{{ 'auth.register.password_requirements.number'|trans }}</li>
-                                    <li>{{ 'auth.register.password_requirements.special'|trans }}</li>
+                                <span class="ms-2">{{ 'auth.register.password_requirements.title'|trans }}</span>
+                                <ul class="mb-0 row row-cols-2">
+                                    <div class="col">
+                                        <li class="password-requirements-min-length">{{ 'auth.register.password_requirements.min_length'|trans }}</li>
+                                        <li class="password-requirements-uppercase">{{ 'auth.register.password_requirements.uppercase'|trans }}</li>
+                                        <li class="password-requirements-lowercase">{{ 'auth.register.password_requirements.lowercase'|trans }}</li>
+                                    </div>
+                                    <div class="col">
+                                        <li class="password-requirements-number">{{ 'auth.register.password_requirements.number'|trans }}</li>
+                                        <li class="password-requirements-special">{{ 'auth.register.password_requirements.special'|trans }}</li>
+                                    </div>
                                 </ul>
                             </div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-4 repeatPasswordWrapper">
+                            <i class="mdi mdi-lock me-2 text-cyber"></i>
                             {{ form_label(registrationForm.password.second, null, {'label_attr': {'class': 'form-label text-light'}}) }}
                             {{ form_widget(registrationForm.password.second, {
                                 'attr': { 'class': 'form-control' }
@@ -98,8 +131,30 @@
                             {% endif %}
                         </div>
 
+                        <div class="mb-3 mt-2">
+                            {{ form_widget(registrationForm.createAlsoCQAIGatewayAccount) }}
+                            {{ form_label(registrationForm.createAlsoCQAIGatewayAccount, null, {'label_attr': {'class': 'form-check-label text-light ms-2', 'style': 'font-size: 0.9rem;', 'value': 'true'}}) }}
+                            <small class="text-light-50">
+                                <span class="ms-2 text-cyber float-end text-end">{{ 'auth.register.createAlsoCQAIGatewayAccountClaim'|trans }}</span>
+                                <span class="clearfix"></span>
+                                <span class="createAlsoCQAIGatewayAccountClaim">{{ 'auth.register.createAlsoCQAIGatewayAccountHelp'|trans|raw }}</span>
+                                <span class="clearfix"></span>
+                            </small>
+                        </div>
+
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-cyber" id="register-button">
+                            <button type="submit" class="btn btn-cyber mt-2" id="register-button" onclick="
+                                if (!document.getElementById('registration_createAlsoCQAIGatewayAccount').checked) {
+                                    if (confirm('{{ 'auth.register.createAlsoCQAIGatewayAccountConfirm'|trans }}')) {
+                                        return true;
+                                    } else {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        return false;
+                                    }
+                                }
+                                ">
+                                <i class="mdi mdi-account-plus me-2"></i>
                                 <span class="button-text">{{ 'auth.register.submit'|trans }}</span>
                                 <div class="spinner-border spinner-border-sm ms-2 d-none" role="status">
                                     <span class="visually-hidden">{{ 'auth.key_generation.generating_keys'|trans }}</span>
@@ -115,8 +170,8 @@
                         </div>
                     {{ form_end(registrationForm) }}
 
-                    <div class="text-center mt-3">
-                        <a href="{{ path('app_login') }}" class="text-light">{{ 'auth.register.have_account'|trans }} {{ 'auth.register.login_link'|trans }}</a>
+                    <div class="text-center mt-4">
+                        <a href="{{ path('app_login') }}" class="text-muted">{{ 'auth.register.have_account'|trans }} {{ 'auth.register.login_link'|trans }}</a>
                     </div>
                 </div>
             </div>

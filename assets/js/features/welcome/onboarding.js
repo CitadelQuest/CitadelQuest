@@ -34,9 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const spiritNameInput = document.getElementById('spiritName');
     const createSpiritBtn = document.getElementById('createSpirit');
     const backToStep1Btn = document.getElementById('backToStep1');
-    const startJourneyBtn = document.getElementById('startJourney');
     const spiritImage = document.getElementById('spiritImage');
-    const spiritNameDisplay = document.getElementById('spiritNameDisplay');
     const stepDots = document.querySelectorAll('.step-dot');
     const steps = document.querySelectorAll('.step-container');
     
@@ -129,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Step 2: Create Spirit and proceed to step 3
+    // Step 2: Create Spirit
     createSpiritBtn.addEventListener('click', function() {
         const spiritName = spiritNameInput.value.trim();
         
@@ -149,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Disable button and show loading state
         createSpiritBtn.disabled = true;
-        createSpiritBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...';
+        createSpiritBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ...';
         
         // Call the API to create the spirit
         console.log('Creating spirit with:', {
@@ -183,14 +181,47 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             console.log('Response data:', data);
             if (data.success) {
-                // Update UI for step 3
-                spiritNameDisplay.textContent = spiritName;
-
-                // save spiritId to localStorage for step 3
+                // save spiritId to localStorage 
                 localStorage.setItem('spiritId', data.spirit.id);
                 
-                // Move to step 3
-                goToStep(3);
+                // remove onboarding from localStorage
+                localStorage.removeItem('currentStep');
+
+                // enable spiritChatButton
+                spiritChatButton.style.pointerEvents = 'auto';
+                spiritChatButton.style.opacity = '1';
+
+                // Create 'first' spirit_conversation
+                fetch('/api/spirit-conversation/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ spiritId: localStorage.getItem('spiritId'), title: 'First conversation' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.title && data.id) {
+                        if (window.spiritChatManager) {
+                            // destroy the current spiritChatManager
+                            window.spiritChatManager = null;
+                        }
+                        // Initialize Spirit chat functionality
+                        window.spiritChatManager = new SpiritChatManager();
+                        window.spiritChatManager.init();
+                        
+                        // Open spirit chat modal
+                        document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
+
+                        // Hide onboarding and show onboarding complete
+                        document.querySelector('.onboarding-container').classList.add('d-none');
+                        document.querySelector('.onboarding-complete-container').classList.remove('d-none');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error creating spirit_conversation:', error);
+                });
+
             } else {
                 showError(data.message || 'Failed to create Spirit');
                 createSpiritBtn.disabled = false;
@@ -211,45 +242,6 @@ document.addEventListener('DOMContentLoaded', function() {
             goToStep(1);
         });
     }
-    
-    // Start journey button
-    startJourneyBtn.addEventListener('click', async function() {
-        // remove onboarding from localStorage
-        localStorage.removeItem('currentStep');
-
-        // enable spiritChatButton
-        spiritChatButton.style.pointerEvents = 'auto';
-        spiritChatButton.style.opacity = '1';
-
-        // Create 'first' spirit_conversation
-        await fetch('/api/spirit-conversation/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ spiritId: localStorage.getItem('spiritId'), title: 'First conversation' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.title && data.id) {
-                if (window.spiritChatManager) {
-                    // destroy the current spiritChatManager
-                    window.spiritChatManager = null;
-                }
-                // Initialize Spirit chat functionality
-                window.spiritChatManager = new SpiritChatManager();
-                window.spiritChatManager.init();
-                
-                // Open spirit chat modal
-                document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
-                // hide this button
-                startJourneyBtn.classList.add('d-none');
-            }
-        })
-        .catch(error => {
-            console.error('Error creating spirit_conversation:', error);
-        });
-    });
     
     // Helper function to go to a specific step
     function goToStep(stepNumber) {
@@ -333,6 +325,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const modelsFromSession = JSON.parse(sessionStorage.getItem('models'));
             if (modelsFromSession) {
                 updateModelSelection(modelsFromSession);   
+            } else {
+                // get models from API
+                fetch('/api/ai/model')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateModelSelection(data.models);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching models:', error);
+                    });
             }
         }
 

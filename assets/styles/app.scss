@@ -88,6 +88,10 @@ body {
     position: relative;
 }
 
+* {
+    transition: all vars.$duration-quick vars.$ease-standard !important;
+}
+
 // Footer styling
 .footer {
     background: rgba(colors.$body-bg, 0.2);
@@ -273,6 +277,7 @@ strong, .strong {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: colors.$text-light;
+    transition: all vars.$duration-quick vars.$ease-standard !important;
     
     &:focus {
         background: rgba(255, 255, 255, 0.1);
@@ -289,6 +294,16 @@ textarea {
 }
 .form-control::placeholder {
     color: colors.$text-muted !important;
+}
+.form-check-input:checked, input[type="checkbox"]:checked {
+    background-color: invert(colors.$cyber) !important;
+    border-color: invert(colors.$cyber) !important;
+    box-shadow: none !important;
+    transition: all vars.$duration-quick vars.$ease-standard !important;
+}
+.form-check-input:checked[type=checkbox] {
+    filter: invert(1);
+    box-shadow: none !important;
 }
 
 // Animations

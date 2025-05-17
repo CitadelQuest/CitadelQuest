@@ -36,7 +36,7 @@
                         <div id="conversationsList" class="list-group conversation-list">
                             <div class="text-center p-3">
                                 <div class="spinner-border text-cyber" role="status">
-                                    <span class="visually-hidden">{{ 'loading'|trans }}</span>
+                                    <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
                                 </div>
                             </div>
                         </div>
@@ -47,7 +47,7 @@
                     <div id="chatMessages" class="chat-messages mb-3">
                         <div class="text-center p-3 loading-indicator">
                             <div class="spinner-border text-cyber" role="status">
-                                <span class="visually-hidden">{{ 'loading'|trans }}</span>
+                                <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
                             </div>
                         </div>
                     </div>
@@ -63,7 +63,7 @@
                 </div>
             </div>
             <div class="modal-footer chat-container">
-                <form id="chatForm" class="d-flex w-100 mb-5">
+                <form id="chatForm" class="d-flex w-100 mb-2">
                     <textarea id="messageInput" class="form-control me-3 d-block" rows="2" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off"></textarea>
                     <button type="submit" class="btn btn-cyber" style="max-height: min-content !important;">
                         <i class="mdi mdi-message-check"></i>

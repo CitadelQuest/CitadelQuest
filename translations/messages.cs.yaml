@@ -22,7 +22,7 @@ auth:
         loading: 'Načítání...'
         creating_citadel: 'Vytvářím Váš CitadelQuest účet...'
         error: 'Chyba při generování klíčů. Prosím zkuste to znovu.'
-        button_text: 'Vytvořit Můj CitadelQuest účet'
+        button_text: 'Vytvořit účet'
     register:
         error:
             username_blank: 'Prosím zadejte uživatelské jméno'
@@ -41,7 +41,7 @@ auth:
         username: 'Zvolte si uživatelské jméno'
         email: 'E-mailová adresa'
         email_help: 'Zadejte svou e-mailovou adresu'
-        username_help: 'Pouze písmena, čísla a podtržítka'
+        username_help: 'Pouze písmena, čísla a podtržítka _'
         password: 'Zvolte si heslo'
         password_help: 'Zvolte si silné heslo'
         password_requirements:
@@ -50,13 +50,17 @@ auth:
             uppercase: 'Jedno velké písmeno'
             lowercase: 'Jedno malé písmeno'
             number: 'Jedno číslo'
-            special: 'Jeden speciální znak (@$!%*?&)'
+            special: 'Jeden speciální znak: @$!%*?&'
         repeat_password: 'Zopakujte heslo'
         agree_terms: 'Souhlasím s podmínkami služby'
-        submit: 'Vytvořit CitadelQuest účet'
+        submit: 'Vytvořit účet'
         have_account: 'Již máte účet?'
         login_link: 'Přihlásit se'
         success: 'Registrace úspěšná!'
+        createAlsoCQAIGatewayAccount: 'Automaticky vytvořit účet <a href="https://cqaigateway.com/" target="_blank" class="text-cyber" title="Nejjednodušší přístup k nejlepším službám umělé inteligence pro váš CitadelQuest">CQ AI Gateway</a>'
+        createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>S kredity zdarma</li><li>Kreditní karta není nutná</li><li>Osobní údaje nejsou vyžadovány</li></div><div class="col"><li>Žádný sběr dat</li><li>Žádné sledování</li><li>Žádné reklamy</li></div></ul>'
+        createAlsoCQAIGatewayAccountConfirm: 'Už máte účet a API klíč na CQ AI Gateway? :)' 
+        createAlsoCQAIGatewayAccountClaim: 'Vdechněte život svému průvodci a vylepšete nástroje silou AI'
 
 notifications:
     title: Oznámení
@@ -76,7 +80,7 @@ notifications:
 
 home:
     actions:
-        create_citadel: 'Vytvořit CitadelQuest účet'
+        create_citadel: 'Vytvořit účet'
         login: 'Přihlásit'
     features:
         data_control:
@@ -270,3 +274,29 @@ diary:
         content: 'Napište své myšlenky...'
         tags: 'Přidejte štítky (volitelné)'
 
+welcome:
+    onboarding:
+        welcome: "Vítejte v CitadelQuest"
+        subtitle: "Nastavme si vašeho osobního AI asistenta"
+        step1:
+            title: "Připojte se k CQ AI Gateway"
+            description: "Nejprve se připojme k CQ AI Gateway, abychom mohli přistupovat k nejnovějším AI modelům a službám."
+            api_key_label: "CQ AI Gateway API klíč"
+            api_key_placeholder: "Zadejte váš CQ AI Gateway API klíč"
+            get_key: "Potřebujete API klíč?"
+            get_key_url_text: "Získejte jej zde"
+            validate: "Ověřit a pokračovat"
+        step2:
+            title: "Vytvořte si svého Ducha"
+            description: "Váš Duch je váš osobní AI průvodce a společník. <br/> Dejte mu jméno a vyberte AI model pro jeho duši."
+            name_label: "Jméno Ducha"
+            name_placeholder: "Zadejte jméno pro vašeho Ducha"
+            model_label: "Vyberte AI model Ducha"
+            color_label: "Vyberte barvu"
+            back: "Zpět"
+            create: "Vytvořit Ducha"
+        step3:
+            title: "Připraveni začít"
+            description: "Váš Duch byl vytvořen a je připraven vám pomáhat."
+            start_journey: "Začněte svou cestu"
+        completed: "Úvodní nastavení bylo úspěšně dokončeno!"
