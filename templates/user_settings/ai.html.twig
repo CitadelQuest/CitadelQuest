@@ -8,7 +8,7 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings_ai') }}">Settings</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
                 </div>
                 <div class="list-group list-group-flush">
                     {% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}
@@ -22,13 +22,6 @@
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
-                    {# <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
-                        <i class="mdi mdi-server-network me-2"></i> AI Gateways
-                    </a>
-                    <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4">
-                        <i class="mdi mdi-brain me-2"></i> AI Models
-                    </a> #}
-                    <!-- Add more settings categories here as needed -->
                 </div>
             </div>
         </div>
@@ -50,48 +43,71 @@
 
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">
                         
-                        <div class="mb-4">
+                        <div class="mb-2">
                             <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-server-network me-3"></i>AI Gateway</h5>
                             <p class="">
                                 You can <a href="https://cqaigateway.com/login?username={{ app.user.username }}" target="_blank" class="text-cyber">Login to your CQ AI Gateway Account</a><i class="mdi mdi-open-in-new ms-1"></i> with same username and password as here in CitadelQuest. There you can see requests and transactions history, add credits, and manage your account.
                             </p>
-                            <div>
-                                <iframe src="http://127.0.0.1:8000/login?username={{ app.user.username }}" width="100%" height="400px"></iframe>
-                            </div>
                             
-                            <div class="mb-3 row">
-                                <div class="col-12 col-md-6 col-lg-5">
-                                    <label for="cq_ai_gateway_api_key" class="form-label w-100 px-2 d-flex mb-0">
+                            <div class="row">
+                                <div class="col-12 {% if api_key_state != 'set_and_valid' %}col-md-6{% endif %}" id="cq_ai_gateway_api_key_container">
+                                    <label for="cq_ai_gateway_api_key" class="form-label w-100 px-2 d-flex mb-2">
                                         <span class="d-flex w-50">Your API key is:</span>
                                         {# d=flex, but with items as rows #}
-                                        <div class="d-flex flex-column align-items-end gap-2 w-50 pt-2">
-                                            {% if api_key_state == 'not_set' %}
-                                                <span class="badge bg-danger">Not Set <i class="mdi mdi-close"></i></span>
-                                            {% elseif api_key_state == 'not_validated' %}
-                                                <span class="badge bg-warning">Not Validated <i class="mdi mdi-help-circle"></i></span>
-                                            {% elseif api_key_state == 'not_valid' %}
-                                                <span class="badge bg-warning">Not Valid <i class="mdi mdi-cancel"></i></span>
-                                            {% elseif api_key_state == 'set_and_valid' %}
-                                                <span class="badge bg-success">Set and Valid <i class="mdi mdi-check"></i></span>                                            
-                                                <span class="">
-                                                    Credits: <span class="badge {% if CQ_AI_GatewayCredits < 60 %}bg-danger{% elseif CQ_AI_GatewayCredits < 120 %}bg-warning{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
+                                        <div class="d-flex flex-column align-items-end gap-2 w-50">
+                                            
+                                            <div class="d-flex">
+                                                <span class="badge bg-secondary opacity-50 rounded-end-0 cursor-pointer" onclick="
+                                                    document.getElementById('cq_ai_gateway_api_key_container').classList.toggle('col-md-6');
+                                                    if (document.getElementById('cq_ai_gateway_api_key_container').classList.contains('col-md-6')) {
+                                                        setTimeout(() => {
+                                                            document.getElementById('cq_ai_gateway_api_key_update_container').classList.remove('d-none'); 
+                                                        }, 600);
+                                                    } else {
+                                                        document.getElementById('cq_ai_gateway_api_key_update_container').classList.add('d-none'); 
+                                                    }
+                                                    ">
+                                                    <i class="mdi mdi-key" title="Update CQ AI Gateway API key"></i>
                                                 </span>
-                                            {% endif %}
+
+                                                {% if api_key_state == 'not_set' %}
+                                                    <span class="badge bg-danger rounded-start-0" title="Your API key is not set">Not Set <i class="mdi mdi-close ms-1"></i></span>
+                                                {% elseif api_key_state == 'not_validated' %}
+                                                    <span class="badge bg-warning rounded-start-0" title="Your API key is not validated">Not Validated <i class="mdi mdi-help-circle ms-1"></i></span>
+                                                {% elseif api_key_state == 'not_valid' %}
+                                                    <span class="badge bg-warning rounded-start-0" title="Your API key is not valid">Not Valid <i class="mdi mdi-cancel ms-1"></i></span>
+                                                {% elseif api_key_state == 'set_and_valid' %}
+                                                    <span class="badge bg-success rounded-start-0" title="Your API key is set and valid">Set and Valid <i class="mdi mdi-check ms-1"></i></span>
+                                                {% endif %}
+                                            </div>
+
                                         </div>
                                     </label>
+                                    {% if api_key_state == 'set_and_valid' %}
+                                        <div class="d-flex w-100 justify-content-center mt-4">
+                                            <div class="mt-1 me-3">
+                                                <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
+                                                <span class="small mt-1 me-2">Credits</span>
+                                            </div>
+                                            <a href="https://cqaigateway.com/dashboard/add-credits" target="_blank" 
+                                                class="btn btn-cyber btn-sm me-2" title="Add Credits">
+                                                <i class="mdi mdi-plus me-2"></i>Add Credits
+                                            </a>
+                                            <div class="clearfix"></div>
+                                        </div>
+                                    {% endif %}
                                 </div>
-                                <div class="col-12 col-md-6 col-lg-7">
+                                <div class="col-12 col-md-6 pt-3 {% if api_key_state == 'set_and_valid' %}d-none{% endif %}" id="cq_ai_gateway_api_key_update_container">
                                     <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value="" placeholder="Leave blank to keep your current API key"
                                         oninput="let akuBtn = document.getElementById('update_api_key'); if (this.value !== '') { akuBtn.disabled = false;} else { akuBtn.disabled = true; }">
+
+                                    <button type="submit" class="btn btn-sm btn-cyber mb-3 mt-3 float-end" id="update_api_key" disabled>
+                                        <i class="mdi mdi-key me-2"></i> Update API Key
+                                    </button>    
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
-                            <button type="submit" class="btn btn-cyber" id="update_api_key" disabled>
-                                <i class="mdi mdi-key me-2"></i> Update API Key
-                            </button>
-                        </div>
                         
                     </form>
                                             
@@ -99,12 +115,12 @@
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">
                         
                         <div class="mb-4">
-                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-brain me-3"></i>AI Models</h5>
+                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
                             <p class="">Select which AI models to use for different purposes.</p>
                             
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="primary_model" class="form-label">Primary AI Model</label>
+                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
@@ -116,7 +132,7 @@
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="secondary_model" class="form-label">Secondary AI Model</label>
+                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Secondary AI Model</label>
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
@@ -129,24 +145,8 @@
                             </div>
                         </div>
                         
-                        {# <div class="alert alert-info mb-4">
-                            <div class="d-flex">
-                                <div class="me-3">
-                                    <i class="fas fa-info-circle fa-2x"></i>
-                                </div>
-                                <div>
-                                    <h5 class="alert-heading">About AI Models</h5>
-                                    <p class="mb-0">Your Spirit uses AI models for different purposes:</p>
-                                    <ul class="mb-0">
-                                        <li><strong>Primary Model:</strong> Used for deep conversations, reasoning, and complex tasks.</li>
-                                        <li><strong>Secondary Model:</strong> Used for routine tasks, notifications, and background processing.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div> #}
-                        
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-cyber" id="save_ai_settings" disabled>
+                            <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
                                 <i class="mdi mdi-content-save me-2"></i> Save Settings
                             </button>
                         </div>
