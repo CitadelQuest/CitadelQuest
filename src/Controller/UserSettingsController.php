@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Entity\AiGateway;
+use App\Repository\UserRepository;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\NotificationService;
@@ -155,7 +156,7 @@ class UserSettingsController extends AbstractController
     }
 
     #[Route('/ai', name: 'app_user_settings_ai')]
-    public function aiSettings(Request $request, EntityManagerInterface $entityManager): Response
+    public function aiSettings(Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
     {
         // Get user's settings
         $settings = $this->settingsService->getAllSettings();
@@ -338,7 +339,8 @@ class UserSettingsController extends AbstractController
             'settings' => $settings,
             'aiModels' => $aiModels,
             'api_key_state' => $apiKeyState,
-            'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-'
+            'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
+            'CQ_AI_GatewayUsername' => $userRepository->getCQAIGatewayUsername($this->getUser(), $request->getHost())
         ]);
     }
     

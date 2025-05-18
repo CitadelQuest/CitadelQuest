@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Form\RegistrationType;
+use App\Repository\UserRepository;
 use App\Service\UserDatabaseManager;
 use App\Service\UserKeyManager;
 use App\Service\SettingsService;
@@ -35,7 +36,8 @@ class RegistrationController extends AbstractController
         LoginFormAuthenticator $authenticator,
         HttpClientInterface $httpClient,
         SettingsService $settingsService,
-        SessionInterface $session
+        SessionInterface $session,
+        UserRepository $userRepository
     ): Response {
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
@@ -103,7 +105,7 @@ class RegistrationController extends AbstractController
                         'https://cqaigateway.com/api/user/register',
                         [
                             'json' => [
-                                'username' => $user->getUsername(),
+                                'username' => $userRepository->getCQAIGatewayUsername($user, $request->getHost()),
                                 'email' => $user->getEmail(),
                                 'password' => $form->get('password')->getData(),
                                 'citadelquest_url' => $citadelQuestURL

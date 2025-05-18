@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const createAlsoCQAIGatewayAccountClaim = document.querySelector('.createAlsoCQAIGatewayAccountClaim');
             createAlsoCQAIGatewayAccountClaim.classList.add('d-none');
             
-            // fix << Letters, numbers and underscores only
+            // fLetters, numbers and underscores only
             const usernameRegex = /^[a-zA-Z0-9_-]+$/; 
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

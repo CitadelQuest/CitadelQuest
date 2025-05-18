@@ -46,4 +46,9 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $user->setPassword($newHashedPassword);
         $this->save($user, true);
     }
+
+    public function getCQAIGatewayUsername(User $user, string $host): string
+    {
+        return $user->getUsername() . '_' . str_replace('.', '', $host);
+    }
 }
