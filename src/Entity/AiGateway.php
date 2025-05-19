@@ -103,7 +103,7 @@ class AiGateway implements JsonSerializable
             case 'Groq':
                 return 'groq';
             case 'CQ AI Gateway':
-                return 'cqaigateway';
+                return 'cq_ai_gateway';
             default:
                 return strtolower($this->name);
         }

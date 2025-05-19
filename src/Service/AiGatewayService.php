@@ -42,7 +42,7 @@ class AiGatewayService
         // Register gateway implementations
         $this->registerGatewayImplementation('anthropic');
         $this->registerGatewayImplementation('groq');
-        $this->registerGatewayImplementation('cqaigateway');
+        $this->registerGatewayImplementation('cq_ai_gateway');
     }
     
     /**
@@ -203,7 +203,7 @@ class AiGatewayService
             return $this->groqGateway;
         }
         
-        if ($type === 'cqaigateway' && $this->CQAIGateway) {
+        if ($type === 'cq_ai_gateway' && $this->CQAIGateway) {
             return $this->CQAIGateway;
         }
         
@@ -296,28 +296,28 @@ class AiGatewayService
         $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         
-        // Get the model
+        // Get the model from request
         $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
             throw new \Exception('AI Service Model not found');
         }
         
-        // Get the gateway
+        // Get the gateway from model
         $aiGateway = $this->findById($aiServiceModel->getAiGatewayId());
         if (!$aiGateway) {
             throw new \Exception('AI Gateway not found');
         }
         
-        // Get the gateway implementation
+        // Get the gateway implementation from gateway type
         $gatewayImplementation = $this->getGatewayImplementation($aiGateway->getType());
         if (!$gatewayImplementation) {
             throw new \Exception('Gateway implementation not found for type: ' . $aiGateway->getType());
         }
         
-        // Send the request
+        // Send the request to gateway implementation
         $response = $gatewayImplementation->sendRequest($request, $this);
 
-        // Save the response
+        // Save the response to database
         $response = $aiServiceResponseService->createResponse(
             $request->getId(),
             $response->getMessage(),
@@ -331,7 +331,7 @@ class AiGatewayService
         // Log the service use
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
         
-        // Handle tool calls
+        // Handle tool calls by gateway implementation
         $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
 
         return $response;

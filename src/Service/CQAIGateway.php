@@ -45,7 +45,7 @@ class CQAIGateway implements AiGatewayInterface
         // Get API key from gateway
         $apiKey = $aiGateway->getApiKey();
         
-        if (!$apiKey) {
+        if (!$apiKey || $apiKey === '') {
             throw new \Exception('CQAIGateway API key not configured');
         }
         
@@ -86,8 +86,7 @@ class CQAIGateway implements AiGatewayInterface
             ]);
             
             // Get response data
-            $statusCode = $response->getStatusCode(false);
-            $responseContent = $response->getContent(false);
+            $responseContent = $response->getContent();
 
             // Parse response data
             $responseData = json_decode($responseContent, true) ?? [];
@@ -118,7 +117,7 @@ class CQAIGateway implements AiGatewayInterface
             $errorResponse = new AiServiceResponse(
                 $request->getId(),
                 ['error' => $e->getMessage()],
-                ['response' => $e->getMessage()]
+                ['response' => $response->getContent(false)]
             );
             
             return $errorResponse;
@@ -141,7 +140,7 @@ class CQAIGateway implements AiGatewayInterface
             
             $messages = $request->getMessages();
 
-            // add current assistant message
+            // add current assistant message, including tool_calls
             $messages[] = $response->getFullResponse()['choices'][0]['message'];
 
             // Process tool_calls
@@ -172,15 +171,19 @@ class CQAIGateway implements AiGatewayInterface
             $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
-                1000, 0.1, null, $request->getTools()
+                2000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
             $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['function']['name'] . ']');
 
+            // Combine full response message: before tool call + after tool call
+            $fullResponseMessage = $response->getFullResponse()['choices'][0]['message']['content'] ?? '';
+            $fullResponseMessage .= "•\n\n" . $aiServiceResponse->getMessage()['content'] ?? '';
+            // Set full response message
             $aiServiceResponse->setMessage([
                 'role' => $aiServiceResponse->getMessage()['role'],
-                'content' => "•\n\n" . $aiServiceResponse->getMessage()['content']
+                'content' => $fullResponseMessage
             ]);
 
             $response = $aiServiceResponse;
