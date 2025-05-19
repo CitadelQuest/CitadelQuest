@@ -105,7 +105,7 @@ class RegistrationController extends AbstractController
                         'https://cqaigateway.com/api/user/register',
                         [
                             'json' => [
-                                'username' => $userRepository->getCQAIGatewayUsername($user, $request->getHost()),
+                                'username' => $userRepository->getCQAIGatewayUsername($user),
                                 'email' => $user->getEmail(),
                                 'password' => $form->get('password')->getData(),
                                 'citadelquest_url' => $citadelQuestURL

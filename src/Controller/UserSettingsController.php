@@ -340,7 +340,7 @@ class UserSettingsController extends AbstractController
             'aiModels' => $aiModels,
             'api_key_state' => $apiKeyState,
             'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
-            'CQ_AI_GatewayUsername' => $userRepository->getCQAIGatewayUsername($this->getUser(), $request->getHost())
+            'CQ_AI_GatewayUsername' => $userRepository->getCQAIGatewayUsername($this->getUser())
         ]);
     }
     

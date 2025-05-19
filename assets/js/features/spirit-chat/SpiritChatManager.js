@@ -101,7 +101,9 @@ export class SpiritChatManager {
         if (this.messageInput) {
             this.messageInput.addEventListener('input', () => {
                 this.messageInput.rows = 1;
-                this.messageInput.rows = Math.min( Math.max(this.messageInput.value.split('\n').length, 2), 9 );
+                let rowCount = this.messageInput.value.split('\n').length;
+                let contentLength = this.messageInput.value.length / 160;
+                this.messageInput.rows = Math.min( Math.max(rowCount + contentLength, 2), 9 );
             });
         }
     }
