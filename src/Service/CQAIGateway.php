@@ -179,7 +179,7 @@ class CQAIGateway implements AiGatewayInterface
 
             // Combine full response message: before tool call + after tool call
             $fullResponseMessage = $response->getFullResponse()['choices'][0]['message']['content'] ?? '';
-            $fullResponseMessage .= "•\n\n" . $aiServiceResponse->getMessage()['content'] ?? '';
+            $fullResponseMessage .= "\n•\n\n" . $aiServiceResponse->getMessage()['content'] ?? '';
             // Set full response message
             $aiServiceResponse->setMessage([
                 'role' => $aiServiceResponse->getMessage()['role'],
