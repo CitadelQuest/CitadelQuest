@@ -3,6 +3,7 @@
 namespace App\EventListener;
 
 use App\Service\SettingsService;
+use App\SSE\EventPublisher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -12,7 +13,8 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     private const SUPPORTED_LOCALES = ['en', 'cs', 'sk'];
     
     public function __construct(
-        private readonly SettingsService $settingsService
+        private readonly SettingsService $settingsService,
+        private readonly EventPublisher $eventPublisher
     ) {}
     
     public static function getSubscribedEvents(): array
@@ -24,6 +26,9 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {
+        // clear SSE db
+        //$this->eventPublisher->clearDatabase();
+        
         // Get the user's locale preference from settings
         $locale = $this->settingsService->getSettingValue('_locale');
         
@@ -32,9 +37,8 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
             return;
         }
         
-        // Get the request and response
+        // Get the request
         $request = $event->getRequest();
-        $response = $event->getResponse();
         
         // Set the locale in the session
         if ($request->hasSession()) {
@@ -45,7 +49,7 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
         $request->setLocale($locale);
         
         // Set a cookie for consistent language handling
-        $response->headers->setCookie(new Cookie(
+        $request->headers->setCookie(new Cookie(
             'citadel_locale',     // name
             $locale,              // value
             new \DateTime('+1 year'), // expires

@@ -7,7 +7,7 @@ class Event
     public function __construct(
         private readonly string $type,
         private readonly mixed $data,
-        private readonly ?string $id = null,
+        private ?string $id = null,
         private readonly ?\DateTimeInterface $timestamp = null
     ) {
     }
@@ -25,6 +25,11 @@ class Event
     public function getId(): ?string
     {
         return $this->id;
+    }
+
+    public function setId(string $id): void
+    {
+        $this->id = $id;
     }
 
     public function getTimestamp(): \DateTimeInterface

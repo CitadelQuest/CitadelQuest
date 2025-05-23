@@ -23,6 +23,11 @@
         {% endblock %}
     </head>
     <body class="position-relative min-vh-100 citadel-background">
+
+        <div id="page-loading-indicator" class="position-absolute top-0 start-0 end-0 bottom-0 bg-dark bg-opacity-25 text-center p-5 d-block">
+            <i class="mdi mdi-ghost loading-ghost text-cyber d-block"></i>
+        </div>
+
         {{ include('components/_navigation.html.twig') }}
 
         <div id="toast-container" class="toast-container position-fixed top-0 start-0 p-3"></div>
@@ -56,7 +61,7 @@
         <footer class="footer py-1 position-fixed bottom-0 start-0 end-0" style="z-index: 1020;">
             <div class="container text-center">
                 <small>
-                    &copy; 2025 
+                    &copy; {{ date('now')|date('Y') }} 
                     <span class="text-cyber">&bull; {{ 'app.name'|trans }}</span> {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} 
                     <span class="text-cyber">&bull;</span> 
                     <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans }}</span>

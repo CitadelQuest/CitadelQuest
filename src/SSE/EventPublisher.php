@@ -5,13 +5,15 @@ namespace App\SSE;
 use App\Service\SSEEventStorage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class EventPublisher
 {
     private const RETRY_TIMEOUT = 2000; // 2 seconds
     
     public function __construct(
-        private readonly SSEEventStorage $storage
+        private readonly SSEEventStorage $storage,
+        private readonly RequestStack $requestStack
     ) {
     }
 
@@ -43,15 +45,19 @@ class EventPublisher
      */
     public function sendEvent(string $data, ?string $event = null, ?string $id = null): void
     {
+        $output = "";
+        
         if ($id) {
-            echo "id: $id\n";
+            $output .= "id: $id\n";
         }
         
         if ($event) {
-            echo "event: $event\n";
+            $output .= "event: $event\n";
         }
         
-        echo "data: " . str_replace("\n", "\ndata: ", $data) . "\n\n";
+        $output .= "data: " . str_replace("\n", "\ndata: ", $data) . "\n\n";
+
+        echo $output;
     }
 
     /**
@@ -59,15 +65,61 @@ class EventPublisher
      */
     public function publish(Event $event): void
     {
+        $request = $this->requestStack->getCurrentRequest();
+
+        $windowId = $request->cookies->get('browserWindowId', '')??'';
+        if (!$windowId) {
+            return;
+        }
+        
+        $event->setId($windowId);
+
         $this->storage->storeEvent($event);
+    }
+
+    /**
+     * Connect client to SSE
+     */
+    public function connect(string $windowId): void
+    {
+        $this->storage->storeWindow($windowId);
+    }
+
+    /**
+     * Disconnect client from SSE
+     */
+    public function disconnect(string $windowId): void
+    {
+        $this->storage->clearWindow($windowId);
     }
 
     /**
      * Get and clear all pending events
      * @return Event[]
      */
-    public function getAndClearEvents(): array
+    public function getAndClearEvents(string $windowId): array
     {
-        return $this->storage->getAndClearEvents();
+        return $this->storage->getAndClearEvents($windowId);
+    }
+
+    /**
+     * Health check
+     */
+    public function healthCheck(): array
+    {
+        return $this->storage->healthCheck();
+    }
+
+    /**
+     * Clear database
+     */
+    public function clearDatabase(): void
+    {
+        $this->storage->clearDatabase();
+    }
+
+    public function getWindows(): array
+    {
+        return $this->storage->getWindows();
     }
 }

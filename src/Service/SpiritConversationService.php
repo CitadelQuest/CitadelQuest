@@ -124,6 +124,13 @@ class SpiritConversationService
             [$conversationId]
         );
     }
+
+    public function getConversationsCount(): int
+    {
+        $db = $this->getUserDb();
+        
+        return $db->executeQuery('SELECT COUNT(*) FROM spirit_conversation')->fetchColumn();
+    }
     
     public function sendMessage(string $conversationId, string $message, string $lang = 'English'): array
     {
@@ -244,7 +251,7 @@ class SpiritConversationService
 
         // Onboarding message if user description is empty or too short
         $onboardingTag = "";
-        if ($userProfileDescription == '' || count(explode("\n", $userProfileDescription) ?? []) < 12) {
+        if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
             $onboardingTag = "
                 <user-onboarding>";
         }

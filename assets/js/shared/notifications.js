@@ -115,12 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Test notification
-    /* document.getElementById('test-notification')?.addEventListener('click', () => {
+    document.getElementById('test-notification')?.addEventListener('click', () => {
         fetch('/notifications/test', {
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-    }); */
+    });
 
     // SSE Connection Management
     let eventSource = null;
@@ -128,21 +128,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const maxRetryCount = 5;
     const maxRetryDelay = 10000;
 
+    // disconnect previous connection
+    let previousWindowId = sessionStorage.getItem('browserWindowId');
+    if (previousWindowId) {
+        console.log('Disconnecting previous connection...', previousWindowId);
+        fetch('/events/disconnect/' + previousWindowId, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+    }
+    
+    // generate random window id
+    let windowId = Math.random().toString(36).substring(2, 9);
+    // store in sessionStorage
+    sessionStorage.setItem('browserWindowId', windowId);
+    // add cookie
+    document.cookie = 'browserWindowId=' + windowId + '; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT';
+
     function connectSSE() {
-        console.log('Initializing SSE connection...');
-        eventSource = new EventSource('/events', { withCredentials: true });
+        console.log('Initializing SSE connection...', windowId);
+        eventSource = new EventSource('/events-' + windowId, { withCredentials: true });
 
         eventSource.onopen = () => {
-            console.log('SSE connection established');
-            retryCount = 0;
+            console.log('SSE connection established', windowId);
+            retryCount = 1;
         };
 
         eventSource.onerror = (error) => {
-            console.error('SSE connection error:', error);
+            console.log('SSE connection error:', error);
             
             if (eventSource.readyState === EventSource.CLOSED) {
                 eventSource.close();
-                
+                // reconnect
                 if (retryCount < maxRetryCount) {
                     const delay = Math.min(1000 * Math.pow(2, retryCount), maxRetryDelay);
                     retryCount++;
@@ -178,4 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTimestamps();
     setInterval(updateTimestamps, 60000);
     connectSSE();
+});
+
+// disconnect on page unload
+document.addEventListener('beforeunload', () => {
+    if (eventSource) {
+        eventSource.close();
+    }
 });
