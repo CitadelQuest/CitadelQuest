@@ -49,7 +49,7 @@ class NotificationService
         $this->eventPublisher->publish(new Event(
             'notification',
             ['notification' => $notification->toArray()]
-        ));
+        ), $user);
 
         return $notification;
     }

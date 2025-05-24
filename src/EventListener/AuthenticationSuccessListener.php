@@ -6,7 +6,6 @@ use App\Service\SettingsService;
 use App\SSE\EventPublisher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
-use Symfony\Component\HttpFoundation\Cookie;
 
 class AuthenticationSuccessListener implements EventSubscriberInterface
 {
@@ -26,9 +25,6 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {
-        // clear SSE db
-        //$this->eventPublisher->clearDatabase();
-        
         // Get the user's locale preference from settings
         $locale = $this->settingsService->getSettingValue('_locale');
         
@@ -47,18 +43,5 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
         
         // Set the locale in the request (for the current request)
         $request->setLocale($locale);
-        
-        // Set a cookie for consistent language handling
-        $request->headers->setCookie(new Cookie(
-            'citadel_locale',     // name
-            $locale,              // value
-            new \DateTime('+1 year'), // expires
-            '/',                 // path
-            null,                // domain
-            true,                // secure
-            true,                // httpOnly
-            true,                // raw
-            Cookie::SAMESITE_LAX // sameSite
-        ));
     }
 }

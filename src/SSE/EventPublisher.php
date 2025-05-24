@@ -6,15 +6,21 @@ use App\Service\SSEEventStorage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\RequestStack;
+use App\Entity\User;
 
 class EventPublisher
 {
     private const RETRY_TIMEOUT = 2000; // 2 seconds
     
     public function __construct(
+        private readonly RequestStack $requestStack,
         private readonly SSEEventStorage $storage,
-        private readonly RequestStack $requestStack
     ) {
+    }
+
+    public function init(User $user): void
+    {
+        $this->storage->init($user);
     }
 
     /**
@@ -63,7 +69,7 @@ class EventPublisher
     /**
      * Publish an event to all connected clients
      */
-    public function publish(Event $event): void
+    public function publish(Event $event, User $user): void
     {
         $request = $this->requestStack->getCurrentRequest();
 
@@ -73,6 +79,8 @@ class EventPublisher
         }
         
         $event->setId($windowId);
+
+        $this->storage->init($user);
 
         $this->storage->storeEvent($event);
     }
@@ -91,6 +99,17 @@ class EventPublisher
     public function disconnect(string $windowId): void
     {
         $this->storage->clearWindow($windowId);
+    }
+    /**
+     * Is client connected to SSE
+     */
+    public function isConnected(string $windowId): bool
+    {
+        return $this->storage->isConnected($windowId);
+    }
+    public function connectionAborted(string $windowId): bool
+    {
+        return !$this->storage->isConnected($windowId);
     }
 
     /**

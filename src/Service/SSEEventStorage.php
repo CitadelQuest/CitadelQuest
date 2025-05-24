@@ -7,21 +7,29 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
+use App\Entity\User;
 
 class SSEEventStorage
 {
     private Connection $connection;
-    private const DB_PATH = 'var/sse.db';
     private string $dbPath;
     
     /**
      * Constructor
      */
     public function __construct(
-        private ParameterBagInterface $params,
-        private Filesystem $filesystem
+        private readonly ParameterBagInterface $params,
+        private readonly Filesystem $filesystem,
     ) {
-        $this->dbPath = $this->params->get('kernel.project_dir') . '/' . self::DB_PATH;
+    }
+
+    /**
+     * Initialize the database connection
+     */
+    public function init(User $user): void
+    {
+        $this->dbPath = $this->params->get('kernel.project_dir') . '/var/user_databases/sse-' . $user->getDatabasePath();
+
         $this->ensureDatabase();
         
         $this->connection = DriverManager::getConnection([
@@ -70,7 +78,6 @@ class SSEEventStorage
         try {
             // Store the window ID in the database
             $windowId = $event->getId();
-            //$this->storeWindow($windowId);
 
             // Get all windows
             $windows = $this->connection->fetchAllAssociative('SELECT window_id FROM windows');
@@ -239,6 +246,15 @@ class SSEEventStorage
             return $this->connection->fetchAllAssociative('SELECT * FROM windows LIMIT 666');
         } catch (\Exception $e) {
             return [];
+        }
+    }
+
+    public function isConnected(string $windowId): bool
+    {
+        try {
+            return $this->connection->fetchOne('SELECT COUNT(*) FROM windows WHERE window_id = ?', [$windowId]) > 0;
+        } catch (\Exception $e) {
+            return false;
         }
     }
 }

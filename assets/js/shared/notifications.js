@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (eventSource.readyState === EventSource.CLOSED) {
                 eventSource.close();
-                // reconnect
+                // reconnect, works like a charm
                 if (retryCount < maxRetryCount) {
                     const delay = Math.min(1000 * Math.pow(2, retryCount), maxRetryDelay);
                     retryCount++;

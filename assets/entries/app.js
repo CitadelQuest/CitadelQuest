@@ -62,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Page loading indicator - hide
     const pageLoadingIndicator = document.getElementById('page-loading-indicator');
     if (pageLoadingIndicator) {
-        console.log('pageLoadingIndicator.classList.remove(d-block)');
         pageLoadingIndicator.classList.remove('d-block');
         pageLoadingIndicator.classList.add('d-none');
     }
@@ -71,10 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // show loading indicator on refresh
 window.addEventListener('beforeunload', () => {
-    console.log('beforeunload');
     const pageLoadingIndicator = document.getElementById('page-loading-indicator');
     if (pageLoadingIndicator) {
-        console.log('pageLoadingIndicator.classList.remove(d-none) beforeunload');
         pageLoadingIndicator.classList.remove('d-none');
         pageLoadingIndicator.classList.add('d-block');
     }

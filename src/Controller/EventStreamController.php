@@ -21,9 +21,13 @@ class EventStreamController extends AbstractController
 
     #[Route('/events-{windowId}', name: 'app_events')]
     #[IsGranted('ROLE_USER')]
-    public function streamEvents(Request $request, string $windowId): StreamedResponse
+    public function streamEvents(string $windowId): StreamedResponse
     {
-        return $this->eventPublisher->createResponse(function () use ($windowId) {
+        $user = $this->getUser();
+        
+        return $this->eventPublisher->createResponse(function () use ($windowId, $user) {
+            
+            $this->eventPublisher->init($user);
 
             if (!$windowId) {
                 $this->eventPublisher->sendEvent(
@@ -46,11 +50,7 @@ class EventStreamController extends AbstractController
 
             while (true) {
                 // First check if client is still connected
-                if (connection_aborted()) {
-                    // ?? delete window from database / teste, did work, but should :-/
-                    //$this->eventPublisher->disconnect($windowId);
-                    //error_log('SSE connection aborted ' . $windowId . ' for user: ' . $this->getUser()->getUsername());
-
+                if (connection_aborted() || $this->eventPublisher->connectionAborted($windowId)) {
                     // Ensure output is flushed
                     while (ob_get_level() > 0) {
                         ob_end_flush();
@@ -91,10 +91,6 @@ class EventStreamController extends AbstractController
                 // Sleep to prevent CPU overload
                 usleep(3000000); // 3 seconds: 3 * 1000 * 1000
             }
-
-            // ?? delete window from database
-            //$this->eventPublisher->disconnect($windowId);
-            //error_log('SSE connection ended ' . $windowId . ' for user: ' . $this->getUser()->getUsername());
         });
     }
 
@@ -103,13 +99,18 @@ class EventStreamController extends AbstractController
     public function healthCheck(): JsonResponse
     {
         try {
+            
+            $this->eventPublisher->init($this->getUser());
+
             $status = $this->eventPublisher->healthCheck();
+
         } catch (\Exception $e) {
             return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
             ], 500);
         }
+        
         return $this->json($status, 200);
     }
 
@@ -123,7 +124,11 @@ class EventStreamController extends AbstractController
                 'message' => 'No window ID found'
             ], 400);
         }
+
+        $this->eventPublisher->init($this->getUser());
+
         $this->eventPublisher->disconnect($windowId);
+
         return $this->json([
             'status' => 'success',
             'message' => 'Disconnected from SSE client ' . $windowId
@@ -135,19 +140,24 @@ class EventStreamController extends AbstractController
     public function windows(): Response
     {
         try {
+            $this->eventPublisher->init($this->getUser());
+
             $windows = $this->eventPublisher->getWindows();
+
         } catch (\Exception $e) {
             return $this->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
             ], 500);
         }
+
         $return = "<html><head><title>SSE Windows</title></head><style>body { font-family: monospace; font-size: 12px; } span { display: inline-block; width: 200px; }</style><body><div class='notification-windows'>";
 
-        $return .= "<div>" . count($windows) . " windows</div>";
+        $return .= "<div>" . count($windows) . " windows [<a href='/events/windows'>refresh</a>]</div>";
         foreach ($windows as $window) {
-            $return .= "<div><span>" . $window['window_id'] . "</span><span>" . $window['updated_at'] . "</span></div>";
+            $return .= "<div><span>[<a href='/events/disconnect/" . $window['window_id'] . "' target='_blank'>disconnect</a>] <strong>" . $window['window_id'] . "</strong></span><span>" . $window['updated_at'] . "</span></div>";
         }
+
         $return .= "</div></body></html>";
 
         return new Response($return, 200);

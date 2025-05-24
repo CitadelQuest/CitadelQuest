@@ -129,7 +129,10 @@ class SpiritConversationService
     {
         $db = $this->getUserDb();
         
-        return $db->executeQuery('SELECT COUNT(*) FROM spirit_conversation')->fetchColumn();
+        $result = $db->executeQuery('SELECT COUNT(*) FROM spirit_conversation');
+        $count = intval($result->fetchOne());
+        
+        return $count;
     }
     
     public function sendMessage(string $conversationId, string $message, string $lang = 'English'): array
