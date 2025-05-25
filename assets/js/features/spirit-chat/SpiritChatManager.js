@@ -137,15 +137,6 @@ export class SpiritChatManager {
                 this.spiritLevel.textContent = `${levelText}: ${spirit.level}`;
             }
             
-            // Initialize 3D avatar if available - not implemented yet
-            /* if (this.spiritChatAvatar && window.SpiritVisualizer) {
-                const visualizer = new window.SpiritVisualizer(this.spiritChatAvatar, {
-                    size: 120,
-                    visualState: spirit.visualState,
-                    level: spirit.level
-                });
-                visualizer.init();
-            } */
             let spiritAvatar = document.querySelectorAll(
                 '.spirit-icon-container > .spirit-icon > .spirit-glow, .spirit-avatar-container > .spirit-avatar > .spirit-glow');
             if (spiritAvatar) {
@@ -284,7 +275,7 @@ export class SpiritChatManager {
             this.currentConversationId = conversationId;
             
             // Update modal title
-            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-forum text-light ms-2 fs-6 opacity-75"></i>';
+            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-forum text-dark ms-2 fs-6 opacity-50"></i>';
             
             // Render messages
             this.renderMessages(conversation.messages);
@@ -392,6 +383,8 @@ export class SpiritChatManager {
         
         const message = this.messageInput.value.trim();
         this.messageInput.value = '';
+        // reset message input height
+        this.messageInput.dispatchEvent(new Event('input'));
         
         try {
             // Add user message to UI immediately

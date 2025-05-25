@@ -60,18 +60,20 @@
                             <p class="mb-3">
                                 <span>{{ 'profile.username'|trans }}</span><br>
                                 <code>{{ user.username }}</code><br><br>
-                                <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#passwordModal">
+                                <button type="button" class="btn btn-sm btn-cyber float-end" data-bs-toggle="modal" data-bs-target="#passwordModal">
                                     <i class="mdi mdi-lock-alert me-2"></i>{{ 'profile.password.change'|trans }}
                                 </button>
+                                <div class="clearfix"></div>
                             </p>
                         </div>
                         <div class="col-12 col-md-6">
                             <p>
                                 <span>{{ 'profile.email.label'|trans }}</span><br>
                                 <code id="current-email">{{ user.email }}</code><br><br>
-                                <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#emailModal">
+                                <button type="button" class="btn btn-sm btn-cyber float-end" data-bs-toggle="modal" data-bs-target="#emailModal">
                                     <i class="mdi mdi-email-edit me-2"></i>{{ 'profile.email.change'|trans }}
                                 </button>
+                                <div class="clearfix"></div>
                             </p>
                         </div>
                     </div>
