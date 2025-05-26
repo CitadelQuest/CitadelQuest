@@ -130,13 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // disconnect previous connection
     let previousWindowId = sessionStorage.getItem('browserWindowId');
-    if (previousWindowId) {
+    /* if (previousWindowId) {
         console.log('Disconnecting previous connection...', previousWindowId);
         fetch('/events/disconnect/' + previousWindowId, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-    }
+    } */
     
     // generate random window id
     let windowId = Math.random().toString(36).substring(2, 9);
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     updateTimestamps();
     setInterval(updateTimestamps, 60000);
-    connectSSE();
+    //connectSSE();
 });
 
 // disconnect on page unload
