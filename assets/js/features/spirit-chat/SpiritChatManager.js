@@ -31,6 +31,10 @@ export class SpiritChatManager {
         this.newConversationForm = document.getElementById('newConversationForm');
         this.conversationTitle = document.getElementById('conversationTitle');
         this.spiritChatModalTitle = document.getElementById('spiritChatModalTitle');
+        this.responseMaxOutputSlider = document.getElementById('responseMaxOutputSlider');
+        this.responseMaxOutputValue = document.getElementById('responseMaxOutputValue');
+        this.chatSettingsIcon = document.getElementById('chatSettingsIcon');
+        this.chatSettings = document.getElementById('chatSettings');
     }
     
     /**
@@ -106,6 +110,42 @@ export class SpiritChatManager {
                 this.messageInput.rows = Math.min( Math.max(rowCount + contentLength, 2), 9 );
             });
         }
+
+        // Response max output slider
+        if (this.responseMaxOutputSlider) {
+            this.responseMaxOutputSlider.addEventListener('input', (event) => {
+                this.responseMaxOutputValue.textContent = event.target.value;
+                localStorage.setItem('config.chat.settings.responseMaxOutput.value', event.target.value);
+            });
+        }
+
+        // Response max output value click
+        if (this.responseMaxOutputValue) {
+            this.responseMaxOutputValue.addEventListener('click', (event) => {
+                let newLength = prompt('Enter Max response output tokens', event.target.textContent); 
+                if (newLength) { 
+                    this.responseMaxOutputSlider.value = newLength;
+                    localStorage.setItem('config.chat.settings.responseMaxOutput.value', newLength);
+                    this.responseMaxOutputSlider.dispatchEvent(new Event('input')); 
+                }
+            });
+        }
+
+        // Chat settings icon
+        if (this.chatSettingsIcon) {
+            this.chatSettingsIcon.addEventListener('click', () => {
+                console.log('click', localStorage.getItem('config.chat.settings.open'), typeof localStorage.getItem('config.chat.settings.open'));
+                let open = localStorage.getItem('config.chat.settings.open') === 'true';
+                localStorage.setItem('config.chat.settings.open', !open);
+                if (open) {
+                    this.chatSettings.classList.add('d-none');
+                    this.chatSettings.classList.remove('d-flex');
+                } else {
+                    this.chatSettings.classList.remove('d-none');
+                    this.chatSettings.classList.add('d-flex');
+                }
+            });
+        }
     }
     
     /**
@@ -135,6 +175,26 @@ export class SpiritChatManager {
             if (this.spiritLevel) {
                 const levelText = window.translations && window.translations['spirit.level'] ? window.translations['spirit.level'] : 'Level';
                 this.spiritLevel.textContent = `${levelText}: ${spirit.level}`;
+            }
+
+            // set response max output
+            if (this.responseMaxOutputSlider) {
+                this.responseMaxOutputSlider.max = localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '8192'; // todo: get real value from ai model
+                this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || '500';
+                this.responseMaxOutputSlider.dispatchEvent(new Event('input'));
+                console.log('init this.responseMaxOutputSlider.value', this.responseMaxOutputSlider.value);
+            }
+
+            // set chat settings open
+            if (this.chatSettings) {
+                let open = localStorage.getItem('config.chat.settings.open') === 'true';
+                if (open) {
+                    this.chatSettings.classList.remove('d-none');
+                    this.chatSettings.classList.add('d-flex');
+                } else {
+                    this.chatSettings.classList.add('d-none');
+                    this.chatSettings.classList.remove('d-flex');
+                }
             }
             
             let spiritAvatar = document.querySelectorAll(
@@ -382,6 +442,8 @@ export class SpiritChatManager {
         if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
         
         const message = this.messageInput.value.trim();
+        const maxOutput = this.responseMaxOutputSlider ? parseInt(this.responseMaxOutputSlider.value) : 500;
+        
         this.messageInput.value = '';
         // reset message input height
         this.messageInput.dispatchEvent(new Event('input'));
@@ -430,8 +492,8 @@ export class SpiritChatManager {
                 this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
             
-            // Send message to API
-            const response = await this.apiService.sendMessage(this.currentConversationId, message);
+            // Send message to API with max_output parameter
+            const response = await this.apiService.sendMessage(this.currentConversationId, message, maxOutput);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {

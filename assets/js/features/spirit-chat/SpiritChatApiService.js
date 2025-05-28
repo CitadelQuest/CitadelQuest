@@ -77,9 +77,10 @@ export class SpiritChatApiService {
      * Send a message in a conversation
      * @param {string} conversationId - The ID of the conversation
      * @param {string} message - The message to send
+     * @param {number} maxOutput - The maximum output tokens for the AI response
      * @returns {Promise<Object>} - The updated messages
      */
-    async sendMessage(conversationId, message) {
+    async sendMessage(conversationId, message, maxOutput = 500) {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/send`, {
                 method: 'POST',
@@ -87,7 +88,10 @@ export class SpiritChatApiService {
                     'Content-Type': 'application/json'
                 },
                 credentials: 'include',
-                body: JSON.stringify({ message })
+                body: JSON.stringify({ 
+                    message,
+                    max_output: maxOutput
+                })
             });
             
             if (!response.ok) {

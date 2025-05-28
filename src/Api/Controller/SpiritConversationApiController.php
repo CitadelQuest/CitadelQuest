@@ -87,6 +87,9 @@ class SpiritConversationApiController extends AbstractController
             return $this->json(['error' => 'Missing message parameter'], 400);
         }
         
+        // Extract max_output parameter with default value
+        $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
+        
         try {
             $locale = $request->getSession()->get('_locale');
             if (!$locale) {
@@ -95,11 +98,12 @@ class SpiritConversationApiController extends AbstractController
             if (!$locale) {
                 $locale = 'en';
             }
-            // Send message
+            // Send message with max_output parameter
             $messages = $this->conversationService->sendMessage(
                 $id,
                 $data['message'],
-                $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')'
+                $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')',
+                $maxOutput
             );
             
             return $this->json(['messages' => $messages]);

@@ -135,7 +135,7 @@ class SpiritConversationService
         return $count;
     }
     
-    public function sendMessage(string $conversationId, string $message, string $lang = 'English'): array
+    public function sendMessage(string $conversationId, string $message, string $lang = 'English', int $maxOutput = 500): array
     {
         $db = $this->getUserDb();
 
@@ -171,11 +171,11 @@ class SpiritConversationService
         // Add tools to request
         $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
         
-        // Create and save the AI service request
+        // Create and save the AI service request with custom max_output
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
             $aiServiceModel->getId(),
             $messages,
-            4000, 0.7, null, $tools
+            $maxOutput, 0.7, null, $tools
         );
         
         // Create spirit conversation request

@@ -119,17 +119,21 @@ class RegistrationController extends AbstractController
                     $data = json_decode($content, true);
                     
                     if ($statusCode !== Response::HTTP_CREATED && $statusCode !== Response::HTTP_OK) {
-                        return $this->redirectToRoute('app_register');
+                        error_log('CQAIGateway registration for user ' . $user->getEmail() . ' failed with status code ' . $statusCode . ': ' . $content);
+                        return $this->redirectToRoute('app_welcome_onboarding');
                     }
                     
                     $apiKey = $data['user_api_key'];
 
                     // save API key to user settings - it will be used in onboarding, pre-filled in the form
                     $settingsService->setSetting('cqaigateway.api_key', $apiKey);
+
+                    error_log('CQAIGateway registration successful for user ' . $user->getEmail());
                     
                 } catch (\Exception $e) {
+                    error_log('CQAIGateway registration failed for user ' . $user->getEmail() . ': ' . $e->getMessage());
                     $this->addFlash('error', $this->translator->trans('auth.register.error') . ' (' . $e->getMessage() . ')');
-                    return $this->redirectToRoute('app_register');
+                    return $this->redirectToRoute('app_welcome_onboarding');
                 }
             }
 

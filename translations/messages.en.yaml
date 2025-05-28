@@ -160,6 +160,7 @@ spirit:
         type_message: 'Type your message here...'
         no_messages: 'No messages yet. Start a conversation!'
         loading_response: 'Spirit is thinking...'
+        response_max_output: 'Max response length'
 
 profile:
     title: 'Profile Settings'

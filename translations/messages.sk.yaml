@@ -160,6 +160,7 @@ spirit:
         type_message: 'Napíšte vašu správu...'
         no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu!'
         loading_response: 'Duch rozmýšľa...'
+        response_max_output: 'Maximálna dĺžka odpovede'
 
 profile:
     title: 'Nastavenia profilu'

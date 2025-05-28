@@ -54,11 +54,23 @@
                 </div>
             </div>
             <div class="modal-footer chat-container">
-                <form id="chatForm" class="d-flex w-100 mb-2">
-                    <textarea id="messageInput" class="form-control me-3 d-block" rows="2" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off"></textarea>
-                    <button type="submit" class="btn btn-cyber" style="max-height: min-content !important;">
-                        <i class="mdi mdi-message-check"></i>
-                    </button>
+                <form id="chatForm" class="d-flex flex-column w-100">
+                    <div class="d-flex align-items-center">
+                        <i class="mdi mdi-tune-vertical me-2 text-cyber cursor-pointer" id="chatSettingsIcon" data-bs-toggle="collapse" data-bs-target="#chatSettings" aria-expanded="false" aria-controls="chatSettings"></i>
+                        <textarea id="messageInput" class="form-control me-3" rows="2" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off" focus></textarea>
+                        <button type="submit" class="btn btn-cyber" style="max-height: min-content !important;">
+                            <i class="mdi mdi-message-check"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center mt-2 ps-2">
+                        <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
+                            <label class="form-range-label small" for="responseMaxOutputSlider">
+                                {{ 'spirit.chat.response_max_output'|trans }}: 
+                                <span id="responseMaxOutputValue" class="text-cyber d-inline-block text-end" style="width: 3.2em;">-</span> tokens
+                            </label>
+                            <input class="form-range-input" type="range" id="responseMaxOutputSlider" min="10" max="8192" value="500">
+                        </div>  
+                    </div>
                 </form>
             </div>
         </div>
@@ -74,9 +86,9 @@
             </div>
             <div class="modal-body">
                 <form id="newConversationForm">
-                    <div class="mb-3">
+                    <div class="mb-3 w-100">
                         <label for="conversationTitle" class="form-label">{{ 'spirit.chat.conversation_title'|trans }}</label>
-                        <input type="text" class="form-control" id="conversationTitle" required>
+                        <input type="text" class="form-control" id="conversationTitle" required focus>
                     </div>
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}</button>
