@@ -11,11 +11,6 @@
                     <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    {% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}
-                        <a href="{{ path('app_user_settings_admin') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
-                            <i class="mdi mdi-account-cowboy-hat me-2"></i> Admin
-                        </a>
-                    {% endif %}
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
                         <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
                     </a>

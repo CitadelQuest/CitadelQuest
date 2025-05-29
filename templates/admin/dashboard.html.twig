@@ -1,0 +1,209 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'admin.dashboard.title'|trans }} - {{ parent() }}{% endblock %}
+
+{# {% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('admin-dashboard') }}
+{% endblock %} #}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('admin-dashboard') }}
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="text-cyber">
+                    <i class="mdi mdi-account-cowboy-hat me-2"></i>
+                    {{ 'admin.dashboard.title'|trans }}
+                </h1>
+                <div class="text-muted">
+                    <i class="mdi mdi-server me-1"></i>
+                    {{ app.request.host }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account-group display-4 text-cyber mb-2"></i>
+                    <h3 class="text-cyber" id="totalUsers">{{ userStats.total }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.total_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account-cowboy-hat display-4 text-warning mb-2"></i>
+                    <h3 class="text-warning" id="adminUsers">{{ userStats.admins }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.admin_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account display-4 text-info mb-2"></i>
+                    <h3 class="text-light" id="regularUsers">{{ userStats.regular }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.regular_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card glass-panel border-cyber">
+                <div class="card-header">
+                    <h5 class="text-cyber mb-0">
+                        <i class="mdi mdi-lightning-bolt me-2"></i>
+                        {{ 'admin.dashboard.quick_actions'|trans }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <a href="{{ path('app_admin_users') }}" class="btn btn-cyber w-100">
+                                <i class="mdi mdi-account-multiple me-2"></i>
+                                {{ 'admin.dashboard.manage_users'|trans }}
+                            </a>
+                        </div>
+                        {# <div class="col-md-4 mb-3">
+                            <button class="btn btn-secondary text-light w-100"
+                                onclick="refreshStats()"
+                                data-stats-refreshed="{{ 'admin.dashboard.stats_refreshed'|trans }}"
+                                data-stats-error="{{ 'admin.dashboard.stats_error'|trans }}">
+                                <i class="mdi mdi-refresh me-2"></i>
+                                {{ 'admin.dashboard.refresh_stats'|trans }}
+                            </button>
+                        </div> #}
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-secondary text-light w-100" data-bs-toggle="modal" data-bs-target="#updateModal">
+                                <i class="mdi mdi-update me-2"></i>
+                                {{ 'admin.dashboard.check_updates'|trans }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Users -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-dark border-cyber">
+                <div class="card-header">
+                    <h5 class="text-cyber mb-0">
+                        <i class="mdi mdi-account-clock me-2"></i>
+                        {{ 'admin.dashboard.recent_users'|trans }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if users|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.users.username'|trans }}</th>
+                                        <th>{{ 'admin.users.email'|trans }}</th>
+                                        {# <th>{{ 'admin.users.roles'|trans }}</th>
+                                        <th>{{ 'admin.users.database'|trans }}</th> #}
+                                        <th>{{ 'admin.users.actions'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users|slice(0, 5) %}
+                                        <tr>
+                                            <td>
+                                                {% if 'ROLE_ADMIN' in user.roles %} 
+                                                    <i class="mdi mdi-account-cowboy-hat me-2 text-warning"></i>
+                                                {% else %}
+                                                    <i class="mdi mdi-account me-2 text-cyber"></i>
+                                                {% endif %}
+                                                {{ user.username }}
+                                                {% if user == app.user %}
+                                                    <span class="badge bg-primary ms-2">{{ 'admin.users.you'|trans }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ user.email|replace({"@": "<span class='text-cyber'>@</span>"})|raw }}</td>
+                                            {# <td>
+                                                {% for role in user.roles %}
+                                                    {% if role == 'ROLE_ADMIN' %}
+                                                        <span class="badge bg-warning">{{ 'admin.roles.admin'|trans }}</span>
+                                                    {% elseif role == 'ROLE_USER' %}
+                                                        <span class="badge bg-info">{{ 'admin.roles.user'|trans }}</span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                            <td>
+                                                <code class="text-cyber">{{ user.databasePath }}</code>
+                                            </td> #}
+                                            <td>
+                                                <a href="{{ path('app_admin_users') }}" class="btn btn-sm btn-outline-cyber">
+                                                    <i class="mdi mdi-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if users|length > 5 %}
+                            <div class="text-center mt-3">
+                                <a href="{{ path('app_admin_users') }}" class="btn btn-outline-cyber">
+                                    {{ 'admin.dashboard.view_all_users'|trans }} ({{ users|length }})
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="mdi mdi-account-off display-4 mb-3"></i>
+                            <p>{{ 'admin.dashboard.no_users'|trans }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="updateModal" class="modal fade" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel cyber-glow">
+            <div class="modal-header bg-cyber-g">
+                <h5 class="modal-title text-cyber" id="updateModalLabel">{{ 'admin.dashboard.check_updates'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body border-secondary">
+                {# <p>{{ 'admin.dashboard.check_updates_modal'|trans }}</p> #}
+                <div id="updateModalContent">
+                    <iframe id="updateModalIframe" src="" width="100%" frameborder="0" class="rounded border-0 d-none"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-sm btn-secondary me-2" data-bs-dismiss="modal" id="updateModalClose">
+                    <i class="mdi mdi-close me-2"></i>
+                    {{ 'ui.close'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-cyber" id="updateModalCheckUpdates" data-original-text="{{ 'admin.dashboard.update'|trans }}">                    
+                    <i class="mdi mdi-update me-2"></i>
+                    {{ 'admin.dashboard.update'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript functionality moved to AdminDashboardManager.js -->
+{% endblock %}

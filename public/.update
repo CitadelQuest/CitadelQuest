@@ -78,12 +78,12 @@ class CitadelQuestUpdater
         echo "        .warning { color: #ffc107; }\n";
         echo "    </style>\n";
         echo "</head>\n";
-        echo "<body class=\"bg-light\">\n";
-        echo "<div class=\"container py-5\">\n";
+        echo "<body class=\"bg-dark text-light\">\n";
+        echo "<div class=\"container py-2\">\n";
         echo "    <div class=\"row justify-content-center\">\n";
         echo "        <div class=\"col-md-8\">\n";
-        echo "            <div class=\"card shadow-sm\">\n";
-        echo "                <div class=\"card-body\">\n";
+        echo "            <div class=\"card border-0\">\n";
+        echo "                <div class=\"card-body bg-dark text-light\" style=\"font-size: 12px;\">\n";
         echo "                    <h2 class=\"card-title mb-4\">CitadelQuest Updater</h2>\n";
     }
 
@@ -849,7 +849,8 @@ class CitadelQuestUpdater
 
             $this->log("✓ Update completed successfully!", 'success');
             $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
-            $this->log("<a href='/' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
+            //$this->log("<a href='/' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
+            $this->log("Refresh the page to enjoy the new update!", 'warning');
 
         } catch (Exception $e) {
             $this->log("Error: " . $e->getMessage(), 'error');

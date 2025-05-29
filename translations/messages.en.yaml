@@ -102,10 +102,9 @@ home:
 navigation:
     user_menu:
         profile: 'Profile'
-        visual_design: 'Visual Design'
         backup: 'Backup'
-        settings: 'Settings'
-        logout: 'Logout'    
+        admin: 'Admin Panel'
+        logout: 'Logout'
     language:
         title: 'Language'
         en: 'English'
@@ -308,3 +307,61 @@ welcome:
             description: "Your Spirit has been created and is ready to assist you."
             start_journey: "Start Your Journey"
         completed: "Onboarding completed successfully!"
+
+admin:
+    dashboard:
+        title: 'Admin Dashboard'
+        quick_actions: 'Quick Actions'
+        manage_users: 'Manage Users'
+        refresh_stats: 'Refresh Statistics'
+        recent_users: 'Recent Users'
+        view_all_users: 'View All Users'
+        no_users: 'No users found'
+        stats_refreshed: 'Statistics refreshed'
+        stats_error: 'Error refreshing statistics'
+        check_updates: 'Check Updates'
+        update: 'Update'
+    
+    stats:
+        total_users: 'Total Users'
+        admin_users: 'Admin Users'
+        regular_users: 'Regular Users'
+    
+    users:
+        title: 'User Management'
+        back_to_dashboard: 'Back to Dashboard'
+        all_users: 'All Users'
+        search: 'Search users...'
+        username: 'Username'
+        email: 'Email'
+        roles: 'Roles'
+        database: 'Database'
+        actions: 'Actions'
+        you: 'You'
+        view_info: 'View Information'
+        toggle_admin: 'Toggle Admin Role'
+        delete: 'Delete User'
+        user_details: 'User Details'
+        user_id: 'User ID'
+        no_users: 'No users found'
+        error_loading_info: 'Error loading user information'
+        confirm_toggle_admin: 'Are you sure you want to toggle the admin role for this user?'
+        confirm_delete: 'Are you sure you want to delete user %username%? This action cannot be undone.'
+        error_toggle_admin: 'Error toggling admin role'
+        error_delete: 'Error deleting user'
+        admin_granted: 'Admin role granted to %username%'
+        admin_removed: 'Admin role removed from %username%'
+        deleted: 'User %username% has been deleted'
+    
+    roles:
+        admin: 'Admin'
+        user: 'User'
+    
+    error:
+        cannot_modify_self: 'You cannot modify your own admin role'
+        cannot_delete_self: 'You cannot delete your own account'
+        cannot_delete_last_admin: 'Cannot delete the last admin user'
+        delete_failed: 'Failed to delete user'
+
+ui:
+    close: 'Close'

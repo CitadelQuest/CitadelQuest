@@ -33,6 +33,8 @@ Encore
     .addEntry('spirit', './assets/entries/spirit.js')
     .addEntry('spirit-chat', './assets/entries/spirit-chat.js')
     .addEntry('welcome-onboarding', './assets/entries/welcome-onboarding.js')
+    .addEntry('admin-dashboard', './assets/entries/admin-dashboard.js')
+    .addEntry('admin-users', './assets/entries/admin-users.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

@@ -16,7 +16,7 @@ class UpdateController extends AbstractController
     {
         $this->requestStack = $requestStack;
     }
-    #[Route('/admin/update/check', name: 'admin_update_check')]
+    /* #[Route('/admin/update/check', name: 'admin_update_check')]
     public function checkForUpdates(): Response
     {
         // Only allow admin access
@@ -46,5 +46,5 @@ class UpdateController extends AbstractController
         
         // Redirect to the unique update script
         return $this->redirect('/' . $scriptName);
-    }
+    } */
 }

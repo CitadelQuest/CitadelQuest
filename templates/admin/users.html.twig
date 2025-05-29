@@ -1,0 +1,176 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'admin.users.title'|trans }} - {{ parent() }}{% endblock %}
+
+{# {% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('admin-users') }}
+{% endblock %} #}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('admin-users') }}
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="text-cyber">
+                    <i class="mdi mdi-account-multiple me-2"></i>
+                    {{ 'admin.users.title'|trans }}
+                </h1>
+                <div>
+                    <a href="{{ path('app_admin_dashboard') }}" class="btn btn-secondary btn-sm">
+                        <i class="mdi mdi-arrow-left me-2"></i>
+                        {{ 'admin.users.back_to_dashboard'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-panel border-0">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="text-cyber mb-0">
+                            <i class="mdi mdi-account-group me-2"></i>
+                            {{ 'admin.users.all_users'|trans }} ({{ users|length }})
+                        </h5>
+                        <div class="input-group input-group-sm" style="max-width: 300px;">
+                            <input type="text" class="form-control form-control-sm bg-dark text-light border-cyber" 
+                                   id="userSearch" placeholder="{{ 'admin.users.search'|trans }}">
+                            <span class="input-group-text input-group-text-sm bg-cyber border-cyber">
+                                <i class="mdi mdi-magnify"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if users|length > 0 %}
+                        <div class="table-responsive rounded">
+                            <table class="table table-dark table-hover" id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th><span class="ps-2">{{ 'admin.users.username'|trans }}</span></th>
+                                        <th>{{ 'admin.users.email'|trans }}</th>
+                                        {# <th>{{ 'admin.users.roles'|trans }}</th>
+                                        <th>{{ 'admin.users.database'|trans }}</th> #}
+                                        <th class="text-center">{{ 'admin.users.actions'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                        <tr data-user-id="{{ user.id }}" class="user-row">
+                                            <td>
+                                                <div class="d-flex align-items-center ps-2">
+                                                {% if 'ROLE_ADMIN' in user.roles %}
+                                                    <i class="mdi mdi-account-cowboy-hat me-2 text-warning user-icon"></i>
+                                                {% else %}
+                                                    <i class="mdi mdi-account me-2 text-cyber user-icon"></i>
+                                                {% endif %}
+                                                    <span class="user-username">{{ user.username }}</span>
+                                                    {% if user == app.user %}
+                                                        <span class="badge bg-primary ms-2">{{ 'admin.users.you'|trans }}</span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                            <td class="user-email">{{ user.email|replace({"@": "<span class='text-cyber'>@</span>"})|raw }}</td>
+                                            {# <td>
+                                                <div class="user-roles">
+                                                    {% for role in user.roles %}
+                                                        {% if role == 'ROLE_ADMIN' %}
+                                                            <span class="badge bg-warning me-1">{{ 'admin.roles.admin'|trans }}</span>
+                                                        {% elseif role == 'ROLE_USER' %}
+                                                            <span class="badge bg-info me-1">{{ 'admin.roles.user'|trans }}</span>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </td> #}
+                                            {# <td>
+                                                <code class="text-cyber">{{ user.databasePath }}</code>
+                                            </td> #}
+                                            <td class="text-center">
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-success user-info-btn" 
+                                                            data-user-id="{{ user.id }}" 
+                                                            title="{{ 'admin.users.view_info'|trans }}">
+                                                        <i class="mdi mdi-information"></i>
+                                                    </button>
+                                                    
+                                                    {% if user != app.user %}
+                                                        <button type="button" class="btn btn-sm btn-outline-warning toggle-admin-btn" 
+                                                                data-user-id="{{ user.id }}" 
+                                                                title="{{ 'admin.users.toggle_admin'|trans }}"
+                                                                id="admin-btn-{{ user.id }}">
+                                                            {% if 'ROLE_ADMIN' in user.roles %}
+                                                                <i class="mdi mdi-account-minus"></i>
+                                                            {% else %}
+                                                                <i class="mdi mdi-account-plus"></i>
+                                                            {% endif %}
+                                                        </button>
+                                                        
+                                                        <button type="button" class="btn btn-sm btn-outline-danger delete-user-btn" 
+                                                                data-user-id="{{ user.id }}" 
+                                                                data-username="{{ user.username }}" 
+                                                                title="{{ 'admin.users.delete'|trans }}">
+                                                            <i class="mdi mdi-delete"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="mdi mdi-account-off display-4 mb-3"></i>
+                            <p>{{ 'admin.users.no_users'|trans }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Info Modal -->
+<div class="modal fade" id="userInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel cyber-glow">
+            <div class="modal-header bg-cyber-g">
+                <h5 class="modal-title text-cyber">
+                    <i class="mdi mdi-account-details me-2"></i>
+                    {{ 'admin.users.user_details'|trans }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userInfoContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="d-none">
+                <span data-trans-username="{{ 'admin.users.username'|trans }}"></span>
+                <span data-trans-email="{{ 'admin.users.email'|trans }}"></span>
+                <span data-trans-roles="{{ 'admin.users.roles'|trans }}"></span>
+                <span data-trans-database="{{ 'admin.users.database'|trans }}"></span>
+                <span data-trans-user-id="{{ 'admin.users.user_id'|trans }}"></span>
+                <span data-trans-admin="{{ 'admin.roles.admin'|trans }}"></span>
+                <span data-trans-user="{{ 'admin.roles.user'|trans }}"></span>
+                <span data-error-loading-info="{{ 'admin.users.error_loading_info'|trans }}"></span>
+                <span data-confirm-toggle-admin="{{ 'admin.users.confirm_toggle_admin'|trans }}"></span>
+                <span data-confirm-delete="{{ 'admin.users.confirm_delete'|trans }}"></span>
+                <span data-error-toggle-admin="{{ 'admin.users.error_toggle_admin'|trans }}"></span>
+                <span data-error-delete="{{ 'admin.users.error_delete'|trans }}"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript functionality moved to AdminUsersManager.js -->
+{% endblock %}

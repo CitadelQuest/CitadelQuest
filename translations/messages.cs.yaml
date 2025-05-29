@@ -104,8 +104,8 @@ navigation:
         profile: 'Profil'
         visual_design: 'Vizuální styl'
         backup: 'Záloha'
-        settings: 'Nastavení'
-        logout: 'Odhlásit'
+        admin: 'Administrace'
+        logout: 'Odhlásit se'
     language:
         title: 'Jazyk'
         en: 'English'
@@ -301,3 +301,58 @@ welcome:
             description: "Váš Duch byl vytvořen a je připraven vám pomáhat."
             start_journey: "Začněte svou cestu"
         completed: "Úvodní nastavení bylo úspěšně dokončeno!"
+
+admin:
+    dashboard:
+        title: 'Administrátorský panel'
+        quick_actions: 'Rychlé akce'
+        manage_users: 'Správa uživatelů'
+        refresh_stats: 'Obnovit statistiky'
+        recent_users: 'Nedávní uživatelé'
+        view_all_users: 'Zobrazit všechny uživatele'
+        no_users: 'Žádní uživatelé nenalezeni'
+        stats_refreshed: 'Statistiky obnoveny'
+        stats_error: 'Chyba při obnovování statistik'
+        check_updates: 'Zkontrolovat aktualizace'
+        update: 'Aktualizovat'
+    
+    stats:
+        total_users: 'Celkem uživatelů'
+        admin_users: 'Administrátoři'
+        regular_users: 'Běžní uživatelé'
+    
+    users:
+        title: 'Správa uživatelů'
+        back_to_dashboard: 'Zpět na panel'
+        all_users: 'Všichni uživatelé'
+        search: 'Hledat uživatele...'
+        username: 'Uživatelské jméno'
+        email: 'Email'
+        roles: 'Role'
+        database: 'Databáze'
+        actions: 'Akce'
+        you: 'Vy'
+        view_info: 'Zobrazit informace'
+        toggle_admin: 'Přepnout admin roli'
+        delete: 'Smazat uživatele'
+        user_details: 'Detaily uživatele'
+        user_id: 'ID uživatele'
+        no_users: 'Žádní uživatelé nenalezeni'
+        error_loading_info: 'Chyba při načítání informací o uživateli'
+        confirm_toggle_admin: 'Opravdu chcete přepnout admin roli pro tohoto uživatele?'
+        confirm_delete: 'Opravdu chcete smazat uživatele %username%? Tuto akci nelze vrátit zpět.'
+        error_toggle_admin: 'Chyba při přepínání admin role'
+        error_delete: 'Chyba při mazání uživatele'
+        admin_granted: 'Admin role udělena uživateli %username%'
+        admin_removed: 'Admin role odebrána uživateli %username%'
+        deleted: 'Uživatel %username% byl smazán'
+    
+    roles:
+        admin: 'Administrátor'
+        user: 'Uživatel'
+    
+    error:
+        cannot_modify_self: 'Nemůžete měnit svou vlastní admin roli'
+        cannot_delete_self: 'Nemůžete smazat svůj vlastní účet'
+        cannot_delete_last_admin: 'Nelze smazat posledního administrátora'
+        delete_failed: 'Smazání uživatele se nezdařilo'

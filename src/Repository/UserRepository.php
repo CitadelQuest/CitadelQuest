@@ -8,11 +8,16 @@ use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use App\Service\UserDatabaseManager;
 
 class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private UserDatabaseManager $userDatabaseManager,
+        private ParameterBagInterface $params
+    ) {
         parent::__construct($registry, User::class);
     }
 
@@ -25,12 +30,45 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         }
     }
 
-    public function remove(User $entity, bool $flush = false): void
+    public function remove(User $user, bool $flush = false): void
     {
-        $this->getEntityManager()->remove($entity);
+        // Remove user's database
+        $this->userDatabaseManager->deleteUserDatabase($user);
+        
+        // and sse-{user_id}.db
+        $sseDbPath = $this->params->get('kernel.project_dir') . '/var/user_databases/sse-' . $user->getId() . '.db';
+        if (file_exists($sseDbPath)) {
+            unlink($sseDbPath);
+        }
+        
+        // and dir user_backups/{user_id}/
+        $backupDir = $this->params->get('kernel.project_dir') . '/var/user_backups/' . $user->getId();
+        if (file_exists($backupDir)) {
+            $this->removeDirectory($backupDir);
+        }
 
+        $this->getEntityManager()->remove($user);
         if ($flush) {
             $this->getEntityManager()->flush();
+        }
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (is_dir($dir)) {
+            $files = scandir($dir);
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+                $path = $dir . '/' . $file;
+                if (is_dir($path)) {
+                    $this->removeDirectory($path);
+                } else {
+                    unlink($path);
+                }
+            }
+            rmdir($dir);
         }
     }
 

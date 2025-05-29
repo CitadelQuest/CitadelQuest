@@ -104,8 +104,9 @@ navigation:
         profile: 'Profil'
         visual_design: 'Vizuálny štýl'
         backup: 'Záloha'
+        admin: 'Administrácia'
         settings: 'Nastavenia'
-        logout: 'Odhlásiť'
+        logout: 'Odhlásiť sa'
     language:
         title: 'Jazyk'
         en: 'English'
@@ -301,3 +302,58 @@ welcome:
             description: "Váš Duch bol vytvorený a je pripravený vám pomáhať."
             start_journey: "Začnite svoju cestu"
         completed: "Úvodné nastavenie bolo úspešne dokončené!"
+
+admin:
+    dashboard:
+        title: 'Administrátorský panel'
+        quick_actions: 'Rýchle akcie'
+        manage_users: 'Správa používateľov'
+        refresh_stats: 'Obnoviť štatistiky'
+        recent_users: 'Nedávni používatelia'
+        view_all_users: 'Zobraziť všetkých používateľov'
+        no_users: 'Žiadni používatelia nenájdení'
+        stats_refreshed: 'Štatistiky obnovené'
+        stats_error: 'Chyba pri obnovovaní štatistík'
+        check_updates: 'Skontrolovať aktualizácie'
+        update: 'Aktualizovať'
+    
+    stats:
+        total_users: 'Celkom používateľov'
+        admin_users: 'Administrátori'
+        regular_users: 'Bežní používatelia'
+    
+    users:
+        title: 'Správa používateľov'
+        back_to_dashboard: 'Späť na panel'
+        all_users: 'Všetci používatelia'
+        search: 'Hľadať používateľov...'
+        username: 'Používateľské meno'
+        email: 'Email'
+        roles: 'Role'
+        database: 'Databáza'
+        actions: 'Akcie'
+        you: 'Vy'
+        view_info: 'Zobraziť informácie'
+        toggle_admin: 'Prepnúť admin rolu'
+        delete: 'Zmazať používateľa'
+        user_details: 'Detaily používateľa'
+        user_id: 'ID používateľa'
+        no_users: 'Žiadni používatelia nenájdení'
+        error_loading_info: 'Chyba pri načítavaní informácií o používateľovi'
+        confirm_toggle_admin: 'Naozaj chcete prepnúť admin rolu pre tohto používateľa?'
+        confirm_delete: 'Naozaj chcete zmazať používateľa "%username%"? Túto akciu nie je možné vrátiť späť.'
+        error_toggle_admin: 'Chyba pri prepínaní admin role'
+        error_delete: 'Chyba pri mazaní používateľa'
+        admin_granted: 'Admin rola udelená používateľovi %username%'
+        admin_removed: 'Admin rola odobratá používateľovi %username%'
+        deleted: 'Používateľ %username% bol zmazaný'
+    
+    roles:
+        admin: 'Administrátor'
+        user: 'Používateľ'
+    
+    error:
+        cannot_modify_self: 'Nemôžete meniť svoju vlastnú admin rolu'
+        cannot_delete_self: 'Nemôžete zmazať svoj vlastný účet'
+        cannot_delete_last_admin: 'Nie je možné zmazať posledného administrátora'
+        delete_failed: 'Zmazanie používateľa sa nepodarilo'

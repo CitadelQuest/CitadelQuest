@@ -182,7 +182,6 @@ export class SpiritChatManager {
                 this.responseMaxOutputSlider.max = localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '8192'; // todo: get real value from ai model
                 this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || '500';
                 this.responseMaxOutputSlider.dispatchEvent(new Event('input'));
-                console.log('init this.responseMaxOutputSlider.value', this.responseMaxOutputSlider.value);
             }
 
             // set chat settings open
