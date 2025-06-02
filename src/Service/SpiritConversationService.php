@@ -221,7 +221,7 @@ class SpiritConversationService
         // Extract the assistant message from the response
         $assistantMessage = [
             'role' => 'assistant',
-            'content' => $aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response. [*'.($aiServiceResponse->getFullResponse()['error']['message'] ?? '').'*]',
+            'content' => $aiServiceResponse->getMessage()['content'] ?? 'Sorry, I could not generate a response. [*'.($aiServiceResponse->getFullResponse()['error']['message'] ?? 'internet is broken').'*]',
             'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
         ];
         

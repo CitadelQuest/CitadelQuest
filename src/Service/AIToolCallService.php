@@ -15,7 +15,8 @@ class AIToolCallService
         private readonly SettingsService $settingsService,
         private readonly HttpClientInterface $httpClient,
         private readonly AiGatewayService $aiGatewayService,
-        private readonly AiServiceRequestService $aiServiceRequestService
+        private readonly AiServiceRequestService $aiServiceRequestService,
+        private readonly AiToolService $aiToolService
     ) {
     }
     
@@ -24,45 +25,61 @@ class AIToolCallService
      */
     public function getToolsDefinitions(): array
     {
-        // Define tools in a provider-agnostic format
-        $tools = [];
+        // Get tools from database (only active tools)
+        $tools = $this->aiToolService->getToolDefinitions();
         
-        // CitadelQuest Weather - mock weather data
-        $tools['getWeather'] = [
-            'name' => 'getWeather',
-            'description' => 'Get the current weather in a given location',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'location' => [
-                        'type' => 'string',
-                        'description' => 'The city and state, e.g. San Francisco, CA',
+        // If no tools are defined in the database, provide default tools
+        if (empty($tools)) {
+            // Define default tools in a provider-agnostic format
+            $tools = [];
+            
+            // CitadelQuest Weather - mock weather data
+            $tools['getWeather'] = [
+                'name' => 'getWeather',
+                'description' => 'Get the current weather in a given location',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'location' => [
+                            'type' => 'string',
+                            'description' => 'The city and state, e.g. San Francisco, CA',
+                        ],
+                        'unit' => [
+                            'type' => 'string',
+                            'enum' => ['celsius', 'fahrenheit'],
+                            'description' => 'The temperature unit to use. Infer this from the users location.',
+                        ],
                     ],
-                    'unit' => [
-                        'type' => 'string',
-                        'enum' => ['celsius', 'fahrenheit'],
-                        'description' => 'The temperature unit to use. Infer this from the users location.',
-                    ],
+                    'required' => ['location'],
                 ],
-                'required' => ['location'],
-            ],
-        ];
+            ];
 
-        // CitadelQuest User Profile - update description
-        $tools['updateUserProfile'] = [
-            'name' => 'updateUserProfile',
-            'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'newInfo' => [
-                        'type' => 'string',
-                        'description' => 'The new information added to the profile description',
+            // CitadelQuest User Profile - update description
+            $tools['updateUserProfile'] = [
+                'name' => 'updateUserProfile',
+                'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'newInfo' => [
+                            'type' => 'string',
+                            'description' => 'The new information added to the profile description',
+                        ],
                     ],
+                    'required' => ['newInfo'],
                 ],
-                'required' => ['newInfo'],
-            ],
-        ];
+            ];
+            
+            // Save default tools to database
+            foreach ($tools as $name => $definition) {
+                $this->aiToolService->createTool(
+                    $name,
+                    $definition['description'],
+                    $definition['parameters'],
+                    true
+                );
+            }
+        }
         
         return $tools;
     }
@@ -75,14 +92,22 @@ class AIToolCallService
         try {
             $arguments['lang'] = $lang;
 
-            switch ($toolName) {
-                case 'getWeather':
-                    return $this->getWeather($arguments);
-                case 'updateUserProfile':
-                    return $this->updateUserProfile($arguments);
-                default:
-                    return [];
+            // Check if we have a specific method for this tool
+            $methodName = lcfirst($toolName);
+            if (method_exists($this, $methodName)) {
+                return $this->{$methodName}($arguments);
             }
+            
+            // For tools without specific implementations, check if they exist in the database
+            $tool = $this->aiToolService->findByName($toolName);
+            if ($tool) {
+                // Generic tool execution logic could be added here
+                // For now, return an error that the tool isn't implemented
+                return ['error' => "Tool '{$toolName}' exists but has no implementation"];
+            }
+            
+            // Tool not found
+            return ['error' => "Unknown tool: {$toolName}"];
         } catch (\Exception $e) {
             return ['error' => $e->getMessage()];
         }
