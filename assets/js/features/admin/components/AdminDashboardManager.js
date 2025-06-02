@@ -68,11 +68,9 @@ export class AdminDashboardManager {
      * Initialize the update modal functionality
      */
     initUpdateModal() {
-        console.log('initUpdateModal');
         if (!this.updateModal) return;
 
         this.updateModal.addEventListener('shown.bs.modal', () => {
-            console.log('Update modal shown');
             this.iframe.classList.add('d-none');
             this.iframe.setAttribute('height', '0px');
             this.iframe.src = "";
@@ -82,10 +80,7 @@ export class AdminDashboardManager {
         });
 
         this.updateModalCheckUpdates.addEventListener('click', () => {
-            console.log('Update modal check updates clicked');
-            console.log('this.iframe.src', this.iframe.src, typeof this.iframe.src);
             if (this.iframe) {
-                console.log('Update modal check updates clicked 2');
                 this.updateModalCheckUpdates.disabled = true;
                 this.updateModalClose.disabled = true;
                 this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-loading mdi-spin me-2"></i>Please wait... don\'t touch anything!';
@@ -113,7 +108,7 @@ export class AdminDashboardManager {
                             if (this.iframe.contentWindow) {
                                 this.iframe.contentWindow.scrollTo(0, this.iframe.contentWindow.document.body.scrollHeight);
                             }
-                        }, 1000);
+                        }, 500);
                         
                         this.iframe.addEventListener('load', () => {
                             clearInterval(interval);

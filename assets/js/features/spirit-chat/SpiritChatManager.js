@@ -1,5 +1,6 @@
 import { SpiritChatApiService } from './SpiritChatApiService';
 import * as bootstrap from 'bootstrap';
+import * as marked from 'marked';
 
 /**
  * Spirit Chat Manager
@@ -49,8 +50,8 @@ export class SpiritChatManager {
         // Fetch the user's primary spirit
         this.fetchPrimarySpirit();
 
-        // Show the modal if it was open before
-        if (localStorage.getItem('spiritChatModal') === 'true') {
+        // Show the modal if it was open before and we are on same url as before (page refresh/reload)
+        if (localStorage.getItem('spiritChatModal') === 'true' && window.location.pathname === localStorage.getItem('spiritChatModalUrl')) {
             this.spiritChatButton.dispatchEvent(new Event('click'));
         }
     }
@@ -66,10 +67,12 @@ export class SpiritChatManager {
                     this.loadConversations(true);
                 }
                 localStorage.setItem('spiritChatModal', 'true');
+                localStorage.setItem('spiritChatModalUrl', window.location.pathname);
             });
             
             this.spiritChatModal.addEventListener('hidden.bs.modal', () => {
                 localStorage.removeItem('spiritChatModal');
+                localStorage.removeItem('spiritChatModalUrl');
             });
         }
 
@@ -134,7 +137,6 @@ export class SpiritChatManager {
         // Chat settings icon
         if (this.chatSettingsIcon) {
             this.chatSettingsIcon.addEventListener('click', () => {
-                console.log('click', localStorage.getItem('config.chat.settings.open'), typeof localStorage.getItem('config.chat.settings.open'));
                 let open = localStorage.getItem('config.chat.settings.open') === 'true';
                 localStorage.setItem('config.chat.settings.open', !open);
                 if (open) {
@@ -420,18 +422,19 @@ export class SpiritChatManager {
         }
         
         // Convert line breaks to <br>
-        let formatted = content.replace(/\n/g, '<br>');
+        //let formatted = content.replace(/\n/g, '<br>');
         
         // Convert **bold** to <strong>
-        formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        //formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
         
         // Convert *italic* to <em>
-        formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        //formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
         
         // Convert `code` to <code>
-        formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
+        ///formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
         
-        return formatted;
+        // new approach: `markdown_to_html`
+        return marked.parse(content);
     }
     
     /**

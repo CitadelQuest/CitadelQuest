@@ -570,6 +570,12 @@ class CitadelQuestUpdater
                    ) continue;
                 
                 $dbPath = $file->getPathname();
+
+                // skip `sse-*` dbs
+                if (strpos($dbPath, 'sse-') === 0) {
+                    continue;
+                }
+                
                 $this->log("Processing database: " . $file->getFilename());
                 
                 // Connect to user database and verify integrity
