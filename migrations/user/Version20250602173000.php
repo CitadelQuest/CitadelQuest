@@ -2,10 +2,22 @@
 
 class UserMigration_20250602173000
 {
+    /**
+     * Generate a UUID v4
+     */
+    private function generateUuid(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+        
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+    
     public function up(\PDO $db): void
     {
         // Weather tool
-        $weatherId = uuid_create();
+        $weatherId = $this->generateUuid();
         $weatherName = 'getWeather';
         $weatherDescription = 'Get the current weather in a given location';
         $weatherParameters = json_encode([
@@ -25,7 +37,7 @@ class UserMigration_20250602173000
         ]);
         
         // User profile tool
-        $profileId = uuid_create();
+        $profileId = $this->generateUuid();
         $profileName = 'updateUserProfile';
         $profileDescription = 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.';
         $profileParameters = json_encode([
