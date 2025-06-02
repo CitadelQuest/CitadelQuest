@@ -74,7 +74,7 @@ export class AdminDashboardManager {
         this.updateModal.addEventListener('shown.bs.modal', () => {
             console.log('Update modal shown');
             this.iframe.classList.add('d-none');
-            this.iframe.style.height = '0px';
+            this.iframe.setAttribute('height', '0px');
             this.iframe.src = "";
             this.updateModalCheckUpdates.disabled = false;
             this.updateModalClose.disabled = false;
@@ -117,8 +117,8 @@ export class AdminDashboardManager {
                         
                         this.iframe.addEventListener('load', () => {
                             clearInterval(interval);
-                            this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i> Refresh';
-                            this.updateModalCheckUpdates.disabled = false;
+                            //this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i> Refresh';
+                            this.updateModalCheckUpdates.style.display = 'none';
                             this.updateModalClose.disabled = false;
                         });
 

@@ -1,0 +1,374 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ project.title }} - Project Detail{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    /* Project Detail Mockup 1 - Dashboard Style */
+    .project-header {
+        background: rgba(0, 184, 148, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(0, 184, 148, 0.3);
+        box-shadow: 0 0 15px rgba(0, 184, 148, 0.2);
+    }
+    
+    .project-title {
+        color: #00b894;
+        font-size: 2.2rem;
+        margin-bottom: 10px;
+        text-shadow: 0 0 10px rgba(0, 184, 148, 0.3);
+    }
+    
+    .project-description {
+        font-size: 1.1rem;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+    
+    .project-meta {
+        display: flex;
+        gap: 15px;
+        font-size: 0.9rem;
+        color: #aaa;
+    }
+    
+    .project-badge {
+        background: rgba(0, 184, 148, 0.2);
+        border: 1px solid rgba(0, 184, 148, 0.4);
+        color: #00b894;
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+    }
+    
+    .dashboard-card {
+        background: rgba(30, 30, 30, 0.7);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(100, 100, 100, 0.3);
+        height: 100%;
+        transition: all 0.3s ease;
+    }
+    
+    .dashboard-card:hover {
+        box-shadow: 0 0 15px rgba(0, 184, 148, 0.3);
+        border-color: rgba(0, 184, 148, 0.5);
+    }
+    
+    .card-header {
+        border-bottom: 1px solid rgba(100, 100, 100, 0.3);
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .card-title {
+        color: #00b894;
+        font-size: 1.3rem;
+        margin: 0;
+    }
+    
+    .card-action {
+        color: #00b894;
+        font-size: 0.9rem;
+        text-decoration: none;
+    }
+    
+    .card-action:hover {
+        text-decoration: underline;
+    }
+    
+    .tool-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: rgba(50, 50, 50, 0.5);
+        transition: all 0.2s ease;
+    }
+    
+    .tool-item:hover {
+        background: rgba(0, 184, 148, 0.2);
+    }
+    
+    .tool-icon {
+        width: 30px;
+        height: 30px;
+        background: rgba(0, 184, 148, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        color: #00b894;
+    }
+    
+    .conversation-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        border-bottom: 1px solid rgba(100, 100, 100, 0.2);
+    }
+    
+    .conversation-item:last-child {
+        border-bottom: none;
+    }
+    
+    .conversation-item:hover {
+        background: rgba(50, 50, 50, 0.5);
+    }
+    
+    .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid rgba(100, 100, 100, 0.2);
+    }
+    
+    .file-item:last-child {
+        border-bottom: none;
+    }
+    
+    .file-item:hover {
+        background: rgba(50, 50, 50, 0.5);
+    }
+    
+    .file-name {
+        display: flex;
+        align-items: center;
+    }
+    
+    .file-icon {
+        margin-right: 10px;
+        color: #00b894;
+    }
+    
+    .file-meta {
+        color: #aaa;
+        font-size: 0.8rem;
+    }
+    
+    .source-item {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid rgba(100, 100, 100, 0.2);
+    }
+    
+    .source-item:last-child {
+        border-bottom: none;
+    }
+    
+    .source-item:hover {
+        background: rgba(50, 50, 50, 0.5);
+    }
+    
+    .source-icon {
+        margin-right: 10px;
+        color: #00b894;
+    }
+    
+    .source-title {
+        flex-grow: 1;
+    }
+    
+    .source-type {
+        background: rgba(0, 184, 148, 0.2);
+        color: #00b894;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        margin-right: 10px;
+    }
+    
+    .readme-preview {
+        background: rgba(40, 40, 40, 0.7);
+        border-radius: 10px;
+        padding: 20px;
+        border: 1px solid rgba(100, 100, 100, 0.3);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .readme-preview h1 {
+        color: #00b894;
+        font-size: 1.8rem;
+        margin-top: 0;
+        border-bottom: 1px solid rgba(0, 184, 148, 0.3);
+        padding-bottom: 10px;
+    }
+    
+    .readme-preview h2 {
+        color: #00b894;
+        font-size: 1.4rem;
+    }
+    
+    .readme-preview ul {
+        padding-left: 20px;
+    }
+    
+    .readme-preview li {
+        margin-bottom: 5px;
+    }
+    
+    .action-button {
+        background: rgba(0, 184, 148, 0.2);
+        color: #00b894;
+        border: 1px solid rgba(0, 184, 148, 0.4);
+        padding: 8px 15px;
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+        margin-right: 10px;
+    }
+    
+    .action-button:hover {
+        background: rgba(0, 184, 148, 0.4);
+        box-shadow: 0 0 10px rgba(0, 184, 148, 0.4);
+    }
+    
+    .action-button i {
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <!-- Project Header -->
+    <div class="project-header">
+        <h1 class="project-title">{{ project.title }}</h1>
+        <p class="project-description">{{ project.description }}</p>
+        <div class="project-meta">
+            <div>Created: {{ project.created_at|date('Y-m-d') }}</div>
+            <div>Updated: {{ project.updated_at|date('Y-m-d') }}</div>
+            <div class="project-badge">{{ project.is_public ? 'Public' : 'Private' }}</div>
+            <div class="project-badge">{{ project.is_active ? 'Active' : 'Archived' }}</div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="mb-4">
+        <a href="#" class="action-button"><i class="mdi mdi-message-reply"></i> New Conversation</a>
+        <a href="#" class="action-button"><i class="mdi mdi-pencil"></i> Edit Project</a>
+        <a href="#" class="action-button"><i class="mdi mdi-web"></i> View Public Page</a>
+        <a href="#" class="action-button"><i class="mdi mdi-cog"></i> Settings</a>
+    </div>
+    
+    <div class="row">
+        
+        <!-- Left Column -->
+        <div class="col-md-6">
+            <!-- README Preview -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-file-document-outline me-2"></i>Project Overview</h2>
+                    <a href="#" class="card-action">Edit</a>
+                </div>
+                <div class="card-body">
+                    <div class="readme-preview">
+                        {{ project.readme_content|markdown_to_html }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Middle Column -->
+        <div class="col-md-3">    
+            <!-- Files Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-file-document-multiple-outline me-2"></i>Files</h2>
+                    <a href="#" class="card-action">Manage</a>
+                </div>
+                <div class="card-body p-0">
+                    {% for file in project.files %}
+                    <div class="file-item">
+                        <div class="file-name">
+                            <i class="mdi mdi-file file-icon"></i>
+                            {{ file.name }}
+                        </div>
+                        <div class="file-meta">
+                            {{ file.size }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <!-- Tools Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-wrench me-2"></i>Tools</h2>
+                    <a href="#" class="card-action">Manage</a>
+                </div>
+                <div class="card-body p-0">
+                    {% for tool in project.tools %}
+                    <div class="tool-item">
+                        <div class="tool-icon">
+                            <i class="mdi {{ tool.icon }}"></i>
+                        </div>
+                        <div>{{ tool.name }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+    </div>
+    
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-md-6">
+            <!-- Conversations Card -->
+            <div class="dashboard-card mt-4">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-message-reply me-2"></i>Conversations</h2>
+                    <a href="#" class="card-action">View All</a>
+                </div>
+                <div class="card-body p-0">
+                    {% for conversation in project.conversations %}
+                    <div class="conversation-item">
+                        <div>{{ conversation.title }}</div>
+                        <div class="file-meta">{{ conversation.created_at|date('M d') }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+        <!-- Right Column -->
+        <div class="col-md-6">
+            
+            <!-- Online Sources Card -->
+            <div class="dashboard-card mt-4">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-web me-2"></i>Online Sources</h2>
+                    <a href="#" class="card-action">Add New</a>
+                </div>
+                <div class="card-body p-0">
+                    {% for source in project.online_sources %}
+                    <div class="source-item">
+                        <i class="mdi mdi-link source-icon"></i>
+                        <div class="source-title">{{ source.title }}</div>
+                        <span class="source-type">{{ source.type }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

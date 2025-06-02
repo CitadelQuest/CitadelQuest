@@ -1,0 +1,558 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ project.title }} - CitadelQuest{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    body {
+        background-color: #0f0f0f;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('/images/bg-pattern.png');
+        background-size: cover;
+        color: #e0e0e0;
+        /* font-family: 'Inter', sans-serif; */
+        padding: 0rem 0 3rem 0 !important;
+    }
+    
+    .public-project-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 15px;
+    }
+    
+    .project-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 30px;
+        background: rgba(20, 20, 20, 0.7);
+        border-radius: 10px;
+        padding: 30px;
+        border: 1px solid rgba(0, 184, 148, 0.3);
+    }
+    
+    .project-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #00b894;
+        margin: 0;
+    }
+    
+    .project-description {
+        font-size: 1.2rem;
+        color: #b0b0b0;
+        margin-bottom: 15px;
+    }
+    
+    .project-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-top: 10px;
+        font-size: 0.9rem;
+        color: #808080;
+    }
+    
+    .project-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .project-owner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .owner-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #00b894;
+    }
+    
+    .owner-name {
+        font-weight: 600;
+        color: #e0e0e0;
+    }
+    
+    .project-progress {
+        margin-top: 15px;
+    }
+    
+    .progress-bar-container {
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #00b894, #00cec9);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+        margin-top: 30px;
+    }
+    
+    .content-card {
+        background: rgba(20, 20, 20, 0.7);
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 184, 148, 0.3);
+    }
+    
+    .card-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid rgba(0, 184, 148, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .card-title {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #00b894;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    .markdown-content {
+        line-height: 1.6;
+    }
+    
+    .markdown-content h1 {
+        font-size: 1.8rem;
+        color: #00b894;
+        margin-top: 0;
+    }
+    
+    .markdown-content h2 {
+        font-size: 1.4rem;
+        color: #00cec9;
+        margin-top: 1.5rem;
+    }
+    
+    .markdown-content ul, .markdown-content ol {
+        padding-left: 20px;
+    }
+    
+    .markdown-content li {
+        margin-bottom: 5px;
+    }
+    
+    .file-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: background-color 0.2s ease;
+    }
+    
+    .file-item:hover {
+        background-color: rgba(0, 184, 148, 0.1);
+    }
+    
+    .file-icon {
+        color: #00b894;
+        font-size: 1.2rem;
+        margin-right: 15px;
+    }
+    
+    .file-details {
+        flex-grow: 1;
+    }
+    
+    .file-name {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+    
+    .file-meta {
+        font-size: 0.8rem;
+        color: #808080;
+    }
+    
+    .file-action {
+        color: #00b894;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    
+    .file-action:hover {
+        background-color: rgba(0, 184, 148, 0.2);
+        transform: scale(1.1);
+    }
+    
+    .milestone-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .milestone-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .milestone-status {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid #00b894;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    .milestone-status.completed {
+        background-color: #00b894;
+        color: #0f0f0f;
+    }
+    
+    .milestone-details {
+        flex-grow: 1;
+    }
+    
+    .milestone-title {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+    
+    .milestone-date {
+        font-size: 0.8rem;
+        color: #808080;
+    }
+    
+    .collaborators-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .collaborator-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 80px;
+    }
+    
+    .collaborator-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #00b894;
+        margin-bottom: 5px;
+    }
+    
+    .collaborator-name {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .sources-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .source-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.05);
+        transition: background-color 0.2s ease;
+    }
+    
+    .source-item:hover {
+        background-color: rgba(0, 184, 148, 0.1);
+    }
+    
+    .source-icon {
+        color: #00b894;
+        font-size: 1.2rem;
+        margin-right: 15px;
+    }
+    
+    .source-details {
+        flex-grow: 1;
+    }
+    
+    .source-title {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+    
+    .source-type {
+        font-size: 0.8rem;
+        color: #808080;
+    }
+    
+    .source-action {
+        color: #00b894;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    
+    .source-action:hover {
+        background-color: rgba(0, 184, 148, 0.2);
+        transform: scale(1.1);
+    }
+    
+    .join-project-button {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 24px;
+        background: linear-gradient(90deg, #00b894, #00cec9);
+        color: #0f0f0f;
+        font-weight: 600;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .join-project-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 184, 148, 0.4);
+    }
+    
+    @media (max-width: 768px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Add New Button */
+    .add-new-button {
+        position: fixed;
+        bottom: 50px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(0, 206, 201, 0.2);
+        border: 2px solid rgba(0, 206, 201, 0.5);
+        color: #00cec9;
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 20px rgba(0, 206, 201, 0.3);
+        transition: all 0.3s ease;
+        z-index: 100;
+    }
+    
+    .add-new-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 0 30px rgba(0, 206, 201, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="public-project-container">
+    <!-- Project Header -->
+    <div class="project-header">
+        <h1 class="project-title">{{ project.title }}</h1>
+        <p class="project-description">{{ project.description }}</p>
+        
+        <div class="project-meta">
+            <div class="project-meta-item">
+                <i class="mdi mdi-calendar"></i>
+                Created: {{ project.created_at|date('M d, Y') }}
+            </div>
+            <div class="project-meta-item">
+                <i class="mdi mdi-update"></i>
+                Updated: {{ project.updated_at|date('M d, Y') }}
+            </div>
+        </div>
+        
+        <div class="project-owner">
+            <img src="{{ project.owner.avatar }}" alt="{{ project.owner.display_name }}" class="owner-avatar">
+            <div>
+                <div class="owner-name">{{ project.owner.display_name }}</div>
+                <div class="owner-username">@{{ project.owner.username }}</div>
+            </div>
+        </div>
+        
+        <div class="project-progress">
+            <div class="progress-label">Project Progress: {{ project.progress }}%</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ project.progress }}%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Content Grid -->
+    <div class="content-grid">
+        <!-- Left Column -->
+        <div class="left-column">
+            <!-- Project Overview Card -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-file-document-outline"></i> Project Overview</h2>
+                </div>
+                <div class="card-body">
+                    <div class="markdown-content">
+                        {{ project.readme_content|markdown_to_html }}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Public Files Card -->
+            <div class="content-card mt-4">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-file-document-multiple-outline"></i> Public Files</h2>
+                </div>
+                <div class="card-body p-0">
+                    <div class="file-list">
+                        {% for file in project.files %}
+                            {% if file.is_public %}
+                            <div class="file-item">
+                                <i class="mdi mdi-file file-icon"></i>
+                                <div class="file-details">
+                                    <div class="file-name">{{ file.name }}</div>
+                                    <div class="file-meta">
+                                        {{ file.size }} • Updated {{ file.updated_at|date('M d, Y') }}
+                                    </div>
+                                </div>
+                                <button class="file-action" title="Download">
+                                    <i class="mdi mdi-download"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div class="right-column">
+            <!-- Milestones Card -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-flag"></i> Milestones</h2>
+                </div>
+                <div class="card-body">
+                    <div class="milestone-list">
+                        {% for milestone in project.milestones %}
+                        <div class="milestone-item">
+                            <div class="milestone-status {% if milestone.completed %}completed{% endif %}">
+                                {% if milestone.completed %}
+                                <i class="mdi mdi-check"></i>
+                                {% endif %}
+                            </div>
+                            <div class="milestone-details">
+                                <div class="milestone-title">{{ milestone.title }}</div>
+                                <div class="milestone-date">Due: {{ milestone.due_date|date('M d, Y') }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Collaborators Card -->
+            <div class="content-card mt-4">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-account-group"></i> Collaborators</h2>
+                </div>
+                <div class="card-body">
+                    <div class="collaborators-list">
+                        <div class="collaborator-item">
+                            <img src="{{ project.owner.avatar }}" alt="{{ project.owner.display_name }}" class="collaborator-avatar">
+                            <div class="collaborator-name">{{ project.owner.display_name }}</div>
+                            <div class="collaborator-role">Owner</div>
+                        </div>
+                        {% for collaborator in project.collaborators %}
+                        <div class="collaborator-item">
+                            <img src="{{ collaborator.avatar }}" alt="{{ collaborator.display_name }}" class="collaborator-avatar">
+                            <div class="collaborator-name">{{ collaborator.display_name }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Online Sources Card -->
+            <div class="content-card mt-4">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="mdi mdi-web"></i> Online Sources</h2>
+                </div>
+                <div class="card-body">
+                    <div class="sources-list">
+                        {% for source in project.online_sources %}
+                            {% if source.is_public %}
+                            <div class="source-item">
+                                <i class="mdi {% if source.type == 'webpage' %}mdi-web{% elseif source.type == 'pdf' %}mdi-file-pdf-box{% elseif source.type == 'academic' %}mdi-school{% elseif source.type == 'video' %}mdi-video{% else %}mdi-link{% endif %} source-icon"></i>
+                                <div class="source-details">
+                                    <div class="source-title">{{ source.title }}</div>
+                                    <div class="source-type">{{ source.type }}</div>
+                                </div>
+                                <a href="{{ source.url }}" target="_blank" class="source-action" title="Open">
+                                    <i class="mdi mdi-open-in-new"></i>
+                                </a>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Join Project Button -->
+            <button class="btn btn-cyber mt-3 float-end">
+                <i class="mdi mdi-account-plus me-2"></i> Join This Project
+            </button>
+        </div>
+    </div>
+</div>
+<!-- Floating Add Button -->
+<button class="add-new-button">
+    <i class="mdi mdi-ghost opacity-50"></i>
+</button>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // hide <nav> and <footer on this public project page
+        document.querySelector('nav').style.display = 'none';
+        document.querySelector('footer').style.display = 'none';
+    });
+</script>
+{% endblock %}

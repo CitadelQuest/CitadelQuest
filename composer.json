@@ -11,6 +11,7 @@
         "doctrine/doctrine-bundle": "^2.13.2",
         "doctrine/doctrine-migrations-bundle": "^3.4.1",
         "doctrine/orm": "^3.3.1",
+        "league/commonmark": "^2.7",
         "symfony/apache-pack": "^1.0.1",
         "symfony/asset": "7.2.*",
         "symfony/console": "7.2.*",
@@ -29,7 +30,9 @@
         "symfony/uid": "7.2.*",
         "symfony/validator": "7.2.*",
         "symfony/webpack-encore-bundle": "^2.2",
-        "symfony/yaml": "7.2.*"
+        "symfony/yaml": "7.2.*",
+        "twig/extra-bundle": "^3.21",
+        "twig/markdown-extra": "^3.21"
     },
     "require-dev": {
         "symfony/maker-bundle": "^1.62.1",
