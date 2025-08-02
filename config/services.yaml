@@ -47,6 +47,7 @@ services:
                 App\Service\AiServiceUseLogService: '@App\Service\AiServiceUseLogService'
                 App\Service\SettingsService: '@App\Service\SettingsService'
                 App\Service\AiToolService: '@App\Service\AiToolService'
+                App\Service\AIToolFileService: '@App\Service\AIToolFileService'
 
     App\Service\AnthropicGateway:
         autowire: true

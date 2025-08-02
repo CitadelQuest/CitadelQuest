@@ -16,7 +16,8 @@ class AIToolCallService
         private readonly HttpClientInterface $httpClient,
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceRequestService $aiServiceRequestService,
-        private readonly AiToolService $aiToolService
+        private readonly AiToolService $aiToolService,
+        private readonly AIToolFileService $aiToolFileService
     ) {
     }
     
@@ -26,7 +27,7 @@ class AIToolCallService
     public function getToolsDefinitions(): array
     {
         // Get tools from database (only active tools)
-        $tools = $this->aiToolService->getToolDefinitions();
+        //$tools = $this->aiToolService->getToolDefinitions();
         
         // If no tools are defined in the database, provide default tools
         if (empty($tools)) {
@@ -70,15 +71,201 @@ class AIToolCallService
                 ],
             ];
             
+            // Project File Management Tools
+            
+            // List files in a project directory
+            $tools['listFiles'] = [
+                'name' => 'listFiles',
+                'description' => 'List files and directories in a project directory',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path to list files from (default: "/")',
+                        ],
+                    ],
+                    'required' => ['projectId'],
+                ],
+            ];
+            
+            // Get file content
+            $tools['getFileContent'] = [
+                'name' => 'getFileContent',
+                'description' => 'Get the content of a file in a project',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'fileId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the file',
+                        ],
+                    ],
+                    'required' => ['fileId'],
+                ],
+            ];
+            
+            // Create directory
+            $tools['createDirectory'] = [
+                'name' => 'createDirectory',
+                'description' => 'Create a new directory in a project',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The parent directory path',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the directory to create',
+                        ],
+                    ],
+                    'required' => ['projectId', 'path', 'name'],
+                ],
+            ];
+            
+            // Create file
+            $tools['createFile'] = [
+                'name' => 'createFile',
+                'description' => 'Create a new file in a project with content',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path where to create the file',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file to create',
+                        ],
+                        'content' => [
+                            'type' => 'string',
+                            'description' => 'The content of the file',
+                        ],
+                        'mimeType' => [
+                            'type' => 'string',
+                            'description' => 'The MIME type of the file (optional)',
+                        ],
+                    ],
+                    'required' => ['projectId', 'path', 'name', 'content'],
+                ],
+            ];
+            
+            // Update file
+            $tools['updateFile'] = [
+                'name' => 'updateFile',
+                'description' => 'Update the content of an existing file in a project',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'fileId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the file',
+                        ],
+                        'content' => [
+                            'type' => 'string',
+                            'description' => 'The new content of the file',
+                        ],
+                    ],
+                    'required' => ['fileId', 'content'],
+                ],
+            ];
+            
+            // Delete file
+            $tools['deleteFile'] = [
+                'name' => 'deleteFile',
+                'description' => 'Delete a file or directory from a project',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'fileId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the file or directory to delete',
+                        ],
+                    ],
+                    'required' => ['fileId'],
+                ],
+            ];
+            
+            // Get file versions
+            $tools['getFileVersions'] = [
+                'name' => 'getFileVersions',
+                'description' => 'Get the version history of a file',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'fileId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the file',
+                        ],
+                    ],
+                    'required' => ['fileId'],
+                ],
+            ];
+            
+            // Find file by path
+            $tools['findFileByPath'] = [
+                'name' => 'findFileByPath',
+                'description' => 'Find a file by its project ID, path and name',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path of the file',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file',
+                        ],
+                    ],
+                    'required' => ['projectId', 'path', 'name'],
+                ],
+            ];
+            
+            // Ensure project structure - not available yet
+            /*$tools['ensureProjectStructure'] = [
+                'name' => 'ensureProjectStructure',
+                'description' => 'Ensure the project directory structure exists',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                    ],
+                    'required' => ['projectId'],
+                ],
+            ];*/
+            
             // Save default tools to database
-            foreach ($tools as $name => $definition) {
+            /* foreach ($tools as $name => $definition) {
                 $this->aiToolService->createTool(
                     $name,
                     $definition['description'],
                     $definition['parameters'],
                     true
                 );
-            }
+            } */
         }
         
         return $tools;
@@ -98,18 +285,22 @@ class AIToolCallService
                 return $this->{$methodName}($arguments);
             }
             
+            // For file management tools, delegate to AIToolFileService
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'deleteFile', 'getFileVersions', 'findFileByPath', 'ensureProjectStructure'])) {
+                return $this->aiToolFileService->{$toolName}($arguments);
+            }
+            
             // For tools without specific implementations, check if they exist in the database
             $tool = $this->aiToolService->findByName($toolName);
             if ($tool) {
                 // Generic tool execution logic could be added here
                 // For now, return an error that the tool isn't implemented
-                return ['error' => "Tool '{$toolName}' exists but has no implementation"];
+                return ['error' => 'Tool found but no implementation available: ' . $toolName];
             }
             
-            // Tool not found
-            return ['error' => "Unknown tool: {$toolName}"];
+            return ['error' => 'Tool not found or not implemented: ' . $toolName];
         } catch (\Exception $e) {
-            return ['error' => $e->getMessage()];
+            return ['error' => 'Error executing tool: ' . $e->getMessage()];
         }
     }
     

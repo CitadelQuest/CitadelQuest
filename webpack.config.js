@@ -35,6 +35,7 @@ Encore
     .addEntry('welcome-onboarding', './assets/entries/welcome-onboarding.js')
     .addEntry('admin-dashboard', './assets/entries/admin-dashboard.js')
     .addEntry('admin-users', './assets/entries/admin-users.js')
+    .addEntry('file_browser', './assets/entries/file_browser.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

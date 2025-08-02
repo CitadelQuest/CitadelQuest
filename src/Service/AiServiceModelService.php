@@ -127,13 +127,19 @@ class AiServiceModelService
         return $model;
     }
 
-    public function findByGateway(string $gatewayId): array
+    public function findByGateway(string $gatewayId, bool $activeOnly = false): array
     {
         $userDb = $this->getUserDb();
-        $results = $userDb->executeQuery(
-            'SELECT * FROM ai_service_model WHERE ai_gateway_id = ? ORDER BY model_name ASC',
-            [$gatewayId]
-        )->fetchAllAssociative();
+        $query = 'SELECT * FROM ai_service_model WHERE ai_gateway_id = ?';
+        $params = [$gatewayId];
+        
+        if ($activeOnly) {
+            $query .= ' AND is_active = 1';
+        }
+        
+        $query .= ' ORDER BY model_name ASC';
+        
+        $results = $userDb->executeQuery($query, $params)->fetchAllAssociative();
 
         return array_map(fn($data) => AiServiceModel::fromArray($data), $results);
     }

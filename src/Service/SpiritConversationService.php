@@ -14,6 +14,7 @@ use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\CitadelVersion;
 use App\Repository\UserRepository;
+use App\Service\ProjectFileService;
 
 class SpiritConversationService
 {
@@ -30,6 +31,7 @@ class SpiritConversationService
         private readonly Security $security,
         private readonly CitadelVersion $citadelVersion,
         private readonly UserRepository $userRepository,
+        private readonly ProjectFileService $projectFileService
     ) {
         $this->user = $security->getUser();
     }
@@ -250,6 +252,73 @@ class SpiritConversationService
         // Get user description from settings or use default empty value
         $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
 
+        // Get project description - only `general` projectId is used for now
+        $projectDescription_file_conversations_content = 'File not found, needs to be created for Spirit to work';
+        try {
+            $projectDescription_file_conversations = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'conversations.md');
+            if ($projectDescription_file_conversations) {
+                $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId());
+            }
+        } catch (\Exception $e) {
+        }
+        $projectDescription_file_inner_thoughts_content = $projectDescription_file_conversations_content;
+        try {
+            $projectDescription_file_inner_thoughts = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'inner-thoughts.md');
+            if ($projectDescription_file_inner_thoughts) {
+                $projectDescription_file_inner_thoughts_content = $this->projectFileService->getFileContent($projectDescription_file_inner_thoughts->getId());
+            }
+        } catch (\Exception $e) {
+        }
+        $projectDescription_file_knowledge_base_content = $projectDescription_file_conversations_content;
+        try {
+            $projectDescription_file_knowledge_base = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'knowledge-base.md');
+            if ($projectDescription_file_knowledge_base) {
+                $projectDescription_file_knowledge_base_content = $this->projectFileService->getFileContent($projectDescription_file_knowledge_base->getId());
+            }
+        } catch (\Exception $e) {
+        }
+        $projectDescription = "
+            <projects>
+                <project-id>general</project-id>
+                <project-name>General (multi-purpose file browser) project</project-name>
+                <project-description>Project for multi-purpose file browser/manager use (mainly for Spirit to manage files on current CitadelQuest instance)</project-description>
+                <project-info>
+                    File Browser can be used by:
+                    - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
+                    - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
+                    File Browser can be used for:
+                    - keeping track of Spirit's memories from conversations (via `/spirit/memory/conversations.md`)
+                    - keeping track of Spirit's inner thoughts and feelings (via `/spirit/memory/inner-thoughts.md`)
+                    - creating better knowledge base about user, for better Spirit's understanding of user (via `/spirit/memory/knowledge-base.md`). This is new approach replacing current `updateUserProfile()` Tool.
+                    - helping user in managing files on their CitadelQuest instance (in this `general` project)
+                </project-info>
+            </projects>
+            <active-projects>
+                <project>
+                    <project-id>general</project-id>
+                    <current-data>
+                        <file>
+                            <name>/spirit/memory/conversations.md</name>
+                            <content>
+                                {$projectDescription_file_conversations_content}
+                            </content>
+                        </file>
+                        <file>
+                            <name>/spirit/memory/inner-thoughts.md</name>
+                            <content>
+                                {$projectDescription_file_inner_thoughts_content}
+                            </content>
+                        </file>
+                        <file>
+                            <name>/spirit/memory/knowledge-base.md</name>
+                            <content>
+                                {$projectDescription_file_knowledge_base_content}
+                            </content>
+                        </file>
+                    </current-data>
+                </project>
+            </active-projects>";
+
         // Note: Onboarding message and main CitadelQuest system prompt definition is on CQ AI Gateway, safe and secure.
 
         // Onboarding message if user description is empty or too short
@@ -275,6 +344,9 @@ class SpiritConversationService
                         <username>{$this->user->getUsername()}</username>
                         <email>{$this->user->getEmail()}</email>
                     </user>
+                    <datetime>
+                        {$currentDateTime}
+                    </datetime>
                 </current-system-info>
 
                 <user-info>
@@ -282,9 +354,7 @@ class SpiritConversationService
                 </user-info>
                 {$onboardingTag}
 
-                <current-datetime>
-                {$currentDateTime}
-                </current-datetime>
+                {$projectDescription}
 
                 <response-language>
                 {$lang}

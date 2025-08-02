@@ -72,8 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('beforeunload', () => {
     const pageLoadingIndicator = document.getElementById('page-loading-indicator');
     if (pageLoadingIndicator) {
-        pageLoadingIndicator.classList.remove('d-none');
-        pageLoadingIndicator.classList.add('d-block');
+        //pageLoadingIndicator.classList.remove('d-none');
+        //pageLoadingIndicator.classList.add('d-block');
     }
 });
 

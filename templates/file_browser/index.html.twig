@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'file_browser.page_title'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('file_browser') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('file_browser') }}
+{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+    
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-panel mb-4 p-4">
+                    <div class="glass-panel-header">
+                        <h1>{{ 'file_browser.page_title'|trans }}</h1>
+                        <p class="text-muted mb-0">{{ 'file_browser.page_description'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="glass-panel p-4">
+                    <div class="glass-panel-body">
+                        <!-- File Browser Container -->
+                        <div id="file-browser-container" 
+                             data-project-id="{{ project_id }}" 
+                             data-translations="{{ translations|e('html_attr') }}"
+                             style="height: 75vh !important;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+ 
+    </div>
+{% endblock %}

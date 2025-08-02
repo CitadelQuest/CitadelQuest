@@ -330,10 +330,65 @@ class UserSettingsController extends AbstractController
                 $apiKeyState = 'set_and_valid';
                 $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
             }
+
+            // check for new models
+            $availableModels = $this->aiGatewayService->getAvailableModels($gateway->getId());
+            $currentModels = $this->aiServiceModelService->findByGateway($gateway->getId());
+            /* $currentModels = array_filter($currentModels, function ($currentModel) use ($gateway) {
+                return $currentModel->getAiGatewayId() === $gateway->getId();
+            }); */
+
+            $newModels = [];
+            // add new models
+            foreach ($availableModels as $model) {
+                if (!isset($model['id'])) {
+                    continue;
+                }
+                if (!in_array($model['id'], array_map(function ($currentModel) {
+                    return $currentModel->getModelSlug();
+                }, $currentModels))) {
+                    $newModels[] = $model;
+                    $this->aiServiceModelService->createModel(
+                        $gateway->getId(),          // gateway id
+                        $model['name'],             // model name
+                        $model['id'],               // model slug
+                        null,                       // virtual key = null, deprecated
+                        $model['context_length'],   // context length
+                        $model['context_length'],   // max input
+                        0,                          // maxInputImageSize
+                        isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096, // max output(response) tokens
+                        $model['pricing']['prompt'],        // ppmInput
+                        $model['pricing']['completion'],    // ppmOutput
+                        true                        // is active
+                    );
+                } else {
+                    // set existing model as active
+                    $currentModel = array_filter($currentModels, function ($currentModel) use ($model) {
+                        return $currentModel->getModelSlug() === $model['id'];
+                    });
+                    $this->aiServiceModelService->updateModel($currentModel[array_key_first($currentModel)]->getId(), ['isActive' => true]);
+                }
+            }
+            if (count($newModels) > 0) {
+                $this->addFlash('success', 'New models: [' . implode(', ', array_map(function ($model) {
+                    return $model['name'];
+                }, $newModels)) . '] added successfully.');
+            }
+
+            // set current models which are not in the list to inactive
+            foreach ($currentModels as $model) {
+                if (!in_array($model->getModelSlug(), array_map(function ($model) {
+                    return isset($model['id']) ? $model['id'] : null;
+                }, $availableModels))) {
+                    $this->aiServiceModelService->updateModel($model->getId(), ['isActive' => false]);
+                }
+            }
+            
+
         }
 
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findAll(true);
+        $aiModels = $this->aiServiceModelService->findByGateway($gateway->getId(), true);//findAll(true);
         
         return $this->render('user_settings/ai.html.twig', [
             'settings' => $settings,
