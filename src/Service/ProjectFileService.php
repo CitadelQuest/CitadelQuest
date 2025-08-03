@@ -33,7 +33,7 @@ class ProjectFileService
         'video/mp4', 'video/webm', 'video/ogg',
     ];
     
-    private const MAX_FILE_SIZE = 10485760; // 10MB
+    private const MAX_FILE_SIZE = 209715200; // 200MB
     
     /**
      * @var string
@@ -543,6 +543,11 @@ class ProjectFileService
             strpos($file->getMimeType(), 'video/') === 0 || 
             strpos($file->getMimeType(), 'audio/') === 0) {
             // base64 encode image, so it can be easyly displayed in browser
+            return 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($filePath));
+        }
+
+        // binary data
+        if (strpos($file->getMimeType(), 'application/') === 0) {
             return 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($filePath));
         }
 

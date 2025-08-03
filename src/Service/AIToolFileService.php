@@ -67,7 +67,7 @@ class AIToolFileService
             
             $content = $this->projectFileService->getFileContent($arguments['fileId']);
 
-            if  (strpos($content, 'data:image') === 0 || strpos($content, 'data:audio') === 0 || strpos($content, 'data:video') === 0) {
+            if  (strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
             }
             

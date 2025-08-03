@@ -1,6 +1,9 @@
 // File Browser component styles
 // Part of CitadelQuest project
 
+// cyber-scrollbar mixin
+@use '../mixins' as mixins;
+
 // Variables
 $file-browser-border-color: rgba(255, 255, 255, 0.1);
 $file-browser-bg-color: rgba(0, 0, 0, 0.2);
@@ -14,10 +17,11 @@ $file-browser-preview-header-height: 4rem;
 // Main container
 .file-browser {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   grid-template-columns: 1fr 1fr;
   grid-template-areas:
     "header header"
+    "uploader uploader"
     "list preview";
   gap: 1rem;
   height: 100%;
@@ -34,10 +38,11 @@ $file-browser-preview-header-height: 4rem;
   box-shadow: 0 0 15px rgba(149, 236, 134, 0.2);
   
   @media (max-width: 768px) {
-    grid-template-rows: auto 1fr 1fr;
+    grid-template-rows: auto auto 1fr 1fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"
+      "uploader"
       "list"
       "preview";
   }
@@ -119,6 +124,9 @@ $file-browser-preview-header-height: 4rem;
   border: 1px solid $file-browser-border-color;
   border-radius: $file-browser-border-radius;
   background-color: rgba(0, 0, 0, 0.2);
+
+  // cyber-scroll mixin
+  @include mixins.cyber-scrollbar;
 }
 
 .file-list-container {
@@ -216,6 +224,9 @@ $file-browser-preview-header-height: 4rem;
   background-color: rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
+
+  // cyber-scroll mixin
+  @include mixins.cyber-scrollbar;
 }
 
 .file-preview-header {
@@ -275,6 +286,9 @@ $file-browser-preview-header-height: 4rem;
     width: 100%;
     margin: 1rem 0;
   }
+
+  // cyber-scroll mixin
+  @include mixins.cyber-scrollbar;
 }
 
 .file-preview-empty,

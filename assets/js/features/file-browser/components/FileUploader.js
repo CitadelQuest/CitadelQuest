@@ -2,6 +2,9 @@
  * File Uploader component for CitadelQuest
  * Provides drag and drop file upload functionality for the File Browser
  */
+
+// Maximum file size in bytes (200MB - matching backend limit)
+const MAX_FILE_SIZE = 209715200;
 export class FileUploader {
     /**
      * @param {Object} options - Configuration options
@@ -128,7 +131,13 @@ export class FileUploader {
     handleFiles(files) {
         // Convert FileList to array and add to queue
         Array.from(files).forEach(file => {
-            this.uploadQueue.push(file);
+            // Validate file size
+            if (file.size > MAX_FILE_SIZE) {
+                // Create a progress item for the error
+                this.showFileError(file, `File is too large. Maximum size is ${this.formatFileSize(MAX_FILE_SIZE)}.`);
+            } else {
+                this.uploadQueue.push(file);
+            }
         });
         
         // Start upload if not already uploading
@@ -141,21 +150,18 @@ export class FileUploader {
      * Process the upload queue
      */
     async processUploadQueue() {
-        if (this.uploadQueue.length === 0) {
-            this.isUploading = false;
-            this.progressContainer.style.display = 'none';
+        if (this.isUploading || this.uploadQueue.length === 0) {
             return;
         }
         
         this.isUploading = true;
         
-        // Show progress container
+        // Show progress container - always keep it visible once files are being processed
         this.progressContainer.style.display = 'block';
         
         // Get next file from queue
         const file = this.uploadQueue.shift();
         
-        // Create progress item
         const progressItem = document.createElement('div');
         progressItem.className = 'file-uploader-progress-item';
         progressItem.innerHTML = `
@@ -187,15 +193,16 @@ export class FileUploader {
             successIcon.className = 'mdi mdi-check-circle text-success';
             infoElement.appendChild(successIcon);
             
-            // Remove progress item after delay
+            // Remove success items after delay
             setTimeout(() => {
                 progressItem.remove();
                 
-                // Hide progress container if empty
-                if (this.progressContainer.children.length === 0) {
+                // Hide progress container only if empty or if there are no error items
+                const hasErrorItems = Array.from(this.progressContainer.children).some(item => item.classList.contains('error'));
+                if (this.progressContainer.children.length === 0 || !hasErrorItems) {
                     this.progressContainer.style.display = 'none';
                 }
-            }, 3000);
+            }, 5000);
             
             // Call onUpload callback
             this.onUpload(file);
@@ -203,19 +210,39 @@ export class FileUploader {
             // Error
             progressItem.classList.add('error');
             
-            // Add error icon and message
+            // Add error icon with dismiss functionality
             const infoElement = progressItem.querySelector('.file-uploader-progress-info');
             const errorIcon = document.createElement('i');
             errorIcon.className = 'mdi mdi-close-circle text-danger';
+            errorIcon.style.cursor = 'pointer';
+            errorIcon.title = 'Dismiss';
+            
+            // Add click event to the error icon for dismissal
+            errorIcon.addEventListener('click', () => {
+                progressItem.remove();
+                
+                // Hide progress container only if empty or if there are no error items
+                const hasErrorItems = Array.from(this.progressContainer.children).some(item => item.classList.contains('error'));
+                if (this.progressContainer.children.length === 0 || !hasErrorItems) {
+                    this.progressContainer.style.display = 'none';
+                }
+            });
+            
             infoElement.appendChild(errorIcon);
             
+            // Add error message
             const errorMessage = document.createElement('div');
             errorMessage.className = 'file-uploader-progress-error';
             errorMessage.textContent = error.message;
             progressItem.appendChild(errorMessage);
             
             console.error('Error uploading file:', error);
+            
+            // Don't auto-remove error messages - let user dismiss them manually
         }
+        
+        // Reset uploading flag
+        this.isUploading = false;
         
         // Process next file in queue
         this.processUploadQueue();
@@ -229,6 +256,54 @@ export class FileUploader {
      */
     uploadFileWithProgress(file, progressCallback) {
         return this.apiService.uploadFile(this.projectId, this.currentPath, file, progressCallback);
+    }
+    
+    /**
+     * Show file error in the progress container
+     * @param {File} file - The file that caused the error
+     * @param {string} errorMessage - The error message to display
+     */
+    showFileError(file, errorMessage) {
+        // Show progress container
+        this.progressContainer.style.display = 'block';
+        
+        // Create progress item for the error
+        const progressItem = document.createElement('div');
+        progressItem.className = 'file-uploader-progress-item error';
+        progressItem.innerHTML = `
+            <div class="file-uploader-progress-info">
+                <span class="file-uploader-progress-name">${file.name}</span>
+                <span class="file-uploader-progress-size">${this.formatFileSize(file.size)}</span>
+            </div>
+        `;
+        
+        // Add error icon with dismiss functionality
+        const infoElement = progressItem.querySelector('.file-uploader-progress-info');
+        const errorIcon = document.createElement('i');
+        errorIcon.className = 'mdi mdi-close-circle text-danger';
+        errorIcon.style.cursor = 'pointer';
+        errorIcon.title = 'Dismiss';
+        
+        // Add click event to the error icon for dismissal
+        errorIcon.addEventListener('click', () => {
+            progressItem.remove();
+            
+            // Hide progress container only if empty or if there are no error items
+            const hasErrorItems = Array.from(this.progressContainer.children).some(item => item.classList.contains('error'));
+            if (this.progressContainer.children.length === 0 || !hasErrorItems) {
+                this.progressContainer.style.display = 'none';
+            }
+        });
+        
+        infoElement.appendChild(errorIcon);
+        
+        // Add error message
+        const errorMessageElement = document.createElement('div');
+        errorMessageElement.className = 'file-uploader-progress-error';
+        errorMessageElement.textContent = errorMessage;
+        progressItem.appendChild(errorMessageElement);
+        
+        this.progressContainer.appendChild(progressItem);
     }
     
     /**

@@ -149,6 +149,11 @@
                         background-color: rgba(colors.$dark, 0.3);
                         padding: 0.1rem 0.3rem;
                         border-radius: 0.25rem;
+                        @include mixins.cyber-scrollbar;
+                    }
+                    
+                    pre {
+                        @include mixins.cyber-scrollbar;
                     }
                 }
                 

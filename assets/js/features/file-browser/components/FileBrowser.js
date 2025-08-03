@@ -1,4 +1,5 @@
 import { FileBrowserApiService } from './FileBrowserApiService';
+import { FileUploader } from './FileUploader';
 
 /**
  * File Browser component for CitadelQuest
@@ -27,6 +28,9 @@ export class FileBrowser {
         this.apiService = new FileBrowserApiService({
             translations: this.translations
         });
+        
+        // Initialize FileUploader
+        this.fileUploader = null;
         
         // Initialize the component
         this.init();
@@ -85,6 +89,17 @@ export class FileBrowser {
         header.appendChild(this.breadcrumbsElement);
         header.appendChild(actions);
         
+        // Create uploader container - positioned after the actions but before the file list
+        this.uploaderContainer = document.createElement('div');
+        this.uploaderContainer.id = `${this.containerId}-uploader`;
+        this.uploaderContainer.className = 'file-browser-uploader';
+        this.uploaderContainer.style.display = 'none';
+        this.uploaderContainer.style.width = '100%';
+        this.uploaderContainer.style.marginTop = '10px';
+        this.uploaderContainer.style.marginBottom = '10px';
+        this.uploaderContainer.style.gridArea = 'uploader';
+        this.container.appendChild(this.uploaderContainer);
+        
         // Create the file list container
         this.fileListElement = document.createElement('div');
         this.fileListElement.className = 'file-browser-list';
@@ -98,11 +113,22 @@ export class FileBrowser {
         this.container.appendChild(this.fileListElement);
         this.container.appendChild(this.filePreviewElement);
         
-        // Create hidden file input for uploads
+        // Create hidden file input for uploads (fallback)
         this.fileInput = document.createElement('input');
         this.fileInput.type = 'file';
+        this.fileInput.multiple = true; // Allow multiple file selection
         this.fileInput.style.display = 'none';
         this.container.appendChild(this.fileInput);
+        
+        // Initialize the FileUploader component
+        this.fileUploader = new FileUploader({
+            containerId: `${this.containerId}-uploader`,
+            onUpload: () => this.loadFiles(this.currentPath),
+            translations: this.translations,
+            apiService: this.apiService,
+            projectId: this.projectId,
+            currentPath: this.currentPath
+        });
     }
     
     /**
@@ -126,7 +152,7 @@ export class FileBrowser {
                     break;
                     
                 case 'upload':
-                    this.fileInput.click();
+                    this.toggleUploader();
                     break;
                     
                 case 'navigate':
@@ -159,10 +185,13 @@ export class FileBrowser {
             }
         });
         
-        // File upload handler
+        // File upload handler (fallback)
         this.fileInput.addEventListener('change', async (e) => {
             if (e.target.files.length > 0) {
-                await this.uploadFile(e.target.files[0]);
+                // Handle multiple files
+                for (let i = 0; i < e.target.files.length; i++) {
+                    await this.uploadFile(e.target.files[i]);
+                }
             }
         });
     }
@@ -178,24 +207,27 @@ export class FileBrowser {
             console.log('currentPath', this.currentPath);
             this.updateBreadcrumbs();
             
-            // Show loading state
-            this.fileListElement.innerHTML = `
-                <div class="text-center p-4">
-                    <div class="spinner-border text-cyber" role="status">
-                        <span class="visually-hidden">${this.translations.loading || 'Loading...'}</span>
-                    </div>
-                </div>
-            `;
+            // Update the path in the file uploader
+            if (this.fileUploader) {
+                this.fileUploader.updatePath(this.currentPath);
+            }
             
             // Load files from API
             const response = await this.apiService.listFiles(this.projectId, path);
             this.files = response.files || [];
             
-            // Render the file list
+            // Update UI
             this.renderFileList();
+            this.updateBreadcrumbs();
             
-            // Clear the preview if we're changing directories
-            this.filePreviewElement.innerHTML = '';
+            // Clear preview if needed
+            if (this.selectedFile) {
+                const fileStillExists = this.files.find(f => f.id === this.selectedFile.id);
+                if (!fileStillExists) {
+                    this.selectedFile = null;
+                    this.filePreviewElement.innerHTML = '';
+                }
+            }
         } catch (error) {
             console.error('Error loading files:', error);
             this.showError(error.message);
@@ -652,7 +684,22 @@ export class FileBrowser {
     }
     
     /**
-     * Upload a file
+     * Toggle the uploader visibility
+     */
+    toggleUploader() {
+        if (this.uploaderContainer.style.display === 'none') {
+            this.uploaderContainer.style.display = 'block';
+            // Scroll to make uploader visible
+            this.uploaderContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Update the current path in the uploader
+            this.fileUploader.updatePath(this.currentPath);
+        } else {
+            this.uploaderContainer.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Upload a file (fallback method when not using the uploader component)
      * @param {File} file - The file to upload
      */
     async uploadFile(file) {

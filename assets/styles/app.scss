@@ -160,6 +160,13 @@ code {
     background-color: rgba(colors.$dark, 0.5);
     padding: vars.$spacing-unit/2;
     border-radius: vars.$border-radius;
+
+    // cyber-scrollbar
+    @include mix.cyber-scrollbar;
+}
+
+pre {
+    @include mix.cyber-scrollbar;
 }
 
 small, .small {
