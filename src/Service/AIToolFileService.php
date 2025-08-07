@@ -46,10 +46,18 @@ class AIToolFileService
      */
     public function getFileContent(array $arguments): array
     {
-        $this->validateArguments($arguments, ['fileId']);
+        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
         
         try {
-            $file = $this->projectFileService->findById($arguments['fileId']);
+            $file = $this->projectFileService->findByPathAndName(
+                $arguments['projectId'],
+                $arguments['path'],
+                $arguments['name']
+            );
+
+            if (!$file && isset($arguments['fileId'])) {
+                $file = $this->projectFileService->findById($arguments['fileId']);
+            }
             
             if (!$file) {
                 return [
@@ -65,7 +73,7 @@ class AIToolFileService
                 ];
             }
             
-            $content = $this->projectFileService->getFileContent($arguments['fileId']);
+            $content = $this->projectFileService->getFileContent($file->getId());
 
             if  (strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
@@ -143,13 +151,33 @@ class AIToolFileService
      */
     public function updateFile(array $arguments): array
     {
-        $this->validateArguments($arguments, ['fileId', 'content']);
+        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'content']);
         
         try {
+            $file = $this->projectFileService->findByPathAndName(
+                $arguments['projectId'],
+                $arguments['path'],
+                $arguments['name']
+            );
+            
+            if (!$file) {
+                return [
+                    'success' => false,
+                    'error' => 'File not found'
+                ];
+            }
+            
             $file = $this->projectFileService->updateFile(
-                $arguments['fileId'],
+                $file->getId(),
                 $arguments['content']
             );
+
+            if (!$file) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to update file'
+                ];
+            }
             
             return [
                 'success' => true,
@@ -168,15 +196,32 @@ class AIToolFileService
      */
     public function deleteFile(array $arguments): array
     {
-        $this->validateArguments($arguments, ['fileId']);
+        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
         
         try {
-            $result = $this->projectFileService->delete($arguments['fileId']);
+            $file = $this->projectFileService->findByPathAndName(
+                $arguments['projectId'],
+                $arguments['path'],
+                $arguments['name']
+            );
+
+            if (!$file && isset($arguments['fileId'])) {
+                $file = $this->projectFileService->findById($arguments['fileId']);
+            }
             
-            if (!$result) {
+            if (!$file) {
                 return [
                     'success' => false,
                     'error' => 'File not found'
+                ];
+            }
+            
+            $result = $this->projectFileService->delete($file->getId());
+
+            if (!$result) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to delete file'
                 ];
             }
             

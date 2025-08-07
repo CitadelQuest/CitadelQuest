@@ -136,6 +136,9 @@ class ProjectFileService
             throw new \InvalidArgumentException('Invalid path');
         }
         
+        // Ensure all parent directories exist in both filesystem and database
+        $this->ensureParentDirectoriesExist($projectId, $path);
+        
         // Create directory in filesystem
         $dirPath = $this->getAbsoluteFilePath($projectId, $path, $name);
         
@@ -184,6 +187,80 @@ class ProjectFileService
     }
     
     /**
+     * Ensure all parent directories exist in both filesystem and database
+     * 
+     * @param string $projectId Project ID
+     * @param string $path Path to ensure (e.g. /spirit/memory)
+     * @return void
+     */
+    private function ensureParentDirectoriesExist(string $projectId, string $path): void
+    {
+        if ($path === '/' || empty($path)) {
+            return; // Root directory always exists
+        }
+        
+        // Split path into components
+        $pathParts = explode('/', trim($path, '/'));
+        
+        // Start with root
+        $currentPath = '';
+        $userDb = $this->getUserDb();
+        
+        // Create each directory level if it doesn't exist
+        foreach ($pathParts as $part) {
+            // Build the current path level
+            $parentPath = $currentPath;
+            $currentPath = $currentPath ? $this->normalizePath($currentPath . '/' . $part) : '/' . $part;
+            
+            // Check if directory exists in database
+            $exists = $userDb->executeQuery(
+                'SELECT COUNT(*) as count FROM project_file WHERE project_id = ? AND path = ? AND name = ? AND is_directory = 1',
+                [$projectId, $parentPath, $part]
+            )->fetchAssociative();
+            
+            if (!$exists || $exists['count'] == 0) {
+                // Create directory in filesystem
+                $dirPath = $this->getAbsoluteFilePath($projectId, $parentPath, $part);
+                
+                if (!is_dir($dirPath)) {
+                    $oldUmask = umask(0);
+                    try {
+                        if (!mkdir($dirPath, 0755, true)) {
+                            throw new \RuntimeException(sprintf('Failed to create directory: %s', $dirPath));
+                        }
+                    } finally {
+                        umask($oldUmask);
+                    }
+                }
+                
+                // Create directory record in database
+                $directory = new ProjectFile(
+                    $projectId,
+                    $parentPath,
+                    $part,
+                    'directory',
+                    true
+                );
+                
+                $userDb->executeStatement(
+                    'INSERT INTO project_file (id, project_id, path, name, type, is_directory, created_at, updated_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $directory->getId(),
+                        $directory->getProjectId(),
+                        $directory->getPath(),
+                        $directory->getName(),
+                        $directory->getType(),
+                        $directory->isDirectory() ? 1 : 0,
+                        $directory->getCreatedAt()->format('Y-m-d H:i:s'),
+                        $directory->getUpdatedAt()->format('Y-m-d H:i:s')
+                    ]
+                );
+            }
+        }
+    }
+    
+    /**
      * Create file with content
      */
     public function createFile(string $projectId, string $path, string $name, string $content, ?string $mimeType = null): ProjectFile
@@ -211,7 +288,10 @@ class ProjectFileService
             throw new \InvalidArgumentException('File size exceeds maximum allowed size ' . self::MAX_FILE_SIZE);
         }
         
-        // Ensure parent directory exists
+        // Ensure all parent directories exist in both filesystem and database
+        $this->ensureParentDirectoriesExist($projectId, $path);
+        
+        // Ensure parent directory exists in filesystem
         $parentDir = $this->getAbsoluteFilePath($projectId, $path, '');
         if (!is_dir($parentDir)) {
             $oldUmask = umask(0);
@@ -300,18 +380,8 @@ class ProjectFileService
             throw new \InvalidArgumentException('Unsupported file type: ' . $mimeType);
         }
         
-        // Ensure parent directory exists
-        $parentDir = $this->getAbsoluteFilePath($projectId, $path, '');
-        if (!is_dir($parentDir)) {
-            $oldUmask = umask(0);
-            try {
-                if (!mkdir($parentDir, 0755, true)) {
-                    throw new \RuntimeException(sprintf('Failed to create directory: %s', $parentDir));
-                }
-            } finally {
-                umask($oldUmask);
-            }
-        }
+        // Ensure all parent directories exist in both filesystem and database
+        $this->ensureParentDirectoriesExist($projectId, $path);
         
         // Move uploaded file to project directory
         $filePath = $this->getAbsoluteFilePath($projectId, $path, $name);

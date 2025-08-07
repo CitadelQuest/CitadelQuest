@@ -100,12 +100,24 @@ class AIToolCallService
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path to list files from (default: "/")',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file',
+                        ],
                         'fileId' => [
                             'type' => 'string',
                             'description' => 'The ID of the file',
                         ],
                     ],
-                    'required' => ['fileId'],
+                    'required' => ['projectId', 'path', 'name'],
                 ],
             ];
             
@@ -172,6 +184,18 @@ class AIToolCallService
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path where to update the file',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file to update',
+                        ],
                         'fileId' => [
                             'type' => 'string',
                             'description' => 'The ID of the file',
@@ -181,7 +205,7 @@ class AIToolCallService
                             'description' => 'The new content of the file',
                         ],
                     ],
-                    'required' => ['fileId', 'content'],
+                    'required' => ['projectId', 'path', 'name', 'content'],
                 ],
             ];
             
@@ -192,17 +216,29 @@ class AIToolCallService
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path where to delete the file',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file to delete',
+                        ],
                         'fileId' => [
                             'type' => 'string',
                             'description' => 'The ID of the file or directory to delete',
                         ],
                     ],
-                    'required' => ['fileId'],
+                    'required' => ['projectId', 'path', 'name'],
                 ],
             ];
             
             // Get file versions
-            $tools['getFileVersions'] = [
+            /* $tools['getFileVersions'] = [
                 'name' => 'getFileVersions',
                 'description' => 'Get the version history of a file',
                 'parameters' => [
@@ -215,10 +251,10 @@ class AIToolCallService
                     ],
                     'required' => ['fileId'],
                 ],
-            ];
+            ]; */
             
             // Find file by path
-            $tools['findFileByPath'] = [
+            /* $tools['findFileByPath'] = [
                 'name' => 'findFileByPath',
                 'description' => 'Find a file by its project ID, path and name',
                 'parameters' => [
@@ -239,7 +275,7 @@ class AIToolCallService
                     ],
                     'required' => ['projectId', 'path', 'name'],
                 ],
-            ];
+            ]; */
             
             // Ensure project structure - not available yet
             /*$tools['ensureProjectStructure'] = [
