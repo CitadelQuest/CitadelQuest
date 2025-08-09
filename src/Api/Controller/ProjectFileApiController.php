@@ -333,4 +333,25 @@ class ProjectFileApiController extends AbstractController
             ], 400);
         }
     }
+    
+    /**
+     * Get the complete project tree structure
+     */
+    #[Route('/{projectId}/tree', name: 'app_api_project_file_tree', methods: ['GET'])]
+    public function getProjectTree(string $projectId): JsonResponse
+    {
+        try {
+            $tree = $this->projectFileService->showProjectTree($projectId);
+            
+            return $this->json([
+                'success' => true,
+                'tree' => $tree
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
 }

@@ -1,5 +1,6 @@
 import { FileBrowserApiService } from './FileBrowserApiService';
 import { FileUploader } from './FileUploader';
+import { FileTreeView } from './FileTreeView';
 
 /**
  * File Browser component for CitadelQuest
@@ -24,6 +25,9 @@ export class FileBrowser {
         this.files = [];
         this.breadcrumbs = [];
         
+        // View mode: 'list' or 'tree'(default)
+        this.viewMode = localStorage.getItem('fileBrowserViewMode:' + window.location.pathname) || 'tree';
+        
         // Initialize API service
         this.apiService = new FileBrowserApiService({
             translations: this.translations
@@ -31,6 +35,9 @@ export class FileBrowser {
         
         // Initialize FileUploader
         this.fileUploader = null;
+        
+        // Initialize FileTreeView
+        this.fileTreeView = null;
         
         // Initialize the component
         this.init();
@@ -52,8 +59,15 @@ export class FileBrowser {
         // Initialize event listeners
         this.initEventListeners();
         
-        // Load initial files
-        await this.loadFiles(this.currentPath);
+        // Initialize the view based on saved preference
+        if (this.viewMode === 'tree') {
+            // Initialize tree view first, then hide list view
+            this.showTreeView();
+        } else {
+            // Load initial files in list view (default)
+            this.showListView();
+        }
+        this.updateBreadcrumbs();
     }
     
     /**
@@ -78,6 +92,10 @@ export class FileBrowser {
             </button>
             <button class="btn btn-sm btn-outline-primary" data-action="upload">
                 <i class="mdi mdi-upload"></i> ${this.translations.upload || 'Upload'}
+            </button>
+            <button class="btn btn-sm btn-outline-primary ms-2 d-none" data-action="toggle-view">
+                <i class="mdi ${this.viewMode === 'list' ? 'mdi-file-tree' : 'mdi-format-list-bulleted'}"></i> 
+                ${this.viewMode === 'list' ? (this.translations.tree_view || 'Tree View') : (this.translations.list_view || 'List View')}
             </button>
         `;
         
@@ -155,6 +173,10 @@ export class FileBrowser {
                     this.toggleUploader();
                     break;
                     
+                case 'toggle-view':
+                    this.toggleViewMode();
+                    break;
+                    
                 case 'navigate':
                     const path = actionButton.dataset.path;
                     if (path) {
@@ -204,7 +226,6 @@ export class FileBrowser {
         try {
             this.currentPath = path;
             localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
-            console.log('currentPath', this.currentPath);
             this.updateBreadcrumbs();
             
             // Update the path in the file uploader
@@ -294,7 +315,7 @@ export class FileBrowser {
         
         // Build breadcrumbs array with paths
         this.breadcrumbs = [
-            { name: 'Home', path: '/' }
+            { name: this.projectId, path: '/' }
         ];
         
         let currentPath = '/';
@@ -479,7 +500,15 @@ export class FileBrowser {
      */
     async selectFile(fileId) {
         try {
-            const file = this.files.find(f => f.id === fileId);
+            // First try to find file in current files list (for list view)
+            let file = this.files.find(f => f.id === fileId);
+            
+            // If not found in current files, get file metadata from API (for tree view)
+            if (!file) {
+                const response = await this.apiService.getFileMetadata(fileId);
+                file = response.file;
+            }
+            
             if (!file) throw new Error('File not found');
             
             // Don't try to preview directories
@@ -506,7 +535,7 @@ export class FileBrowser {
             // Render preview based on file type
             this.renderFilePreview(file, content);
             
-            // Highlight the selected file in the list
+            // Highlight the selected file in the list (only works in list view)
             const fileItems = this.fileListElement.querySelectorAll('.file-item');
             fileItems.forEach(item => {
                 if (item.dataset.fileId === fileId) {
@@ -722,6 +751,100 @@ export class FileBrowser {
             } else {
                 this.showError(error.message);
             }
+        }
+    }
+    
+    /**
+     * Toggle between list view and tree view
+     */
+    toggleViewMode() {
+        // Toggle view mode
+        this.viewMode = this.viewMode === 'list' ? 'tree' : 'list';
+        
+        // Save preference to localStorage
+        localStorage.setItem('fileBrowserViewMode:' + window.location.pathname, this.viewMode);
+        
+        // Update toggle button
+        const toggleButton = this.container.querySelector('[data-action="toggle-view"]');
+        if (toggleButton) {
+            toggleButton.innerHTML = this.viewMode === 'tree' 
+                ? `<i class="mdi mdi-format-list-bulleted"></i> ${this.translations.listView || 'List View'}`
+                : `<i class="mdi mdi-file-tree"></i> ${this.translations.treeView || 'Tree View'}`;
+        }
+        
+        if (this.viewMode === 'list') {
+            // Show list view
+            this.showListView();
+        } else {
+            // Show tree view
+            this.showTreeView();
+        }
+    }
+    
+    /**
+     * Show list view
+     */
+    showListView() {
+        // Clear and reload file list
+        this.fileListElement.innerHTML = '';
+        this.loadFiles(this.currentPath);
+    }
+    
+    /**
+     * Show tree view
+     */
+    showTreeView() {
+        this.initTreeView();
+        
+        // Set initial expand path if we have a current path
+        if (this.fileTreeView && this.currentPath && this.currentPath !== '/') {
+            this.fileTreeView.setInitialExpandPath(this.currentPath);
+        }
+    }
+    
+    /**
+     * Initialize the tree view
+     */
+    initTreeView() {
+        // Clear the file list content
+        this.fileListElement.innerHTML = '';
+        
+        // Create tree view container if it doesn't exist
+        if (!this.treeViewContainer) {
+            this.treeViewContainer = document.createElement('div');
+            this.treeViewContainer.className = 'file-browser-tree-view';
+            this.treeViewContainer.id = `${this.containerId}-tree-view`;
+            this.treeViewContainer.style.cssText = `
+                height: 100%;
+                overflow-y: auto;
+            `;
+        }
+        
+        // Add tree view container to file list area
+        this.fileListElement.appendChild(this.treeViewContainer);
+        
+        if (!this.fileTreeView) {
+            // Initialize the tree view
+            this.fileTreeView = new FileTreeView({
+                containerId: this.treeViewContainer.id,
+                apiService: this.apiService,
+                projectId: this.projectId,
+                translations: this.translations,
+                onFileSelect: (file) => {
+                    this.selectFile(file.id);
+                },
+                onDirectorySelect: (directory) => {
+                    // In tree view, just update breadcrumbs (toggle is handled by FileTreeView)
+                    this.currentPath = directory.path;
+                    this.updateBreadcrumbs();
+                    
+                    // Save current path to localStorage
+                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                }
+            });
+        } else {
+            // Refresh the tree view
+            this.fileTreeView.refresh();
         }
     }
 }

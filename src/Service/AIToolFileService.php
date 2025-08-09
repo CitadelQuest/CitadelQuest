@@ -296,6 +296,28 @@ class AIToolFileService
     }
     
     /**
+     * Get the complete project tree structure
+     */
+    public function getProjectTree(array $arguments): array
+    {
+        $this->validateArguments($arguments, ['projectId']);
+        
+        try {
+            $tree = $this->projectFileService->showProjectTree($arguments['projectId']);
+            
+            return [
+                'success' => true,
+                'tree' => $tree
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Find a file by path and name
      */
     public function findFileByPath(array $arguments): array

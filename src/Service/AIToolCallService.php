@@ -256,7 +256,7 @@ class AIToolCallService
             // Find file by path
             /* $tools['findFileByPath'] = [
                 'name' => 'findFileByPath',
-                'description' => 'Find a file by its project ID, path and name',
+                'description' => 'Find a file by project ID, path, and name',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -266,7 +266,7 @@ class AIToolCallService
                         ],
                         'path' => [
                             'type' => 'string',
-                            'description' => 'The directory path of the file',
+                            'description' => 'The directory path where the file is located',
                         ],
                         'name' => [
                             'type' => 'string',
@@ -276,6 +276,22 @@ class AIToolCallService
                     'required' => ['projectId', 'path', 'name'],
                 ],
             ]; */
+            
+            // Get project tree structure
+            $tools['getProjectTree'] = [
+                'name' => 'getProjectTree',
+                'description' => 'Get the complete hierarchical tree structure of all files and directories in a project',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                    ],
+                    'required' => ['projectId'],
+                ],
+            ];
             
             // Ensure project structure - not available yet
             /*$tools['ensureProjectStructure'] = [
@@ -322,7 +338,7 @@ class AIToolCallService
             }
             
             // For file management tools, delegate to AIToolFileService
-            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'deleteFile', 'getFileVersions', 'findFileByPath', 'ensureProjectStructure'])) {
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'deleteFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
                 return $this->aiToolFileService->{$toolName}($arguments);
             }
             

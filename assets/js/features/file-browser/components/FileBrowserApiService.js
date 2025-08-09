@@ -190,4 +190,19 @@ export class FileBrowserApiService {
         
         return await response.json();
     }
+    
+    /**
+     * Get the complete project tree structure
+     * @param {string} projectId - The project ID
+     * @returns {Promise<Object>} - JSON response with the complete hierarchical tree structure
+     */
+    async getProjectTree(projectId) {
+        const response = await fetch(`${this.baseUrl}/${projectId}/tree`);
+        
+        if (!response.ok) {
+            throw new Error(this.translations.failed_load || 'Failed to load project tree');
+        }
+        
+        return await response.json();
+    }
 }
