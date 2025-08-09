@@ -748,7 +748,7 @@ class ProjectFileService
     /**
      * Get file content
      */
-    public function getFileContent(string $fileId): string
+    public function getFileContent(string $fileId, bool $withLineNumbers = false): string
     {
         $file = $this->findById($fileId);
         if (!$file) {
@@ -777,7 +777,20 @@ class ProjectFileService
             $file->getType() === 'js' || 
             $file->getType() === 'css' || 
             $file->getType() === 'md') {
-                return file_get_contents($filePath);
+            $content = file_get_contents($filePath);
+            
+            // Add line numbers if requested
+            if ($withLineNumbers) {
+                $lines = explode("\n", $content);
+                $numberedLines = [];
+                foreach ($lines as $index => $line) {
+                    $lineNumber = $index + 1;
+                    $numberedLines[] = sprintf('%4d: %s', $lineNumber, $line);
+                }
+                return implode("\n", $numberedLines);
+            }
+            
+            return $content;
         }
 
         // image, video, audio
@@ -794,6 +807,156 @@ class ProjectFileService
         }
 
         return file_get_contents($filePath);
+    }
+
+    /**
+     * Update file content efficiently using find/replace operations
+     * Supports multiple update types: replace, lineRange, append, prepend
+     */
+    public function updateFileEfficient(string $fileId, array $updates): ProjectFile
+    {
+        $file = $this->findById($fileId);
+        if (!$file) {
+            throw new \InvalidArgumentException('File not found');
+        }
+
+        if ($file->isDirectory()) {
+            throw new \InvalidArgumentException('Cannot update content of a directory');
+        }
+
+        $filePath = $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
+        if (!file_exists($filePath)) {
+            throw new \RuntimeException('File not found in filesystem');
+        }
+
+        // Get current content
+        $originalContent = file_get_contents($filePath);
+        $updatedContent = $originalContent;
+        $lines = explode("\n", $originalContent);
+
+        // Separate line-based operations from content-based operations
+        $lineBasedOps = [];
+        $contentBasedOps = [];
+        
+        foreach ($updates as $index => $update) {
+            if (!isset($update['type'])) {
+                throw new \InvalidArgumentException('Update operation must specify a type');
+            }
+            
+            // Add original index to preserve order for error reporting
+            $update['_originalIndex'] = $index;
+            
+            if (in_array($update['type'], ['lineRange', 'insertAtLine'])) {
+                $lineBasedOps[] = $update;
+            } else {
+                $contentBasedOps[] = $update;
+            }
+        }
+        
+        // Sort line-based operations in reverse order (bottom-to-top) to preserve line numbers
+        usort($lineBasedOps, function($a, $b) {
+            $lineA = $a['startLine'] ?? $a['line'] ?? 0;
+            $lineB = $b['startLine'] ?? $b['line'] ?? 0;
+            return $lineB - $lineA; // Reverse order (highest line first)
+        });
+        
+        // Process content-based operations first (they don't affect line numbers)
+        foreach ($contentBasedOps as $update) {
+            switch ($update['type']) {
+                case 'replace':
+                    if (!isset($update['find']) || !isset($update['replace'])) {
+                        throw new \InvalidArgumentException('Replace operation requires "find" and "replace" fields');
+                    }
+                    $updatedContent = str_replace($update['find'], $update['replace'], $updatedContent);
+                    break;
+
+                case 'append':
+                    if (!isset($update['content'])) {
+                        throw new \InvalidArgumentException('Append operation requires "content" field');
+                    }
+                    $updatedContent .= $update['content'];
+                    break;
+
+                case 'prepend':
+                    if (!isset($update['content'])) {
+                        throw new \InvalidArgumentException('Prepend operation requires "content" field');
+                    }
+                    $updatedContent = $update['content'] . $updatedContent;
+                    break;
+
+                default:
+                    throw new \InvalidArgumentException('Unsupported update type: ' . $update['type']);
+            }
+        }
+        
+        // Update lines array after content-based operations
+        $lines = explode("\n", $updatedContent);
+        
+        // Process line-based operations in reverse order (bottom-to-top) to preserve line numbers
+        foreach ($lineBasedOps as $update) {
+            switch ($update['type']) {
+                case 'lineRange':
+                    if (!isset($update['startLine']) || !isset($update['endLine']) || !isset($update['content'])) {
+                        throw new \InvalidArgumentException('LineRange operation requires "startLine", "endLine", and "content" fields');
+                    }
+                    
+                    $startLine = (int)$update['startLine'] - 1; // Convert to 0-based index
+                    $endLine = (int)$update['endLine'] - 1;
+                    
+                    if ($startLine < 0 || $endLine >= count($lines) || $startLine > $endLine) {
+                        throw new \InvalidArgumentException('Invalid line range specified');
+                    }
+                    
+                    // Replace the specified line range
+                    $newLines = explode("\n", $update['content']);
+                    array_splice($lines, $startLine, $endLine - $startLine + 1, $newLines);
+                    break;
+
+                case 'insertAtLine':
+                    if (!isset($update['line']) || !isset($update['content'])) {
+                        throw new \InvalidArgumentException('InsertAtLine operation requires "line" and "content" fields');
+                    }
+                    
+                    $insertLine = (int)$update['line'] - 1; // Convert to 0-based index
+                    if ($insertLine < 0 || $insertLine > count($lines)) {
+                        throw new \InvalidArgumentException('Invalid line number for insertion');
+                    }
+                    
+                    $newLines = explode("\n", $update['content']);
+                    array_splice($lines, $insertLine, 0, $newLines);
+                    break;
+
+                default:
+                    throw new \InvalidArgumentException('Unsupported update type: ' . $update['type']);
+            }
+        }
+        
+        // Final content after all operations
+        $updatedContent = implode("\n", $lines);
+
+        // Write the updated content
+        if (file_put_contents($filePath, $updatedContent) === false) {
+            throw new \RuntimeException('Failed to write updated content to file');
+        }
+
+        // Update file metadata
+        $file->setSize(strlen($updatedContent));
+        $file->updateUpdatedAt();
+        
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement(
+            'UPDATE project_file SET size = ?, updated_at = ? WHERE id = ?',
+            [
+                $file->getSize(),
+                $file->getUpdatedAt()->format('Y-m-d H:i:s'),
+                $file->getId()
+            ]
+        );
+        
+        // Create new version
+        $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $updatedContent));
+
+        return $file;
     }
     
     /**

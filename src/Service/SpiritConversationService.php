@@ -257,7 +257,7 @@ class SpiritConversationService
         try {
             $projectDescription_file_conversations = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'conversations.md');
             if ($projectDescription_file_conversations) {
-                $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId());
+                $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId(), true);
             }
         } catch (\Exception $e) {
         }
@@ -265,7 +265,7 @@ class SpiritConversationService
         try {
             $projectDescription_file_inner_thoughts = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'inner-thoughts.md');
             if ($projectDescription_file_inner_thoughts) {
-                $projectDescription_file_inner_thoughts_content = $this->projectFileService->getFileContent($projectDescription_file_inner_thoughts->getId());
+                $projectDescription_file_inner_thoughts_content = $this->projectFileService->getFileContent($projectDescription_file_inner_thoughts->getId(), true);
             }
         } catch (\Exception $e) {
         }
@@ -273,9 +273,15 @@ class SpiritConversationService
         try {
             $projectDescription_file_knowledge_base = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'knowledge-base.md');
             if ($projectDescription_file_knowledge_base) {
-                $projectDescription_file_knowledge_base_content = $this->projectFileService->getFileContent($projectDescription_file_knowledge_base->getId());
+                $projectDescription_file_knowledge_base_content = $this->projectFileService->getFileContent($projectDescription_file_knowledge_base->getId(), true);
             }
         } catch (\Exception $e) {
+            $projectDescription_file_knowledge_base_content = $userProfileDescription;
+            if ($projectDescription_file_knowledge_base_content != '') {
+                // create knowledge-base.md file from deprecated user profile description
+                $this->projectFileService->createFile('general', '/spirit/memory', 'knowledge-base.md', $projectDescription_file_knowledge_base_content);
+            }
+
         }
         $projectDescription = "
             <projects>
@@ -289,7 +295,7 @@ class SpiritConversationService
                     File Browser can be used for:
                     - keeping track of Spirit's memories from conversations (via `/spirit/memory/conversations.md`)
                     - keeping track of Spirit's inner thoughts and feelings (via `/spirit/memory/inner-thoughts.md`)
-                    - creating better knowledge base about user, for better Spirit's understanding of user (via `/spirit/memory/knowledge-base.md`). This is new approach replacing current `updateUserProfile()` Tool.
+                    - creating better knowledge base about user, for better Spirit's understanding of user (via `/spirit/memory/knowledge-base.md`).
                     - helping user in managing files on their CitadelQuest instance (in this `general` project)
                 </project-info>
             </projects>
@@ -349,9 +355,6 @@ class SpiritConversationService
                     </datetime>
                 </current-system-info>
 
-                <user-info>
-                {$userProfileDescription}
-                </user-info>
                 {$onboardingTag}
 
                 {$projectDescription}

@@ -56,7 +56,7 @@ class AIToolCallService
             ];
 
             // CitadelQuest User Profile - update description
-            $tools['updateUserProfile'] = [
+            /* $tools['updateUserProfile'] = [
                 'name' => 'updateUserProfile',
                 'description' => 'Update the user profile description by adding new information. When user tell you something new about him/her, some interesting or important fact, etc., you should add it to the profile description, so it is available for you to use in future conversations.',
                 'parameters' => [
@@ -69,7 +69,7 @@ class AIToolCallService
                     ],
                     'required' => ['newInfo'],
                 ],
-            ];
+            ]; */
             
             // Project File Management Tools
             
@@ -96,7 +96,7 @@ class AIToolCallService
             // Get file content
             $tools['getFileContent'] = [
                 'name' => 'getFileContent',
-                'description' => 'Get the content of a file in a project',
+                'description' => 'Get the content of a file in a project, with optional line numbers for easy reference',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -106,15 +106,20 @@ class AIToolCallService
                         ],
                         'path' => [
                             'type' => 'string',
-                            'description' => 'The directory path to list files from (default: "/")',
+                            'description' => 'The directory path where the file is located',
                         ],
                         'name' => [
                             'type' => 'string',
-                            'description' => 'The name of the file',
+                            'description' => 'The name of the file to read',
                         ],
                         'fileId' => [
                             'type' => 'string',
                             'description' => 'The ID of the file',
+                        ],
+                        'withLineNumbers' => [
+                            'type' => 'boolean',
+                            'description' => 'Whether to include line numbers in the output (helpful for updateFileEfficient)',
+                            'default' => false
                         ],
                     ],
                     'required' => ['projectId', 'path', 'name'],
@@ -180,7 +185,7 @@ class AIToolCallService
             // Update file
             $tools['updateFile'] = [
                 'name' => 'updateFile',
-                'description' => 'Update the content of an existing file in a project',
+                'description' => 'Update the content of an existing file in a project. Deprecated, use updateFileEfficient instead.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -206,6 +211,69 @@ class AIToolCallService
                         ],
                     ],
                     'required' => ['projectId', 'path', 'name', 'content'],
+                ],
+            ];
+            
+            // Update file efficiently (token-optimized)
+            $tools['updateFileEfficient'] = [
+                'name' => 'updateFileEfficient',
+                'description' => 'Update file content efficiently using find/replace operations. Token-optimized alternative to updateFile - only send changed parts instead of entire file content.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'The ID of the project',
+                        ],
+                        'path' => [
+                            'type' => 'string',
+                            'description' => 'The directory path where the file is located',
+                        ],
+                        'name' => [
+                            'type' => 'string',
+                            'description' => 'The name of the file to update',
+                        ],
+                        'updates' => [
+                            'type' => 'array',
+                            'description' => 'Array of update operations to perform',
+                            'items' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'type' => [
+                                        'type' => 'string',
+                                        'enum' => ['replace', 'lineRange', 'append', 'prepend', 'insertAtLine'],
+                                        'description' => 'Type of update operation'
+                                    ],
+                                    'find' => [
+                                        'type' => 'string',
+                                        'description' => 'Text to find (for replace type)'
+                                    ],
+                                    'replace' => [
+                                        'type' => 'string',
+                                        'description' => 'Text to replace with (for replace type)'
+                                    ],
+                                    'startLine' => [
+                                        'type' => 'integer',
+                                        'description' => 'Start line number (for lineRange type, 1-based)'
+                                    ],
+                                    'endLine' => [
+                                        'type' => 'integer',
+                                        'description' => 'End line number (for lineRange type, 1-based)'
+                                    ],
+                                    'line' => [
+                                        'type' => 'integer',
+                                        'description' => 'Line number to insert at (for insertAtLine type, 1-based)'
+                                    ],
+                                    'content' => [
+                                        'type' => 'string',
+                                        'description' => 'Content to add/replace (for lineRange, append, prepend, insertAtLine types)'
+                                    ]
+                                ],
+                                'required' => ['type']
+                            ]
+                        ],
+                    ],
+                    'required' => ['projectId', 'path', 'name', 'updates'],
                 ],
             ];
             
@@ -338,7 +406,7 @@ class AIToolCallService
             }
             
             // For file management tools, delegate to AIToolFileService
-            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'deleteFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'updateFileEfficient', 'deleteFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
                 return $this->aiToolFileService->{$toolName}($arguments);
             }
             

@@ -73,7 +73,8 @@ class AIToolFileService
                 ];
             }
             
-            $content = $this->projectFileService->getFileContent($file->getId());
+            $withLineNumbers = $arguments['withLineNumbers'] ?? false;
+            $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
 
             if  (strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
@@ -82,7 +83,8 @@ class AIToolFileService
             return [
                 'success' => true,
                 'content' => $content,
-                'file' => $file->jsonSerialize()
+                'file' => $file->jsonSerialize(),
+                'with_line_numbers' => $withLineNumbers
             ];
         } catch (\Exception $e) {
             return [
@@ -190,6 +192,62 @@ class AIToolFileService
             ];
         }
     }
+
+    /**
+     * Update file content efficiently using find/replace operations
+     * Token-efficient alternative to updateFile - only send changed parts
+     * 
+     * Supported update types:
+     * - replace: Find and replace text
+     * - lineRange: Replace specific line range
+     * - append: Add content to end of file
+     * - prepend: Add content to beginning of file
+     * - insertAtLine: Insert content at specific line
+     */
+    public function updateFileEfficient(array $arguments): array
+    {
+        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'updates']);
+        
+        try {
+            $file = $this->projectFileService->findByPathAndName(
+                $arguments['projectId'],
+                $arguments['path'],
+                $arguments['name']
+            );
+            
+            if (!$file) {
+                return [
+                    'success' => false,
+                    'error' => 'File not found'
+                ];
+            }
+            
+            if (!is_array($arguments['updates'])) {
+                return [
+                    'success' => false,
+                    'error' => 'Updates must be an array of update operations'
+                ];
+            }
+            
+            $updatedFile = $this->projectFileService->updateFileEfficient(
+                $file->getId(),
+                $arguments['updates']
+            );
+            
+            return [
+                'success' => true,
+                'file' => $updatedFile->jsonSerialize(),
+                'operations_applied' => count($arguments['updates'])
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+
     
     /**
      * Delete a file or directory
