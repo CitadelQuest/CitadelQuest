@@ -18,6 +18,7 @@ export class FileTreeView {
         this.projectId = options.projectId;
         this.onFileSelect = options.onFileSelect || (() => {});
         this.onDirectorySelect = options.onDirectorySelect || (() => {});
+        this.onDirectoryToggle = options.onDirectoryToggle || (() => {});
         this.translations = options.translations || {};
         
         this.treeData = null;
@@ -269,6 +270,11 @@ export class FileTreeView {
                 toggleElement.innerHTML = isVisible ? 
                     '<i class="mdi mdi-chevron-right"></i>' : 
                     '<i class="mdi mdi-chevron-down"></i>';
+                
+                // If expanding (not collapsing), notify about directory toggle
+                if (!isVisible) {
+                    this.onDirectoryToggle(node);
+                }
             };
             
             // Add click handler for toggle arrow
@@ -389,8 +395,17 @@ export class FileTreeView {
     /**
      * Refresh the tree view
      */
-    refresh() {
-        this.loadTreeData();
+    async refresh() {
+        // Store current expand path before refresh
+        const currentExpandPath = this.initialExpandPath;
+        
+        // Reload tree data
+        await this.loadTreeData();
+        
+        // Re-expand to the stored path after refresh
+        if (currentExpandPath) {
+            this.expandToPath(currentExpandPath);
+        }
     }
     
     /**

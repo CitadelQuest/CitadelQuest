@@ -85,17 +85,17 @@ export class FileBrowser {
         actions.className = 'file-browser-actions';
         actions.innerHTML = `
             <button class="btn btn-sm btn-outline-primary" data-action="new-folder">
-                <i class="mdi mdi-folder-plus"></i> ${this.translations.new_folder || 'New Folder'}
+                <i class="mdi mdi-folder-plus"></i> <span class="d-none d-md-inline">${this.translations.new_folder || 'New Folder'}</span>
             </button>
             <button class="btn btn-sm btn-outline-primary" data-action="new-file">
-                <i class="mdi mdi-file-plus"></i> ${this.translations.new_file || 'New File'}
+                <i class="mdi mdi-file-plus"></i> <span class="d-none d-md-inline">${this.translations.new_file || 'New File'}</span>
             </button>
             <button class="btn btn-sm btn-outline-primary" data-action="upload">
-                <i class="mdi mdi-upload"></i> ${this.translations.upload || 'Upload'}
+                <i class="mdi mdi-upload"></i> <span class="d-none d-md-inline">${this.translations.upload || 'Upload'}</span>
             </button>
-            <button class="btn btn-sm btn-outline-primary ms-2 _d-none" data-action="toggle-view">
+            <button class="btn btn-sm btn-outline-primary ms-2 d-none d-md-flex" data-action="toggle-view">
                 <i class="mdi ${this.viewMode === 'list' ? 'mdi-file-tree' : 'mdi-format-list-bulleted'}"></i> 
-                ${this.viewMode === 'list' ? (this.translations.tree_view || 'Tree View') : (this.translations.list_view || 'List View')}
+                <span>${this.viewMode === 'list' ? (this.translations.tree_view || 'Tree View') : (this.translations.list_view || 'List View')}</span>
             </button>
         `;
         
@@ -288,7 +288,7 @@ export class FileBrowser {
                     <div class="file-item-icon">
                         <i class="mdi ${icon}"></i>
                     </div>
-                    <div class="file-item-name tutu" data-action="${file.isDirectory ? 'navigate' : 'select-file'}" 
+                    <div class="file-item-name" data-action="${file.isDirectory ? 'navigate' : 'select-file'}" 
                          data-path="${file.isDirectory ? (file.path=='/'?'':file.path) + '/' + file.name + '/' : ''}" 
                          data-file-id="${file.id}">
                         ${file.name}
@@ -572,16 +572,18 @@ export class FileBrowser {
                     <i class="${this.getFileIcon(file.name)}"></i>
                     ${file.name}
                 </h5>
-                <div class="file-info mb-2">
+                <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
                     <span>${new Date(file.updatedAt).toLocaleString()}</span>
                 </div>
                 <div class="file-preview-actions">
-                    <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}">
-                        <i class="mdi mdi-download"></i> ${this.translations.download || 'Download'}
+                    <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}">
-                        <i class="mdi mdi-delete"></i> ${this.translations.delete || 'Delete'}
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
                     </button>
                 </div>
             </div>
@@ -623,10 +625,10 @@ export class FileBrowser {
         // Other file types
         else {
             previewHtml += `
-                <div class="text-center p-5">
-                    <i class="${this.getFileIcon(file.name)} display-1"></i>
+                <div class="text-center p-0 p-md-5">
+                    <i class="${this.getFileIcon(file.name)} display-1 d-none d-md-inline"></i>
                     <p>${this.translations.no_preview || 'No preview available for this file type'}</p>
-                    <button class="btn btn-primary" data-action="download" data-file-id="${file.id}">
+                    <button class="btn btn-primary btn-sm" data-action="download" data-file-id="${file.id}">
                         <i class="mdi mdi-download"></i> ${this.translations.download || 'Download'}
                     </button>
                 </div>
@@ -669,8 +671,26 @@ export class FileBrowser {
      * @param {string} fileId - The ID of the file to delete
      */
     async confirmAndDeleteFile(fileId) {
-        const file = this.files.find(f => f.id === fileId);
-        if (!file) return;
+    // In Tree View, this.files might be empty, so get file info from API or selectedFile
+    let file = this.files.find(f => f.id === fileId);
+    
+    // If not found in this.files (Tree View scenario), check selectedFile or get from API
+    if (!file) {
+        if (this.selectedFile && this.selectedFile.id === fileId) {
+            file = this.selectedFile;
+        } else {
+            // Get file metadata from API as fallback
+            try {
+                const response = await this.apiService.getFileMetadata(fileId);
+                file = response.file;
+            } catch (error) {
+                console.error('Error getting file metadata for deletion:', error);
+                return;
+            }
+        }
+    }
+    
+    if (!file) return;
         
         const confirmMessage = file.isDirectory
             ? (this.translations.confirm_delete_directory || `Are you sure you want to delete the directory "${file.name}" and all its contents?`)
@@ -681,14 +701,24 @@ export class FileBrowser {
         try {
             await this.apiService.deleteFile(fileId);
             
-            // If the deleted file was selected, clear the preview
+            // If the deleted file was selected, clear the preview and update breadcrumbs
             if (this.selectedFile && this.selectedFile.id === fileId) {
                 this.selectedFile = null;
                 this.filePreviewElement.innerHTML = '';
+                
+                // Update breadcrumbs to show only directory path (remove file name)
+                this.updateBreadcrumbs();
             }
             
-            // Reload the file list
-            await this.loadFiles(this.currentPath);
+            // Reload the file list or refresh tree view depending on current view mode
+            if (this.viewMode === 'tree' && this.fileTreeView) {
+                // In tree view, set current path and refresh the tree
+                this.fileTreeView.setInitialExpandPath(this.currentPath);
+                await this.fileTreeView.refresh();
+            } else {
+                // In list view, reload the file list
+                await this.loadFiles(this.currentPath);
+            }
             
             // Show success message using the toast system
             if (window.toast) {
@@ -831,10 +861,32 @@ export class FileBrowser {
                 projectId: this.projectId,
                 translations: this.translations,
                 onFileSelect: (file) => {
+                    // Update currentPath to the file's parent directory (remove filename from path)
+                    let directoryPath = file.path;
+                    if (directoryPath.endsWith('/' + file.name)) {
+                        // Remove the filename from the path to get just the directory
+                        directoryPath = directoryPath.substring(0, directoryPath.length - file.name.length);
+                    }
+                    
+                    this.currentPath = directoryPath;
+                    this.updateBreadcrumbs();
+                    
+                    // Save current path to localStorage
+                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    
+                    // Select the file
                     this.selectFile(file.id);
                 },
                 onDirectorySelect: (directory) => {
                     // In tree view, just update breadcrumbs (toggle is handled by FileTreeView)
+                    this.currentPath = directory.path;
+                    this.updateBreadcrumbs();
+                    
+                    // Save current path to localStorage
+                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                },
+                onDirectoryToggle: (directory) => {
+                    // Update currentPath when a directory is expanded via toggle
                     this.currentPath = directory.path;
                     this.updateBreadcrumbs();
                     
