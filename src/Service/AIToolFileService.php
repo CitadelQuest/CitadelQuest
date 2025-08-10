@@ -123,7 +123,7 @@ class AIToolFileService
     /**
      * Create a file with content
      */
-    public function createFile(array $arguments): array
+    /* public function createFile(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name', 'content']);
         
@@ -146,12 +146,12 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    }
+    } */
     
     /**
      * Update file content
      */
-    public function updateFile(array $arguments): array
+    /* public function updateFile(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name', 'content']);
         
@@ -191,7 +191,7 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    }
+    } */
 
     /**
      * Update file content efficiently using find/replace operations
@@ -252,7 +252,7 @@ class AIToolFileService
     /**
      * Delete a file or directory
      */
-    public function deleteFile(array $arguments): array
+    /* public function deleteFile(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name']);
         
@@ -292,7 +292,7 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    }
+    } */
     
     /**
      * Get file versions
@@ -335,7 +335,7 @@ class AIToolFileService
     /**
      * Ensure project directory structure exists
      */
-    public function ensureProjectStructure(array $arguments): array
+    /* public function ensureProjectStructure(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId']);
         
@@ -351,7 +351,7 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    }
+    } */
     
     /**
      * Get the complete project tree structure
@@ -378,7 +378,7 @@ class AIToolFileService
     /**
      * Find a file by path and name
      */
-    public function findFileByPath(array $arguments): array
+    /* public function findFileByPath(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name']);
         
@@ -406,8 +406,74 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    }
+    } */
     
+    /**
+     * Unified file management operations for AI tools
+     * Supports: create, copy, rename_move, delete
+     */
+    public function manageFile(array $arguments): array
+    {
+        try {
+            // Validate required parameters
+            if (!isset($arguments['projectId']) || !isset($arguments['operation'])) {
+                throw new \InvalidArgumentException('manageFile requires projectId and operation parameters');
+            }
+
+            $projectId = $arguments['projectId'];
+            $operation = $arguments['operation'];
+
+            // Validate operation type
+            $validOperations = ['create', 'copy', 'rename_move', 'delete'];
+            if (!in_array($operation, $validOperations)) {
+                throw new \InvalidArgumentException('Invalid operation. Supported operations: ' . implode(', ', $validOperations));
+            }
+
+            // Prepare parameters based on operation
+            $params = [];
+
+            // Source parameters (required for copy, rename_move, delete)
+            if (in_array($operation, ['copy', 'rename_move', 'delete'])) {
+                if (!isset($arguments['source']) || !isset($arguments['source']['path']) || !isset($arguments['source']['name'])) {
+                    throw new \InvalidArgumentException($operation . ' operation requires source.path and source.name');
+                }
+                $params['source'] = $arguments['source'];
+            }
+
+            // Destination parameters (required for create, copy, rename_move)
+            if (in_array($operation, ['create', 'copy', 'rename_move'])) {
+                if (!isset($arguments['destination']) || !isset($arguments['destination']['path']) || !isset($arguments['destination']['name'])) {
+                    throw new \InvalidArgumentException($operation . ' operation requires destination.path and destination.name');
+                }
+                $params['destination'] = $arguments['destination'];
+            }
+
+            // Content parameter (required for create)
+            if ($operation === 'create') {
+                if (!isset($arguments['content'])) {
+                    throw new \InvalidArgumentException('Create operation requires content parameter');
+                }
+                $params['content'] = $arguments['content'];
+            }
+
+            // Execute the operation
+            $result = $this->projectFileService->manageFile($projectId, $operation, $params);
+
+            return [
+                'success' => true,
+                'operation' => $operation,
+                'result' => $result
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'operation' => $arguments['operation'] ?? 'unknown'
+            ];
+        }
+    }
+
     /**
      * Validate required arguments
      */

@@ -93,7 +93,7 @@ export class FileBrowser {
             <button class="btn btn-sm btn-outline-primary" data-action="upload">
                 <i class="mdi mdi-upload"></i> ${this.translations.upload || 'Upload'}
             </button>
-            <button class="btn btn-sm btn-outline-primary ms-2 d-none" data-action="toggle-view">
+            <button class="btn btn-sm btn-outline-primary ms-2 _d-none" data-action="toggle-view">
                 <i class="mdi ${this.viewMode === 'list' ? 'mdi-file-tree' : 'mdi-format-list-bulleted'}"></i> 
                 ${this.viewMode === 'list' ? (this.translations.tree_view || 'Tree View') : (this.translations.list_view || 'List View')}
             </button>

@@ -304,19 +304,22 @@ class SpiritConversationService
                     <project-id>general</project-id>
                     <current-data>
                         <file>
-                            <name>/spirit/memory/conversations.md</name>
+                            <path>/spirit/memory</path>
+                            <name>conversations.md</name>
                             <content>
                                 {$projectDescription_file_conversations_content}
                             </content>
                         </file>
                         <file>
-                            <name>/spirit/memory/inner-thoughts.md</name>
+                            <path>/spirit/memory</path>
+                            <name>inner-thoughts.md</name>
                             <content>
                                 {$projectDescription_file_inner_thoughts_content}
                             </content>
                         </file>
                         <file>
-                            <name>/spirit/memory/knowledge-base.md</name>
+                            <path>/spirit/memory</path>
+                            <name>knowledge-base.md</name>
                             <content>
                                 {$projectDescription_file_knowledge_base_content}
                             </content>

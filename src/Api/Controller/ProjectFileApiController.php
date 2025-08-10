@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Psr\Log\LoggerInterface;
 
 #[Route('/api/project-file')]
 #[IsGranted('ROLE_USER')]
@@ -21,7 +22,8 @@ class ProjectFileApiController extends AbstractController
 {
     public function __construct(
         private readonly ProjectFileService $projectFileService,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly LoggerInterface $logger
     ) {
     }
     
@@ -342,12 +344,17 @@ class ProjectFileApiController extends AbstractController
     {
         try {
             $tree = $this->projectFileService->showProjectTree($projectId);
-            
+
             return $this->json([
                 'success' => true,
                 'tree' => $tree
             ]);
         } catch (\Exception $e) {
+            $this->logger->error('getProjectTree: Error retrieving project tree', [
+                'projectId' => $projectId,
+                'error' => $e->getMessage()
+            ]);
+
             return $this->json([
                 'success' => false,
                 'error' => $e->getMessage()

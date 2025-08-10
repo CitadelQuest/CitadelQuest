@@ -151,7 +151,7 @@ class AIToolCallService
             ];
             
             // Create file
-            $tools['createFile'] = [
+            /* $tools['createFile'] = [
                 'name' => 'createFile',
                 'description' => 'Create a new file in a project with content',
                 'parameters' => [
@@ -180,10 +180,10 @@ class AIToolCallService
                     ],
                     'required' => ['projectId', 'path', 'name', 'content'],
                 ],
-            ];
+            ]; */
             
             // Update file
-            $tools['updateFile'] = [
+            /* $tools['updateFile'] = [
                 'name' => 'updateFile',
                 'description' => 'Update the content of an existing file in a project. Deprecated, use updateFileEfficient instead.',
                 'parameters' => [
@@ -212,22 +212,21 @@ class AIToolCallService
                     ],
                     'required' => ['projectId', 'path', 'name', 'content'],
                 ],
-            ];
+            ]; */
             
-            // Update file efficiently (token-optimized)
             $tools['updateFileEfficient'] = [
                 'name' => 'updateFileEfficient',
-                'description' => 'Update file content efficiently using find/replace operations. Token-optimized alternative to updateFile - only send changed parts instead of entire file content.',
+                'description' => 'Update file content efficiently using find/replace operations. Token-efficient alternative to updateFile - only send changed parts. Supports multiple operation types: replace, lineRange, append, prepend, insertAtLine.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
                         'projectId' => [
                             'type' => 'string',
-                            'description' => 'The ID of the project',
+                            'description' => 'Project ID'
                         ],
                         'path' => [
                             'type' => 'string',
-                            'description' => 'The directory path where the file is located',
+                            'description' => 'The directory path where to update the file',
                         ],
                         'name' => [
                             'type' => 'string',
@@ -246,39 +245,93 @@ class AIToolCallService
                                     ],
                                     'find' => [
                                         'type' => 'string',
-                                        'description' => 'Text to find (for replace type)'
+                                        'description' => 'Text to find (for replace operation)'
                                     ],
                                     'replace' => [
                                         'type' => 'string',
-                                        'description' => 'Text to replace with (for replace type)'
+                                        'description' => 'Text to replace with (for replace operation)'
                                     ],
                                     'startLine' => [
                                         'type' => 'integer',
-                                        'description' => 'Start line number (for lineRange type, 1-based)'
+                                        'description' => 'Start line number (for lineRange operation, 1-based)'
                                     ],
                                     'endLine' => [
                                         'type' => 'integer',
-                                        'description' => 'End line number (for lineRange type, 1-based)'
+                                        'description' => 'End line number (for lineRange operation, 1-based, inclusive)'
                                     ],
                                     'line' => [
                                         'type' => 'integer',
-                                        'description' => 'Line number to insert at (for insertAtLine type, 1-based)'
+                                        'description' => 'Line number to insert at (for insertAtLine operation, 1-based)'
                                     ],
                                     'content' => [
                                         'type' => 'string',
-                                        'description' => 'Content to add/replace (for lineRange, append, prepend, insertAtLine types)'
+                                        'description' => 'Content to insert/append/prepend/replace (for lineRange, append, prepend, insertAtLine operations)'
                                     ]
                                 ],
                                 'required' => ['type']
                             ]
-                        ],
+                        ]
                     ],
-                    'required' => ['projectId', 'path', 'name', 'updates'],
-                ],
+                    'required' => ['projectId', 'path', 'name', 'updates']
+                ]
             ];
-            
+
+            $tools['manageFile'] = [
+                'name' => 'manageFile',
+                'description' => 'Unified file management operations. Supports create, copy, rename_move, and delete operations in one tool. More efficient for AI prompting than separate tools.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'projectId' => [
+                            'type' => 'string',
+                            'description' => 'Project ID'
+                        ],
+                        'operation' => [
+                            'type' => 'string',
+                            'enum' => ['create', 'copy', 'rename_move', 'delete'],
+                            'description' => 'Type of file operation to perform'
+                        ],
+                        'source' => [
+                            'type' => 'object',
+                            'description' => 'Source file/directory information (required for copy, rename_move, delete)',
+                            'properties' => [
+                                'path' => [
+                                    'type' => 'string',
+                                    'description' => 'Source file path (e.g., "/src/")'
+                                ],
+                                'name' => [
+                                    'type' => 'string',
+                                    'description' => 'Source file/directory name (e.g., "file.txt")'
+                                ]
+                            ],
+                            'required' => ['path', 'name']
+                        ],
+                        'destination' => [
+                            'type' => 'object',
+                            'description' => 'Destination file/directory information (required for create, copy, rename_move)',
+                            'properties' => [
+                                'path' => [
+                                    'type' => 'string',
+                                    'description' => 'Destination file path (e.g., "/dest/")'
+                                ],
+                                'name' => [
+                                    'type' => 'string',
+                                    'description' => 'Destination file/directory name (e.g., "new_file.txt")'
+                                ]
+                            ],
+                            'required' => ['path', 'name']
+                        ],
+                        'content' => [
+                            'type' => 'string',
+                            'description' => 'File content (required for create operation)'
+                        ]
+                    ],
+                    'required' => ['projectId', 'operation']
+                ]
+            ];
+
             // Delete file
-            $tools['deleteFile'] = [
+            /* $tools['deleteFile'] = [
                 'name' => 'deleteFile',
                 'description' => 'Delete a file or directory from a project',
                 'parameters' => [
@@ -303,7 +356,7 @@ class AIToolCallService
                     ],
                     'required' => ['projectId', 'path', 'name'],
                 ],
-            ];
+            ]; */
             
             // Get file versions
             /* $tools['getFileVersions'] = [
@@ -406,7 +459,7 @@ class AIToolCallService
             }
             
             // For file management tools, delegate to AIToolFileService
-            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'createFile', 'updateFile', 'updateFileEfficient', 'deleteFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', /* 'createFile', 'updateFile',  */'updateFileEfficient', 'manageFile', /* 'deleteFile', */ 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
                 return $this->aiToolFileService->{$toolName}($arguments);
             }
             

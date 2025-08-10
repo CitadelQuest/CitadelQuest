@@ -8,6 +8,7 @@ use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Service for managing project files
@@ -43,7 +44,8 @@ class ProjectFileService
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
-        private readonly ParameterBagInterface $params
+        private readonly ParameterBagInterface $params,
+        private readonly LoggerInterface $logger
     ) {
         $this->projectRootDir = $this->params->get('kernel.project_dir') . '/var/user_data/' . $this->security->getUser()->getId() . '/p';
     }
@@ -195,9 +197,17 @@ class ProjectFileService
      */
     private function ensureParentDirectoriesExist(string $projectId, string $path): void
     {
+        $this->logger->info('ensureParentDirectoriesExist: ensuring parent directories exist', [
+            'projectId' => $projectId,
+            'path' => $path
+        ]);
+        
         if ($path === '/' || empty($path)) {
             return; // Root directory always exists
         }
+
+        // Normalize path
+        $path = $this->normalizePath($path);
         
         // Split path into components
         $pathParts = explode('/', trim($path, '/'));
@@ -212,11 +222,28 @@ class ProjectFileService
             $parentPath = $currentPath;
             $currentPath = $currentPath ? $this->normalizePath($currentPath . '/' . $part) : '/' . $part;
             
+            if ($parentPath == "") {
+                $parentPath = "/";
+            }
+            
+            $this->logger->info('ensureParentDirectoriesExist: checking if directory exists in database', [
+                'projectId' => $projectId,
+                'path' => $parentPath,
+                'name' => $part
+            ]);
+            
             // Check if directory exists in database
             $exists = $userDb->executeQuery(
                 'SELECT COUNT(*) as count FROM project_file WHERE project_id = ? AND path = ? AND name = ? AND is_directory = 1',
                 [$projectId, $parentPath, $part]
             )->fetchAssociative();
+
+            $this->logger->info('ensureParentDirectoriesExist: directory exists in database', [
+                'projectId' => $projectId,
+                'path' => $parentPath,
+                'name' => $part,
+                'exists' => $exists['count'] > 0
+            ]);
             
             if (!$exists || $exists['count'] == 0) {
                 // Create directory in filesystem
@@ -241,6 +268,17 @@ class ProjectFileService
                     'directory',
                     true
                 );
+
+                $this->logger->info('ensureParentDirectoriesExist: executing database insert', [
+                    'id' => $directory->getId(),
+                    'projectId' => $directory->getProjectId(),
+                    'path' => $directory->getPath(),
+                    'name' => $directory->getName(),
+                    'type' => $directory->getType(),
+                    'isDirectory' => $directory->isDirectory(),
+                    'createdAt' => $directory->getCreatedAt()->format('Y-m-d H:i:s'),
+                    'updatedAt' => $directory->getUpdatedAt()->format('Y-m-d H:i:s')
+                ]);
                 
                 $userDb->executeStatement(
                     'INSERT INTO project_file (id, project_id, path, name, type, is_directory, created_at, updated_at) 
@@ -265,6 +303,14 @@ class ProjectFileService
      */
     public function createFile(string $projectId, string $path, string $name, string $content, ?string $mimeType = null): ProjectFile
     {
+        $this->logger->info('createFile: Creating file', [
+            'projectId' => $projectId,
+            'path' => $path,
+            'name' => $name,
+            'content' => $content,
+            'mimeType' => $mimeType
+        ]);
+        
         // Ensure project directory structure exists
         $this->ensureProjectDirectoryStructure($projectId);
 
@@ -324,6 +370,23 @@ class ProjectFileService
             $mimeType,
             strlen($content)
         );
+
+        $this->logger->info('createFile: new ProjectFile created successfully', [
+            'file' => $file->jsonSerialize()
+        ]);
+
+        $this->logger->info('createFile: executing database insert', [
+            'id' => $file->getId(),
+            'projectId' => $file->getProjectId(),
+            'path' => $file->getPath(),
+            'name' => $file->getName(),
+            'type' => $file->getType(),
+            'mimeType' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'isDirectory' => $file->isDirectory(),
+            'createdAt' => $file->getCreatedAt()->format('Y-m-d H:i:s'),
+            'updatedAt' => $file->getUpdatedAt()->format('Y-m-d H:i:s')
+        ]);
         
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
@@ -342,6 +405,14 @@ class ProjectFileService
                 $file->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
         );
+        
+        // Log successful database insertion for debugging
+        $this->logger->info('createFile: Database insertion completed successfully', [
+            'project_id' => $file->getProjectId(),
+            'path' => $file->getPath(),
+            'name' => $file->getName(),
+            'file_id' => $file->getId()
+        ]);
         
         // Create initial version
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
@@ -618,8 +689,6 @@ class ProjectFileService
     private function buildTreeRecursive(array $allItems, string $parentPath): array
     {
         $children = [];
-        
-
         
         // Find all items that belong directly to this parent path
         foreach ($allItems as $item) {
@@ -957,6 +1026,391 @@ class ProjectFileService
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $updatedContent));
 
         return $file;
+    }
+
+    /**
+     * Unified file management operations
+     * Supports multiple operation types: create, copy, rename_move, delete
+     */
+    public function manageFile(string $projectId, string $operation, array $params): array
+    {
+        switch ($operation) {
+            case 'create':
+                return $this->handleCreateOperation($projectId, $params);
+                
+            case 'copy':
+                return $this->handleCopyOperation($projectId, $params);
+                
+            case 'rename_move':
+                return $this->handleRenameMoveOperation($projectId, $params);
+                
+            case 'delete':
+                return $this->handleDeleteOperation($projectId, $params);
+                
+            default:
+                throw new \InvalidArgumentException('Unsupported operation type: ' . $operation);
+        }
+    }
+
+    /**
+     * Handle create file operation
+     */
+    private function handleCreateOperation(string $projectId, array $params): array
+    {
+        if (!isset($params['destination']['path']) || !isset($params['destination']['name']) || !isset($params['content'])) {
+            throw new \InvalidArgumentException('Create operation requires destination.path, destination.name, and content');
+        }
+
+        $this->logger->info('manageFile CREATE operation started', [
+            'projectId' => $projectId,
+            'path' => $params['destination']['path'],
+            'name' => $params['destination']['name'],
+            'contentLength' => strlen($params['content'])
+        ]);
+
+        // Check if file already exists to prevent UNIQUE constraint violation
+        $existingFile = $this->findByPathAndName(
+            $projectId,
+            $params['destination']['path'],
+            $params['destination']['name']
+        );
+
+        if ($existingFile) {
+            $this->logger->warning('manageFile CREATE: File already exists', [
+                'projectId' => $projectId,
+                'path' => $params['destination']['path'],
+                'name' => $params['destination']['name'],
+                'existingFileId' => $existingFile->getId()
+            ]);
+            throw new \InvalidArgumentException(
+                'File already exists at path: ' . $params['destination']['path'] . $params['destination']['name']
+            );
+        }
+
+        $this->logger->info('manageFile CREATE: No existing file found, proceeding with creation');
+
+        // Use existing robust createFile method
+        $file = $this->createFile(
+            $projectId,
+            $params['destination']['path'],
+            $params['destination']['name'],
+            $params['content']
+        );
+
+        $this->logger->info('manageFile CREATE operation completed successfully', [
+            'fileId' => $file->getId(),
+            'projectId' => $projectId,
+            'path' => $file->getPath(),
+            'name' => $file->getName()
+        ]);
+
+        return [
+            'operation' => 'create',
+            'success' => true,
+            'file' => $file->jsonSerialize()
+        ];
+    }
+
+    /**
+     * Handle copy file/directory operation
+     */
+    private function handleCopyOperation(string $projectId, array $params): array
+    {
+        if (!isset($params['source']['path']) || !isset($params['source']['name']) || 
+            !isset($params['destination']['path']) || !isset($params['destination']['name'])) {
+            throw new \InvalidArgumentException('Copy operation requires source.path, source.name, destination.path, and destination.name');
+        }
+
+        // Find source file
+        $sourceFile = $this->findByPathAndName(
+            $projectId,
+            $params['source']['path'],
+            $params['source']['name']
+        );
+
+        if (!$sourceFile) {
+            throw new \InvalidArgumentException('Source file not found');
+        }
+
+        if ($sourceFile->isDirectory()) {
+            return $this->copyDirectory($projectId, $sourceFile, $params['destination']);
+        } else {
+            return $this->copyFile($projectId, $sourceFile, $params['destination']);
+        }
+    }
+
+    /**
+     * Handle rename/move file/directory operation
+     */
+    private function handleRenameMoveOperation(string $projectId, array $params): array
+    {
+        if (!isset($params['source']['path']) || !isset($params['source']['name']) || 
+            !isset($params['destination']['path']) || !isset($params['destination']['name'])) {
+            throw new \InvalidArgumentException('Rename/move operation requires source.path, source.name, destination.path, and destination.name');
+        }
+
+        // Find source file
+        $sourceFile = $this->findByPathAndName(
+            $projectId,
+            $params['source']['path'],
+            $params['source']['name']
+        );
+
+        if (!$sourceFile) {
+            throw new \InvalidArgumentException('Source file not found');
+        }
+
+        if ($sourceFile->isDirectory()) {
+            return $this->moveDirectory($projectId, $sourceFile, $params['destination']);
+        } else {
+            return $this->moveFile($projectId, $sourceFile, $params['destination']);
+        }
+    }
+
+    /**
+     * Handle delete file/directory operation
+     */
+    private function handleDeleteOperation(string $projectId, array $params): array
+    {
+        if (!isset($params['source']['path']) || !isset($params['source']['name'])) {
+            throw new \InvalidArgumentException('Delete operation requires source.path and source.name');
+        }
+
+        // Find source file using existing method
+        $sourceFile = $this->findByPathAndName(
+            $projectId,
+            $params['source']['path'],
+            $params['source']['name']
+        );
+
+        if (!$sourceFile) {
+            throw new \InvalidArgumentException('Source file not found');
+        }
+
+        // Use existing robust delete method
+        $result = $this->delete($sourceFile->getId());
+
+        return [
+            'operation' => 'delete',
+            'success' => $result,
+            'file' => $sourceFile->jsonSerialize()
+        ];
+    }
+
+    /**
+     * Copy a file to destination using existing robust methods
+     */
+    private function copyFile(string $projectId, ProjectFile $sourceFile, array $destination): array
+    {
+        // Get source file content using existing method
+        $sourceContent = $this->getFileContent($sourceFile->getId());
+        
+        // Use existing robust createFile method for destination
+        $newFile = $this->createFile(
+            $projectId,
+            $destination['path'],
+            $destination['name'],
+            $sourceContent
+        );
+
+        return [
+            'operation' => 'copy',
+            'success' => true,
+            'source' => $sourceFile->jsonSerialize(),
+            'destination' => $newFile->jsonSerialize()
+        ];
+    }
+
+    /**
+     * Copy a directory to destination (recursive) using existing robust methods
+     */
+    private function copyDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
+    {
+        // Use existing robust createDirectory method
+        $newDir = $this->createDirectory(
+            $projectId,
+            $destination['path'],
+            $destination['name']
+        );
+
+        $copiedFiles = [];
+        
+        // Get all files in source directory using existing method
+        $sourceFiles = $this->getFilesByPath($projectId, $sourceDir->getPath() . $sourceDir->getName());
+        
+        foreach ($sourceFiles as $file) {
+            if ($file->isDirectory()) {
+                // Recursively copy subdirectory
+                $subResult = $this->copyDirectory($projectId, $file, [
+                    'path' => $newDir->getPath() . $newDir->getName(),
+                    'name' => $file->getName()
+                ]);
+                $copiedFiles[] = $subResult;
+            } else {
+                // Copy file using existing method
+                $fileResult = $this->copyFile($projectId, $file, [
+                    'path' => $newDir->getPath() . $newDir->getName(),
+                    'name' => $file->getName()
+                ]);
+                $copiedFiles[] = $fileResult;
+            }
+        }
+
+        return [
+            'operation' => 'copy',
+            'success' => true,
+            'source' => $sourceDir->jsonSerialize(),
+            'destination' => $newDir->jsonSerialize(),
+            'copiedFiles' => $copiedFiles
+        ];
+    }
+
+    /**
+     * Move/rename a file using existing robust database patterns
+     */
+    private function moveFile(string $projectId, ProjectFile $sourceFile, array $destination): array
+    {
+        $userDb = $this->getUserDb();
+        
+        try {
+            $userDb->beginTransaction();
+
+            // Normalize path
+            $destination['path'] = $this->normalizePath($destination['path']);
+            
+            // Update file path and name in database using existing patterns
+            $userDb->executeStatement(
+                'UPDATE project_file 
+                 SET path = ?, name = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?',
+                [
+                    $destination['path'],
+                    $destination['name'],
+                    $sourceFile->getId()
+                ]
+            );
+            
+            // Move physical file if it exists using existing path methods
+            $oldPath = $this->getAbsoluteFilePath($projectId, $sourceFile->getPath(), $sourceFile->getName());
+            $newPath = $this->getAbsoluteFilePath($projectId, $destination['path'], $destination['name']);
+            
+            if (file_exists($oldPath)) {
+                // Ensure destination directory exists using existing patterns
+                $destDir = dirname($newPath);
+                if (!is_dir($destDir)) {
+                    $oldUmask = umask(0);
+                    try {
+                        if (!mkdir($destDir, 0755, true)) {
+                            throw new \RuntimeException('Failed to create destination directory');
+                        }
+                    } finally {
+                        umask($oldUmask);
+                    }
+                }
+                
+                if (!rename($oldPath, $newPath)) {
+                    throw new \RuntimeException('Failed to move physical file');
+                }
+            }
+            
+            $userDb->commit();
+            
+            // Get updated file info using existing method
+            $updatedFile = $this->findById($sourceFile->getId());
+            
+            return [
+                'operation' => 'rename_move',
+                'success' => true,
+                'source' => $sourceFile->jsonSerialize(),
+                'destination' => $updatedFile->jsonSerialize()
+            ];
+            
+        } catch (\Exception $e) {
+            $userDb->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Move/rename a directory (recursive) using existing robust database patterns
+     */
+    private function moveDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
+    {
+        $userDb = $this->getUserDb();
+        
+        try {
+            $userDb->beginTransaction();
+            
+            // Normalize path
+            $destination['path'] = $this->normalizePath($destination['path']);
+            
+            $oldPath = $sourceDir->getPath() . $sourceDir->getName();
+            $newPath = $destination['path'] . '/' . $destination['name'];
+            
+            // Update directory itself using existing patterns
+            $userDb->executeStatement(
+                'UPDATE project_file 
+                 SET path = ?, name = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?',
+                [
+                    $destination['path'],
+                    $destination['name'],
+                    $sourceDir->getId()
+                ]
+            );
+            
+            // Update all files within the directory (recursive path update) using existing patterns
+            $userDb->executeStatement(
+                'UPDATE project_file 
+                 SET path = REPLACE(path, ?, ?), updated_at = CURRENT_TIMESTAMP
+                 WHERE project_id = ? AND path LIKE ?',
+                [
+                    $oldPath,
+                    $newPath,
+                    $projectId,
+                    $oldPath . '%'
+                ]
+            );
+            
+            // Move physical directory if it exists using existing path methods
+            $oldPhysicalPath = $this->getAbsoluteFilePath($projectId, $sourceDir->getPath(), $sourceDir->getName());
+            $newPhysicalPath = $this->getAbsoluteFilePath($projectId, $destination['path'], $destination['name']);
+            
+            if (is_dir($oldPhysicalPath)) {
+                // Ensure parent directory exists using existing patterns
+                $parentDir = dirname($newPhysicalPath);
+                if (!is_dir($parentDir)) {
+                    $oldUmask = umask(0);
+                    try {
+                        if (!mkdir($parentDir, 0755, true)) {
+                            throw new \RuntimeException('Failed to create parent directory');
+                        }
+                    } finally {
+                        umask($oldUmask);
+                    }
+                }
+                
+                if (!rename($oldPhysicalPath, $newPhysicalPath)) {
+                    throw new \RuntimeException('Failed to move physical directory');
+                }
+            }
+            
+            $userDb->commit();
+            
+            // Get updated directory info using existing method
+            $updatedDir = $this->findById($sourceDir->getId());
+            
+            return [
+                'operation' => 'rename_move',
+                'success' => true,
+                'source' => $sourceDir->jsonSerialize(),
+                'destination' => $updatedDir->jsonSerialize()
+            ];
+            
+        } catch (\Exception $e) {
+            $userDb->rollBack();
+            throw $e;
+        }
     }
     
     /**
