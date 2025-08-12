@@ -15,6 +15,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use App\CitadelVersion;
 
 #[Route('/welcome')]
 #[IsGranted('ROLE_USER')]
@@ -78,7 +79,9 @@ class WelcomeController extends AbstractController
                 'https://cqaigateway.com/api/ai/models', 
                 [
                     'headers' => [
-                        'Authorization' => 'Bearer ' . $apiKey
+                        'Authorization' => 'Bearer ' . $apiKey,
+                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                        'Content-Type' => 'application/json',
                     ]
                 ]
             );

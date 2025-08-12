@@ -102,6 +102,8 @@ home:
 navigation:
     user_menu:
         profile: 'Profile'
+        visual_design: 'Visual Design'
+        settings: 'Settings'
         backup: 'Backup'
         admin: 'Admin Panel'
         logout: 'Logout'
@@ -365,6 +367,13 @@ admin:
 
 ui:
     close: 'Close'
+    cancel: 'Cancel'
+    save: 'Save'
+    create: 'Create'
+    delete: 'Delete'
+    update: 'Update'
+    edit: 'Edit'
+    loading: 'Loading...'
 
 file_browser:
     page_title: 'File Browser'

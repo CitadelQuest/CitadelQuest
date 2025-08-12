@@ -8,12 +8,12 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
+                    {# <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
                         <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
-                    </a>
+                    </a> #}
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
@@ -30,7 +30,7 @@
                     {% for message in app.flashes('success') %}
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'ui.close'|trans }}"></button>
                         </div>
                     {% endfor %}
                     
@@ -47,10 +47,10 @@
                             <div class="row">
                                 <div class="col-12 {% if api_key_state != 'set_and_valid' %}col-md-6{% endif %}" id="cq_ai_gateway_api_key_container">
                                     <label for="cq_ai_gateway_api_key" class="form-label w-100 px-2 d-flex mb-2">
-                                        <span class="d-flex w-50">Your API key is:</span>
-                                        {# d=flex, but with items as rows #}
-                                        <div class="d-flex flex-column align-items-end gap-2 w-50">
-                                            
+                                        
+                                        {# d-flex, but with items as rows #}
+                                        <div class="d-flex flex-column align-items-start gap-2 w-50">
+                                            <span class="d-flex _w-50">Your API key is:</span>
                                             <div class="d-flex">
                                                 <span class="badge bg-secondary opacity-50 rounded-end-0 cursor-pointer" onclick="
                                                     document.getElementById('cq_ai_gateway_api_key_container').classList.toggle('col-md-6');
@@ -142,7 +142,7 @@
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
-                                <i class="mdi mdi-content-save me-2"></i> Save Settings
+                                <i class="mdi mdi-content-save me-2"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
                             </button>
                         </div>
                     </form>

@@ -190,6 +190,10 @@ strong, .strong {
     cursor: pointer !important;
 }
 
+.modal-content {
+    color: inherit !important;
+}
+
 // Interactive Element Mixin
 @mixin interactive {
     cursor: pointer;

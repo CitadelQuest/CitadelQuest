@@ -13,6 +13,7 @@ use App\Service\SettingsService;
 use App\Service\AiServiceModelService;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use App\CitadelVersion;
 
 class CQAIGateway implements AiGatewayInterface
 {
@@ -75,7 +76,8 @@ class CQAIGateway implements AiGatewayInterface
         // Prepare headers
         $headers = [
             'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer ' . $apiKey
+            'Authorization' => 'Bearer ' . $apiKey,
+            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
         ];
         
         try {
@@ -201,7 +203,8 @@ class CQAIGateway implements AiGatewayInterface
             $response = $this->httpClient->request('GET', $aiGateway->getApiEndpointUrl() . '/ai/models', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $aiGateway->getApiKey(),
-                    'Content-Type' => 'application/json'
+                    'Content-Type' => 'application/json',
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
                 ]
             ]);
 
@@ -322,11 +325,8 @@ class CQAIGateway implements AiGatewayInterface
 
                 foreach ($responseData['models'] as $model) {
                     if (isset($model['id'])) {
-                        $models[] = [
-                            'id' => $model['id'],
-                            'name' => $model['name'],
-                            'provider' => 'cqaigateway'
-                        ];
+                        $model['provider'] = 'cqaigateway';
+                        $models[] = $model;
                     }
                 }
             }

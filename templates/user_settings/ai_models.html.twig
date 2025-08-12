@@ -46,14 +46,14 @@
                     {% for message in app.flashes('success') %}
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'ui.close'|trans }}"></button>
                         </div>
                     {% endfor %}
                     
                     {% for message in app.flashes('danger') %}
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'ui.close'|trans }}"></button>
                         </div>
                     {% endfor %}
                     
@@ -141,7 +141,7 @@
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
                 <h5 class="modal-title" id="addModelModalLabel">Add AI Model</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('app_user_settings_ai_models_add') }}">
                 <div class="modal-body">
@@ -232,9 +232,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                     <button type="submit" class="btn btn-cyber">
-                        <i class="mdi mdi-content-save me-1"></i> Save Model
+                        <i class="mdi mdi-content-save me-1"></i> {{ 'ui.save'|trans }} Model
                     </button>
                 </div>
             </form>
@@ -247,8 +247,8 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
-                <h5 class="modal-title" id="editModelModalLabel">Edit AI Model</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="editModelModalLabel">{{ 'ui.edit'|trans }} AI Model</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('app_user_settings_ai_models_edit') }}">
                 <input type="hidden" id="edit-model-id" name="id">
@@ -256,7 +256,7 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-gateway" class="form-label">Gateway</label>
-                            <select class="form-select" id="edit-model-gateway" name="aiGatewayId" required>
+                            <select class="form-select text-secondary" id="edit-model-gateway" name="aiGatewayId" required_ disabled>
                                 {% for gateway in aiGateways %}
                                     <option value="{{ gateway.id }}">{{ gateway.name }}</option>
                                 {% endfor %}
@@ -277,60 +277,60 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-name" class="form-label">Model Name</label>
-                            <select class="form-select" id="edit-model-name" name="modelName" required>                                
+                            <select class="form-select text-secondary" id="edit-model-name" name="modelName" required_ disabled>                                
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label for="edit-model-slug" class="form-label">Model Slug</label>
-                            <input type="text" class="form-control" id="edit-model-slug" name="modelSlug" required>
+                            <input type="text" class="form-control text-secondary" id="edit-model-slug" name="modelSlug" required_ disabled>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-context-window" class="form-label">Context Window</label>
-                            <input type="number" class="form-control" id="edit-model-context-window" name="contextWindow">
+                            <input type="number" class="form-control text-secondary" id="edit-model-context-window" name="contextWindow" disabled>
                         </div>
                         <div class="col-md-6">
                             <label for="edit-model-max-output" class="form-label">Max Output</label>
-                            <input type="number" class="form-control" id="edit-model-max-output" name="maxOutput">
+                            <input type="number" class="form-control text-secondary" id="edit-model-max-output" name="maxOutput" disabled>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-max-input" class="form-label">Max Input</label>
-                            <input type="text" class="form-control" id="edit-model-max-input" name="maxInput">
+                            <input type="text" class="form-control text-secondary" id="edit-model-max-input" name="maxInput" disabled>
                         </div>
                         <div class="col-md-6">
                             <label for="edit-model-max-input-image-size" class="form-label">Max Input Image Size</label>
-                            <input type="text" class="form-control" id="edit-model-max-input-image-size" name="maxInputImageSize">
+                            <input type="text" class="form-control text-secondary" id="edit-model-max-input-image-size" name="maxInputImageSize" disabled>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit-model-ppm-input" class="form-label">Price Per Million (Input)</label>
                             <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" id="edit-model-ppm-input" name="ppmInput" step="0.01">
+                                <span class="input-group-text">credits</span>
+                                <input type="number" class="form-control text-secondary" id="edit-model-ppm-input" name="ppmInput" step="0.01" disabled>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <label for="edit-model-ppm-output" class="form-label">Price Per Million (Output)</label>
                             <div class="input-group">
-                                <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" id="edit-model-ppm-output" name="ppmOutput" step="0.01">
+                                <span class="input-group-text">credits</span>
+                                <input type="number" class="form-control text-secondary" id="edit-model-ppm-output" name="ppmOutput" step="0.01" disabled>
                             </div>
                         </div>
                     </div>
                     <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="edit-model-is-active" name="isActive" value="1">
+                        <input class="form-check-input" type="checkbox" id="edit-model-is-active" name="isActive" value="1" disabled>
                         <label class="form-check-label" for="edit-model-is-active">Active</label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-cyber">
-                        <i class="mdi mdi-content-save me-1"></i> Update Model
-                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
+                    {# <button type="submit" class="btn btn-cyber">
+                        <i class="mdi mdi-content-save me-1"></i> {{ 'ui.save'|trans }} Model
+                    </button> #}
                 </div>
             </form>
         </div>
@@ -342,8 +342,8 @@
     <div class="modal-dialog">
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-danger border-danger border-1 border-bottom">
-                <span class="modal-title text-light fs-5" id="deleteModelModalLabel">Delete AI Model</span>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <span class="modal-title text-light fs-5" id="deleteModelModalLabel">{{ 'ui.delete'|trans }} AI Model</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('app_user_settings_ai_models_delete') }}">
                 <input type="hidden" id="delete-model-id" name="id">
@@ -352,9 +352,9 @@
                     <p class="text-danger">This action cannot be undone.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                     <button type="submit" class="btn btn-danger">
-                        <i class="mdi mdi-delete me-1"></i> Delete Model
+                        <i class="mdi mdi-delete me-1"></i> {{ 'ui.delete'|trans }} Model
                     </button>
                 </div>
             </form>

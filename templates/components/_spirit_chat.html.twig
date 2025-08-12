@@ -5,7 +5,7 @@
             <div class="modal-header bg-cyber-g border-success">
                 <span id="spiritChatModalTitle" class="fs-4 me-2"></span>
                 <span class="modal-title fs-6 d-none d-md-inline-block" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }} <span class="spiritName"></span></span>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="row mb-3">
@@ -82,7 +82,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="newConversationModalLabel"><i class="mdi mdi-message-badge me-2"></i> {{ 'spirit.chat.new_conversation'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <form id="newConversationForm">
@@ -91,8 +91,8 @@
                         <input type="text" class="form-control" id="conversationTitle" required focus>
                     </div>
                     <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}</button>
-                        <button type="submit" class="btn btn-cyber"><i class="mdi mdi-check me-2"></i>{{ 'Create'|trans }}</button>
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
+                        <button type="submit" class="btn btn-cyber"><i class="mdi mdi-check me-2"></i>{{ 'ui.create'|trans }}</button>
                     </div>
                 </form>
             </div>

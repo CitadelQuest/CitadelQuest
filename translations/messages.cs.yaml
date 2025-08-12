@@ -103,6 +103,7 @@ navigation:
     user_menu:
         profile: 'Profil'
         visual_design: 'Vizuální styl'
+        settings: 'Nastavení'
         backup: 'Záloha'
         admin: 'Administrace'
         logout: 'Odhlásit se'
@@ -356,6 +357,16 @@ admin:
         cannot_delete_self: 'Nemůžete smazat svůj vlastní účet'
         cannot_delete_last_admin: 'Nelze smazat posledního administrátora'
         delete_failed: 'Smazání uživatele se nezdařilo'
+
+ui:
+    close: 'Zavřít'
+    cancel: 'Zrušit'
+    save: 'Uložit'
+    create: 'Vytvořit'
+    delete: 'Smazat'
+    update: 'Aktualizovat'
+    edit: 'Upravit'
+    loading: 'Načítám...' 
 
 file_browser:
     page_title: 'Správce souborů'

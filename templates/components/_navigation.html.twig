@@ -50,12 +50,12 @@
                     <li>
                         <hr class="dropdown-divider">
                     </li>
-                    <li>
+                    {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
                             <i class="mdi mdi-account me-3{% if app.request.pathInfo == path('app_user_settings_profile') %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.profile'|trans }}
                         </a>
-                    </li>
+                    </li> #}
 
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_file_browser') }}">
@@ -66,7 +66,7 @@
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
                             <i class="mdi mdi-tune-vertical me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% endif %}"></i>
-                            Settings
+                            {{ 'navigation.user_menu.settings'|trans }}
                         </a>
                     </li>
                     <li>

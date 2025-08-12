@@ -16,12 +16,12 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent">
-                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
+                    {# <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
                         <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
-                    </a>
+                    </a> #}
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
@@ -92,7 +92,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="emailModalLabel"><i class="mdi mdi-email-edit me-2"></i>{{ 'profile.email.change'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <form id="email-form" action="{{ path('app_user_settings_email') }}" method="post">
@@ -102,7 +102,7 @@
                     </div>
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
-                            <i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}
+                            <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
                         </button>
                         <button type="submit" class="btn btn-cyber">
                             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -121,7 +121,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="passwordModalLabel"><i class="mdi mdi-lock-alert me-2"></i>{{ 'profile.password.change'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <form id="password-form" action="{{ path('app_user_settings_password') }}" method="post">
@@ -139,7 +139,7 @@
                     </div>
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
-                            <i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}
+                            <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
                         </button>
                         <button type="submit" class="btn btn-cyber">
                             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>

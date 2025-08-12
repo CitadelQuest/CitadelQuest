@@ -19,11 +19,14 @@ use Symfony\Component\Security\Http\Authentication\UserAuthenticatorInterface;
 use App\Security\LoginFormAuthenticator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use App\CitadelVersion;
+use Psr\Log\LoggerInterface;
 
 class RegistrationController extends AbstractController
 {
     public function __construct(
-        private TranslatorInterface $translator
+        private TranslatorInterface $translator,
+        private LoggerInterface $logger
     ) {}
     #[Route('/register', name: 'app_register')]
     public function register(
@@ -104,6 +107,10 @@ class RegistrationController extends AbstractController
                         'POST',
                         'https://cqaigateway.com/api/user/register',
                         [
+                            'headers' => [
+                                'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                                'Content-Type' => 'application/json',
+                            ],
                             'json' => [
                                 'username' => $userRepository->getCQAIGatewayUsername($user),
                                 'email' => $user->getEmail(),
@@ -119,7 +126,7 @@ class RegistrationController extends AbstractController
                     $data = json_decode($content, true);
                     
                     if ($statusCode !== Response::HTTP_CREATED && $statusCode !== Response::HTTP_OK) {
-                        error_log('CQAIGateway registration for user ' . $user->getEmail() . ' failed with status code ' . $statusCode . ': ' . $content);
+                        $this->logger->error('CQAIGateway registration for user ' . $user->getEmail() . ' failed with status code ' . $statusCode . ': ' . $content);
                         return $this->redirectToRoute('app_welcome_onboarding');
                     }
                     
@@ -127,11 +134,14 @@ class RegistrationController extends AbstractController
 
                     // save API key to user settings - it will be used in onboarding, pre-filled in the form
                     $settingsService->setSetting('cqaigateway.api_key', $apiKey);
+                    // save username, email for CQ AI Gateway
+                    $settingsService->setSetting('cqaigateway.username', $data['username']);
+                    $settingsService->setSetting('cqaigateway.email', $data['email']);
 
-                    error_log('CQAIGateway registration successful for user ' . $user->getEmail());
+                    $this->logger->info('CQAIGateway registration successful for user ' . $user->getEmail());
                     
                 } catch (\Exception $e) {
-                    error_log('CQAIGateway registration failed for user ' . $user->getEmail() . ': ' . $e->getMessage());
+                    $this->logger->error('CQAIGateway registration failed for user ' . $user->getEmail() . ': ' . $e->getMessage());
                     $this->addFlash('error', $this->translator->trans('auth.register.error') . ' (' . $e->getMessage() . ')');
                     return $this->redirectToRoute('app_welcome_onboarding');
                 }

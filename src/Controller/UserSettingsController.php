@@ -19,6 +19,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use App\CitadelVersion;
 
 #[Route('/settings')]
 #[IsGranted('ROLE_USER')]
@@ -181,7 +182,9 @@ class UserSettingsController extends AbstractController
                             'https://cqaigateway.com/api/ai/models', 
                             [
                                 'headers' => [
-                                    'Authorization' => 'Bearer ' . $request_api_key
+                                    'Authorization' => 'Bearer ' . $request_api_key,
+                                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                                    'Content-Type' => 'application/json',
                                 ]
                             ]
                         );
@@ -305,6 +308,7 @@ class UserSettingsController extends AbstractController
         
         // Check if API key is set in aiGateway 'CQ AI Gateway'
         $CQ_AI_GatewayCredits = null;
+        $CQ_AI_GatewayUsername = null;
         $apiKeyState = 'not_set';
         $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
         if ($gateway) {            
@@ -318,7 +322,9 @@ class UserSettingsController extends AbstractController
                 $gateway->getApiEndpointUrl() . '/payment/balance', 
                 [
                     'headers' => [
-                        'Authorization' => 'Bearer ' . $gateway->getApiKey()
+                        'Authorization' => 'Bearer ' . $gateway->getApiKey(),
+                        'Content-Type' => 'application/json',
+                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
                     ]
                 ]
             );
@@ -329,6 +335,11 @@ class UserSettingsController extends AbstractController
             } else {
                 $apiKeyState = 'set_and_valid';
                 $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
+            }
+
+            $CQ_AI_GatewayUsername = $this->settingsService->getSetting('cqaigateway.username');
+            if ($CQ_AI_GatewayUsername === null) {
+                $CQ_AI_GatewayUsername = $userRepository->getCQAIGatewayUsername($this->getUser());
             }
 
             // check for new models
@@ -348,19 +359,23 @@ class UserSettingsController extends AbstractController
                     return $currentModel->getModelSlug();
                 }, $currentModels))) {
                     $newModels[] = $model;
-                    $this->aiServiceModelService->createModel(
-                        $gateway->getId(),          // gateway id
-                        $model['name'],             // model name
-                        $model['id'],               // model slug
-                        null,                       // virtual key = null, deprecated
-                        $model['context_length'],   // context length
-                        $model['context_length'],   // max input
-                        0,                          // maxInputImageSize
-                        isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096, // max output(response) tokens
-                        $model['pricing']['prompt'],        // ppmInput
-                        $model['pricing']['completion'],    // ppmOutput
-                        true                        // is active
-                    );
+                    try {
+                        $this->aiServiceModelService->createModel(
+                            $gateway->getId(),          // gateway id
+                            $model['name'],             // model name
+                            $model['id'],               // model slug
+                            null,                       // virtual key = null, deprecated
+                            $model['context_length'],   // context length
+                            $model['context_length'],   // max input
+                            0,                          // maxInputImageSize
+                            isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096, // max output(response) tokens
+                            $model['pricing']['prompt'],        // ppmInput
+                            $model['pricing']['completion'],    // ppmOutput
+                            true                        // is active
+                        );
+                    } catch (\Exception $e) {
+                        $this->addFlash('error', 'Error adding model: ' . $e->getMessage());
+                    }
                 } else {
                     // set existing model as active
                     $currentModel = array_filter($currentModels, function ($currentModel) use ($model) {
@@ -388,14 +403,14 @@ class UserSettingsController extends AbstractController
         }
 
         // Get all available AI models
-        $aiModels = $this->aiServiceModelService->findByGateway($gateway->getId(), true);//findAll(true);
+        $aiModels = $this->aiServiceModelService->findByGateway($gateway->getId(), true);
         
         return $this->render('user_settings/ai.html.twig', [
             'settings' => $settings,
             'aiModels' => $aiModels,
             'api_key_state' => $apiKeyState,
             'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
-            'CQ_AI_GatewayUsername' => $userRepository->getCQAIGatewayUsername($this->getUser())
+            'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername
         ]);
     }
     

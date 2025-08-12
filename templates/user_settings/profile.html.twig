@@ -78,7 +78,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="descriptionModalLabel"><i class="mdi mdi-account-edit me-2"></i>{{ 'Change description'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <form id="description-form" action="/api/settings/profile.description" method="post">
@@ -88,11 +88,11 @@
                     </div>
                     <div class="d-flex justify-content-end">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
-                            <i class="mdi mdi-close me-2"></i>{{ 'Cancel'|trans }}
+                            <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
                         </button>
                         <button type="submit" class="btn btn-cyber">
                             <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                            <i class="mdi mdi-content-save me-2"></i>{{ 'Save'|trans }}
+                            <i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans }}
                         </button>
                     </div>
                 </form>

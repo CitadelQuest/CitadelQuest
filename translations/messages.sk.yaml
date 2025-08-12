@@ -103,9 +103,9 @@ navigation:
     user_menu:
         profile: 'Profil'
         visual_design: 'Vizuálny štýl'
+        settings: 'Nastavenia'
         backup: 'Záloha'
         admin: 'Administrácia'
-        settings: 'Nastavenia'
         logout: 'Odhlásiť sa'
     language:
         title: 'Jazyk'
@@ -192,6 +192,7 @@ profile:
         error: 'Nepodarilo sa aktualizovať heslo'
     error:
         connection: 'Chyba pripojenia. Skúste to prosím znova.'
+
 
 backup:
     title: 'Správa záloh'
@@ -357,6 +358,16 @@ admin:
         cannot_delete_self: 'Nemôžete zmazať svoj vlastný účet'
         cannot_delete_last_admin: 'Nie je možné zmazať posledného administrátora'
         delete_failed: 'Zmazanie používateľa sa nepodarilo'
+
+ui:
+    close: 'Zavrieť'
+    cancel: 'Zrušiť'
+    save: 'Uložiť'
+    create: 'Vytvoriť'
+    delete: 'Zmazať'
+    update: 'Aktualizovať'
+    edit: 'Upraviť'
+    loading: 'Načítavam...'
 
 file_browser:
     page_title: 'Správca súborov'

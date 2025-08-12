@@ -8,7 +8,7 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">Settings</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush">
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
@@ -40,7 +40,7 @@
                     {% for message in app.flashes('success') %}
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'ui.close'|trans }}"></button>
                         </div>
                     {% endfor %}
                     
@@ -132,7 +132,7 @@
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
                 <h5 class="modal-title" id="addGatewayModalLabel">Add AI Gateway</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('app_user_settings_ai_gateways_add') }}">
                 <div class="modal-body">
@@ -162,9 +162,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                     <button type="submit" class="btn btn-cyber">
-                        <i class="mdi mdi-content-save me-1"></i> Save Gateway
+                        <i class="mdi mdi-content-save me-1"></i> {{ 'ui.save'|trans }} Gateway
                     </button>
                 </div>
             </form>
@@ -177,8 +177,8 @@
     <div class="modal-dialog">
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
-                <h5 class="modal-title" id="editGatewayModalLabel">Edit AI Gateway</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="editGatewayModalLabel">{{ 'ui.edit'|trans }} AI Gateway</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('app_user_settings_ai_gateways_edit') }}">
                 <div class="modal-body">
@@ -203,9 +203,9 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                     <button type="submit" class="btn btn-cyber">
-                        <i class="mdi mdi-content-save me-1"></i> Update Gateway
+                        <i class="mdi mdi-content-save me-1"></i> {{ 'ui.update'|trans }} Gateway
                     </button>
                 </div>
             </form>
@@ -218,19 +218,19 @@
     <div class="modal-dialog">
         <div class="modal-content glass-panel glass-panel-glow">
             <div class="modal-header bg-danger">
-                <span class="modal-title text-light fs-5" id="deleteGatewayModalLabel">Delete AI Gateway</span>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <span class="modal-title text-light fs-5" id="deleteGatewayModalLabel">{{ 'ui.delete'|trans }} AI Gateway</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete the gateway <strong id="delete-gateway-name"></strong>?</p>
                 <p class="text-danger">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                 <form method="post" action="{{ path('app_user_settings_ai_gateways_delete') }}">
                     <input type="hidden" id="delete-gateway-id" name="id">
                     <button type="submit" class="btn btn-danger">
-                        <i class="mdi mdi-delete me-1"></i> Delete Gateway
+                        <i class="mdi mdi-delete me-1"></i> {{ 'ui.delete'|trans }} Gateway
                     </button>
                 </form>
             </div>

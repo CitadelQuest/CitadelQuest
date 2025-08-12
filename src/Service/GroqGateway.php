@@ -13,6 +13,7 @@ use App\Service\SettingsService;
 use App\Service\AiServiceModelService;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use App\CitadelVersion;
 
 class GroqGateway implements AiGatewayInterface
 {
@@ -75,7 +76,8 @@ class GroqGateway implements AiGatewayInterface
         // Prepare headers
         $headers = [
             'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer ' . $apiKey
+            'Authorization' => 'Bearer ' . $apiKey,
+            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
         ];
         
         try {
@@ -202,7 +204,9 @@ class GroqGateway implements AiGatewayInterface
         
         // Prepare headers
         $headers = [
-            'Authorization' => 'Bearer ' . $apiKey
+            'Authorization' => 'Bearer ' . $apiKey,
+            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+            'Content-Type' => 'application/json',
         ];
         
         try {
