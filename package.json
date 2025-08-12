@@ -10,8 +10,7 @@
         "sass": "^1.83.4",
         "sass-loader": "^16.0.4",
         "webpack": "^5.74.0",
-        "webpack-cli": "^5.1.0",
-        "webpack-notifier": "^1.15.0"
+        "webpack-cli": "^5.1.0"
     },
     "license": "UNLICENSED",
     "private": true,
