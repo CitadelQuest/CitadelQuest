@@ -21,12 +21,12 @@ export class FileBrowser {
         
         // Initialize state
         this.currentPath = localStorage.getItem('fileBrowserPath:' + window.location.pathname, '/') || '/';
+        localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
         this.selectedFile = null;
         this.files = [];
         this.breadcrumbs = [];
         
-        // View mode: 'list' or 'tree'(default)
-        this.viewMode = localStorage.getItem('fileBrowserViewMode:' + window.location.pathname) || 'tree';
+        // File Browser now uses Tree View only (List View removed for simplicity)
         
         // Initialize API service
         this.apiService = new FileBrowserApiService({
@@ -59,15 +59,11 @@ export class FileBrowser {
         // Initialize event listeners
         this.initEventListeners();
         
-        // Initialize the view based on saved preference
-        if (this.viewMode === 'tree') {
-            // Initialize tree view first, then hide list view
-            this.showTreeView();
-        } else {
-            // Load initial files in list view (default)
-            this.showListView();
-        }
+        // Initialize Tree View (List View removed for simplicity)
+        this.showTreeView();
         this.updateBreadcrumbs();
+        
+        // Initial directory preview will be handled by FileTreeView onInit callback
     }
     
     /**
@@ -93,18 +89,30 @@ export class FileBrowser {
             <button class="btn btn-sm btn-outline-primary" data-action="upload">
                 <i class="mdi mdi-upload"></i> <span class="d-none d-md-inline">${this.translations.upload || 'Upload'}</span>
             </button>
-            <button class="btn btn-sm btn-outline-primary ms-2 d-none d-md-flex" data-action="toggle-view">
-                <i class="mdi ${this.viewMode === 'list' ? 'mdi-file-tree' : 'mdi-format-list-bulleted'}"></i> 
-                <span>${this.viewMode === 'list' ? (this.translations.tree_view || 'Tree View') : (this.translations.list_view || 'List View')}</span>
-            </button>
         `;
         
         // Create breadcrumbs
+        this.breadcrumbsRootLabel = document.createElement('div');
+        this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
+        this.breadcrumbsRootLabel.innerHTML = `<i class="mdi mdi-folder text-cyber"></i> <span class="text-muted me-2">Project:</span><span class="text-cyber">${this.projectId}</span>`;
+        this.breadcrumbsRootLabel.addEventListener('click', () => {
+            console.log('Project root clicked');
+            this.currentPath = '/';
+            this.fileTreeView.setInitialExpandPath('/');
+            this.fileTreeView.refresh();
+            this.updateBreadcrumbs();
+        });
+        
         this.breadcrumbsElement = document.createElement('div');
         this.breadcrumbsElement.className = 'file-browser-breadcrumbs';
         this.breadcrumbsElement.classList.add('mb-2');
+
+        this.breadcrumbsWrapper = document.createElement('div');
+        this.breadcrumbsWrapper.className = 'file-browser-breadcrumbs-wrapper';
+        this.breadcrumbsWrapper.appendChild(this.breadcrumbsRootLabel);
+        this.breadcrumbsWrapper.appendChild(this.breadcrumbsElement);
         
-        header.appendChild(this.breadcrumbsElement);
+        header.appendChild(this.breadcrumbsWrapper);
         header.appendChild(actions);
         
         // Create uploader container - positioned after the actions but before the file list
@@ -141,7 +149,13 @@ export class FileBrowser {
         // Initialize the FileUploader component
         this.fileUploader = new FileUploader({
             containerId: `${this.containerId}-uploader`,
-            onUpload: () => this.loadFiles(this.currentPath),
+            onUpload: () => {
+                // Refresh tree view after upload
+                if (this.fileTreeView) {
+                    this.fileTreeView.setInitialExpandPath(this.currentPath);
+                    this.fileTreeView.refresh();
+                }
+            },
             translations: this.translations,
             apiService: this.apiService,
             projectId: this.projectId,
@@ -171,17 +185,6 @@ export class FileBrowser {
                     
                 case 'upload':
                     this.toggleUploader();
-                    break;
-                    
-                case 'toggle-view':
-                    this.toggleViewMode();
-                    break;
-                    
-                case 'navigate':
-                    const path = actionButton.dataset.path;
-                    if (path) {
-                        await this.loadFiles(path);
-                    }
                     break;
                     
                 case 'select-file':
@@ -218,128 +221,13 @@ export class FileBrowser {
         });
     }
     
-    /**
-     * Load files from the specified path
-     * @param {string} path - The path to load files from
-     */
-    async loadFiles(path) {
-        try {
-            this.currentPath = path;
-            localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
-            this.updateBreadcrumbs();
-            
-            // Update the path in the file uploader
-            if (this.fileUploader) {
-                this.fileUploader.updatePath(this.currentPath);
-            }
-            
-            // Load files from API
-            const response = await this.apiService.listFiles(this.projectId, path);
-            this.files = response.files || [];
-            
-            // Update UI
-            this.renderFileList();
-            this.updateBreadcrumbs();
-            
-            // Clear preview if needed
-            if (this.selectedFile) {
-                const fileStillExists = this.files.find(f => f.id === this.selectedFile.id);
-                if (!fileStillExists) {
-                    this.selectedFile = null;
-                    this.filePreviewElement.innerHTML = '';
-                }
-            }
-        } catch (error) {
-            console.error('Error loading files:', error);
-            this.showError(error.message);
-        }
-    }
-    
-    /**
-     * Render the file list
-     */
-    renderFileList() {
-        if (this.files.length === 0) {
-            this.fileListElement.innerHTML = `
-                <div class="text-center p-4">
-                    <p>${this.translations.empty_directory || 'This directory is empty'}</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Sort files: directories first, then by name
-        const sortedFiles = [...this.files].sort((a, b) => {
-            if (a.isDirectory && !b.isDirectory) return -1;
-            if (!a.isDirectory && b.isDirectory) return 1;
-            return a.name.localeCompare(b.name);
-        });
-        
-        const html = sortedFiles.map(file => {
-            const icon = file.isDirectory ? 'mdi mdi-folder' : this.getFileIcon(file.name);
-            const fileActions = file.isDirectory ? '' : `
-                <button class="btn btn-sm btn-outline-primary me-1" data-action="download" data-file-id="${file.id}">
-                    <i class="mdi mdi-download"></i>
-                </button>
-            `;
-            
-            return `
-                <div class="file-item" data-file-id="${file.id}">
-                    <div class="file-item-icon">
-                        <i class="mdi ${icon}"></i>
-                    </div>
-                    <div class="file-item-name" data-action="${file.isDirectory ? 'navigate' : 'select-file'}" 
-                         data-path="${file.isDirectory ? (file.path=='/'?'':file.path) + '/' + file.name + '/' : ''}" 
-                         data-file-id="${file.id}">
-                        ${file.name}
-                    </div>
-                    <div class="file-item-actions">
-                        ${fileActions}
-                        <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}">
-                            <i class="mdi mdi-delete"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        this.fileListElement.innerHTML = `<div class="file-list-container">${html}</div>`;
-    }
+
     
     /**
      * Update breadcrumbs based on current path
      */
     updateBreadcrumbs() {
-        // Split the path into segments
-        const pathSegments = this.currentPath.split('/').filter(segment => segment !== '');
-        
-        // Build breadcrumbs array with paths
-        this.breadcrumbs = [
-            { name: this.projectId, path: '/' }
-        ];
-        
-        let currentPath = '/';
-        for (const segment of pathSegments) {
-            currentPath += segment + '/';
-            this.breadcrumbs.push({
-                name: segment,
-                path: currentPath
-            });
-        }
-        
-        // Render breadcrumbs
-        const html = this.breadcrumbs.map((crumb, index) => {
-            const isLast = index === this.breadcrumbs.length - 1;
-            return `
-                <span class="breadcrumb-item ${isLast ? 'active' : ''}" 
-                      ${!isLast ? `data-action="navigate" data-path="${crumb.path}"` : ''}>
-                    ${crumb.name}
-                </span>
-                ${!isLast ? '<span class="breadcrumb-separator">/</span>' : ''}
-            `;
-        }).join('');
-        
-        this.breadcrumbsElement.innerHTML = html;
+        this.breadcrumbsElement.innerHTML = this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
     }
     
     /**
@@ -411,26 +299,6 @@ export class FileBrowser {
     }
     
     /**
-     * Show an error message
-     * @param {string} message - The error message
-     */
-    showError(message) {
-        // For now, just use console.error
-        // In the future, this could show a toast or alert
-        console.error(message);
-    }
-    
-    /**
-     * Show a success message
-     * @param {string} message - The success message
-     */
-    showSuccess(message) {
-        // For now, just use console.log
-        // In the future, this could show a toast or alert
-        console.log(message);
-    }
-    
-    /**
      * Show dialog to create a new folder
      */
     async showNewFolderDialog() {
@@ -438,27 +306,21 @@ export class FileBrowser {
         if (!folderName) return;
         
         try {
-            console.log('currentPath', this.currentPath);
-            console.log('folderName', folderName);
-
             await this.apiService.createDirectory(this.projectId, this.currentPath, folderName);
-            await this.loadFiles(this.currentPath);
             
-            // Show success message using the toast system
-            if (window.toast) {
-                window.toast.success(this.translations.folder_created || 'Folder created successfully');
-            } else {
-                this.showSuccess(this.translations.folder_created || 'Folder created successfully');
+            // Refresh tree view after folder creation
+            if (this.fileTreeView) {
+                this.fileTreeView.setInitialExpandPath(this.currentPath);
+                await this.fileTreeView.refresh();
             }
+            
+            // Show success message
+            window.toast.success(this.translations.folder_created || 'Folder created successfully');
         } catch (error) {
             console.error('Error creating folder:', error);
             
-            // Show error message using the toast system
-            if (window.toast) {
-                window.toast.error(error.message);
-            } else {
-                this.showError(error.message);
-            }
+            // Show error message
+            window.toast.error(error.message);
         }
     }
     
@@ -474,23 +336,20 @@ export class FileBrowser {
         
         try {
             await this.apiService.createFile(this.projectId, this.currentPath, fileName, content);
-            await this.loadFiles(this.currentPath);
             
-            // Show success message using the toast system
-            if (window.toast) {
-                window.toast.success(this.translations.file_created || 'File created successfully');
-            } else {
-                this.showSuccess(this.translations.file_created || 'File created successfully');
+            // Refresh tree view after file creation
+            if (this.fileTreeView) {
+                this.fileTreeView.setInitialExpandPath(this.currentPath);
+                await this.fileTreeView.refresh();
             }
+            
+            // Show success message
+            window.toast.success(this.translations.file_created || 'File created successfully');
         } catch (error) {
             console.error('Error creating file:', error);
             
-            // Show error message using the toast system
-            if (window.toast) {
-                window.toast.error(error.message);
-            } else {
-                this.showError(error.message);
-            }
+            // Show error message
+            window.toast.error(error.message);
         }
     }
     
@@ -511,29 +370,28 @@ export class FileBrowser {
             
             if (!file) throw new Error('File not found');
             
-            // Don't try to preview directories
-            if (file.isDirectory) {
-                await this.loadFiles(file.path=='/'?'':file.path + file.name + '/');
-                return;
-            }
-            
             this.selectedFile = file;
             
-            // Show loading state
-            this.filePreviewElement.innerHTML = `
-                <div class="text-center p-4">
-                    <div class="spinner-border text-cyber" role="status">
-                        <span class="visually-hidden">${this.translations.loading || 'Loading...'}</span>
+            if (file.isDirectory) {
+                // Show directory preview with actions
+                this.renderDirectoryPreview(file);
+            } else {
+                // Show loading state for files
+                this.filePreviewElement.innerHTML = `
+                    <div class="text-center p-4">
+                        <div class="spinner-border text-cyber" role="status">
+                            <span class="visually-hidden">${this.translations.loading || 'Loading...'}</span>
+                        </div>
                     </div>
-                </div>
-            `;
-            
-            // Get file content
-            const response = await this.apiService.getFileContent(fileId);
-            const content = response.content;
-            
-            // Render preview based on file type
-            this.renderFilePreview(file, content);
+                `;
+                
+                // Get file content
+                const response = await this.apiService.getFileContent(fileId);
+                const content = response.content;
+                
+                // Render preview based on file type
+                this.renderFilePreview(file, content);
+            }
             
             // Highlight the selected file in the list (only works in list view)
             const fileItems = this.fileListElement.querySelectorAll('.file-item');
@@ -547,13 +405,50 @@ export class FileBrowser {
         } catch (error) {
             console.error('Error selecting file:', error);
             
-            // Show error message using the toast system
-            if (window.toast) {
-                window.toast.error(error.message);
-            } else {
-                this.showError(error.message);
-            }
+            // Show error message
+            window.toast.error(error.message);
         }
+    }
+    
+    /**
+     * Render preview for a directory
+     * @param {Object} directory - The directory object
+     */
+    renderDirectoryPreview(directory) {
+        let previewHtml = '';
+        
+        // Directory info header
+        previewHtml += `
+            <div class="file-preview-header">
+                <h5 class="mb-1">
+                    <i class="mdi mdi-folder text-cyber"></i>
+                    ${directory.name}
+                </h5>
+                <div class="file-info mb-2 d-none d-md-flex">
+                    <span>${this.translations.directory || 'Directory'}</span>
+                    <span>${new Date(directory.updatedAt).toLocaleString()}</span>
+                </div>
+                <div class="file-preview-actions">
+                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Directory content info
+        previewHtml += `
+            <div class="file-preview-content">
+                <div class="text-center p-0 p-md-4">
+                    <i class="mdi mdi-folder display-1 d-none d-md-inline text-cyber"></i>
+                    <h6 class="mt-3">${this.translations.directory_selected || 'Directory Selected'}</h6>
+                    <p class="text-muted small">${this.translations.directory_preview_info || 'Use the tree view to navigate into this directory or use the delete button above to remove it.'}</p>
+                </div>
+            </div>
+        `;
+        
+        this.filePreviewElement.innerHTML = previewHtml;
     }
     
     /**
@@ -627,7 +522,7 @@ export class FileBrowser {
             previewHtml += `
                 <div class="text-center p-0 p-md-5">
                     <i class="${this.getFileIcon(file.name)} display-1 d-none d-md-inline"></i>
-                    <p>${this.translations.no_preview || 'No preview available for this file type'}</p>
+                    <p class="small">${this.translations.no_preview || 'No preview available for this file type'}</p>
                     <button class="btn btn-primary btn-sm" data-action="download" data-file-id="${file.id}">
                         <i class="mdi mdi-download"></i> ${this.translations.download || 'Download'}
                     </button>
@@ -671,26 +566,26 @@ export class FileBrowser {
      * @param {string} fileId - The ID of the file to delete
      */
     async confirmAndDeleteFile(fileId) {
-    // In Tree View, this.files might be empty, so get file info from API or selectedFile
-    let file = this.files.find(f => f.id === fileId);
-    
-    // If not found in this.files (Tree View scenario), check selectedFile or get from API
-    if (!file) {
-        if (this.selectedFile && this.selectedFile.id === fileId) {
-            file = this.selectedFile;
-        } else {
-            // Get file metadata from API as fallback
-            try {
-                const response = await this.apiService.getFileMetadata(fileId);
-                file = response.file;
-            } catch (error) {
-                console.error('Error getting file metadata for deletion:', error);
-                return;
+        // In Tree View, this.files might be empty, so get file info from API or selectedFile
+        let file = this.files.find(f => f.id === fileId);
+        
+        // If not found in this.files (Tree View scenario), check selectedFile or get from API
+        if (!file) {
+            if (this.selectedFile && this.selectedFile.id === fileId) {
+                file = this.selectedFile;
+            } else {
+                // Get file metadata from API as fallback
+                try {
+                    const response = await this.apiService.getFileMetadata(fileId);
+                    file = response.file;
+                } catch (error) {
+                    console.error('Error getting file metadata for deletion:', error);
+                    return;
+                }
             }
         }
-    }
-    
-    if (!file) return;
+        
+        if (!file) return;
         
         const confirmMessage = file.isDirectory
             ? (this.translations.confirm_delete_directory || `Are you sure you want to delete the directory "${file.name}" and all its contents?`)
@@ -701,44 +596,38 @@ export class FileBrowser {
         try {
             await this.apiService.deleteFile(fileId);
             
-            // If the deleted file was selected, clear the preview and update breadcrumbs
+            // Handle post-deletion cleanup
             if (this.selectedFile && this.selectedFile.id === fileId) {
                 this.selectedFile = null;
                 this.filePreviewElement.innerHTML = '';
                 
-                // Update breadcrumbs to show only directory path (remove file name)
+                if (file.isDirectory) {
+                    this.currentPath = file.path;
+                    
+                    // Update localStorage with new current path
+                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                }
+                
+                // Update breadcrumbs to reflect current path
                 this.updateBreadcrumbs();
             }
             
-            // Reload the file list or refresh tree view depending on current view mode
-            if (this.viewMode === 'tree' && this.fileTreeView) {
-                // In tree view, set current path and refresh the tree
+            // Refresh the tree view
+            if (this.fileTreeView) {
+                // Set current path and refresh the tree
                 this.fileTreeView.setInitialExpandPath(this.currentPath);
                 await this.fileTreeView.refresh();
-            } else {
-                // In list view, reload the file list
-                await this.loadFiles(this.currentPath);
             }
             
-            // Show success message using the toast system
-            if (window.toast) {
-                window.toast.success(file.isDirectory
-                    ? (this.translations.directory_deleted || 'Directory deleted successfully')
-                    : (this.translations.file_deleted || 'File deleted successfully'));
-            } else {
-                this.showSuccess(file.isDirectory
-                    ? (this.translations.directory_deleted || 'Directory deleted successfully')
-                    : (this.translations.file_deleted || 'File deleted successfully'));
-            }
+            // Show success message
+            window.toast.success(file.isDirectory
+                ? (this.translations.directory_deleted || 'Directory deleted successfully')
+                : (this.translations.file_deleted || 'File deleted successfully'));
         } catch (error) {
             console.error('Error deleting file:', error);
             
-            // Show error message using the toast system
-            if (window.toast) {
-                window.toast.error(error.message);
-            } else {
-                this.showError(error.message);
-            }
+            // Show error message
+            window.toast.error(error.message);
         }
     }
     
@@ -764,60 +653,21 @@ export class FileBrowser {
     async uploadFile(file) {
         try {
             await this.apiService.uploadFile(this.projectId, this.currentPath, file);
-            await this.loadFiles(this.currentPath);
             
-            // Show success message using the toast system
-            if (window.toast) {
-                window.toast.success(this.translations.file_uploaded || 'File uploaded successfully');
-            } else {
-                this.showSuccess(this.translations.file_uploaded || 'File uploaded successfully');
+            // Refresh tree view after file upload
+            if (this.fileTreeView) {
+                this.fileTreeView.setInitialExpandPath(this.currentPath);
+                await this.fileTreeView.refresh();
             }
+            
+            // Show success message
+            window.toast.success(this.translations.file_uploaded || 'File uploaded successfully');
         } catch (error) {
             console.error('Error uploading file:', error);
             
-            // Show error message using the toast system
-            if (window.toast) {
-                window.toast.error(error.message);
-            } else {
-                this.showError(error.message);
-            }
+            // Show error message
+            window.toast.error(error.message);
         }
-    }
-    
-    /**
-     * Toggle between list view and tree view
-     */
-    toggleViewMode() {
-        // Toggle view mode
-        this.viewMode = this.viewMode === 'list' ? 'tree' : 'list';
-        
-        // Save preference to localStorage
-        localStorage.setItem('fileBrowserViewMode:' + window.location.pathname, this.viewMode);
-        
-        // Update toggle button
-        const toggleButton = this.container.querySelector('[data-action="toggle-view"]');
-        if (toggleButton) {
-            toggleButton.innerHTML = this.viewMode === 'tree' 
-                ? `<i class="mdi mdi-format-list-bulleted"></i> ${this.translations.listView || 'List View'}`
-                : `<i class="mdi mdi-file-tree"></i> ${this.translations.treeView || 'Tree View'}`;
-        }
-        
-        if (this.viewMode === 'list') {
-            // Show list view
-            this.showListView();
-        } else {
-            // Show tree view
-            this.showTreeView();
-        }
-    }
-    
-    /**
-     * Show list view
-     */
-    showListView() {
-        // Clear and reload file list
-        this.fileListElement.innerHTML = '';
-        this.loadFiles(this.currentPath);
     }
     
     /**
@@ -860,15 +710,14 @@ export class FileBrowser {
                 apiService: this.apiService,
                 projectId: this.projectId,
                 translations: this.translations,
-                onFileSelect: (file) => {
-                    // Update currentPath to the file's parent directory (remove filename from path)
-                    let directoryPath = file.path;
-                    if (directoryPath.endsWith('/' + file.name)) {
-                        // Remove the filename from the path to get just the directory
-                        directoryPath = directoryPath.substring(0, directoryPath.length - file.name.length);
+                onInit: (currentDirectory) => {
+                    // Show initial directory preview for currentPath
+                    if (currentDirectory) {
+                        this.selectFile(currentDirectory.id);
                     }
-                    
-                    this.currentPath = directoryPath;
+                },
+                onFileSelect: (file) => {
+                    this.currentPath = file.path;
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage
@@ -878,16 +727,19 @@ export class FileBrowser {
                     this.selectFile(file.id);
                 },
                 onDirectorySelect: (directory) => {
-                    // In tree view, just update breadcrumbs (toggle is handled by FileTreeView)
-                    this.currentPath = directory.path;
+                    // Update currentPath and show directory preview
+                    this.currentPath = (directory.path == "/" ? '' : directory.path) + '/' + directory.name;
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage
                     localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    
+                    // Show directory preview
+                    this.selectFile(directory.id);
                 },
                 onDirectoryToggle: (directory) => {
                     // Update currentPath when a directory is expanded via toggle
-                    this.currentPath = directory.path;
+                    this.currentPath = (directory.path == "/" ? '' : directory.path) + '/' + directory.name;
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage

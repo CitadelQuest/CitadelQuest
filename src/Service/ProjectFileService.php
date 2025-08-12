@@ -650,7 +650,7 @@ class ProjectFileService
      * @param string $projectId The project ID
      * @return array Hierarchical tree structure of all files and directories
      */
-    public function showProjectTree(string $projectId): array
+    public function showProjectTree(string $projectId, bool $condensed = false): array
     {
         $userDb = $this->getUserDb();
         
@@ -663,8 +663,8 @@ class ProjectFileService
         // Create root node
         $tree = [
             'name' => $projectId,
-            'path' => '/',
-            'type' => 'directory',
+            'path' => '',//'/',
+            'type' => 'projectRootDirectory',
             'children' => []
         ];
         
@@ -674,7 +674,7 @@ class ProjectFileService
         }
         
         // Build tree recursively using a clean approach
-        $tree['children'] = $this->buildTreeRecursive($allItems, '/');
+        $tree['children'] = $this->buildTreeRecursive($allItems, '/', $condensed);
         
         return $tree;
     }
@@ -686,7 +686,7 @@ class ProjectFileService
      * @param string $parentPath The parent path to build children for
      * @return array Array of child nodes
      */
-    private function buildTreeRecursive(array $allItems, string $parentPath): array
+    private function buildTreeRecursive(array $allItems, string $parentPath, bool $condensed): array
     {
         $children = [];
         
@@ -698,33 +698,44 @@ class ProjectFileService
                     // Database stores paths without trailing slash (except root "/")
                     $dirPath = $parentPath === '/' ? '/' . $item['name'] : $parentPath . '/' . $item['name'];
                     
-                    $dirChildren = $this->buildTreeRecursive($allItems, $dirPath);
+                    $dirChildren = $this->buildTreeRecursive($allItems, $dirPath, $condensed);
                     
                     $dirNode = [
                         'id' => $item['id'],
                         'name' => $item['name'],
-                        'path' => $dirPath . '/', // Display path with trailing slash
+                        'path' => $item['path'],
                         'type' => 'directory',
                         'created_at' => $item['created_at'],
                         'updated_at' => $item['updated_at'],
                         'children' => $dirChildren
                     ];
+
+                    if ($condensed) {
+                        unset($dirNode['id']);
+                        if ($item['created_at'] === $item['updated_at']) {                            
+                            unset($dirNode['updated_at']);
+                        }
+                    }
                     
                     $children[] = $dirNode;
                 } else {
-                    // This is a file - create file node
-                    $filePath = $parentPath === '/' ? '/' . $item['name'] : $parentPath . '/' . $item['name'];
-                    
                     $fileNode = [
                         'id' => $item['id'],
                         'name' => $item['name'],
-                        'path' => $filePath,
+                        'path' => $item['path'],
                         'type' => $item['type'],
                         'mime_type' => $item['mime_type'],
                         'size' => $item['size'],
                         'created_at' => $item['created_at'],
                         'updated_at' => $item['updated_at']
                     ];
+
+                    if ($condensed) {
+                        unset($fileNode['id']);
+                        if ($item['created_at'] === $item['updated_at']) {                            
+                            unset($fileNode['updated_at']);
+                        }
+                    }
                     
                     $children[] = $fileNode;
                 }
@@ -746,72 +757,6 @@ class ProjectFileService
         });
         
         return $children;
-    }
-    
-    /**
-     * Build a directory node with all its children
-     * 
-     * @param \Doctrine\DBAL\Connection $userDb Database connection
-     * @param string $projectId Project ID
-     * @param array $dir Directory data
-     * @return array Directory node with children
-     */
-    private function buildDirectoryNode($userDb, string $projectId, array $dir): array
-    {
-        $path = $dir['path'] . $dir['name'] . '/';
-        
-        // Create directory node
-        $dirNode = [
-            'id' => $dir['id'],
-            'name' => $dir['name'],
-            'path' => $path, // Use full path with trailing slash
-            'type' => 'directory',
-            'created_at' => $dir['created_at'],
-            'updated_at' => $dir['updated_at'],
-            'children' => []
-        ];
-        
-        // Debug log
-        error_log("Looking for subdirectories in path: {$path}");
-        
-        // Get subdirectories
-        $subdirs = $userDb->executeQuery(
-            'SELECT * FROM project_file WHERE project_id = ? AND path = ? AND is_directory = 1',
-            [$projectId, $path]
-        )->fetchAllAssociative();
-        
-        error_log("Found " . count($subdirs) . " subdirectories");
-        
-        // Process each subdirectory recursively
-        foreach ($subdirs as $subdir) {
-            error_log("Processing subdirectory: {$subdir['name']}");
-            $subdirNode = $this->buildDirectoryNode($userDb, $projectId, $subdir);
-            $dirNode['children'][] = $subdirNode;
-        }
-        
-        // Get files in this directory
-        $files = $userDb->executeQuery(
-            'SELECT * FROM project_file WHERE project_id = ? AND path = ? AND is_directory = 0',
-            [$projectId, $path]
-        )->fetchAllAssociative();
-        
-        error_log("Found " . count($files) . " files in {$path}");
-        
-        // Add files to directory
-        foreach ($files as $file) {
-            $dirNode['children'][] = [
-                'id' => $file['id'],
-                'name' => $file['name'],
-                'path' => $file['path'] . $file['name'],
-                'type' => $file['type'],
-                'mime_type' => $file['mime_type'],
-                'size' => $file['size'],
-                'created_at' => $file['created_at'],
-                'updated_at' => $file['updated_at']
-            ];
-        }
-        
-        return $dirNode;
     }
     
     /**

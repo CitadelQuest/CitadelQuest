@@ -19,6 +19,7 @@ export class FileTreeView {
         this.onFileSelect = options.onFileSelect || (() => {});
         this.onDirectorySelect = options.onDirectorySelect || (() => {});
         this.onDirectoryToggle = options.onDirectoryToggle || (() => {});
+        this.onInit = options.onInit || (() => {});
         this.translations = options.translations || {};
         
         this.treeData = null;
@@ -179,12 +180,16 @@ export class FileTreeView {
                 const nodeElement = this.createTreeNode(child);
                 this.treeElement.appendChild(nodeElement);
             });
-            
+
             // After tree is rendered, expand to initial path if provided
             if (this.initialExpandPath) {
                 this.expandToPath(this.initialExpandPath);
+
+                // Call onInit callback with current directory data for initial preview. Before we: this.initialExpandPath = null
+                //this.callOnInitCallback();
+                
                 this.initialExpandPath = null; // Clear after use
-            }
+            }            
         } else {
             this.treeElement.innerHTML = '<div class="alert alert-info">No files found</div>';
         }
@@ -201,6 +206,7 @@ export class FileTreeView {
         nodeElement.className = 'file-tree-node';
         nodeElement.dataset.id = node.id;
         nodeElement.dataset.path = node.path;
+        nodeElement.dataset.name = node.name;
         nodeElement.dataset.type = node.type;
         
         // Create toggle button for directories
@@ -223,6 +229,7 @@ export class FileTreeView {
         // Add elements to node
         if (node.type === 'directory') {
             nodeElement.appendChild(toggleElement);
+            nodeElement.dataset.path = (node.path == '/' ? '' : node.path) + '/' + node.name;
         }
         nodeElement.appendChild(iconElement);
         nodeElement.appendChild(labelElement);
@@ -409,6 +416,48 @@ export class FileTreeView {
     }
     
     /**
+     * Call onInit callback with current directory data for initial preview
+     */
+    callOnInitCallback() {
+        if (!this.initialExpandPath || !this.treeData) {
+            return;
+        }        
+        
+        // Find the directory that matches the initial expand path
+        const currentDirectory = this.findDirectoryByPath(this.treeData, this.initialExpandPath);
+        
+        if (currentDirectory) {
+            // Call the onInit callback with the real directory data
+            this.onInit(currentDirectory);
+        }
+    }
+    
+    /**
+     * Find a directory in the tree structure by its path
+     * @param {Object} tree - The tree structure
+     * @param {string} targetPath - The path to find
+     * @returns {Object|null} - The directory object or null if not found
+     */
+    findDirectoryByPath(tree, targetPath) {
+        if (!tree) return null;
+        
+        // Check if this is the target directory
+        if (tree.type === 'directory' && (/* tree.path == '/' ? '' : */ tree.path) + '/' + tree.name === targetPath) {
+            return tree;
+        }
+        
+        // Search in children if they exist
+        if (tree.children && Array.isArray(tree.children)) {
+            for (const child of tree.children) {
+                const found = this.findDirectoryByPath(child, targetPath);
+                if (found) return found;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Expand path to a specific file or directory
      * @param {string} path - The path to expand to
      */
@@ -421,18 +470,10 @@ export class FileTreeView {
         const firstPart = pathParts[0];
         
         // Find the first directory in the tree
-        let currentElement = this.treeElement.querySelector(`.file-tree-node[data-path="/${firstPart}"]`) ||
-                           this.treeElement.querySelector(`.file-tree-node[data-path="/${firstPart}/"]`);
+        let currentElement = this.treeElement.querySelector(`.file-tree-node[data-path="/${firstPart}"][data-type="directory"]`);
         
         if (!currentElement) return;
-        
-        // If we only have one path part, we're done
-        if (pathParts.length === 1) {
-            this.selectNode(currentElement);
-            currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-        }
-        
+
         // Traverse the path
         for (let i = 0; i < pathParts.length; i++) {
             // Find the wrapper element (parent of the node)
@@ -459,11 +500,9 @@ export class FileTreeView {
                 // Build the correct next path: take all parts up to i+1
                 const nextPathParts = pathParts.slice(0, i + 2); // +2 because we want to include the next part
                 const nextPathWithoutSlash = '/' + nextPathParts.join('/');
-                const nextPathWithSlash = nextPathWithoutSlash + '/';
                 
                 // Try without slash first, then with slash
-                currentElement = childrenElement.querySelector(`.file-tree-node[data-path="${nextPathWithoutSlash}"]`) ||
-                               childrenElement.querySelector(`.file-tree-node[data-path="${nextPathWithSlash}"]`);
+                currentElement = childrenElement.querySelector(`.file-tree-node[data-path="${nextPathWithoutSlash}"][data-type="directory"]`);
                 
                 if (!currentElement) {
                     break;
@@ -476,5 +515,7 @@ export class FileTreeView {
             this.selectNode(currentElement);
             currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+
+        this.callOnInitCallback();
     }
 }

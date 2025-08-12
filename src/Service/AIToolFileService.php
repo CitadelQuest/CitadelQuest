@@ -361,7 +361,7 @@ class AIToolFileService
         $this->validateArguments($arguments, ['projectId']);
         
         try {
-            $tree = $this->projectFileService->showProjectTree($arguments['projectId']);
+            $tree = $this->projectFileService->showProjectTree($arguments['projectId'], true);
             
             return [
                 'success' => true,

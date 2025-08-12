@@ -112,7 +112,7 @@ $file-browser-preview-header-height: 4rem;
   }
   
   .breadcrumb-separator {
-    margin: 0 0.5rem;
+    margin: 0 0.25rem;
     color: var(--bs-secondary);
   }
 }
@@ -129,91 +129,7 @@ $file-browser-preview-header-height: 4rem;
   @include mixins.cyber-scrollbar;
 }
 
-.file-list-container {
-  display: flex;
-  flex-direction: column;
-}
-
-// File item
-.file-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  height: $file-browser-item-height;
-  border-bottom: 1px solid $file-browser-border-color;
-  transition: background-color 0.2s ease;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  &:hover {
-    background-color: $file-browser-hover-bg;
-  }
-  
-  &.selected {
-    background-color: $file-browser-selected-bg;
-  }
-}
-
-.file-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 0.75rem;
-  
-  i {
-    font-size: 1.25rem;
-    
-    &.bi-folder {
-      color: #ffc107; // Yellow for folders
-    }
-    
-    &.bi-file-earmark-code {
-      color: #0dcaf0; // Blue for code files
-    }
-    
-    &.bi-file-earmark-image {
-      color: #20c997; // Teal for images
-    }
-    
-    &.bi-file-earmark-text {
-      color: #6c757d; // Gray for text files
-    }
-  }
-}
-
-.file-item-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-.file-item-actions {
-  display: flex;
-  gap: 0.25rem;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
-  
-  .btn {
-    padding: 0.125rem 0.25rem;
-    font-size: 0.75rem;
-    
-    i {
-      font-size: 0.875rem;
-    }
-  }
-  
-  .file-item:hover & {
-    opacity: 1;
-  }
-}
+// List View styles removed - File Browser now uses Tree View only
 
 // File preview
 .file-browser-preview {
