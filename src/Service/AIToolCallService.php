@@ -150,70 +150,6 @@ class AIToolCallService
                 ],
             ];
             
-            // Create file
-            /* $tools['createFile'] = [
-                'name' => 'createFile',
-                'description' => 'Create a new file in a project with content',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'projectId' => [
-                            'type' => 'string',
-                            'description' => 'The ID of the project',
-                        ],
-                        'path' => [
-                            'type' => 'string',
-                            'description' => 'The directory path where to create the file',
-                        ],
-                        'name' => [
-                            'type' => 'string',
-                            'description' => 'The name of the file to create',
-                        ],
-                        'content' => [
-                            'type' => 'string',
-                            'description' => 'The content of the file',
-                        ],
-                        'mimeType' => [
-                            'type' => 'string',
-                            'description' => 'The MIME type of the file (optional)',
-                        ],
-                    ],
-                    'required' => ['projectId', 'path', 'name', 'content'],
-                ],
-            ]; */
-            
-            // Update file
-            /* $tools['updateFile'] = [
-                'name' => 'updateFile',
-                'description' => 'Update the content of an existing file in a project. Deprecated, use updateFileEfficient instead.',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'projectId' => [
-                            'type' => 'string',
-                            'description' => 'The ID of the project',
-                        ],
-                        'path' => [
-                            'type' => 'string',
-                            'description' => 'The directory path where to update the file',
-                        ],
-                        'name' => [
-                            'type' => 'string',
-                            'description' => 'The name of the file to update',
-                        ],
-                        'fileId' => [
-                            'type' => 'string',
-                            'description' => 'The ID of the file',
-                        ],
-                        'content' => [
-                            'type' => 'string',
-                            'description' => 'The new content of the file',
-                        ],
-                    ],
-                    'required' => ['projectId', 'path', 'name', 'content'],
-                ],
-            ]; */
-            
             $tools['updateFileEfficient'] = [
                 'name' => 'updateFileEfficient',
                 'description' => 'Update file content efficiently using find/replace operations. Token-efficient alternative to updateFile - only send changed parts. Supports multiple operation types: replace, lineRange, append, prepend, insertAtLine.',
@@ -330,34 +266,6 @@ class AIToolCallService
                 ]
             ];
 
-            // Delete file
-            /* $tools['deleteFile'] = [
-                'name' => 'deleteFile',
-                'description' => 'Delete a file or directory from a project',
-                'parameters' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'projectId' => [
-                            'type' => 'string',
-                            'description' => 'The ID of the project',
-                        ],
-                        'path' => [
-                            'type' => 'string',
-                            'description' => 'The directory path where to delete the file',
-                        ],
-                        'name' => [
-                            'type' => 'string',
-                            'description' => 'The name of the file to delete',
-                        ],
-                        'fileId' => [
-                            'type' => 'string',
-                            'description' => 'The ID of the file or directory to delete',
-                        ],
-                    ],
-                    'required' => ['projectId', 'path', 'name'],
-                ],
-            ]; */
-            
             // Get file versions
             /* $tools['getFileVersions'] = [
                 'name' => 'getFileVersions',
@@ -459,7 +367,7 @@ class AIToolCallService
             }
             
             // For file management tools, delegate to AIToolFileService
-            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', /* 'createFile', 'updateFile',  */'updateFileEfficient', 'manageFile', /* 'deleteFile', */ 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'updateFileEfficient', 'manageFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
                 return $this->aiToolFileService->{$toolName}($arguments);
             }
             

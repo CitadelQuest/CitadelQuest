@@ -119,79 +119,6 @@ class AIToolFileService
             ];
         }
     }
-    
-    /**
-     * Create a file with content
-     */
-    /* public function createFile(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'content']);
-        
-        try {
-            $file = $this->projectFileService->createFile(
-                $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name'],
-                $arguments['content'],
-                $arguments['mimeType'] ?? null
-            );
-            
-            return [
-                'success' => true,
-                'file' => $file->jsonSerialize()
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    } */
-    
-    /**
-     * Update file content
-     */
-    /* public function updateFile(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'content']);
-        
-        try {
-            $file = $this->projectFileService->findByPathAndName(
-                $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name']
-            );
-            
-            if (!$file) {
-                return [
-                    'success' => false,
-                    'error' => 'File not found'
-                ];
-            }
-            
-            $file = $this->projectFileService->updateFile(
-                $file->getId(),
-                $arguments['content']
-            );
-
-            if (!$file) {
-                return [
-                    'success' => false,
-                    'error' => 'Failed to update file'
-                ];
-            }
-            
-            return [
-                'success' => true,
-                'file' => $file->jsonSerialize()
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    } */
 
     /**
      * Update file content efficiently using find/replace operations
@@ -247,53 +174,6 @@ class AIToolFileService
         }
     }
 
-
-    
-    /**
-     * Delete a file or directory
-     */
-    /* public function deleteFile(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
-        
-        try {
-            $file = $this->projectFileService->findByPathAndName(
-                $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name']
-            );
-
-            if (!$file && isset($arguments['fileId'])) {
-                $file = $this->projectFileService->findById($arguments['fileId']);
-            }
-            
-            if (!$file) {
-                return [
-                    'success' => false,
-                    'error' => 'File not found'
-                ];
-            }
-            
-            $result = $this->projectFileService->delete($file->getId());
-
-            if (!$result) {
-                return [
-                    'success' => false,
-                    'error' => 'Failed to delete file'
-                ];
-            }
-            
-            return [
-                'success' => true
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    } */
-    
     /**
      * Get file versions
      */
