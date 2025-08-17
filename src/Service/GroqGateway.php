@@ -6,6 +6,7 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AiToolService;
 use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiGatewayService;
@@ -167,22 +168,29 @@ class GroqGateway implements AiGatewayInterface
                 ];
             }
             
+            $logCaption = '';
             // Add tool response message
-            $messages[] = count($toolMessageContents) > 1 ? $toolMessageContents : $toolMessageContents[0];
+            //$messages[] = count($toolMessageContents) > 1 ? $toolMessageContents : $toolMessageContents[0]; << fucking bug! 
+            foreach ($toolMessageContents as $toolMessageContent) {
+                $messages[] = $toolMessageContent;
+                $logCaption .= $toolMessageContent['name'] . ', ';
+            }
             
             // Create and save the AI service request
             $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
-                1000, 0.1, null, $request->getTools()
+                4000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
-            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['function']['name'] . ']');
+            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $logCaption . ']');
 
+            $mRole = isset($aiServiceResponse->getMessage()['role']) ? $aiServiceResponse->getMessage()['role'] : 'assistant';
+            $mContent = isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '';
             $aiServiceResponse->setMessage([
-                'role' => $aiServiceResponse->getMessage()['role'],
-                'content' => "•\n\n" . $aiServiceResponse->getMessage()['content']
+                'role' => $mRole,
+                'content' => "\n<span class='text-cyber' title='AI tool call: " . $logCaption . "'>•</span>\n" . $mContent
             ]);
 
             $response = $aiServiceResponse;
@@ -296,8 +304,8 @@ class GroqGateway implements AiGatewayInterface
     public function getAvailableTools(): array
     {
         // Use the static getInstance method to avoid circular dependencies
-        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
-        $toolsBase = $aiToolCallService->getToolsDefinitions();
+        $aiToolService = $this->serviceLocator->get(AiToolService::class);
+        $toolsBase = $aiToolService->getToolDefinitions();
 
         // Convert to Groq/OpenAI format - Groq/OpenAI uses 'parameters' directly
         $tools = [];

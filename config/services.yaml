@@ -44,6 +44,7 @@ services:
                 App\Service\SettingsService: '@App\Service\SettingsService'
                 App\Service\AiToolService: '@App\Service\AiToolService'
                 App\Service\AIToolFileService: '@App\Service\AIToolFileService'
+                App\Service\AIToolToolService: '@App\Service\AIToolToolService'
 
     App\Service\AnthropicGateway:
         autowire: true

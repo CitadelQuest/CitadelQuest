@@ -105,7 +105,7 @@ class AiToolService
             $params[] = 1;
         }
         
-        $sql .= ' ORDER BY name ASC';
+        $sql .= ' ORDER BY is_active DESC, name ASC';
         
         $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
 

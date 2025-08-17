@@ -1,6 +1,7 @@
 import { SpiritChatApiService } from './SpiritChatApiService';
 import * as bootstrap from 'bootstrap';
 import * as marked from 'marked';
+import * as animation from '../../shared/animation';
 
 /**
  * Spirit Chat Manager
@@ -11,6 +12,7 @@ export class SpiritChatManager {
         this.apiService = new SpiritChatApiService();
         this.currentSpiritId = null;
         this.currentConversationId = null;
+        this.deleteConversationId = null;
         this.isLoadingMessages = false;
         this.isLoadingConversations = false;
         this.conversations = [];
@@ -27,25 +29,32 @@ export class SpiritChatManager {
         this.chatMessages = document.getElementById('chatMessages');
         this.chatForm = document.getElementById('chatForm');
         this.messageInput = document.getElementById('messageInput');
+        this.conversationSearch = document.getElementById('conversationSearch');
         this.newConversationBtn = document.getElementById('newConversationBtn');
         this.newConversationModal = document.getElementById('newConversationModal');
         this.newConversationForm = document.getElementById('newConversationForm');
+        this.deleteConversationModal = document.getElementById('deleteConversationModal');
+        this.deleteConversationForm = document.getElementById('deleteConversationForm');
         this.conversationTitle = document.getElementById('conversationTitle');
         this.spiritChatModalTitle = document.getElementById('spiritChatModalTitle');
         this.responseMaxOutputSlider = document.getElementById('responseMaxOutputSlider');
         this.responseMaxOutputValue = document.getElementById('responseMaxOutputValue');
         this.chatSettingsIcon = document.getElementById('chatSettingsIcon');
         this.chatSettings = document.getElementById('chatSettings');
+        this.spiritChatToolsAndConversationsToggle = document.getElementById('spiritChatToolsAndConversationsToggle');
+        this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
+        this.creditIndicator = document.getElementById('creditIndicator');
+        this.sendMessageBtn = document.getElementById('sendMessageBtn');
     }
     
     /**
      * Initialize the Spirit chat functionality
      */
-    init() {
+    async init() {
         if (!this.spiritIcon) return;
         
         // Initialize event listeners
-        this.initEventListeners();
+        await this.initEventListeners();
         
         // Fetch the user's primary spirit
         this.fetchPrimarySpirit();
@@ -54,12 +63,68 @@ export class SpiritChatManager {
         if (localStorage.getItem('spiritChatModal') === 'true' && window.location.pathname === localStorage.getItem('spiritChatModalUrl')) {
             this.spiritChatButton.dispatchEvent(new Event('click'));
         }
+
+        // show tools and conversations based on local storage
+        if (localStorage.getItem('config.chat.toolsAndConversations.open') === 'true') {
+            this.spiritChatToolsAndConversations.classList.remove('d-none');
+            this.spiritChatToolsAndConversations.classList.add('d-flex');
+            // slide down
+            animation.slideDown(this.spiritChatToolsAndConversations);
+            
+            let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
+            icon.classList.remove('mdi-menu');
+            icon.classList.add('mdi-forum-outline');
+        }
+
+        // update credit indicator based current real data from CQ AI Gateway
+        await this.updateCreditIndicator();
+    }
+
+    /**
+     * Update and show credit indicator based current real data from CQ AI Gateway
+     */
+    async updateCreditIndicator() {
+        let creditBalanceResponse = await this.apiService.getCreditBalance();
+        if (creditBalanceResponse.success) {
+            let creditBalance = creditBalanceResponse.creditBalance || creditBalanceResponse.credits;
+            this.showCreditIndicator(creditBalance);
+
+            if (creditBalance <= 0) {
+                this.sendMessageBtn.classList.add('disabled');
+                this.sendMessageBtn.disabled = true;
+                this.sendMessageBtn.setAttribute('title', 'You have no credits');
+                
+                let icon = this.sendMessageBtn.querySelector('i');
+                icon.classList.add('text-danger');
+                icon.classList.remove('mdi-message-check');
+                icon.classList.add('mdi-message-alert');
+            } else {
+                this.sendMessageBtn.classList.remove('disabled');
+                this.sendMessageBtn.disabled = false;
+                this.sendMessageBtn.setAttribute('title', 'Send message');
+                
+                let icon = this.sendMessageBtn.querySelector('i');
+                icon.classList.remove('text-danger');
+                icon.classList.remove('mdi-message-alert');
+                icon.classList.add('mdi-message-check');
+            }
+        }
+    }
+    
+    /**
+     * Show credit indicator based current real data from CQ AI Gateway
+     */
+    showCreditIndicator(creditBalance) {
+        this.creditIndicator.innerHTML = `
+            <i class="mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
+            title="${creditBalance} Credits"></i>
+        `;
     }
     
     /**
      * Initialize event listeners
      */
-    initEventListeners() {
+    async initEventListeners() {
         // Spirit chat modal events
         if (this.spiritChatModal) {
             this.spiritChatModal.addEventListener('shown.bs.modal', () => {
@@ -84,6 +149,38 @@ export class SpiritChatManager {
                 this.sendMessage();
             });
         }
+
+        // Tools and conversations toggle
+        if (this.spiritChatToolsAndConversationsToggle) {
+            this.spiritChatToolsAndConversationsToggle.addEventListener('click', async () => {
+                let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
+                localStorage.setItem('config.chat.toolsAndConversations.open', !open);
+                if (open) {
+                    await animation.slideUp(this.spiritChatToolsAndConversations);
+                    this.spiritChatToolsAndConversations.classList.add('d-none');
+                    this.spiritChatToolsAndConversations.classList.remove('d-flex');
+
+                    let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
+                    icon.classList.remove('mdi-forum-outline');
+                    icon.classList.add('mdi-menu');
+                } else {
+                    this.spiritChatToolsAndConversations.classList.remove('d-none');
+                    this.spiritChatToolsAndConversations.classList.add('d-flex');
+                    await animation.slideDown(this.spiritChatToolsAndConversations);
+
+                    let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
+                    icon.classList.remove('mdi-menu');
+                    icon.classList.add('mdi-forum-outline');
+                }
+            });
+        }
+
+        // Search/filter conversations
+        if (this.conversationSearch) {
+            this.conversationSearch.addEventListener('input', () => {
+                this.filterConversations();
+            });
+        }
         
         // New conversation button
         if (this.newConversationBtn) {
@@ -101,6 +198,14 @@ export class SpiritChatManager {
             this.newConversationForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.createNewConversation();
+            });
+        }
+
+        // Delete conversation form
+        if (this.deleteConversationForm) {
+            this.deleteConversationForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.deleteConversation();
             });
         }
 
@@ -257,15 +362,34 @@ export class SpiritChatManager {
                 
                 item.innerHTML = `
                     <div class="cursor-pointer w-100">
-                        <div class="text-light"><i class="mdi mdi-message text-cyber me-2"></i>${conversation.title}</div>
+                        <span class="text-light">
+                            ${conversation.title}
+                        </span>
+                        
+                        <button type="button" class="btn btn-outline-danger btn-sm float-end ms-2 mb-1" style="padding: 0px 0.5rem !important;" 
+                            data-id="${conversation.id}" data-title="${conversation.title}" data-action="delete">
+                            <i class="mdi mdi-delete"></i>
+                        </button>
+
                         <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2">${conversation.messagesCount}</span>
-                        <small class="text-muted pt-1 float-end">${formattedDate}</small>
+                        <small class="text-muted pt-1 float-end d-none d-md-inline-block">${formattedDate}</small>
                     </div>
                 `;
                 
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
                     this.loadConversation(conversation.id);
+                });
+
+                item.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    this.deleteConversationId = e.currentTarget.dataset.id;
+                    this.deleteConversationModal.querySelector('#deleteConversationModalLabel').textContent = e.currentTarget.dataset.title;
+
+                    const deleteConversationModal = new bootstrap.Modal(this.deleteConversationModal);
+                    deleteConversationModal.show();
                 });
                 
                 this.conversationsList.appendChild(item);
@@ -336,7 +460,7 @@ export class SpiritChatManager {
             this.currentConversationId = conversationId;
             
             // Update modal title
-            this.spiritChatModalTitle.innerHTML = conversation.title + '<i class="mdi mdi-forum text-dark ms-2 fs-6 opacity-50"></i>';
+            this.spiritChatModalTitle.innerHTML = conversation.title /* + '<i class="mdi mdi-forum text-dark ms-2 fs-6 opacity-50"></i>' */;
             
             // Render messages
             this.renderMessages(conversation.messages);
@@ -408,6 +532,58 @@ export class SpiritChatManager {
         // Focus input
         if (this.messageInput) {
             this.messageInput.focus();
+        }
+    }
+
+    /**
+     * Filter conversations based on search query
+     */
+    filterConversations() {
+        const searchQuery = this.conversationSearch.value.toLowerCase();
+        const conversations = this.conversationsList.querySelectorAll('.list-group-item');
+        conversations.forEach(conversation => {
+            const title = conversation.textContent.toLowerCase();
+            if (title.includes(searchQuery)) {
+                conversation.classList.remove('d-none');
+            } else {
+                conversation.classList.add('d-none');
+            }
+        });
+    }
+
+    /**
+     * Delete a conversation
+     */
+    async deleteConversation() {
+        try {
+            if (!this.deleteConversationId) {
+                // this should never happen, but just in case
+                console.error('No conversation ID found');
+                alert('No conversation ID found');
+                return;
+            }
+            // delete conversation
+            await this.apiService.deleteConversation(this.deleteConversationId);
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(this.deleteConversationModal);
+            if (modal) {
+                this.deleteConversationModal.querySelector('#deleteConversationModalLabel').textContent = '';
+                modal.hide();
+            }
+            
+            // Clear deleteConversationId
+            this.deleteConversationId = null;            
+            
+            // Refresh conversations list
+            this.loadConversations();
+            
+            // Show success message
+            window.toast.success(window.translations && window.translations['spirit.chat.conversation_deleted'] ? window.translations['spirit.chat.conversation_deleted'] : 'Conversation deleted');
+            
+        } catch (error) {
+            console.error('Error deleting conversation:', error);
+            window.toast.error(error.message || 'Failed to delete conversation');
         }
     }
     
@@ -507,6 +683,9 @@ export class SpiritChatManager {
             
             // Update conversation list to reflect changes
             this.loadConversations();
+
+            // update credit indicator
+            this.updateCreditIndicator();
             
         } catch (error) {
             console.error('Error sending message:', error);

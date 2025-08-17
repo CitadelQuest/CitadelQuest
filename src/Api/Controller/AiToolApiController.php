@@ -51,6 +51,14 @@ class AiToolApiController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/definitions', name: 'app_api_ai_tool_definitions', methods: ['GET'])]
+    public function getDefinitions(): JsonResponse
+    {
+        $definitions = $this->aiToolService->getToolDefinitions();
+        
+        return $this->json($definitions);
+    }
+
     #[Route('/{id}', name: 'app_api_ai_tool_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
@@ -96,13 +104,5 @@ class AiToolApiController extends AbstractController
         }
         
         return $this->json(null, Response::HTTP_NO_CONTENT);
-    }
-
-    #[Route('/definitions', name: 'app_api_ai_tool_definitions', methods: ['GET'])]
-    public function getDefinitions(): JsonResponse
-    {
-        $definitions = $this->aiToolService->getToolDefinitions();
-        
-        return $this->json($definitions);
     }
 }

@@ -7,9 +7,13 @@ use App\Service\SpiritService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use App\Service\AiGatewayService;
+use App\CitadelVersion;
 
 #[Route('/api/spirit-conversation')]
 #[IsGranted('ROLE_USER')]
@@ -66,6 +70,48 @@ class SpiritConversationApiController extends AbstractController
         
         return $this->json($conversation);
     }
+
+    #[Route('/credit-balance', name: 'api_spirit_conversation_credit_balance', methods: ['GET'])]
+    public function getCreditBalance(AiGatewayService $aiGatewayService, HttpClientInterface $httpClient): JsonResponse
+    {
+        try {
+            $gateway = $aiGatewayService->findByName('CQ AI Gateway');
+            if ($gateway) {
+                $responseProfile = $httpClient->request(
+                    'GET',
+                    $gateway->getApiEndpointUrl() . '/payment/balance', 
+                    [
+                        'headers' => [
+                            'Authorization' => 'Bearer ' . $gateway->getApiKey(),
+                            'Content-Type' => 'application/json',
+                            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                        ]
+                    ]
+                );
+                
+                //  check response status
+                // ['balance' => $balance, 'currency' => 'credit', 'credits' => $balance]
+                $responseStatus = $responseProfile->getStatusCode(false);                
+
+                if ($responseStatus == Response::HTTP_OK && isset($responseProfile->toArray()['credits'])) {    
+                    $CQ_AI_GatewayCredits = round($responseProfile->toArray()['credits']);
+
+                    return $this->json([
+                        'success' => true,
+                        'creditBalance' => $CQ_AI_GatewayCredits,
+                        'currency' => 'credit',
+                        'credits' => $CQ_AI_GatewayCredits
+                    ]);
+                } else {
+                    throw new \Exception('Failed to fetch credit balance');
+                }
+            } else {
+                throw new \Exception('CQ AI Gateway not found');
+            }
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
     
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
     public function getConversation(string $id): JsonResponse
@@ -115,15 +161,19 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/{id}', name: 'api_spirit_conversation_delete', methods: ['DELETE'])]
     public function deleteConversation(string $id): JsonResponse
     {
-        // Check if conversation exists
-        $conversation = $this->conversationService->getConversation($id);
-        if (!$conversation) {
-            return $this->json(['error' => 'Conversation not found'], 404);
+        try {
+            // Check if conversation exists
+            $conversation = $this->conversationService->getConversation($id);
+            if (!$conversation) {
+                return $this->json(['error' => 'Conversation not found'], 404);
+            }
+            
+            // Delete conversation
+            $this->conversationService->deleteConversation($id);
+            
+            return $this->json(['success' => true]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
         }
-        
-        // Delete conversation
-        $this->conversationService->deleteConversation($id);
-        
-        return $this->json(['success' => true]);
     }
 }

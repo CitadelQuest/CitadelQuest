@@ -853,14 +853,14 @@ class ProjectFileService
         $contentBasedOps = [];
         
         foreach ($updates as $index => $update) {
-            if (!isset($update['type'])) {
-                throw new \InvalidArgumentException('Update operation must specify a type');
+            if (!isset($update['operation'])) {
+                throw new \InvalidArgumentException('Update operation must specify an operation');
             }
             
             // Add original index to preserve order for error reporting
             $update['_originalIndex'] = $index;
             
-            if (in_array($update['type'], ['lineRange', 'insertAtLine'])) {
+            if (in_array($update['operation'], ['lineRange', 'insertAtLine'])) {
                 $lineBasedOps[] = $update;
             } else {
                 $contentBasedOps[] = $update;
@@ -876,7 +876,7 @@ class ProjectFileService
         
         // Process content-based operations first (they don't affect line numbers)
         foreach ($contentBasedOps as $update) {
-            switch ($update['type']) {
+            switch ($update['operation']) {
                 case 'replace':
                     if (!isset($update['find']) || !isset($update['replace'])) {
                         throw new \InvalidArgumentException('Replace operation requires "find" and "replace" fields');
@@ -888,18 +888,18 @@ class ProjectFileService
                     if (!isset($update['content'])) {
                         throw new \InvalidArgumentException('Append operation requires "content" field');
                     }
-                    $updatedContent .= $update['content'];
+                    $updatedContent .= "\n" . $update['content'];
                     break;
 
                 case 'prepend':
                     if (!isset($update['content'])) {
                         throw new \InvalidArgumentException('Prepend operation requires "content" field');
                     }
-                    $updatedContent = $update['content'] . $updatedContent;
+                    $updatedContent = $update['content'] . "\n" . $updatedContent;
                     break;
 
                 default:
-                    throw new \InvalidArgumentException('Unsupported update type: ' . $update['type']);
+                    throw new \InvalidArgumentException('Unsupported update operation: ' . $update['operation']);
             }
         }
         
@@ -908,7 +908,7 @@ class ProjectFileService
         
         // Process line-based operations in reverse order (bottom-to-top) to preserve line numbers
         foreach ($lineBasedOps as $update) {
-            switch ($update['type']) {
+            switch ($update['operation']) {
                 case 'lineRange':
                     if (!isset($update['startLine']) || !isset($update['endLine']) || !isset($update['content'])) {
                         throw new \InvalidArgumentException('LineRange operation requires "startLine", "endLine", and "content" fields');
@@ -941,7 +941,7 @@ class ProjectFileService
                     break;
 
                 default:
-                    throw new \InvalidArgumentException('Unsupported update type: ' . $update['type']);
+                    throw new \InvalidArgumentException('Unsupported update operation: ' . $update['operation']);
             }
         }
         

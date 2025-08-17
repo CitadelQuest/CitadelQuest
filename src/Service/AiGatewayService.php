@@ -356,21 +356,31 @@ class AiGatewayService
         $useLog->setInputTokens($response->getInputTokens());
         $useLog->setOutputTokens($response->getOutputTokens());
         $useLog->setTotalTokens($response->getTotalTokens());
-        
-        // Calculate prices based on model pricing [InputPrice = price per million tokens]
-        if ($response->getInputTokens() !== null && $aiServiceModel->getPpmInput() !== null) {
-            $inputPrice = ($response->getInputTokens() / 1000000) * $aiServiceModel->getPpmInput();
-            $useLog->setInputPrice($inputPrice);
+
+        // get real cost from response [price in credits]
+        $responseFull = $response->getFullResponse();
+        $totalPrice = isset($responseFull['total_cost_credits']) ? $responseFull['total_cost_credits'] : null;        
+        if ($totalPrice !== null) {
+            $useLog->setTotalPrice($totalPrice);
+            $useLog->setInputPrice(0);
+            $useLog->setOutputPrice(0);
+        } else {
+            // try to calculate price based on model pricing    
+            // Calculate prices based on model pricing [InputPrice = price per million tokens]
+            if ($response->getInputTokens() !== null && $aiServiceModel->getPpmInput() !== null) {
+                $inputPrice = ($response->getInputTokens() / 1000000.0) * $aiServiceModel->getPpmInput();
+                $useLog->setInputPrice($inputPrice);
+            }
+            
+            if ($response->getOutputTokens() !== null && $aiServiceModel->getPpmOutput() !== null) {
+                $outputPrice = ($response->getOutputTokens() / 1000000.0) * $aiServiceModel->getPpmOutput();
+                $useLog->setOutputPrice($outputPrice);
+            }
+            
+            // Calculate total price
+            $totalPrice = ($useLog->getInputPrice() ?? 0) + ($useLog->getOutputPrice() ?? 0);
+            $useLog->setTotalPrice($totalPrice);
         }
-        
-        if ($response->getOutputTokens() !== null && $aiServiceModel->getPpmOutput() !== null) {
-            $outputPrice = ($response->getOutputTokens() / 1000000) * $aiServiceModel->getPpmOutput();
-            $useLog->setOutputPrice($outputPrice);
-        }
-        
-        // Calculate total price
-        $totalPrice = ($useLog->getInputPrice() ?? 0) + ($useLog->getOutputPrice() ?? 0);
-        $useLog->setTotalPrice($totalPrice);
         
         // Save the log
         $aiServiceUseLogService->createLog(
@@ -386,5 +396,14 @@ class AiGatewayService
             $useLog->getOutputPrice(),
             $useLog->getTotalPrice()
         );
+    }
+
+    public function filterInjectedSystemData(array $messages): array
+    {
+        $implementation = $this->getGatewayImplementation('cq_ai_gateway');
+        if (!$implementation) {
+            throw new \Exception('No implementation found for gateway type: cq_ai_gateway');
+        }
+        return $implementation->filterInjectedSystemData($messages);
     }
 }

@@ -154,9 +154,12 @@ spirit:
     chat:
         title: 'Rozhovor s Duchom '
         conversations: 'Konverzácie'
+        search_conversations: 'Hľadať konverzácie...'
         new_conversation: 'Nová konverzácia'
         conversation_title: 'Názov konverzácie'
         conversation_created: 'Konverzácia úspešne vytvorená'
+        delete_conversation_confirm: 'Naozaj chcete zmazať túto konverzáciu?'
+        conversation_deleted: 'Konverzácia úspešne zmazaná'
         no_conversations: 'Zatiaľ žiadne konverzácie'
         type_message: 'Napíšte vašu správu...'
         no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu!'

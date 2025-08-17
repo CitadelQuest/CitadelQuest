@@ -128,4 +128,22 @@ export class SpiritChatApiService {
             throw error;
         }
     }
+
+    /**
+     * Get credit balance
+     * @returns {Promise<number>} - The credit balance
+     */
+    async getCreditBalance() {
+        try {
+            const response = await fetch(`${this.baseUrl}/credit-balance`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to fetch credit balance');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching credit balance:', error);
+            throw error;
+        }
+    }
 }

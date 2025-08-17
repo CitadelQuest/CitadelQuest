@@ -6,6 +6,7 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AiToolService;
 use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiGatewayService;
@@ -32,7 +33,8 @@ class CQAIGateway implements AiGatewayInterface
         // Get services
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
-        
+        $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
+
         // Get the model
         $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
         if (!$aiServiceModel) {
@@ -49,11 +51,14 @@ class CQAIGateway implements AiGatewayInterface
         if (!$apiKey || $apiKey === '') {
             throw new \Exception('CQAIGateway API key not configured');
         }
+
+        // filter injected system data from messages
+        $filteredMessages = $this->filterInjectedSystemData($request->getMessages());
         
         // Prepare request data
         $requestData = [
             'model' => $aiServiceModel->getModelSlug(),
-            'messages' => $request->getMessages()
+            'messages' => $filteredMessages
         ];
         
         if ($request->getMaxTokens() !== null) {
@@ -95,6 +100,12 @@ class CQAIGateway implements AiGatewayInterface
             $choices = $responseData['choices'] ?? [];
             $message = $choices[0]['message'] ?? [];
             $finishReason = $choices[0]['finish_reason'] ?? null;
+
+            // check if message contains injected system data
+            if (isset($message['content'])) {
+                $message['content'] = $this->detectAndMarkInjectedSystemDataAsHallucination($message['content']);
+                // TODO: if hallucination detected, make request again
+            }
             
             // Create response entity
             $aiServiceResponse = new AiServiceResponse(
@@ -108,6 +119,7 @@ class CQAIGateway implements AiGatewayInterface
                 $aiServiceResponse->setInputTokens($responseData['usage']['prompt_tokens'] ?? null);
                 $aiServiceResponse->setOutputTokens($responseData['usage']['completion_tokens'] ?? null);
                 $aiServiceResponse->setTotalTokens($responseData['usage']['total_tokens'] ?? null);
+                // TODO (in future): set also price/credit balance
             }
             
             $aiServiceResponse->setFinishReason($finishReason);
@@ -137,23 +149,23 @@ class CQAIGateway implements AiGatewayInterface
         $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         
         if ($response->getFinishReason() === 'tool_calls') {
-            // get all tool calls from fullResponse
+            // Get all tool calls from fullResponse
             $toolCalls = $response->getFullResponse()['choices'][0]['message']['tool_calls'];
             
             $messages = $request->getMessages();
 
-            // add current assistant message, including tool_calls
+            // Filter injected system data from messages, so we do not send it to AI + database
+            $messages = $this->filterInjectedSystemData($messages);
+
+            // Add current assistant message, including tool_calls
             $messages[] = $response->getFullResponse()['choices'][0]['message'];
 
             // Process tool_calls
-            $toolMessageContents = [];
+            $logCaption = '';
+            $injectedSystemDataItems = [];
             foreach ($toolCalls as $toolCall) {
                 // Call tool and add result using AIToolCallService
-                $toolMessageContents[] = [
-                    'tool_call_id' => $toolCall['id'],
-                    'role' => 'tool',
-                    'name' => $toolCall['function']['name'],
-                    'content' => json_encode($aiToolCallService->executeTool(
+                $toolExecutionResult = $aiToolCallService->executeTool(
                         $toolCall['function']['name'], 
                         isset($toolCall['function']['arguments']) ? 
                             (is_array($toolCall['function']['arguments']) ? 
@@ -162,35 +174,114 @@ class CQAIGateway implements AiGatewayInterface
                             ) : 
                             [],
                         $lang
-                    ))
+                );                
+
+                // Inject system data:
+                // > tool name + success/fail icon
+                $injectedSystemDataItems[] = 
+                "<span class='text-cyber'>" . 
+                    $toolCall['function']['name'] . "(): " . 
+                    ((isset($toolExecutionResult['success']) && $toolExecutionResult['success'] == true) ? 
+                        "<span class='text-success' title='" . (isset($toolExecutionResult['message']) ? $toolExecutionResult['message'] : 'Success') . "'>🗸</span>" : 
+                        "<span class='text-danger' title='" . (isset($toolExecutionResult['error']) ? $toolExecutionResult['error'] : 'Failed') . "'>✗</span>") . 
+                "</span>";
+                // > `_frontendData`
+                if (isset($toolExecutionResult['_frontendData'])) {
+                    $injectedSystemDataItems[] = 
+                    "<div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>\n" . 
+                        $toolExecutionResult['_frontendData'] . 
+                    "</div>\n";
+
+                    // remove _frontendData from toolExecutionResult for AI
+                    unset($toolExecutionResult['_frontendData']);
+                }
+
+                $toolMessageContent = [
+                    'tool_call_id' => $toolCall['id'],
+                    'role' => 'tool',
+                    'name' => $toolCall['function']['name'],
+                    'content' => json_encode($toolExecutionResult)
                 ];
+                // Add tool response messages
+                $messages[] = $toolMessageContent;
+
+                // Add tool name to log caption
+                $logCaption .= $toolMessageContent['name'] . ', ';
             }
-            
-            // Add tool response message
-            $messages[] = count($toolMessageContents) > 1 ? $toolMessageContents : $toolMessageContents[0];
             
             // Create and save the AI service request
             $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
-                2000, 0.1, null, $request->getTools()
+                4000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
-            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['function']['name'] . ']');
+            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $logCaption . ']');
 
-            // Combine full response message: before tool call + after tool call
-            $fullResponseMessage = $response->getFullResponse()['choices'][0]['message']['content'] ?? '';
-            $fullResponseMessage .= "\n<span class='text-cyber' title='AI tool call: " . $toolCall['function']['name'] . "'>•</span>\n\n" . $aiServiceResponse->getMessage()['content'] ?? '';
+            // Combine full response message: before tool call AI response + injected system data + after tool call AI response
+            // > before tool call AI response
+            $fullResponseMessage = isset($response->getFullResponse()['choices'][0]['message']['content']) ? $response->getFullResponse()['choices'][0]['message']['content'] : '_no response before tool call_';
+            
+            // > Inject system data
+            // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
+            $fullResponseMessage .= "\n<div data-src='injected system data' data-type='tool_calls_response' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded'>\n" . 
+                                        implode("<br>\n", $injectedSystemDataItems) . 
+                                    "</div>\n";
+
+            // > append after tool call AI response
+            $fullResponseMessage .= isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '_no response after tool call_';
+
             // Set full response message
             $aiServiceResponse->setMessage([
-                'role' => $aiServiceResponse->getMessage()['role'],
+                'role' => 'assistant',
                 'content' => $fullResponseMessage
             ]);
 
             $response = $aiServiceResponse;
         }
         return $response;
+    }
+
+    /**
+     * Filter out injected system data from messages
+     */
+    public function filterInjectedSystemData(array $messages): array
+    {
+        $filteredMessages = [];
+
+        foreach ($messages as $message) {
+            $filteredMessage = $message;
+            
+            if (($message['role'] == 'user' || $message['role'] == 'assistant') && isset($message['content'])) {
+                $filteredContent = $message['content'];
+                // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
+                $filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>\n/s', '', $filteredContent);
+                // do not execute next line, it's actually usefull to hallucination detection to keep it
+                //$filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>\n/s', '', $filteredContent);
+
+                $filteredMessage['content'] = $filteredContent;
+            }
+
+            $filteredMessages[] = $filteredMessage;
+        }
+
+        return $filteredMessages;
+    }
+
+    /**
+     * Detect injected system data in AI response message and mark it as hallucination
+     */
+    public function detectAndMarkInjectedSystemDataAsHallucination(string $messageContent): string
+    {
+        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
+        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>/s', 
+            '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls frontend data generated)</div>', $messageContent);
+        
+        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>/s', 
+            '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls response generated)</div>', $messageContent);
+        
+        return $messageContent;
     }
 
     /**
@@ -345,8 +436,8 @@ class CQAIGateway implements AiGatewayInterface
     public function getAvailableTools(): array
     {
         // Use the static getInstance method to avoid circular dependencies
-        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
-        $toolsBase = $aiToolCallService->getToolsDefinitions();
+        $aiToolService = $this->serviceLocator->get(AiToolService::class);
+        $toolsBase = $aiToolService->getToolDefinitions();
 
         // Convert to CQAIGateway format
         $tools = [];

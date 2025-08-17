@@ -12,7 +12,7 @@ A decentralized platform for AI-human collaboration with emphasis on personal da
 - SSL/TLS certificate (HTTPS required)
 
 ### Frontend Stack
-- Symfony 7.2
+- Symfony 7.3
 - Bootstrap 5
 - Webpack Encore
 - Modern vanilla JavaScript
@@ -57,6 +57,7 @@ npm install
 ```bash
 php bin/console doctrine:database:create
 php bin/console doctrine:migrations:migrate
+php bin/console app:update-user-databases
 ```
 
 6. Build frontend assets:
@@ -98,6 +99,10 @@ symfony server:start
 - Responsive layout for all devices
 - Dark theme optimized for readability
 - Intuitive user registration and login
+- Spirit-User conversation interface
+- File browser interface
+- Backups interface
+- Administrators interface - manage users, system updates, etc.
 
 ### Internationalization
 - Multi-language support with Symfony's translation component
@@ -107,7 +112,6 @@ symfony server:start
   - Slovak (sk)
 - Features:
   - Language switching for all users (authenticated and non-authenticated)
-  - Cookie-based language persistence
   - Complete translation coverage:
     - UI elements and forms
     - Error messages and validations
@@ -135,7 +139,7 @@ symfony server:start
 ## Development Guidelines
 
 ### Code Structure
-- Follow Symfony 7.2 best practices
+- Follow Symfony 7.3 best practices
 - Maintain modular, single-responsibility components
 - Document all major functionality
 - Write unit tests for critical features

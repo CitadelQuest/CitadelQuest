@@ -80,8 +80,10 @@
                                     </label>
                                     {% if api_key_state == 'set_and_valid' %}
                                         <div class="d-flex w-100 justify-content-center mt-4">
+                                            <i class="fs-4 me-3 mt-0 mdi mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %} me-2"
+                                                title="{{ CQ_AI_GatewayCredits }} Credits"></i>
                                             <div class="mt-1 me-3">
-                                                <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
+                                                <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
                                                 <span class="small mt-1 me-2">Credits</span>
                                             </div>
                                             <a href="https://cqaigateway.com/dashboard/add-credits" target="_blank" 
@@ -114,7 +116,7 @@
                             <p class="">Select which AI models to use for different purposes.</p>
                             
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-6_ mb-3">
                                     <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
@@ -126,7 +128,7 @@
                                     <div class="form-text text-muted">Used for Spirit's main chat/reasoning. Higher quality, potentially more expensive.</div>
                                 </div>
                                 
-                                <div class="col-md-6 mb-3">
+                                <div class="col-md-6 mb-3 d-none">
                                     <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Secondary AI Model</label>
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}

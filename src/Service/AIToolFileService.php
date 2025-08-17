@@ -74,17 +74,43 @@ class AIToolFileService
             }
             
             $withLineNumbers = $arguments['withLineNumbers'] ?? false;
+            
             $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
+            
+            // return HTML code for frontend display
+            $contentFrontendData = "";
+            // default: text
+            $contentFrontendData = '<pre>' . $content . '</pre>';
+            // image data, based on mime type
+            if (strpos($file->getMimeType(), 'image/') === 0) {
+                $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto;" class="rounded shadow"/>';
+            }
+            // video data, based on mime type
+            if (strpos($file->getMimeType(), 'video/') === 0) {
+                $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%; height: auto;" class="rounded shadow"></video>';                
+            }
+            // audio data, based on mime type
+            if (strpos($file->getMimeType(), 'audio/') === 0) {
+                $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%; height: auto;" class="rounded shadow"></audio>';                
+            }
 
+            // binary data, not displayed
             if  (strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
+                // image/video/audio data, displayed
+                if (strpos($file->getMimeType(), 'image/') === 0 || 
+                    strpos($file->getMimeType(), 'video/') === 0 || 
+                    strpos($file->getMimeType(), 'audio/') === 0) {
+                    $content = 'binary data, displayed directly in frontend';
+                }
             }
             
             return [
                 'success' => true,
                 'content' => $content,
                 'file' => $file->jsonSerialize(),
-                'with_line_numbers' => $withLineNumbers
+                'with_line_numbers' => $withLineNumbers,
+                '_frontendData' => $contentFrontendData
             ];
         } catch (\Exception $e) {
             return [

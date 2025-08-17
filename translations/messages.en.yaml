@@ -154,9 +154,12 @@ spirit:
     chat:
         title: 'Talk with '
         conversations: 'Conversations'
+        search_conversations: 'Search conversations...'
         new_conversation: 'New Conversation'
         conversation_title: 'Conversation Title'
         conversation_created: 'Conversation created successfully'
+        delete_conversation_confirm: 'Are you sure you want to delete this conversation?'
+        conversation_deleted: 'Conversation deleted successfully'
         no_conversations: 'No conversations yet'
         type_message: 'Type your message here...'
         no_messages: 'No messages yet. Start a conversation!'

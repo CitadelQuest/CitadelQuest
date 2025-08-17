@@ -6,6 +6,7 @@ use App\Entity\AiGateway;
 use App\Entity\AiServiceModel;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Service\AiToolService;
 use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
 use App\Service\AiGatewayService;
@@ -191,6 +192,7 @@ class AnthropicGateway implements AiGatewayInterface
             }
 
             // Process tool_calls
+            $logCaption = '';
             $toolMessageContents = [];
             foreach ($toolCalls as $toolCall) {
                 // Call tool and add result using AIToolCallService
@@ -199,6 +201,7 @@ class AnthropicGateway implements AiGatewayInterface
                     'tool_use_id' => $toolCall['id'],
                     'content' => json_encode($aiToolCallService->executeTool($toolCall['name'], $toolCall['input'] ?? [], $lang))
                 ];
+                $logCaption .= $toolCall['name'] . ', ';
             }
             
             // Add tool response message
@@ -212,23 +215,23 @@ class AnthropicGateway implements AiGatewayInterface
             $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
-                1000, 0.1, null, $request->getTools()
+                4000, 0.1, null, $request->getTools()
             );
             
             // Send the request to the AI service
-            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $toolCall['name'] . ']');
+            $aiServiceResponse = $aiGatewayService->sendRequest($aiServiceRequest, 'Tool use response [' . $logCaption . ']');
 
             // add original response text to aiServiceResponse message['content'][0]['text'] - as first item
             if ($originalResponseText) {
                 $fullMessageContent = $aiServiceResponse->getMessage()['content'];
                 // check if message content is available - sometimes anthropic returns empty content [] :-/
                 if (isset($fullMessageContent[0]) && isset($fullMessageContent[0]['text'])) {
-                    $fullMessageContent[0]['text'] = $originalResponseText . "\n\n•\n\n" . $fullMessageContent[0]['text'];
+                    $fullMessageContent[0]['text'] = $originalResponseText . "\n<span class='text-cyber' title='AI tool call: " . $logCaption . "'>•</span>\n" . $fullMessageContent[0]['text'];
                 } else {
                     $fullMessageContent = [
                         [
                             'type' => 'text',
-                            'text' => $originalResponseText . "\n\n•"
+                            'text' => $originalResponseText . "\n<span class='text-cyber' title='AI tool call: " . $logCaption . "'>•</span>\n"
                         ]
                     ];
                 }
@@ -317,8 +320,8 @@ class AnthropicGateway implements AiGatewayInterface
      */
     public function getAvailableTools(): array
     {
-        $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
-        $toolsBase = $aiToolCallService->getToolsDefinitions();
+        $aiToolService = $this->serviceLocator->get(AiToolService::class);
+        $toolsBase = $aiToolService->getToolDefinitions();
 
         // Convert to Anthropic format - Anthropic has a different schema than OpenAI/Groq
         $tools = [];
