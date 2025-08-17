@@ -97,6 +97,7 @@ class CitadelQuestUpdater
         };
         echo "<p class=\"log {$class}\">{$message}</p>\n";
         flush();
+        //error_log(">> .update: {$class} > {$message}");
     }
 
     private function checkRequirements(): bool
@@ -301,6 +302,12 @@ class CitadelQuestUpdater
             }
             $zip->extractTo($extractPath);
             $zip->close();
+
+            // clear /vendor dir
+            if (version_compare($this->version, '0.4.19', '<')) {
+                //error_log("version: " . $this->version . " is less than 0.4.19 >> removing /vendor");
+                $this->removeDirectory($this->installDir . '/vendor');
+            }
             
             // Update files
             $this->log("Updating files...");
@@ -782,13 +789,13 @@ class CitadelQuestUpdater
         
         try {
             // Clear var/log directory
-            $logDir = $this->installDir . '/var/log';
+            /* $logDir = $this->installDir . '/var/log';
             if (file_exists($logDir)) {
                 foreach (new DirectoryIterator($logDir) as $file) {
                     if ($file->isDot() || $file->isDir()) continue;
                     unlink($file->getPathname());
                 }
-            }
+            } */
 
             // Clear var/cache directory
             $cacheDir = $this->installDir . '/var/cache/prod';
@@ -827,6 +834,11 @@ class CitadelQuestUpdater
             }
 
             $this->log("New version available: {$latestVersion} (current: {$this->version})", 'warning');
+
+            // Clear and warm up cache
+            if (!$this->clearCache()) {
+                throw new Exception("Start-up Cache clearing failed");
+            }
 
             // Create backup
             if (!$this->createBackup()) {

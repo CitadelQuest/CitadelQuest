@@ -11,7 +11,7 @@ final class CitadelVersion
      * Current version of CitadelQuest
      * @var string
      */
-    public const VERSION = 'v0.4.19-alpha'; // 2025-08-17, AI Toolbox
+    public const VERSION = 'v0.4.19hotfix-alpha'; // 2025-08-17, AI Toolbox, hotfix
 
     /**
      * Get the current version string
