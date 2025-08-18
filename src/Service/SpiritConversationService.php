@@ -392,9 +392,10 @@ class SpiritConversationService
         // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
         $aiToolManagementToolsContent .= "
             </ai-tools>
-            <warning>
-                <text>Be careful with AI Tools, they can be dangerous if not used correctly.</text>
-                <text>Always check here in `ai-tools` if the tool is active before using it.</text>
+            <ai-tools-instructions>
+                <instruction>Always make function_calling in your responses - if you need to use any AI Tools.</instruction>
+                <instruction>Be careful with AI Tools, they can be dangerous if not used correctly.</instruction>
+                <instruction>Always check here in `ai-tools` if the tool is active before using it, you can use `setAIToolActive` to activate it if needed.</instruction>
                 <important>
                     This is how AI Tool responses are displayed in frontend and conversation:
                     ```html
@@ -403,7 +404,7 @@ class SpiritConversationService
                     It can be only injected to conversation messages by CitadelQuest AI Tools.
                     Spirit should never generate this kind of data in their responses!
                 </important>
-            </warning>";
+            </ai-tools-instructions>";
 
         // Note: Onboarding message and main CitadelQuest system prompt definition is on CQ AI Gateway, safe and secure.
 

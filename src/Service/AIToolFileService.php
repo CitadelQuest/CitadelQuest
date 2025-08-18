@@ -83,15 +83,15 @@ class AIToolFileService
             $contentFrontendData = '<pre>' . $content . '</pre>';
             // image data, based on mime type
             if (strpos($file->getMimeType(), 'image/') === 0) {
-                $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto;" class="rounded shadow"/>';
+                $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
             }
             // video data, based on mime type
             if (strpos($file->getMimeType(), 'video/') === 0) {
-                $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%; height: auto;" class="rounded shadow"></video>';                
+                $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%;" class="rounded shadow"></video>';                
             }
             // audio data, based on mime type
             if (strpos($file->getMimeType(), 'audio/') === 0) {
-                $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%; height: auto;" class="rounded shadow"></audio>';                
+                $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="width: 100%;" class="rounded shadow"></audio>';                
             }
 
             // binary data, not displayed

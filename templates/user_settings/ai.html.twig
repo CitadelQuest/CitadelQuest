@@ -121,11 +121,11 @@
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} ({{ model.modelSlug }})
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }}/{{ model.ppmOutput|number_format(0, '.', ' ') }})
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <div class="form-text text-muted">Used for Spirit's main chat/reasoning. Higher quality, potentially more expensive.</div>
+                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3 d-none">
@@ -133,11 +133,11 @@
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} ({{ model.modelSlug }})
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }}/{{ model.ppmOutput|number_format(0, '.', ' ') }})
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <div class="form-text text-muted">Used for secondary Spirit tasks and system tools. Good quality, more cost-effective.</div>
+                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
                                 </div>
                             </div>
                         </div>

@@ -377,11 +377,18 @@ class UserSettingsController extends AbstractController
                         $this->addFlash('error', 'Error adding model: ' . $e->getMessage());
                     }
                 } else {
-                    // set existing model as active
+                    // update and set existing model as active
                     $currentModel = array_filter($currentModels, function ($currentModel) use ($model) {
                         return $currentModel->getModelSlug() === $model['id'];
                     });
-                    $this->aiServiceModelService->updateModel($currentModel[array_key_first($currentModel)]->getId(), ['isActive' => true]);
+                    $this->aiServiceModelService->updateModel($currentModel[array_key_first($currentModel)]->getId(), [
+                        'isActive' => true,
+                        'contextWindow' => $model['context_length'],
+                        'maxInput' => $model['context_length'],
+                        'maxOutput' => isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096,
+                        'ppmInput' => $model['pricing']['prompt'],
+                        'ppmOutput' => $model['pricing']['completion']
+                    ]);
                 }
             }
             if (count($newModels) > 0) {
