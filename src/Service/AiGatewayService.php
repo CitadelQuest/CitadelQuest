@@ -291,7 +291,7 @@ class AiGatewayService
     /**
      * Send a request to an AI service
      */
-    public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English'): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English', string $projectId = 'general'): AiServiceResponse
     {
         $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
@@ -315,7 +315,7 @@ class AiGatewayService
         }
         
         // Send the request to gateway implementation
-        $response = $gatewayImplementation->sendRequest($request, $this);
+        $response = $gatewayImplementation->sendRequest($request/* , $this */);
 
         // Save the response to database
         $response = $aiServiceResponseService->createResponse(
@@ -330,6 +330,9 @@ class AiGatewayService
         
         // Log the service use
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
+
+        // Save annotations to file
+        $aiServiceResponseService->saveAnnotationsToFile($response, $projectId/*, ai_request_id > conversation_request.ai_service_request_id > conversation.project_id */);
         
         // Handle tool calls by gateway implementation
         $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);

@@ -91,7 +91,7 @@ class SpiritConversation implements JsonSerializable
         return $this;
     }
 
-    public function removeToolCallsAndResultsFromMessages(): self
+    public function removeToolCallsAndResultsFromMessages(): self // not used
     {
         $messages = $this->getMessages();
         $messages = array_filter($messages, fn($message) => !isset($message['tool_calls']) && !isset($message['tool_result']));

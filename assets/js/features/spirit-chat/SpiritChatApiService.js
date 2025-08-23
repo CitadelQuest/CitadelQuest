@@ -72,6 +72,25 @@ export class SpiritChatApiService {
             throw error;
         }
     }
+
+    /**
+     * Get conversation tokens
+     * @param {string} conversationId - The ID of the conversation
+     * @returns {Promise<number>} - The conversation tokens
+     */
+    async getConversationTokens(conversationId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${conversationId}/tokens`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to fetch conversation tokens');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching conversation tokens:', error);
+            throw error;
+        }
+    }
     
     /**
      * Send a message in a conversation
@@ -89,7 +108,7 @@ export class SpiritChatApiService {
                 },
                 credentials: 'include',
                 body: JSON.stringify({ 
-                    message,
+                    message, // ~
                     max_output: maxOutput
                 })
             });

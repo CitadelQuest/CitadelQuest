@@ -16,6 +16,8 @@ use App\CitadelVersion;
 use App\Repository\UserRepository;
 use App\Service\ProjectFileService;
 use App\Service\AiToolService;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
 class SpiritConversationService
 {
@@ -33,7 +35,9 @@ class SpiritConversationService
         private readonly CitadelVersion $citadelVersion,
         private readonly UserRepository $userRepository,
         private readonly ProjectFileService $projectFileService,
-        private readonly AiToolService $aiToolService
+        private readonly AiToolService $aiToolService,
+        private readonly LoggerInterface $logger,
+        private readonly SluggerInterface $slugger
     ) {
         $this->user = $security->getUser();
     }
@@ -80,6 +84,28 @@ class SpiritConversationService
         }
         
         return SpiritConversation::fromArray($data);
+    }
+
+    public function getConversationTokens(string $conversationId): array
+    {
+        $db = $this->getUserDb();
+        
+        // ai_service_response.ai_service_request_id = spirit_conversation_request.ai_service_request_id
+        $result = $db->executeQuery("SELECT 
+                SUM(ai_service_response.total_tokens) AS total_tokens,
+                SUM(ai_service_response.input_tokens) AS input_tokens,
+                SUM(ai_service_response.output_tokens) AS output_tokens
+            FROM 
+                ai_service_response 
+            WHERE 
+                ai_service_response.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)
+        ", [$conversationId]);
+        $data = $result->fetchAssociative();
+        return [
+            'total_tokens' => $data['total_tokens'] ?? 0,
+            'input_tokens' => $data['input_tokens'] ?? 0,
+            'output_tokens' => $data['output_tokens'] ?? 0
+        ];
     }
 
     public function findById(string $conversationId): ?SpiritConversation
@@ -171,8 +197,62 @@ class SpiritConversationService
         
         return $count;
     }
+
+    public function saveFilesFromMessage(array $message, string $projectId = 'general'): array
+    {
+        if (!is_array($message['content'])) {
+            return [];
+        }
+        /* message data structure:
+
+            {
+                "content": [
+                    {
+                        "text": "fuuuh, super, spojenie funguje :) Robil som totiž zmenu na CQ AI Gateway, kvôli PDF súborom, no stále to nejak hapruje... Posielam ti teraz testovací PDF súbor. Prišiel ti? Aký má obsah?",
+                        "type": "text"
+                    },
+                    {
+                        "file": {
+                            "file_data": "data:application/pdf;base64,....",
+                            "filename": "test.pdf"
+                        }
+                    },
+                    {
+                        "file": {
+                            "file_data": "data:application/pdf;base64,....",
+                            "filename": "test-2.pdf"
+                        }
+                    }
+                ]
+            }
+            
+        */
+
+        $newFiles = [];
+
+        foreach ($message['content'] as $content) {
+            if (is_array($content) && 
+                isset($content['file']) && 
+                is_array($content['file']) && 
+                isset($content['file']['file_data']) && 
+                isset($content['file']['filename'])) {
+
+                $filePath = '/uploads';
+                try {
+                    $newFile = $this->projectFileService->createFile($projectId, $filePath, $content['file']['filename'], $content['file']['file_data']);
+                    $newFiles[] = $newFile;
+
+                    $this->logger->info('saveFilesFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
+                } catch (\Exception $e) {
+                    $this->logger->error('saveFilesFromMessage(): Error creating file: ' . $e->getMessage());
+                }
+            }
+        }
+
+        return $newFiles;
+    }
     
-    public function sendMessage(string $conversationId, string $message, string $lang = 'English', int $maxOutput = 500): array
+    public function sendMessage(string $conversationId, string|array $message, string $lang = 'English', int $maxOutput = 500): array
     {
         $db = $this->getUserDb();
 
@@ -196,6 +276,8 @@ class SpiritConversationService
         ];
         $conversation->addMessage($userMessage);
 
+        $this->saveFilesFromMessage($userMessage, 'general');
+
         // Get user's primary AI gateway and model
         $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
         if (!$aiServiceModel) {
@@ -203,7 +285,7 @@ class SpiritConversationService
         }
         
         // Prepare messages for AI request
-        $messages = $this->prepareMessagesForAiRequest($conversation->getMessages(), $spirit, $lang);
+        $messages = $this->prepareMessagesForAiRequest($conversation->getMessages(), $spirit, $lang, 'general');
 
         // Add tools to request
         $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
@@ -286,12 +368,13 @@ class SpiritConversationService
         return $conversation->getMessages();
     }
     
-    public function prepareMessagesForAiRequest(array $conversationMessages, Spirit $spirit, string $lang): array
+    public function prepareMessagesForAiRequest(array $conversationMessages, Spirit $spirit, string $lang, string $projectId = 'general'): array
     {
         $aiMessages = [];
 
         // Get current date and time
         $currentDateTime = (new \DateTime())->format('Y-m-d H:i:s');
+
 
         // Get user description from settings or use default empty value
         $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
@@ -375,6 +458,7 @@ class SpiritConversationService
                     </current-data>
                 </project>
             </active-projects>";
+        
 
         // AI Tool management tools
         $aiToolManagementTools = $this->aiToolService->findAll();
@@ -408,12 +492,14 @@ class SpiritConversationService
 
         // Note: Onboarding message and main CitadelQuest system prompt definition is on CQ AI Gateway, safe and secure.
 
+
         // Onboarding message if user description is empty or too short
         $onboardingTag = "";
         if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
             $onboardingTag = "
                 <user-onboarding>";
         }
+
 
         // Add system message with spirit and current system, date and time, user profile description and language information
         $aiMessages[] = [
@@ -450,9 +536,58 @@ class SpiritConversationService
 
         // Filter injected system data from messages
         $filteredConversationMessages = $this->aiGatewayService->filterInjectedSystemData($conversationMessages);
+
+        // Find file base64 data content & Replace it with `annotations` content if available `/annotations/{filename_slug}/{filename}.anno`
+        $messagesWithFileContentAnnotations = [];
+        foreach ($filteredConversationMessages as $message) {
+            // Copy message
+            $messageWithFileContentAnnotations = $message;
+            
+            if (isset($message['content']) && is_array($message['content'])) {
+                $messageWithFileContentAnnotations['content'] = [];
+                
+                foreach ($message['content'] as $contentItem) {
+                    $contentItemAdded = false;
+
+                    // If content is file and has filename
+                    if (isset($contentItem['type']) && $contentItem['type'] == 'file' && isset($contentItem['file']['filename'])) {
+                        // Find annotations in `/annotations/?pdf/{filename_slug}/{filename}.anno`
+                        $annotationFile = $this->projectFileService->findByPathAndName(
+                            $projectId,
+                            '/annotations/' . (strtolower(pathinfo($contentItem['file']['filename'], PATHINFO_EXTENSION)) == 'pdf' ? 'pdf/' : '') . $this->slugger->slug($contentItem['file']['filename']),
+                            $contentItem['file']['filename'] . '.anno'
+                        );
+                        if ($annotationFile) {
+                            $annotationFileContent = json_decode($this->projectFileService->getFileContent($annotationFile->getId()), true);
+                            if (isset($annotationFileContent['file']) && isset($annotationFileContent['file']['name']) && 
+                                $annotationFileContent['file']['name'] == $contentItem['file']['filename']) {
+                                
+                                // not sure if this is correct, so rather use foreach?? $messageWithFileContentAnnotations['content'][] = ...$annotationFileContent['file']['content'];
+                                if (is_array($annotationFileContent['file']['content'])) {
+                                    foreach ($annotationFileContent['file']['content'] as $annotationFileContentItem) {
+                                        $messageWithFileContentAnnotations['content'][] = $annotationFileContentItem;
+                                    }
+                                } else {
+                                    $messageWithFileContentAnnotations['content'][] = $annotationFileContent['file']['content'];
+                                }
+                                $contentItemAdded = true;
+                            }
+                        }
+                    }
+                    
+                    // If content item was not added, add it
+                    if (!$contentItemAdded) {
+                        $messageWithFileContentAnnotations['content'][] = $contentItem;
+                    }
+                }
+            }
+            
+            $messagesWithFileContentAnnotations[] = $messageWithFileContentAnnotations;
+        }
+            
         
         // Add conversation history (excluding timestamps)
-        foreach ($filteredConversationMessages as $message) {
+        foreach ($messagesWithFileContentAnnotations as $message) {
             $aiMessages[] = [
                 'role' => $message['role'],
                 'content' => isset($message['content']) ? $message['content'] : ''

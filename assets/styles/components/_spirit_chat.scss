@@ -32,7 +32,7 @@
             left: 40%;
             transform: translate(-50%, -50%);
             filter: blur(4px);
-            animation: spirit-pulse 3s infinite alternate ease-in-out;
+            //animation: spirit-pulse 3s infinite alternate ease-in-out;
         }
     }
 }
@@ -69,7 +69,7 @@
             background-color: colors.$cyber;
             opacity: 0.5;
             filter: blur(8px);
-            animation: spirit-pulse 4s infinite alternate ease-in-out;
+            //animation: spirit-pulse 4s infinite alternate ease-in-out;
 
             &.big {
                 width: 120px;
@@ -148,11 +148,21 @@
                         background-color: rgba(colors.$dark, 0.3);
                         padding: 0.1rem 0.3rem;
                         border-radius: 0.25rem;
-                        @include mixins.cyber-scrollbar;
+                        //@include mixins.cyber-scrollbar;
                     }
                     
                     pre {
                         @include mixins.cyber-scrollbar;
+
+                        max-height: 70vh;
+                    }
+
+                    .chat-image-preview {
+                        max-width: 32vw;
+                        max-height: 32vh;
+                        object-fit: cover;
+                        border-radius: vars.$border-radius;
+                        margin: vars.$spacing-unit vars.$spacing-unit;
                     }
                 }
                 
@@ -180,6 +190,47 @@
             }
         }
     }
+}
+
+#imageUploadPreview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: vars.$spacing-unit;
+    padding: vars.$spacing-unit;
+    border-radius: vars.$border-radius;
+    
+    .image-preview-item {
+        position: relative;
+        
+        .preview-image {
+            width: 4rem !important;
+            height: 4rem !important;
+            border-radius: vars.$border-radius;
+            object-fit: cover;
+        }
+
+        .preview-pdf {
+            width: 4rem !important;
+            height: 4rem !important;
+            border-radius: vars.$border-radius;
+            object-fit: cover;
+            background-color: rgba(colors.$dark, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;      
+            overflow: hidden;    
+        }
+
+        .badge {
+            transform: translate(40%, -40%);
+            padding: 2px;
+            cursor: pointer;
+        }
+    }
+}
+
+#imageUploadButton {
+    padding: 0.3rem 0.6rem !important;
 }
 
 // Animations

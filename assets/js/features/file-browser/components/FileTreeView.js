@@ -338,7 +338,7 @@ export class FileTreeView {
         const iconStyle = 'text-cyber';
         
         // Image files
-        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'].includes(extension)) {
+        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico'].includes(extension)) {
             return '<i class="mdi mdi-file-image ' + iconStyle + '"></i>';
         }
         
@@ -354,7 +354,7 @@ export class FileTreeView {
         
         // PDF files
         if (extension === 'pdf') {
-            return '<i class="mdi mdi-file-pdf ' + iconStyle + '"></i>';
+            return '<i class="mdi mdi-file-pdf-box ' + iconStyle + '"></i>';
         }
         
         // Archive files

@@ -121,7 +121,7 @@
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }}/{{ model.ppmOutput|number_format(0, '.', ' ') }})
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
                                             </option>
                                         {% endfor %}
                                     </select>
@@ -133,7 +133,7 @@
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }}/{{ model.ppmOutput|number_format(0, '.', ' ') }})
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
                                             </option>
                                         {% endfor %}
                                     </select>

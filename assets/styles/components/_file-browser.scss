@@ -18,7 +18,7 @@ $file-browser-preview-header-height: 4rem;
 .file-browser {
   display: grid;
   grid-template-rows: auto auto 1fr;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.3fr 0.7fr;
   grid-template-areas:
     "header header"
     "uploader uploader"

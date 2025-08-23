@@ -51,15 +51,15 @@ export class FileUploader {
         
         // Create the drop zone
         this.dropZone = document.createElement('div');
-        this.dropZone.className = 'file-uploader-drop-zone';
+        this.dropZone.className = 'file-uploader-drop-zone py-3 py-md-4';
         this.dropZone.innerHTML = `
-            <div class="file-uploader-icon">
+            <div class="file-uploader-icon d-none d-md-inline-block">
                 <i class="mdi mdi-cloud-upload"></i>
             </div>
-            <div class="file-uploader-text">
+            <div class="file-uploader-text d-none d-md-inline-block">
                 ${this.translations.drag_files || 'Drag files here to upload'}
             </div>
-            <div class="file-uploader-text-small">
+            <div class="file-uploader-text-small d-none d-md-inline-block">
                 ${this.translations.or || 'or'}
             </div>
             <button class="btn btn-outline-primary">

@@ -16,6 +16,10 @@ export class SpiritChatManager {
         this.isLoadingMessages = false;
         this.isLoadingConversations = false;
         this.conversations = [];
+        this.imgPreviewData = [];
+        this.pdfPreviewData = [];
+        this.maxImageSize = 1024; // Max width/height for optimal AI processing
+        this.maxFileSize = 5 * 1024 * 1024; // 5MB max file size
         
         // DOM Elements
         this.spiritIcon = document.getElementById('spiritIcon');
@@ -45,6 +49,8 @@ export class SpiritChatManager {
         this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
         this.creditIndicator = document.getElementById('creditIndicator');
         this.sendMessageBtn = document.getElementById('sendMessageBtn');
+        this.imageUpload = document.getElementById('imageUpload');
+        this.imageUploadPreview = document.getElementById('imageUploadPreview');
     }
     
     /**
@@ -53,11 +59,11 @@ export class SpiritChatManager {
     async init() {
         if (!this.spiritIcon) return;
         
+        // Fetch the user's primary spirit
+        await this.fetchPrimarySpirit();
+        
         // Initialize event listeners
         await this.initEventListeners();
-        
-        // Fetch the user's primary spirit
-        this.fetchPrimarySpirit();
 
         // Show the modal if it was open before and we are on same url as before (page refresh/reload)
         if (localStorage.getItem('spiritChatModal') === 'true' && window.location.pathname === localStorage.getItem('spiritChatModalUrl')) {
@@ -116,6 +122,7 @@ export class SpiritChatManager {
      */
     showCreditIndicator(creditBalance) {
         this.creditIndicator.innerHTML = `
+            <span class="text-muted small" title="${creditBalance} Credits">${creditBalance}</span>
             <i class="mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
             title="${creditBalance} Credits"></i>
         `;
@@ -127,9 +134,9 @@ export class SpiritChatManager {
     async initEventListeners() {
         // Spirit chat modal events
         if (this.spiritChatModal) {
-            this.spiritChatModal.addEventListener('shown.bs.modal', () => {
+            this.spiritChatModal.addEventListener('shown.bs.modal', async () => {
                 if (this.conversations.length === 0) {
-                    this.loadConversations(true);
+                    await this.loadConversations(true);
                 }
                 localStorage.setItem('spiritChatModal', 'true');
                 localStorage.setItem('spiritChatModalUrl', window.location.pathname);
@@ -141,7 +148,6 @@ export class SpiritChatManager {
             });
         }
 
-        
         // Chat form submission
         if (this.chatForm) {
             this.chatForm.addEventListener('submit', (e) => {
@@ -153,25 +159,7 @@ export class SpiritChatManager {
         // Tools and conversations toggle
         if (this.spiritChatToolsAndConversationsToggle) {
             this.spiritChatToolsAndConversationsToggle.addEventListener('click', async () => {
-                let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
-                localStorage.setItem('config.chat.toolsAndConversations.open', !open);
-                if (open) {
-                    await animation.slideUp(this.spiritChatToolsAndConversations);
-                    this.spiritChatToolsAndConversations.classList.add('d-none');
-                    this.spiritChatToolsAndConversations.classList.remove('d-flex');
-
-                    let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
-                    icon.classList.remove('mdi-forum-outline');
-                    icon.classList.add('mdi-menu');
-                } else {
-                    this.spiritChatToolsAndConversations.classList.remove('d-none');
-                    this.spiritChatToolsAndConversations.classList.add('d-flex');
-                    await animation.slideDown(this.spiritChatToolsAndConversations);
-
-                    let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
-                    icon.classList.remove('mdi-menu');
-                    icon.classList.add('mdi-forum-outline');
-                }
+                await this.toggleToolsAndConversationsPanel();
             });
         }
 
@@ -207,6 +195,30 @@ export class SpiritChatManager {
                 e.preventDefault();
                 this.deleteConversation();
             });
+        }
+
+        // Message image upload
+        if (this.imageUpload) {
+            this.imageUpload.addEventListener('change', async (e) => {
+                await this.handleUploadedFiles(e.target.files);
+            });
+        }
+        
+        // Clipboard paste for images
+        if (this.messageInput) {
+            this.messageInput.addEventListener('paste', (e) => {
+                this.handleClipboardPaste(e);
+            });
+        }
+        
+        // Image upload button click handler
+        if (this.imageUpload) {
+            const uploadButton = document.getElementById('imageUploadButton');
+            if (uploadButton) {
+                uploadButton.addEventListener('click', () => {
+                    this.imageUpload.click();
+                });
+            }
         }
 
         // Message input textarea - dynamic rows
@@ -254,6 +266,31 @@ export class SpiritChatManager {
             });
         }
     }
+
+    /**
+     * Toggle tools and conversations panel
+     */
+    async toggleToolsAndConversationsPanel() {
+        let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
+        localStorage.setItem('config.chat.toolsAndConversations.open', !open);
+        if (open) {
+            await animation.slideUp(this.spiritChatToolsAndConversations);
+            this.spiritChatToolsAndConversations.classList.add('d-none');
+            this.spiritChatToolsAndConversations.classList.remove('d-flex');
+
+            let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
+            icon.classList.remove('mdi-forum-outline');
+            icon.classList.add('mdi-menu');
+        } else {
+            this.spiritChatToolsAndConversations.classList.remove('d-none');
+            this.spiritChatToolsAndConversations.classList.add('d-flex');
+            await animation.slideDown(this.spiritChatToolsAndConversations);
+
+            let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
+            icon.classList.remove('mdi-menu');
+            icon.classList.add('mdi-forum-outline');
+        }
+    }
     
     /**
      * Fetch the user's primary spirit
@@ -286,7 +323,7 @@ export class SpiritChatManager {
 
             // set response max output
             if (this.responseMaxOutputSlider) {
-                this.responseMaxOutputSlider.max = localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '8192'; // todo: get real value from ai model
+                this.responseMaxOutputSlider.max = localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '65535'; // todo: get real value from ai model
                 this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || '500';
                 this.responseMaxOutputSlider.dispatchEvent(new Event('input'));
             }
@@ -350,7 +387,7 @@ export class SpiritChatManager {
             }
             
             // Render each conversation
-            conversations.forEach(conversation => {
+            conversations.forEach(async conversation => {
                 const item = document.createElement('a');
                 item.href = '#';
                 item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
@@ -358,7 +395,8 @@ export class SpiritChatManager {
                 
                 // Format date and time
                 const date = new Date(conversation.lastInteraction);
-                const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const formattedDate = date.toLocaleDateString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
                 
                 item.innerHTML = `
                     <div class="cursor-pointer w-100">
@@ -371,14 +409,17 @@ export class SpiritChatManager {
                             <i class="mdi mdi-delete"></i>
                         </button>
 
-                        <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2">${conversation.messagesCount}</span>
-                        <small class="text-muted pt-1 float-end d-none d-md-inline-block">${formattedDate}</small>
+                        <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2" style="width: 2rem !important;">${conversation.messagesCount}</span>
+                        <small class="text-muted pt-1 float-end d-none d-md-inline-block">${formattedDate} <span class="text-cyber">/</span> ${formattedTime}</small>
                     </div>
                 `;
                 
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
+                    
                     this.loadConversation(conversation.id);
+
+                    this.toggleToolsAndConversationsPanel();
                 });
 
                 item.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
@@ -397,7 +438,7 @@ export class SpiritChatManager {
                 this.conversations.push(conversation);
 
                 if (loadLastConversation) {
-                    this.loadConversation(conversation.id);
+                    await this.loadConversation(conversation.id);
                     loadLastConversation = false;
                 }
             });
@@ -447,7 +488,7 @@ export class SpiritChatManager {
             });            
             // add active class to the selected item
             while (this.isLoadingConversations) {
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 222));
             }
             const activeItem = this.conversationsList.querySelector(`[data-id="${conversationId}"]`);
             if (activeItem) {
@@ -464,6 +505,12 @@ export class SpiritChatManager {
             
             // Render messages
             this.renderMessages(conversation.messages);
+
+            // update conversation tokens
+            this.apiService.getConversationTokens(conversationId).then(tokens => {
+                this.conversationTokens = tokens;
+                console.log('Conversation tokens:', this.conversationTokens);
+            });
             
         } catch (error) {
             console.error('Error loading conversation:', error);
@@ -500,11 +547,6 @@ export class SpiritChatManager {
         
         // Render each message
         messages.forEach(message => {
-            let msgContent = this.formatMessageContent(typeof message.content === 'string' ? message.content : (typeof message.content[0] === 'object' && message.content[0]['text'] ? message.content[0]['text'] : message.content));
-            if (msgContent === '') {
-                return;
-            }
-
             const messageEl = document.createElement('div');
             messageEl.className = `chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`;
             
@@ -512,14 +554,44 @@ export class SpiritChatManager {
             let timestampHtml = '';
             if (message.timestamp) {
                 const date = new Date(message.timestamp);
-                const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                timestampHtml = `<div class="chat-timestamp">${formattedTime}</div>`;
+                const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+                timestampHtml = `<div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>`;
+            }
+
+            // format message content
+            let formattedContent = '';
+            if (Array.isArray(message.content)) {
+                formattedContent = message.content.map(item => {
+                    if (item.type === 'text') {
+                        return this.formatMessageContent(item.text);
+                    } else if (item.type === 'image_url') {
+                        return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
+                    } else if (item.type === 'file') {
+                        return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                                        onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
+                                    <div class="d-flex align-items-center px-1">
+                                        <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                        <span class="text-cyber">${item.file.filename}</span>
+                                    </div>
+                                    <div class="p-2 pt-0 d-none embed-container">
+                                        <embed src="${item.file.file_data}"
+                                            width="100%" height="420"
+                                            class="rounded"
+                                            type="application/pdf"
+                                            title="${item.file.filename}" />
+                                    </div>
+                                </div>`;
+                    }
+                }).join('');
+            } else {
+                formattedContent = this.formatMessageContent(message.content);
             }
             
             messageEl.innerHTML = `
                 <div class="chat-bubble">
-                    <div class="chat-content">${msgContent}</div>
-                    ${timestampHtml}
+                    <div class="chat-content">${formattedContent}</div>
+                    <div class="chat-timestamp">${timestampHtml}</div>
                 </div>
             `;
             
@@ -577,6 +649,11 @@ export class SpiritChatManager {
             
             // Refresh conversations list
             this.loadConversations();
+
+            // Clear message conversation
+            this.chatMessages.innerHTML = '';
+            // Update modal title
+            this.spiritChatModalTitle.innerHTML = '';
             
             // Show success message
             window.toast.success(window.translations && window.translations['spirit.chat.conversation_deleted'] ? window.translations['spirit.chat.conversation_deleted'] : 'Conversation deleted');
@@ -588,30 +665,385 @@ export class SpiritChatManager {
     }
     
     /**
-     * Format message content with Markdown-like syntax
-     * @param {string} content - The message content
-     * @returns {string} - Formatted HTML content
+     * Format message content with markdown support
      */
     formatMessageContent(content) {
-        if (typeof content !== 'string' || content.trim() === '') {
-            return '';
-        }
+        if (!content) return '';
         
-        // Convert line breaks to <br>
-        //let formatted = content.replace(/\n/g, '<br>');
-        
-        // Convert **bold** to <strong>
-        //formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-        
-        // Convert *italic* to <em>
-        //formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
-        
-        // Convert `code` to <code>
-        ///formatted = formatted.replace(/`(.+?)`/g, '<code>$1</code>');
-        
-        // new approach: `markdown_to_html`
+        // Convert markdown to HTML using marked
         return marked.parse(content);
     }
+
+    /**
+     * Handle multiple uploaded files from upload
+     */
+    async handleUploadedFiles(files) {
+        if (!files || files.length === 0) return;
+        
+        try {
+            for (let file of files) {
+                if (file.size > this.maxFileSize) {
+                    window.toast?.warning(`Image "${file.name}" is too large (max 5MB)`);
+                    continue;
+                }
+            
+                if (file.type.startsWith('image/')) {
+                    await this.processAndAddImage(file);
+                } else if (file.type.startsWith('application/pdf')) {
+                    await this.addPdfToPreview(file);
+                } else {
+                    window.toast?.warning(`File "${file.name}" is not an image or PDF`);
+                    continue;
+                }
+            }
+            
+            // Clear the input
+            if (this.imageUpload) {
+                this.imageUpload.value = '';
+            }
+        } catch (error) {
+            console.error('Error handling image files:', error);
+            window.toast?.error('Failed to handle image files');
+        }
+    }
+
+    /**
+     * Process and optimize image before adding to preview
+     */
+    async processAndAddImage(file) {
+        try {
+            const optimizedDataUrl = await this.resizeImage(file, this.maxImageSize);
+            this.addImageToPreview(optimizedDataUrl, file.name);
+            this.imgPreviewData.push(optimizedDataUrl);
+        } catch (error) {
+            console.error('Error processing image:', error);
+            window.toast?.error(`Failed to process image "${file.name}"`);
+        }
+    }
+
+    /**
+     * Resize image to optimal dimensions for AI processing
+     */
+    resizeImage(file, maxSize) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Calculate new dimensions
+                    let { width, height } = this.calculateOptimalDimensions(img.width, img.height, maxSize);
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw resized image
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to data URL with quality optimization
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * Calculate optimal dimensions maintaining aspect ratio
+     */
+    calculateOptimalDimensions(originalWidth, originalHeight, maxSize) {
+        if (originalWidth <= maxSize && originalHeight <= maxSize) {
+            return { width: originalWidth, height: originalHeight };
+        }
+        
+        const aspectRatio = originalWidth / originalHeight;
+        
+        if (originalWidth > originalHeight) {
+            return {
+                width: maxSize,
+                height: Math.round(maxSize / aspectRatio)
+            };
+        } else {
+            return {
+                width: Math.round(maxSize * aspectRatio),
+                height: maxSize
+            };
+        }
+    }
+
+    /**
+     * Add image to preview panel with remove functionality
+     */
+    async addImageToPreview(dataUrl, fileName = 'image') {
+        const previewContainer = document.createElement('div');
+        previewContainer.className = 'image-preview-item position-relative d-inline-block m-2';
+        
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.dataset.fileName = fileName;
+        img.className = 'preview-image shadow-sm';
+        img.title = fileName;
+        
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'badge bg-danger position-absolute top-0 end-0 rounded';
+        removeBtn.innerHTML = '<i class="mdi mdi-close"></i>';
+        removeBtn.title = 'Remove image';
+        
+        removeBtn.addEventListener('click', async () => {
+            const index = Array.from(this.imageUploadPreview.children).indexOf(previewContainer);
+            if (index !== -1) {
+                this.imgPreviewData.splice(index, 1);
+
+                await animation.fade(previewContainer, 'out', animation.DURATION.QUICK);
+                previewContainer.remove();
+                
+                if (this.imgPreviewData.length === 0) {
+                    await animation.slideDown(this.imageUploadPreview, animation.DURATION.NORMAL);
+                    this.imageUploadPreview.classList.add('d-none');
+                }
+            }
+        });
+        
+        previewContainer.appendChild(img);
+        previewContainer.appendChild(removeBtn);
+        this.imageUploadPreview.appendChild(previewContainer);
+
+        this.imageUploadPreview.classList.remove('d-none');     
+
+        await animation.fade(img, 'in', animation.DURATION.EMPHASIS);        
+    }
+
+    /**
+     * Check if a string is a valid image URL
+     */
+    isImageUrl(text) {
+        try {
+            const url = new URL(text);
+            // Check if it's HTTP/HTTPS
+            if (!['http:', 'https:'].includes(url.protocol)) {
+                return false;
+            }
+            
+            // Check if it has an image extension
+            const imageExtensions = /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i;   
+                     
+            return imageExtensions.test(url.pathname);
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Handle image URL from clipboard
+     */
+    async handleImageUrl(url) {
+        try {
+            // Add to preview with URL as filename
+            const fileName = this.extractFileNameFromUrl(url);
+            await this.addImageToPreview(url, fileName);
+            
+            // Store URL directly - it will be used in image_url.url field just like base64 data
+            this.imgPreviewData.push(url);
+            
+            window.toast?.success(`Image URL added: ${fileName}`);
+        } catch (error) {
+            console.error('Error handling image URL:', error);
+            window.toast?.error('Failed to add image URL');
+        }
+    }
+
+    async fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+        });
+    }
+
+    formatFileSize(bytes, rounded = false) {
+        if (bytes === 0) return '0 Bytes';
+        
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(rounded ? 0 : 2)) + ' ' + sizes[i];
+    }
+
+    async addPdfToPreview(file) {
+        try {
+            let fileName = '';
+            let fileSize = '';
+            if (file.name) {
+                fileName = file.name || 'file';
+                fileSize = this.formatFileSize(file.size, true);
+            
+                const pdfBase64data = await this.fileToBase64(file);
+                this.pdfPreviewData.push({
+                    'filename': fileName,
+                    'file_data': pdfBase64data
+                });
+            } else {
+                fileName = this.extractFileNameFromUrl(file);
+                fileSize = '<em>online</em>';
+                this.pdfPreviewData.push({
+                    'filename': fileName,
+                    'file_data': file
+                });
+            }
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'image-preview-item position-relative d-inline-block m-2';
+            
+            const pdfDiv = document.createElement('div');
+            pdfDiv.className = 'preview-pdf shadow-sm flex-column gap-0 pt-1';
+            pdfDiv.title = fileName;
+            pdfDiv.dataset.fileName = fileName;
+            let displayName = fileName.replace(/\.[^/.]+$/, "");
+            if (displayName.length > 6) {
+                displayName = displayName.substring(0, 6) + '...';
+            }
+            pdfDiv.innerHTML = `<i class="mdi mdi-file-pdf-box text-cyber" style="font-size: 1.4rem !important;line-height: 1rem !important;"></i>
+                                <span style="font-size: 0.8rem !important;">${displayName}</span>
+                                <span style="font-size: 0.5rem !important;">${fileSize}</span>`;
+            
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'badge bg-danger position-absolute top-0 end-0 rounded';
+            removeBtn.innerHTML = '<i class="mdi mdi-close"></i>';
+            removeBtn.title = 'Remove PDF';
+            
+            removeBtn.addEventListener('click', async () => {
+                const index = Array.from(this.imageUploadPreview.children).indexOf(previewContainer);
+                if (index !== -1) {
+                    this.pdfPreviewData.splice(index, 1);
+
+                    await animation.fade(previewContainer, 'out', animation.DURATION.QUICK);
+                    previewContainer.remove();
+                    
+                    if (this.pdfPreviewData.length === 0) {
+                        await animation.slideDown(this.imageUploadPreview, animation.DURATION.NORMAL);
+                        this.imageUploadPreview.classList.add('d-none');
+                    }
+                }
+            });
+            
+            pdfDiv.appendChild(removeBtn);
+            previewContainer.appendChild(pdfDiv);
+            this.imageUploadPreview.appendChild(previewContainer);
+
+            this.imageUploadPreview.classList.remove('d-none');     
+
+            await animation.fade(pdfDiv, 'in', animation.DURATION.EMPHASIS);
+            pdfDiv.style.display = 'flex';
+        } catch (error) {
+            console.error('Error adding PDF file to preview:', error);
+            window.toast?.error('Failed to add PDF file to preview');
+        }
+    }
+    
+    /**
+     * Check if a string is a valid PDF URL
+    */
+    isPdfUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            // Check if it's HTTP/HTTPS
+            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+                return false;
+            }
+            
+            const pathname = urlObj.pathname;
+            const filename = pathname.split('/').pop() || 'file';
+            return filename.endsWith('.pdf');
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Handle PDF URL from clipboard
+    */
+    async handlePdfUrl(url) {
+        try {
+            // Add to preview with URL as filename
+            const fileName = this.extractFileNameFromUrl(url);
+            await this.addPdfToPreview(url, fileName);
+            
+            window.toast?.success(`PDF URL added: ${fileName}`);
+        } catch (error) {
+            console.error('Error handling PDF URL:', error);
+            window.toast?.error('Failed to add PDF URL');
+        }
+    }
+
+    /**
+     * Extract filename from URL for display
+     */
+    extractFileNameFromUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            const pathname = urlObj.pathname;
+            const filename = pathname.split('/').pop() || 'file';
+            return filename.length > 30 ? filename.substring(0, 27) + '...' : filename;
+        } catch {
+            return 'image-url';
+        }
+    }
+
+    /**
+     * Handle clipboard paste for images and image URLs
+     */
+    handleClipboardPaste(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        
+        // First check for image files
+        for (let item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) {
+                    this.handleUploadedFiles([file]);
+                }
+                return;
+            }
+        }
+
+        // PDF files
+        for (let item of items) {
+            if (item.type === 'application/pdf') {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) {
+                    this.handleUploadedFiles([file]);
+                }
+                return;
+            }
+        }
+
+        // Then check for text that might be an image or PDF URL
+        for (let item of items) {
+            if (item.type === 'text/plain') {
+                item.getAsString((text) => {
+                    if (this.isImageUrl(text)) {
+                        e.preventDefault();
+                        this.handleImageUrl(text);
+                    }/*  else if (this.isPdfUrl(text)) {
+                        e.preventDefault();
+                        this.handlePdfUrl(text);
+                    } */
+                    return;
+                });
+            }
+        }
+    }
+
     
     /**
      * Send a message in the current conversation
@@ -620,6 +1052,42 @@ export class SpiritChatManager {
         if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
         
         const message = this.messageInput.value.trim();
+        let messageContent = message;
+        // if image, PDF preview data is available, add it to the message content
+        if (this.imgPreviewData.length > 0 || this.pdfPreviewData.length > 0) {
+            messageContent = [
+                {
+                    'type': 'text',
+                    'text': message
+                },
+                ...this.imgPreviewData.map((imageData) => {
+                    // Both base64 data URLs and HTTP/HTTPS URLs go directly in image_url.url field
+                    return {
+                        'type': 'image_url',
+                        'image_url': {
+                            'url': imageData
+                        }
+                    };
+                }),
+                ...this.pdfPreviewData.map((pdfData) => {
+                    // Both base64 data URLs and HTTP/HTTPS URLs go directly in file_data field
+                    return {
+                        'type': 'file',
+                        'file': {
+                            'filename': pdfData.filename,
+                            'file_data': pdfData.file_data
+                        }
+                    };
+                })
+            ];
+        }
+        // clear image preview data + elements
+        this.imgPreviewData = [];
+        this.pdfPreviewData = [];
+        this.imageUploadPreview.innerHTML = '';
+        this.imageUploadPreview.classList.add('d-none');
+        this.imageUpload.value = '';
+
         const maxOutput = this.responseMaxOutputSlider ? parseInt(this.responseMaxOutputSlider.value) : 500;
         
         this.messageInput.value = '';
@@ -630,7 +1098,7 @@ export class SpiritChatManager {
             // Add user message to UI immediately
             const userMessage = {
                 role: 'user',
-                content: message,
+                content: messageContent,
                 timestamp: new Date().toISOString()
             };
             
@@ -639,12 +1107,42 @@ export class SpiritChatManager {
                 messageEl.className = 'chat-message chat-message-user';
                 
                 const date = new Date(userMessage.timestamp);
-                const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+
+                // format message content
+                let formattedContent = '';
+                if (Array.isArray(userMessage.content)) {
+                    formattedContent = userMessage.content.map(item => {
+                        if (item.type === 'text') {
+                            return this.formatMessageContent(item.text);
+                        } else if (item.type === 'image_url') {
+                            return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
+                        } else if (item.type === 'file') {
+                            return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                                        onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
+                                    <div class="d-flex align-items-center px-1">
+                                        <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                        <span class="text-cyber">${item.file.filename}</span>
+                                    </div>
+                                    <div class="p-2 pt-0 d-none embed-container">
+                                        <embed src="${item.file.file_data}"
+                                            width="100%" height="420"
+                                            class="rounded"
+                                            type="application/pdf"
+                                            title="${item.file.filename}" />
+                                    </div>
+                                </div>`;
+                        }
+                    }).join('');
+                } else {
+                    formattedContent = this.formatMessageContent(userMessage.content);
+                }
                 
                 messageEl.innerHTML = `
                     <div class="chat-bubble">
-                        <div class="chat-content">${this.formatMessageContent(userMessage.content)}</div>
-                        <div class="chat-timestamp">${formattedTime}</div>
+                        <div class="chat-content">${formattedContent}</div>
+                        <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
                     </div>
                 `;
                 
@@ -671,7 +1169,7 @@ export class SpiritChatManager {
             }
             
             // Send message to API with max_output parameter
-            const response = await this.apiService.sendMessage(this.currentConversationId, message, maxOutput);
+            const response = await this.apiService.sendMessage(this.currentConversationId, messageContent, maxOutput);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
@@ -690,6 +1188,10 @@ export class SpiritChatManager {
         } catch (error) {
             console.error('Error sending message:', error);
             window.toast.error(error.message || 'Failed to send message');
+            // Remove loading indicator
+            if (this.chatMessages && loadingEl) {
+                this.chatMessages.removeChild(loadingEl);
+            }
         }
     }
     
@@ -719,6 +1221,9 @@ export class SpiritChatManager {
             
             // Load the new conversation
             this.loadConversation(conversation.id);
+
+            // toggle tools and conversations panel
+            this.toggleToolsAndConversationsPanel();
             
             // Show success message
             window.toast.success(window.translations && window.translations['spirit.chat.conversation_created'] ? window.translations['spirit.chat.conversation_created'] : 'Conversation created');

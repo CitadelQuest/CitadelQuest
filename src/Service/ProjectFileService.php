@@ -79,8 +79,11 @@ class ProjectFileService
         if ($relativePath) {
             return $projectDir . '/' . $relativePath . '/' . $name;
         }
+
+        $absolutePath = $projectDir . '/' . $name;
+        $absolutePath = $this->normalizePath($absolutePath);
         
-        return $projectDir . '/' . $name;
+        return $absolutePath;
     }
     
     /**
@@ -197,11 +200,6 @@ class ProjectFileService
      */
     private function ensureParentDirectoriesExist(string $projectId, string $path): void
     {
-        $this->logger->info('ensureParentDirectoriesExist: ensuring parent directories exist', [
-            'projectId' => $projectId,
-            'path' => $path
-        ]);
-        
         if ($path === '/' || empty($path)) {
             return; // Root directory always exists
         }
@@ -226,24 +224,11 @@ class ProjectFileService
                 $parentPath = "/";
             }
             
-            $this->logger->info('ensureParentDirectoriesExist: checking if directory exists in database', [
-                'projectId' => $projectId,
-                'path' => $parentPath,
-                'name' => $part
-            ]);
-            
             // Check if directory exists in database
             $exists = $userDb->executeQuery(
                 'SELECT COUNT(*) as count FROM project_file WHERE project_id = ? AND path = ? AND name = ? AND is_directory = 1',
                 [$projectId, $parentPath, $part]
             )->fetchAssociative();
-
-            $this->logger->info('ensureParentDirectoriesExist: directory exists in database', [
-                'projectId' => $projectId,
-                'path' => $parentPath,
-                'name' => $part,
-                'exists' => $exists['count'] > 0
-            ]);
             
             if (!$exists || $exists['count'] == 0) {
                 // Create directory in filesystem
@@ -268,17 +253,6 @@ class ProjectFileService
                     'directory',
                     true
                 );
-
-                $this->logger->info('ensureParentDirectoriesExist: executing database insert', [
-                    'id' => $directory->getId(),
-                    'projectId' => $directory->getProjectId(),
-                    'path' => $directory->getPath(),
-                    'name' => $directory->getName(),
-                    'type' => $directory->getType(),
-                    'isDirectory' => $directory->isDirectory(),
-                    'createdAt' => $directory->getCreatedAt()->format('Y-m-d H:i:s'),
-                    'updatedAt' => $directory->getUpdatedAt()->format('Y-m-d H:i:s')
-                ]);
                 
                 $userDb->executeStatement(
                     'INSERT INTO project_file (id, project_id, path, name, type, is_directory, created_at, updated_at) 
@@ -303,14 +277,6 @@ class ProjectFileService
      */
     public function createFile(string $projectId, string $path, string $name, string $content, ?string $mimeType = null): ProjectFile
     {
-        $this->logger->info('createFile: Creating file', [
-            'projectId' => $projectId,
-            'path' => $path,
-            'name' => $name,
-            'content' => $content,
-            'mimeType' => $mimeType
-        ]);
-        
         // Ensure project directory structure exists
         $this->ensureProjectDirectoryStructure($projectId);
 
@@ -319,14 +285,34 @@ class ProjectFileService
         if (!$this->validatePath($path)) {
             throw new \InvalidArgumentException('Invalid path');
         }
+
+        // Check if file already exists
+        $exists = $this->findByPathAndName($projectId, $path, $name);
+        if ($exists) {
+            throw new \InvalidArgumentException('File already exists');
+        }
         
         // Determine file type from name
         $extension = pathinfo($name, PATHINFO_EXTENSION);
         $type = $extension ?: 'txt';
         
+        // "data:*/*;base64,...."
+        if (str_starts_with($content, 'data:')) {
+            // remove data: prefix
+            $content = substr($content, strlen('data:'));
+            // get mime type
+            $mimeType = substr($content, 0, strpos($content, ';'));
+            // remove mime type
+            $content = substr($content, strpos($content, ';base64,') + strlen(';base64,'));
+            // convert base64 string to binary 
+            $content = base64_decode($content);
+        }
+
         // Validate mime type if provided
         if ($mimeType && !in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
-            throw new \InvalidArgumentException('Unsupported file type: ' . $mimeType);
+            if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+                throw new \InvalidArgumentException('Unsupported file type: ' . $mimeType);
+            }
         }
         
         // Validate file size
@@ -336,20 +322,7 @@ class ProjectFileService
         
         // Ensure all parent directories exist in both filesystem and database
         $this->ensureParentDirectoriesExist($projectId, $path);
-        
-        // Ensure parent directory exists in filesystem
-        $parentDir = $this->getAbsoluteFilePath($projectId, $path, '');
-        if (!is_dir($parentDir)) {
-            $oldUmask = umask(0);
-            try {
-                if (!mkdir($parentDir, 0755, true)) {
-                    throw new \RuntimeException(sprintf('Failed to create directory: %s', $parentDir));
-                }
-            } finally {
-                umask($oldUmask);
-            }
-        }
-        
+
         // Create file in filesystem
         $filePath = $this->getAbsoluteFilePath($projectId, $path, $name);
         try {
@@ -370,23 +343,6 @@ class ProjectFileService
             $mimeType,
             strlen($content)
         );
-
-        $this->logger->info('createFile: new ProjectFile created successfully', [
-            'file' => $file->jsonSerialize()
-        ]);
-
-        $this->logger->info('createFile: executing database insert', [
-            'id' => $file->getId(),
-            'projectId' => $file->getProjectId(),
-            'path' => $file->getPath(),
-            'name' => $file->getName(),
-            'type' => $file->getType(),
-            'mimeType' => $file->getMimeType(),
-            'size' => $file->getSize(),
-            'isDirectory' => $file->isDirectory(),
-            'createdAt' => $file->getCreatedAt()->format('Y-m-d H:i:s'),
-            'updatedAt' => $file->getUpdatedAt()->format('Y-m-d H:i:s')
-        ]);
         
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
@@ -405,14 +361,6 @@ class ProjectFileService
                 $file->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
         );
-        
-        // Log successful database insertion for debugging
-        $this->logger->info('createFile: Database insertion completed successfully', [
-            'project_id' => $file->getProjectId(),
-            'path' => $file->getPath(),
-            'name' => $file->getName(),
-            'file_id' => $file->getId()
-        ]);
         
         // Create initial version
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
@@ -1006,13 +954,6 @@ class ProjectFileService
             throw new \InvalidArgumentException('Create operation requires destination.path, destination.name, and content');
         }
 
-        $this->logger->info('manageFile CREATE operation started', [
-            'projectId' => $projectId,
-            'path' => $params['destination']['path'],
-            'name' => $params['destination']['name'],
-            'contentLength' => strlen($params['content'])
-        ]);
-
         // Check if file already exists to prevent UNIQUE constraint violation
         $existingFile = $this->findByPathAndName(
             $projectId,
@@ -1021,18 +962,10 @@ class ProjectFileService
         );
 
         if ($existingFile) {
-            $this->logger->warning('manageFile CREATE: File already exists', [
-                'projectId' => $projectId,
-                'path' => $params['destination']['path'],
-                'name' => $params['destination']['name'],
-                'existingFileId' => $existingFile->getId()
-            ]);
             throw new \InvalidArgumentException(
                 'File already exists at path: ' . $params['destination']['path'] . $params['destination']['name']
             );
         }
-
-        $this->logger->info('manageFile CREATE: No existing file found, proceeding with creation');
 
         // Use existing robust createFile method
         $file = $this->createFile(
@@ -1041,13 +974,6 @@ class ProjectFileService
             $params['destination']['name'],
             $params['content']
         );
-
-        $this->logger->info('manageFile CREATE operation completed successfully', [
-            'fileId' => $file->getId(),
-            'projectId' => $projectId,
-            'path' => $file->getPath(),
-            'name' => $file->getName()
-        ]);
 
         return [
             'operation' => 'create',
@@ -1290,7 +1216,7 @@ class ProjectFileService
             $destination['path'] = $this->normalizePath($destination['path']);
             
             $oldPath = $sourceDir->getPath() . $sourceDir->getName();
-            $newPath = $destination['path'] . '/' . $destination['name'];
+            $newPath = ($destination['path'] == "/" ? '' : $destination['path']) . '/' . $destination['name'];
             
             // Update directory itself using existing patterns
             $userDb->executeStatement(
@@ -1374,7 +1300,8 @@ class ProjectFileService
         try {
             if ($file->isDirectory()) {
                 // For directories, use recursive directory removal with database cleanup
-                $this->removeDirectoryRecursive($filePath, $file->getProjectId(), $file->getPath() . '/' . $file->getName());
+                $relativePath = ($file->getPath() == "/" ? '' : $file->getPath()) . '/' . $file->getName();
+                $this->removeDirectoryRecursive($filePath, $file->getProjectId(), $relativePath);
             } else {
                 // For files, use unlink
                 if (file_exists($filePath) && !unlink($filePath)) {
@@ -1473,7 +1400,7 @@ class ProjectFileService
         // Recursively delete all subdirectories
         foreach ($directories as $dirData) {
             $subDirPath = $this->getAbsoluteFilePath($projectId, $dirData['path'], $dirData['name']);
-            $subDirRelativePath = $relativePath . '/' . $dirData['name'];
+            $subDirRelativePath = ($relativePath == "/" ? '' : $relativePath) . '/' . $dirData['name'];
             
             // Recursively delete subdirectory contents
             $this->removeDirectoryRecursive($subDirPath, $projectId, $subDirRelativePath);

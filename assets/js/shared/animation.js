@@ -34,18 +34,18 @@ export const animateClass = async (element, className, action = 'add') => {
 };
 
 // Helper function for fade animations
-export const fade = async (element, action = 'in') => {
+export const fade = async (element, action = 'in', duration = DURATION.QUICK) => {
     const isIn = action === 'in';
-    element.style.opacity = isIn ? '0' : '1';
+    element.style.opacity = isIn ? '0 !important' : '1 !important';
     element.style.display = 'block';
     
     // Force reflow
     element.offsetHeight;
     
-    element.style.transition = `opacity ${DURATION.QUICK}ms ease-in-out`;
-    element.style.opacity = isIn ? '1' : '0';
+    element.style.transition = `opacity ${duration}ms ease-in-out`;
+    element.style.opacity = isIn ? '1 !important' : '0 !important';
     
-    await wait(DURATION.QUICK);
+    await wait(duration);
     
     if (!isIn) {
         element.style.display = 'none';

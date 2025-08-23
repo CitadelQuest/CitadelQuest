@@ -1,6 +1,7 @@
 import { FileBrowserApiService } from './FileBrowserApiService';
 import { FileUploader } from './FileUploader';
 import { FileTreeView } from './FileTreeView';
+import * as animation from '../../../shared/animation';
 
 /**
  * File Browser component for CitadelQuest
@@ -87,14 +88,14 @@ export class FileBrowser {
                 <i class="mdi mdi-file-plus"></i> <span class="d-none d-md-inline">${this.translations.new_file || 'New File'}</span>
             </button>
             <button class="btn btn-sm btn-outline-primary" data-action="upload">
-                <i class="mdi mdi-upload"></i> <span class="d-none d-md-inline">${this.translations.upload || 'Upload'}</span>
+                <i class="mdi mdi-upload"></i> <span class="d-none d-md-inline">${this.translations.upload || 'Upload'}..</span>
             </button>
         `;
         
         // Create breadcrumbs
         this.breadcrumbsRootLabel = document.createElement('div');
         this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
-        this.breadcrumbsRootLabel.innerHTML = `<i class="mdi mdi-folder text-cyber"></i> <span class="text-muted me-2">Project:</span><span class="text-cyber">${this.projectId}</span>`;
+        this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span>`;
         this.breadcrumbsRootLabel.addEventListener('click', () => {
             console.log('Project root clicked');
             this.currentPath = '/';
@@ -227,7 +228,7 @@ export class FileBrowser {
      * Update breadcrumbs based on current path
      */
     updateBreadcrumbs() {
-        this.breadcrumbsElement.innerHTML = this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
+        this.breadcrumbsElement.innerHTML = '</i>' + this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
     }
     
     /**
@@ -252,7 +253,7 @@ export class FileBrowser {
             'tiff': 'mdi mdi-file-image',
             
             // Documents
-            'pdf': 'mdi mdi-file-pdf',
+            'pdf': 'mdi mdi-file-pdf-box',
             'doc': 'mdi mdi-file-word',
             'docx': 'mdi mdi-file-word',
             'xls': 'mdi mdi-file-excel',
@@ -372,6 +373,7 @@ export class FileBrowser {
             
             this.selectedFile = file;
             
+            //await animation.slideUp(this.filePreviewElement, animation.DURATION.INSTANT);
             if (file.isDirectory) {
                 // Show directory preview with actions
                 this.renderDirectoryPreview(file);
@@ -392,6 +394,8 @@ export class FileBrowser {
                 // Render preview based on file type
                 this.renderFilePreview(file, content);
             }
+            // Show file preview with animation
+            //await animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
             
             // Highlight the selected file in the list (only works in list view)
             const fileItems = this.fileListElement.querySelectorAll('.file-item');
@@ -426,7 +430,11 @@ export class FileBrowser {
                 </h5>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.translations.directory || 'Directory'}</span>
-                    <span>${new Date(directory.updatedAt).toLocaleString()}</span>
+                    <span>
+                        ${new Date(directory.updatedAt).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'})}
+                        <span class="text-cyber opacity-75">/</span>
+                        ${new Date(directory.updatedAt).toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague'})}
+                    </span>
                 </div>
                 <div class="file-preview-actions">
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
@@ -449,6 +457,10 @@ export class FileBrowser {
         `;
         
         this.filePreviewElement.innerHTML = previewHtml;
+
+        // animate preview
+        this.filePreviewElement.style.display = 'none';
+        animation.fade(this.filePreviewElement, 'in', animation.DURATION.NORMAL);
     }
     
     /**
@@ -469,7 +481,11 @@ export class FileBrowser {
                 </h5>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
-                    <span>${new Date(file.updatedAt).toLocaleString()}</span>
+                    <span>
+                        ${new Date(file.updatedAt).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'})}
+                        <span class="text-cyber opacity-75">/</span>
+                        ${new Date(file.updatedAt).toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague'})}
+                    </span>
                 </div>
                 <div class="file-preview-actions">
                     <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}" 
@@ -493,11 +509,11 @@ export class FileBrowser {
         }
         // Text/code files
         else if (['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml'].includes(extension)) {
-            previewHtml += `<pre class="code-preview">${this.escapeHtml(content)}</pre>`;
+            previewHtml += `<pre class="code-preview vh-50">${this.escapeHtml(content)}</pre>`;
         }
         // PDF (embed)
         else if (extension === 'pdf') {
-            previewHtml += `<embed src="${this.apiService.baseUrl}/${file.id}/download" type="application/pdf" width="100%" height="500px">`;
+            previewHtml += `<embed src="${content}" type="application/pdf" width="100%" height="97%">`;
         }
         // Audio
         else if (['mp3', 'wav', 'ogg'].includes(extension)) {
@@ -520,7 +536,7 @@ export class FileBrowser {
         // Other file types
         else {
             previewHtml += `
-                <div class="text-center p-0 p-md-5">
+                <div class="text-center p-0 p-md-5 vh-50">
                     <i class="${this.getFileIcon(file.name)} display-1 d-none d-md-inline"></i>
                     <p class="small">${this.translations.no_preview || 'No preview available for this file type'}</p>
                     <button class="btn btn-primary btn-sm" data-action="download" data-file-id="${file.id}">
@@ -533,6 +549,10 @@ export class FileBrowser {
         previewHtml += '</div>';
         
         this.filePreviewElement.innerHTML = previewHtml;
+
+        // animate preview
+        //animation.fade(this.filePreviewElement, 'in', 1000);
+        //animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
     }
     
     /**

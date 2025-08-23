@@ -31,44 +31,52 @@ class SpiritConversationApiController extends AbstractController
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
     public function listConversations(string $spiritId, Request $request): JsonResponse
     {
-        // Get conversations, without 'messages' field
-        $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
-        $conversations = array_map(function($conversation) {
-            $data = $conversation->jsonSerialize();
-            unset($data['messages']);
-            $data['messagesCount'] = count($conversation->getMessages());
-            return $data;
-        }, $conversations);
-        
-        return $this->json($conversations);
+        try {
+            // Get conversations, without 'messages' field
+            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
+            $conversations = array_map(function($conversation) {
+                $data = $conversation->jsonSerialize();
+                unset($data['messages']);
+                $data['messagesCount'] = count($conversation->getMessages());
+                return $data;
+            }, $conversations);
+            
+            return $this->json($conversations);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
     
     #[Route('/create', name: 'api_spirit_conversation_create', methods: ['POST'])]
     public function createConversation(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
-        if (!isset($data['spiritId']) || !isset($data['title'])) {
-            return $this->json(['error' => 'Missing required parameters'], 400);
+        try {
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['spiritId']) || !isset($data['title'])) {
+                return $this->json(['error' => 'Missing required parameters'], 400);
+            }
+            
+            // Get the user's spirit
+            $spirit = $this->spiritService->getUserSpirit();
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], 404);
+            }
+            
+            // Verify it's the requested spirit
+            if ($spirit->getId() !== $data['spiritId']) {
+                return $this->json(['error' => 'Spirit not found'], 404);
+            }
+            
+            // Create conversation
+            $conversation = $this->conversationService->createConversation(
+                $data['spiritId'],
+                $data['title']
+            );
+            
+            return $this->json($conversation);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        
-        // Get the user's spirit
-        $spirit = $this->spiritService->getUserSpirit();
-        if (!$spirit) {
-            return $this->json(['error' => 'Spirit not found'], 404);
-        }
-        
-        // Verify it's the requested spirit
-        if ($spirit->getId() !== $data['spiritId']) {
-            return $this->json(['error' => 'Spirit not found'], 404);
-        }
-        
-        // Create conversation
-        $conversation = $this->conversationService->createConversation(
-            $data['spiritId'],
-            $data['title']
-        );
-        
-        return $this->json($conversation);
     }
 
     #[Route('/credit-balance', name: 'api_spirit_conversation_credit_balance', methods: ['GET'])]
@@ -112,31 +120,49 @@ class SpiritConversationApiController extends AbstractController
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    #[Route('/{id}/tokens', name: 'api_spirit_conversation_tokens', methods: ['GET'])]
+    public function getConversationTokens(string $id): JsonResponse
+    {
+        try {
+            $conversationTokens = $this->conversationService->getConversationTokens($id);
+            if (!$conversationTokens) {
+                return $this->json(['error' => 'Conversation tokens not found'], 404);
+            }
+            return $this->json($conversationTokens);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
     
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
     public function getConversation(string $id): JsonResponse
     {
-        // Get conversation
-        $conversation = $this->conversationService->getConversation($id);
-        if (!$conversation) {
-            return $this->json(['error' => 'Conversation not found'], 404);
+        try {
+            // Get conversation
+            $conversation = $this->conversationService->getConversation($id);
+            if (!$conversation) {
+                return $this->json(['error' => 'Conversation not found'], 404);
+            }
+
+            return $this->json($conversation);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        
-        return $this->json($conversation);
     }
     
     #[Route('/{id}/send', name: 'api_spirit_conversation_send', methods: ['POST'])]
     public function sendMessage(string $id, Request $request, TranslatorInterface $translator): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
-        if (!isset($data['message'])) {
-            return $this->json(['error' => 'Missing message parameter'], 400);
-        }
-        
-        // Extract max_output parameter with default value
-        $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
-        
         try {
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['message'])) {
+                return $this->json(['error' => 'Missing message parameter'], 400);
+            }
+            
+            // Extract max_output parameter with default value
+            $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
+            
             $locale = $request->getSession()->get('_locale');
             if (!$locale) {
                 $locale = $request->getSession()->get('citadel_locale');
@@ -154,7 +180,7 @@ class SpiritConversationApiController extends AbstractController
             
             return $this->json(['messages' => $messages]);
         } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()], 500);
+            return $this->json(['error' => $e->getMessage()/*, 'line' => $e->getLine(), 'file' => $e->getFile()*/], 500);
         }
     }
     

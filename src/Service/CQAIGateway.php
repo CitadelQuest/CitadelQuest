@@ -9,6 +9,7 @@ use App\Entity\AiServiceResponse;
 use App\Service\AiToolService;
 use App\Service\AIToolCallService;
 use App\Service\AiServiceRequestService;
+use App\Service\AiServiceResponseService;
 use App\Service\AiGatewayService;
 use App\Service\SettingsService;
 use App\Service\AiServiceModelService;
@@ -34,6 +35,7 @@ class CQAIGateway implements AiGatewayInterface
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
         $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
+        $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
 
         // Get the model
         $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
@@ -90,6 +92,8 @@ class CQAIGateway implements AiGatewayInterface
             $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . '/ai/chat/completions', [
                 'headers' => $headers,
                 'json' => $requestData,
+                'timeout' => 600, // 10 minutes timeout
+                'max_duration' => 600 // 10 minutes max duration for the entire request
             ]);
             
             // Get response data
@@ -123,7 +127,7 @@ class CQAIGateway implements AiGatewayInterface
             }
             
             $aiServiceResponse->setFinishReason($finishReason);
-            
+
             return $aiServiceResponse;
             
         } catch (\Exception $e) {
@@ -179,7 +183,7 @@ class CQAIGateway implements AiGatewayInterface
                 // Inject system data:
                 // > tool name + success/fail icon
                 $injectedSystemDataItems[] = 
-                "<span class='text-cyber'>" . 
+                "<span class='text-cyber font-monospace small'>" . 
                     $toolCall['function']['name'] . "(): " . 
                     ((isset($toolExecutionResult['success']) && $toolExecutionResult['success'] == true) ? 
                         "<span class='text-success' title='" . (isset($toolExecutionResult['message']) ? $toolExecutionResult['message'] : 'Success') . "'>🗸</span>" : 
@@ -213,7 +217,7 @@ class CQAIGateway implements AiGatewayInterface
             $aiServiceRequest = $aiServiceRequestService->createRequest(
                 $request->getAiServiceModelId(),
                 $messages,
-                4000, 0.1, null, $request->getTools()
+                $request->getMaxTokens(), $request->getTemperature(), null, $request->getTools()
             );
             
             // Send the request to the AI service
@@ -221,21 +225,25 @@ class CQAIGateway implements AiGatewayInterface
 
             // Combine full response message: before tool call AI response + injected system data + after tool call AI response
             // > before tool call AI response
-            $fullResponseMessage = isset($response->getFullResponse()['choices'][0]['message']['content']) ? $response->getFullResponse()['choices'][0]['message']['content'] : '_no response before tool call_';
+            $responseContent_before = isset($response->getFullResponse()['choices'][0]['message']['content']) ? $response->getFullResponse()['choices'][0]['message']['content'] : '';
             
             // > Inject system data
             // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-            $fullResponseMessage .= "\n<div data-src='injected system data' data-type='tool_calls_response' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded'>\n" . 
+            $responseContent_injectedSystemData = "\n<div data-src='injected system data' data-type='tool_calls_response' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded'>\n" . 
                                         implode("<br>\n", $injectedSystemDataItems) . 
                                     "</div>\n";
 
             // > append after tool call AI response
-            $fullResponseMessage .= isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '_no response after tool call_';
+            $responseContent_after = isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '';
+            // TODO: Gemini 2.5 pro - sometimes produces same response + tool call / reproduce, debug, fix
+            if ($responseContent_before == $responseContent_after) {
+                $responseContent_after = '';
+            }
 
             // Set full response message
             $aiServiceResponse->setMessage([
                 'role' => 'assistant',
-                'content' => $fullResponseMessage
+                'content' => $responseContent_before . $responseContent_injectedSystemData . $responseContent_after
             ]);
 
             $response = $aiServiceResponse;
@@ -249,18 +257,33 @@ class CQAIGateway implements AiGatewayInterface
     public function filterInjectedSystemData(array $messages): array
     {
         $filteredMessages = [];
+        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
+        $filterRegex = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>\n/s';
 
         foreach ($messages as $message) {
             $filteredMessage = $message;
             
             if (($message['role'] == 'user' || $message['role'] == 'assistant') && isset($message['content'])) {
-                $filteredContent = $message['content'];
-                // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-                $filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>\n/s', '', $filteredContent);
-                // do not execute next line, it's actually usefull to hallucination detection to keep it
-                //$filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>\n/s', '', $filteredContent);
 
-                $filteredMessage['content'] = $filteredContent;
+                $filteredContent = $message['content'];
+
+                // simple string message content
+                if (is_string($filteredContent)) {
+                    $filteredContent = preg_replace($filterRegex, '', $filteredContent);
+                    // do not execute next line, it's actually usefull to hallucination detection to keep it (and keep this comment too)
+                    //$filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>\n/s', '', $filteredContent);
+                    $filteredMessage['content'] = $filteredContent;
+                } 
+                // complex message content (array of objects), text + images..
+                elseif (is_array($filteredContent)) {
+                    for ($i = 0; $i < count($filteredContent); $i++) {
+                        // we are only interested in text content for now filtering
+                        if (isset($filteredContent[$i]['type']) && $filteredContent[$i]['type'] == 'text' && isset($filteredContent[$i]['text'])) {
+                            $filteredContent[$i]['text'] = preg_replace($filterRegex, '', $filteredContent[$i]['text']);
+                        }
+                    }
+                    $filteredMessage['content'] = $filteredContent;
+                }
             }
 
             $filteredMessages[] = $filteredMessage;

@@ -15,6 +15,7 @@
 .vscode/
 *.sublime-workspace
 *.sublime-project
+*.editorconfig
 
 # OS generated files
 .DS_Store
