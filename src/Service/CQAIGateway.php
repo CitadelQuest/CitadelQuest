@@ -56,6 +56,11 @@ class CQAIGateway implements AiGatewayInterface
 
         // filter injected system data from messages
         $filteredMessages = $this->filterInjectedSystemData($request->getMessages());
+
+        // Filter out image_url type content from messages // TODO tutu
+        if ( strpos($aiServiceModel->getModelSlug(), 'deepseek-chat-v3.1') !== false || strpos($aiServiceModel->getModelSlug(), 'grok-3') !== false ) {
+            $filteredMessages = $this->filterImageUrlContent($filteredMessages);
+        }
         
         // Prepare request data
         $requestData = [
@@ -151,6 +156,7 @@ class CQAIGateway implements AiGatewayInterface
         $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
         $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
         $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         
         if ($response->getFinishReason() === 'tool_calls') {
             // Get all tool calls from fullResponse
@@ -160,6 +166,12 @@ class CQAIGateway implements AiGatewayInterface
 
             // Filter injected system data from messages, so we do not send it to AI + database
             $messages = $this->filterInjectedSystemData($messages);
+
+            // Filter out image_url type content from messages // TODO tutu
+            /* $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
+            if ( strpos($aiServiceModel->getModelSlug(), 'deepseek-chat-v3.1') !== false ) {
+                $messages = $this->filterImageUrlContent($messages);
+            } */
 
             // Add current assistant message, including tool_calls
             $messages[] = $response->getFullResponse()['choices'][0]['message'];
@@ -235,15 +247,15 @@ class CQAIGateway implements AiGatewayInterface
 
             // > append after tool call AI response
             $responseContent_after = isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '';
-            // TODO: Gemini 2.5 pro - sometimes produces same response + tool call / reproduce, debug, fix
+            // TODO: Gemini 2.5 pro (and others too) - sometimes produces same response + tool call / reproduce, debug, fix
             if ($responseContent_before == $responseContent_after) {
-                $responseContent_after = '';
+                $responseContent_after = '<br>-+<br>';
             }
 
             // Set full response message
             $aiServiceResponse->setMessage([
                 'role' => 'assistant',
-                'content' => $responseContent_before . $responseContent_injectedSystemData . $responseContent_after
+                'content' => $responseContent_before . $responseContent_injectedSystemData . $responseContent_after // TODO tutu debug
             ]);
 
             $response = $aiServiceResponse;
@@ -289,6 +301,29 @@ class CQAIGateway implements AiGatewayInterface
             $filteredMessages[] = $filteredMessage;
         }
 
+        return $filteredMessages;
+    }
+
+    /**
+     * Filter out image_url type content from messages
+     */
+    public function filterImageUrlContent(array $messages): array
+    {
+        $filteredMessages = [];
+        foreach ($messages as $message) {
+            $filteredMessage = $message;
+            if (isset($message['content']) && is_array($message['content'])) {
+                $filteredContent = [];
+                foreach ($message['content'] as $content) {
+                    if (isset($content['type']) && $content['type'] == 'image_url') {
+                        continue;
+                    }
+                    $filteredContent[] = $content;
+                }
+                $filteredMessage['content'] = $filteredContent;
+            }
+            $filteredMessages[] = $filteredMessage;
+        }
         return $filteredMessages;
     }
 
@@ -461,6 +496,75 @@ class CQAIGateway implements AiGatewayInterface
         // Use the static getInstance method to avoid circular dependencies
         $aiToolService = $this->serviceLocator->get(AiToolService::class);
         $toolsBase = $aiToolService->getToolDefinitions();
+
+        // add createSepaEuroPaymentQrCode tool
+        /* $toolsBase[] = [
+            'name' => 'createSepaEuroPaymentQrCode',
+            'description' => 'Create a SEPA payment QR code, with optional remittance text/variable symbol in format: `/VS/{variable_symbol_numbers}`',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => [
+                        'type' => 'string',
+                        'description' => 'Name of the person or company to be debited'
+                    ],
+                    'iban' => [
+                        'type' => 'string',
+                        'description' => 'IBAN of the person or company to be debited'
+                    ],
+                    'bic' => [
+                        'type' => 'string',
+                        'description' => 'BIC of the person or company to be debited'
+                    ],
+                    'amount' => [
+                        'type' => 'number',
+                        'description' => 'Amount to be debited only in Euro'
+                    ],
+                    'remittanceText' => [
+                        'type' => 'string',
+                        'description' => 'Remittance text. This field is used for `variable symbol` in format: `/VS/{variable_symbol_numbers}` '
+                    ]
+                ],
+                'required' => ['name', 'iban', 'bic', 'amount']
+            ]
+        ];
+
+        // image tool
+        $toolsBase[] = [
+            'name' => 'imageEditorSpirit',
+            'description' => 'Edit or generate image file(s) by prompting specialized AI Spirit. Input image files(optional) and text prompt are used to generate the output image file(s).',
+            'parameters' => [
+                'type' => 'object',
+                'properties' => [
+                    'projectId' => [
+                        'type' => 'string',
+                        'description' => 'Project ID'
+                    ],
+                    'inputImageFiles' => [
+                        'type' => 'array',
+                        'description' => 'Input image files for smart editing',
+                        'items' => [
+                            'properties' => [
+                                'imageFile' => [
+                                    'type' => 'string',
+                                    'description' => 'Full path with name of the input image file'
+                                ]
+                            ],
+                            'required' => ['imageFile']
+                        ]
+                    ],
+                    'textPrompt' => [
+                        'type' => 'string',
+                        'description' => 'Text prompt to edit or generate the image, it can be used to add or remove objects, restore old photo, change the style, etc. It is recommended to use a clear and concise prompt - it will be used with input image files to generate(by specialized AI Spirit) the output image file.'
+                    ],
+                    'outputImageFile' => [
+                        'type' => 'string',
+                        'description' => 'Full path with name of the output image file. If not specified, the output image file will be generated in the default output directory `/uploads/ai/img`. If multiple output image files are generated, they will be generated with unique names automatically.'
+                    ]
+                ],
+                'required' => ['projectId', 'textPrompt']
+            ]
+        ]; */
 
         // Convert to CQAIGateway format
         $tools = [];

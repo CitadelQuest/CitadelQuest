@@ -138,7 +138,7 @@ class SpiritConversation implements JsonSerializable
         $conversation = new self(
             $data['spirit_id'],
             $data['title'],
-            json_decode($data['messages'], true) ?? []
+            json_decode($data['messages']??'[]', true) ?? []
         );
         
         $conversation->setId($data['id']);

@@ -113,12 +113,12 @@ export class SpiritChatApiService {
                 })
             });
             
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to send message');
+            if (response.ok) {
+                return await response.json();
             }
             
-            return await response.json();
+            const error = await response.json();
+            throw new Error(error?.error || 'Failed to send message');
         } catch (error) {
             console.error('Error sending message:', error);
             throw error;
@@ -162,6 +162,25 @@ export class SpiritChatApiService {
             return await response.json();
         } catch (error) {
             console.error('Error fetching credit balance:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get setting
+     * @param {string} key - The key of the setting
+     * @returns {string} - The setting value
+     */
+    async getSetting(key) {
+        try {
+            const response = await fetch(`/api/settings/${key}`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to fetch setting');
+            }
+            return await response.json().value;
+        } catch (error) {
+            console.error('Error fetching setting:', error);
             throw error;
         }
     }

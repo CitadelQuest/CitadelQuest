@@ -127,6 +127,21 @@ class AiServiceModelService
         return $model;
     }
 
+    public function findByModelSlug(string $modelSlug, string $gatewayId): ?AiServiceModel
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM ai_service_model WHERE is_active = 1 AND model_slug = ? AND ai_gateway_id = ?',
+            [$modelSlug, $gatewayId]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return AiServiceModel::fromArray($result);
+    }
+
     public function findByGateway(string $gatewayId, bool $activeOnly = false): array
     {
         $userDb = $this->getUserDb();

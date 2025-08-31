@@ -2,6 +2,8 @@ import { FileBrowserApiService } from './FileBrowserApiService';
 import { FileUploader } from './FileUploader';
 import { FileTreeView } from './FileTreeView';
 import * as animation from '../../../shared/animation';
+import * as bootstrap from 'bootstrap';
+import MarkdownIt from 'markdown-it';
 
 /**
  * File Browser component for CitadelQuest
@@ -97,7 +99,6 @@ export class FileBrowser {
         this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
         this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span>`;
         this.breadcrumbsRootLabel.addEventListener('click', () => {
-            console.log('Project root clicked');
             this.currentPath = '/';
             this.fileTreeView.setInitialExpandPath('/');
             this.fileTreeView.refresh();
@@ -276,7 +277,7 @@ export class FileBrowser {
             
             // Text
             'txt': 'mdi mdi-file-document',
-            'md': 'mdi mdi-language-markdown',
+            'md': 'mdi mdi-file-document',
             
             // Archives
             'zip': 'mdi mdi-zip-box',
@@ -471,6 +472,7 @@ export class FileBrowser {
     renderFilePreview(file, content) {
         const extension = file.name.split('.').pop().toLowerCase();
         let previewHtml = '';
+        const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 m-3 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
         
         // File info header
         previewHtml += `
@@ -501,33 +503,63 @@ export class FileBrowser {
         `;
         
         // Preview content based on file type
-        previewHtml += '<div class="file-preview-content">';
+        previewHtml += '<div class="file-preview-content rounded position-relative">';
         
         // Images
         if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
-            previewHtml += `<img src="${content}" alt="${file.name}" class="img-fluid fb">`;
+            previewHtml += `<img src="${content}" alt="${file.name}" class="img-fluid fb rounded">`;
+            previewHtml += showcaseIcon;
         }
         // Text/code files
-        else if (['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml'].includes(extension)) {
-            previewHtml += `<pre class="code-preview vh-50">${this.escapeHtml(content)}</pre>`;
+        else if (['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql'].includes(extension)) {
+            if (extension === 'md' || extension === 'anno') {
+                let md = new MarkdownIt({
+                    html: true,  // ← This enables HTML parsing
+                    linkify: true, // Optional: converts URLs to links
+                    typographer: true // Optional: improves typography (e.g., quotes, dashes)
+                });
+                let html = '';
+                if (extension === 'anno') {
+                    // Prettify JSON
+                    content = JSON.stringify(JSON.parse(content), null, 4);
+                    // Replace base64 image data with placeholder in JSON
+                    // Example: "url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                    // Becomes: "url":"..."
+                    content = content.replace(/"data:image\/[^;]+;base64,[^"]+"/g, `"...binary data..."`);
+                    // Replace special characters with HTML entities
+                    content = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+                    // Replace newlines with <br>
+                    html = content.replace(/\n/g, '<br>');
+                } else {
+                    // Markdown to HTML
+                    html = md.render(content);
+                }
+                previewHtml += `<pre class="code-preview vh-50" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${html}</pre>`;
+            } else {
+                // HTML
+                previewHtml += `<pre class="code-preview vh-50" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${this.escapeHtml(content)}</pre>`;
+            }
+            previewHtml += showcaseIcon;
         }
         // PDF (embed)
         else if (extension === 'pdf') {
-            previewHtml += `<embed src="${content}" type="application/pdf" width="100%" height="97%">`;
+            previewHtml += `<div class="embed-container rounded h-100"><embed src="${content}" type="application/pdf" width="100%" height="97%" class="rounded"></div>`;
+            previewHtml += showcaseIcon;
         }
         // Audio
         else if (['mp3', 'wav', 'ogg'].includes(extension)) {
             previewHtml += `
-                <audio controls>
+                <audio controls class="w-100">
                     <source src="${this.apiService.baseUrl}/${file.id}/download" type="audio/${extension}">
                     ${this.translations.audio_not_supported || 'Your browser does not support the audio element.'}
                 </audio>
             `;
+            previewHtml += showcaseIcon;
         }
         // Video
         else if (['mp4', 'webm', 'ogg'].includes(extension)) {
             previewHtml += `
-                <video controls class="img-fluid">
+                <video controls class="w-100 rounded">
                     <source src="${this.apiService.baseUrl}/${file.id}/download" type="video/${extension}">
                     ${this.translations.video_not_supported || 'Your browser does not support the video element.'}
                 </video>
@@ -549,6 +581,51 @@ export class FileBrowser {
         previewHtml += '</div>';
         
         this.filePreviewElement.innerHTML = previewHtml;
+
+        // set content showcase modal
+        this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        let contentShowcaseModalHeader = this.contentShowcaseModal.querySelector('.modal-header');
+        if (contentShowcaseModalHeader) {
+            contentShowcaseModalHeader.classList.remove('d-none');
+            // set title
+            let contentShowcaseModalTitle = this.contentShowcaseModal.querySelector('#contentShowcaseModalTitle');
+            contentShowcaseModalTitle.innerHTML = file.name;
+            // set icon
+            let contentShowcaseModalHeaderIcon = this.contentShowcaseModal.querySelector('#contentShowcaseModalHeaderIcon');
+            contentShowcaseModalHeaderIcon.className = this.getFileIcon(file.name) + ' me-2';
+        }
+        // add content showcase icon event listener
+        this.filePreviewElement.querySelectorAll('.content-showcase-icon').forEach(el => {
+            let showcase = el.parentElement;
+            el.addEventListener('click', (e) => {
+                if (this.contentShowcaseModal) {    
+                    e.stopPropagation();
+                    e.preventDefault();
+
+                    // update modal content
+                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
+
+                    // remove icon
+                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
+
+                    // update modal embed height
+                    let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
+                    if (embedContainer) {
+                        embedContainer.querySelector('embed')?.setAttribute('height', '100%');
+                        embedContainer.classList.remove('d-none');
+                        embedContainer.classList.add('h-100');
+                        this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
+                    }
+
+                    // update `chat-image-preview` class
+                    this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
+                    
+                    // show modal
+                    const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
+                    newContentShowcaseModal.show();                    
+                }
+            });
+        });
 
         // animate preview
         //animation.fade(this.filePreviewElement, 'in', 1000);

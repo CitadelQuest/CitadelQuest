@@ -22,48 +22,64 @@ class SettingsApiController extends AbstractController
     #[Route('', name: 'api_settings_get_all', methods: ['GET'])]
     public function getAllSettings(): JsonResponse
     {
-        $settings = $this->settingsService->getAllSettings();
+        try {
+            $settings = $this->settingsService->getAllSettings();
+            
+            $result = [];
+            foreach ($settings as $setting) {
+                $result[] = $setting->jsonSerialize();
+            }
         
-        $result = [];
-        foreach ($settings as $setting) {
-            $result[] = $setting->jsonSerialize();
+            return new JsonResponse($result);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        return new JsonResponse($result);
     }
 
     #[Route('/{key}', name: 'api_settings_get', methods: ['GET'])]
     public function getSetting(string $key): JsonResponse
     {
-        $setting = $this->settingsService->getSetting($key);
-        
-        if (!$setting) {
-            return new JsonResponse(['error' => 'Setting not found'], Response::HTTP_NOT_FOUND);
+        try {
+            $setting = $this->settingsService->getSetting($key);
+            
+            if (!$setting) {
+                return new JsonResponse(['error' => 'Setting not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            return new JsonResponse($setting->jsonSerialize());
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        return new JsonResponse($setting->jsonSerialize());
     }
 
     #[Route('/{key}', name: 'api_settings_set', methods: ['POST'])]
     public function setSetting(Request $request, string $key): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
-        $value = $data['value'] ?? null;
-        
-        $setting = $this->settingsService->setSetting($key, $value);
-        
-        return new JsonResponse($setting->jsonSerialize());
+        try {
+            $data = json_decode($request->getContent(), true);
+            $value = $data['value'] ?? null;
+            
+            $setting = $this->settingsService->setSetting($key, $value);
+            
+            return new JsonResponse($setting->jsonSerialize());
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
     }
 
     #[Route('/{key}', name: 'api_settings_delete', methods: ['DELETE'])]
     public function deleteSetting(string $key): JsonResponse
     {
-        $success = $this->settingsService->deleteSetting($key);
+        try {
+            $success = $this->settingsService->deleteSetting($key);
+            
+            if (!$success) {
+                return new JsonResponse(['error' => 'Setting not found'], Response::HTTP_NOT_FOUND);
+            }
         
-        if (!$success) {
-            return new JsonResponse(['error' => 'Setting not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['success' => true]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        return new JsonResponse(['success' => true]);
     }
 }

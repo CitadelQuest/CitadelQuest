@@ -1,6 +1,7 @@
 import { SpiritChatApiService } from './SpiritChatApiService';
 import * as bootstrap from 'bootstrap';
-import * as marked from 'marked';
+//import { marked } from 'marked';
+import MarkdownIt from 'markdown-it';
 import * as animation from '../../shared/animation';
 
 /**
@@ -51,6 +52,10 @@ export class SpiritChatManager {
         this.sendMessageBtn = document.getElementById('sendMessageBtn');
         this.imageUpload = document.getElementById('imageUpload');
         this.imageUploadPreview = document.getElementById('imageUploadPreview');
+        this.chatInfoPrimaryAiModel = document.getElementById('chatInfoPrimaryAiModel');
+        this.chatInfoIcon = document.getElementById('chatInfoIcon');
+        this.chatInfo = document.getElementById('chatInfo');
+        this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
     }
     
     /**
@@ -78,8 +83,8 @@ export class SpiritChatManager {
             animation.slideDown(this.spiritChatToolsAndConversations);
             
             let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
-            icon.classList.remove('mdi-menu');
-            icon.classList.add('mdi-forum-outline');
+            icon.classList.remove('mdi-menu-open');
+            icon.classList.add('mdi-menu');
         }
 
         // update credit indicator based current real data from CQ AI Gateway
@@ -121,10 +126,11 @@ export class SpiritChatManager {
      * Show credit indicator based current real data from CQ AI Gateway
      */
     showCreditIndicator(creditBalance) {
+        let creditBalanceText = creditBalance.toLocaleString('sk-SK');
         this.creditIndicator.innerHTML = `
-            <span class="text-muted small" title="${creditBalance} Credits">${creditBalance}</span>
-            <i class="mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
-            title="${creditBalance} Credits"></i>
+            <i class="ms-1 mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
+            title="${creditBalanceText} Credits"></i>
+            <span class="text-muted" style="font-size: 0.6rem !important;" title="${creditBalanceText} Credits">${creditBalanceText}<br>Credits</span>
         `;
     }
     
@@ -224,9 +230,9 @@ export class SpiritChatManager {
         // Message input textarea - dynamic rows
         if (this.messageInput) {
             this.messageInput.addEventListener('input', () => {
-                this.messageInput.rows = 1;
+                this.messageInput.rows = 3;
                 let rowCount = this.messageInput.value.split('\n').length;
-                let contentLength = this.messageInput.value.length / 160;
+                let contentLength = this.messageInput.value.length / 140;
                 this.messageInput.rows = Math.min( Math.max(rowCount + contentLength, 2), 9 );
             });
         }
@@ -265,6 +271,30 @@ export class SpiritChatManager {
                 }
             });
         }
+
+        // Chat info icon
+        if (this.chatInfoIcon) {
+            this.chatInfoIcon.addEventListener('click', () => {
+                let open = localStorage.getItem('config.chat.info.open') === 'true';
+                localStorage.setItem('config.chat.info.open', !open);
+                if (open) {
+                    this.chatInfo.classList.add('d-none');
+                    this.chatInfo.classList.remove('d-flex');
+                } else {
+                    this.chatInfo.classList.remove('d-none');
+                    this.chatInfo.classList.add('d-flex');
+                }
+            });
+        }
+
+        // Content showcase modal - clear content on close
+        if (this.contentShowcaseModal) {
+            this.contentShowcaseModal.addEventListener('hidden.bs.modal', () => {
+                this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = '';
+                this.contentShowcaseModal.querySelector('.modal-header')?.classList.add('d-none');
+                this.contentShowcaseModal.querySelector('.modal-footer')?.classList.add('d-none');
+            });
+        }
     }
 
     /**
@@ -279,16 +309,16 @@ export class SpiritChatManager {
             this.spiritChatToolsAndConversations.classList.remove('d-flex');
 
             let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
-            icon.classList.remove('mdi-forum-outline');
-            icon.classList.add('mdi-menu');
+            icon.classList.remove('mdi-menu');
+            icon.classList.add('mdi-menu-open');
         } else {
             this.spiritChatToolsAndConversations.classList.remove('d-none');
             this.spiritChatToolsAndConversations.classList.add('d-flex');
             await animation.slideDown(this.spiritChatToolsAndConversations);
 
             let icon = this.spiritChatToolsAndConversationsToggle.querySelector('i');
-            icon.classList.remove('mdi-menu');
-            icon.classList.add('mdi-forum-outline');
+            icon.classList.remove('mdi-menu-open');
+            icon.classList.add('mdi-menu');
         }
     }
     
@@ -323,20 +353,54 @@ export class SpiritChatManager {
 
             // set response max output
             if (this.responseMaxOutputSlider) {
-                this.responseMaxOutputSlider.max = localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '65535'; // todo: get real value from ai model
+                let maxOutput = '4096';//localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '4096';
+                try {
+                    let response = await fetch('/api/ai/gateway/primary-model', {
+                        method: 'GET'
+                    });
+                    let data = await response.json();
+                    if (data.maxOutput) {
+                        maxOutput = data.maxOutput;
+                    
+                        //localStorage.setItem('config.chat.settings.responseMaxOutput.max', maxOutput);
+
+                        this.chatInfoPrimaryAiModel.innerHTML = 
+                            '<span class="me-1 fw-bold">' + data.modelName + '</span> '+
+                            '[<span class="d-none d-md-inline">context window: </span><span class="fw-bold">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span> tokens]';
+                    }
+                } catch (error) {
+                    console.error('Error fetching primary model:', error);
+                }
+
+                this.responseMaxOutputSlider.max = maxOutput;
                 this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || '500';
-                this.responseMaxOutputSlider.dispatchEvent(new Event('input'));
+
+                this.responseMaxOutputValue.textContent = this.responseMaxOutputSlider.value;
             }
 
             // set chat settings open
             if (this.chatSettings) {
                 let open = localStorage.getItem('config.chat.settings.open') === 'true';
+                localStorage.setItem('config.chat.settings.open', open);
                 if (open) {
                     this.chatSettings.classList.remove('d-none');
                     this.chatSettings.classList.add('d-flex');
                 } else {
                     this.chatSettings.classList.add('d-none');
                     this.chatSettings.classList.remove('d-flex');
+                }
+            }
+            
+            // set chat info open
+            if (this.chatInfo) {
+                let open = localStorage.getItem('config.chat.info.open') === 'true';
+                localStorage.setItem('config.chat.info.open', open);
+                if (open) {
+                    this.chatInfo.classList.remove('d-none');
+                    this.chatInfo.classList.add('d-flex');
+                } else {
+                    this.chatInfo.classList.add('d-none');
+                    this.chatInfo.classList.remove('d-flex');
                 }
             }
             
@@ -409,7 +473,7 @@ export class SpiritChatManager {
                             <i class="mdi mdi-delete"></i>
                         </button>
 
-                        <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2" style="width: 2rem !important;">${conversation.messagesCount}</span>
+                        <!-- TODO tutu: show conversation size (kB..) <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2" style="width: 2rem !important;">${conversation.messagesCount}</span> -->
                         <small class="text-muted pt-1 float-end d-none d-md-inline-block">${formattedDate} <span class="text-cyber">/</span> ${formattedTime}</small>
                     </div>
                 `;
@@ -438,7 +502,9 @@ export class SpiritChatManager {
                 this.conversations.push(conversation);
 
                 if (loadLastConversation) {
-                    await this.loadConversation(conversation.id);
+                    let lastConversationId = localStorage.getItem('config.chat.last_conversation_id') || conversation.id;
+                    this.currentConversationId = lastConversationId;
+                    await this.loadConversation(lastConversationId);
                     loadLastConversation = false;
                 }
             });
@@ -499,6 +565,7 @@ export class SpiritChatManager {
             // Fetch conversation
             const conversation = await this.apiService.getConversation(conversationId);
             this.currentConversationId = conversationId;
+            localStorage.setItem('config.chat.last_conversation_id', conversationId);
             
             // Update modal title
             this.spiritChatModalTitle.innerHTML = conversation.title /* + '<i class="mdi mdi-forum text-dark ms-2 fs-6 opacity-50"></i>' */;
@@ -564,13 +631,20 @@ export class SpiritChatManager {
             if (Array.isArray(message.content)) {
                 formattedContent = message.content.map(item => {
                     if (item.type === 'text') {
-                        return this.formatMessageContent(item.text);
+                        return `<div style="clear: both;"></div>` + this.formatMessageContent(item.text);
                     } else if (item.type === 'image_url') {
-                        return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
+                        return `<div class="content-showcase position-relative d-inline-block float-end" data-title="" data-type="image">
+                                    <img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">
+                                    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
+                                        <i class="mdi mdi-fullscreen"></i>
+                                    </div>
+                                </div>`;
                     } else if (item.type === 'file') {
-                        return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                        return `<div style="clear: both;"></div>
+                                <div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2 content-showcase position-relative"
+                                        data-title="${item.file.filename}" data-type="file"
                                         onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
-                                    <div class="d-flex align-items-center px-1">
+                                    <div class="d-flex align-items-center px-1 chat-file-preview-title">
                                         <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
                                         <span class="text-cyber">${item.file.filename}</span>
                                     </div>
@@ -581,9 +655,13 @@ export class SpiritChatManager {
                                             type="application/pdf"
                                             title="${item.file.filename}" />
                                     </div>
+                                    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">
+                                        <i class="mdi mdi-fullscreen"></i>
+                                    </div>
                                 </div>`;
                     }
                 }).join('');
+                formattedContent += '<div style="clear: both;"></div>';
             } else {
                 formattedContent = this.formatMessageContent(message.content);
             }
@@ -594,6 +672,39 @@ export class SpiritChatManager {
                     <div class="chat-timestamp">${timestampHtml}</div>
                 </div>
             `;
+
+            // add content showcase icon event listener
+            messageEl.querySelectorAll('.content-showcase-icon').forEach(el => {
+                let showcase = el.parentElement;
+                el.addEventListener('click', (e) => {
+                    if (this.contentShowcaseModal) {    
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        // update modal content
+                        this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
+
+                        // remove icon
+                        this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
+
+                        // update modal embed height
+                        let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
+                        if (embedContainer) {
+                            embedContainer.querySelector('embed')?.setAttribute('height', '100%');
+                            embedContainer.classList.remove('d-none');
+                            embedContainer.classList.add('h-100');
+                            this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
+                        }
+
+                        // update `chat-image-preview` class
+                        this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
+                        
+                        // show modal
+                        const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
+                        newContentShowcaseModal.show();                    
+                    }
+                });
+            });
             
             this.chatMessages.appendChild(messageEl);
         });
@@ -669,9 +780,15 @@ export class SpiritChatManager {
      */
     formatMessageContent(content) {
         if (!content) return '';
+
+        let md = new MarkdownIt({
+            html: true,  // ← This enables HTML parsing
+            linkify: true, // Optional: converts URLs to links
+            typographer: true // Optional: improves typography (e.g., quotes, dashes)
+          });
+        let html = md.render(content);
         
-        // Convert markdown to HTML using marked
-        return marked.parse(content);
+        return html;
     }
 
     /**
@@ -803,7 +920,7 @@ export class SpiritChatManager {
                 await animation.fade(previewContainer, 'out', animation.DURATION.QUICK);
                 previewContainer.remove();
                 
-                if (this.imgPreviewData.length === 0) {
+                if (this.imgPreviewData.length === 0 && this.pdfPreviewData.length === 0) {
                     await animation.slideDown(this.imageUploadPreview, animation.DURATION.NORMAL);
                     this.imageUploadPreview.classList.add('d-none');
                 }
@@ -926,7 +1043,7 @@ export class SpiritChatManager {
                     await animation.fade(previewContainer, 'out', animation.DURATION.QUICK);
                     previewContainer.remove();
                     
-                    if (this.pdfPreviewData.length === 0) {
+                    if (this.pdfPreviewData.length === 0 && this.imgPreviewData.length === 0) {
                         await animation.slideDown(this.imageUploadPreview, animation.DURATION.NORMAL);
                         this.imageUploadPreview.classList.add('d-none');
                     }
@@ -1050,6 +1167,8 @@ export class SpiritChatManager {
      */
     async sendMessage() {
         if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
+
+        this.sendMessageBtn.disabled = true;
         
         const message = this.messageInput.value.trim();
         let messageContent = message;
@@ -1088,7 +1207,7 @@ export class SpiritChatManager {
         this.imageUploadPreview.classList.add('d-none');
         this.imageUpload.value = '';
 
-        const maxOutput = this.responseMaxOutputSlider ? parseInt(this.responseMaxOutputSlider.value) : 500;
+        const maxOutput = this.responseMaxOutputSlider.value;
         
         this.messageInput.value = '';
         // reset message input height
@@ -1176,6 +1295,10 @@ export class SpiritChatManager {
                 this.chatMessages.removeChild(loadingEl);
             }
             
+            if (response.error) {
+                throw new Error(response.error);
+            }           
+
             // Render updated messages
             this.renderMessages(response.messages);
             
@@ -1188,11 +1311,10 @@ export class SpiritChatManager {
         } catch (error) {
             console.error('Error sending message:', error);
             window.toast.error(error.message || 'Failed to send message');
-            // Remove loading indicator
-            if (this.chatMessages && loadingEl) {
-                this.chatMessages.removeChild(loadingEl);
-            }
+
+            this.sendMessageBtn.disabled = false;
         }
+        this.sendMessageBtn.disabled = false;
     }
     
     /**

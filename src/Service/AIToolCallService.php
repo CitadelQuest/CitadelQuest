@@ -5,6 +5,9 @@ namespace App\Service;
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use SepaQr\SepaQrData;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 /**
  * Service for handling AI tool calls across different AI providers
@@ -18,7 +21,8 @@ class AIToolCallService
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiToolService $aiToolService,
         private readonly AIToolFileService $aiToolFileService,
-        private readonly AIToolToolService $aiToolToolService
+        private readonly AIToolToolService $aiToolToolService,
+        private readonly AIToolImageService $aiToolImageService
     ) {
     }
     
@@ -48,6 +52,16 @@ class AIToolCallService
             // For AI Tool management tools, delegate to AIToolToolService
             if (in_array($toolName, ['listAITools', 'setAIToolActive'])) {
                 return $this->aiToolToolService->{$toolName}($arguments);
+            }
+            
+            // For image tools, delegate to AIToolImageService
+            if (in_array($toolName, ['imageEditorSpirit'])) {
+                return $this->aiToolImageService->{$toolName}($arguments);
+            }
+
+            // createSepaEuroPaymentQrCode
+            if (in_array($toolName, ['createSepaEuroPaymentQrCode'])) {
+                return $this->createSepaEuroPaymentQrCode($arguments);
             }
             
             // For tools without specific implementations, check if they exist in the database
@@ -165,5 +179,55 @@ class AIToolCallService
         return [
             'success' => true
         ];
+    }
+
+    /**
+     * Create SEPA payment QR code
+     */
+    private function createSepaEuroPaymentQrCode(array $arguments): array
+    {
+        if (!isset($arguments['name']) || !isset($arguments['iban']) || !isset($arguments['bic']) || !isset($arguments['amount'])) {
+            return [
+                'success' => false,
+                'error' => 'Missing required arguments'
+            ];
+        }
+        
+        try {
+            $paymentData = (new SepaQrData())
+                ->setName($arguments['name'])
+                ->setIban($arguments['iban'])
+                ->setBic($arguments['bic'])
+                ->setAmount($arguments['amount']); // The amount in Euro
+            
+            $contentFrontendData_remittanceText = '';
+            if (isset($arguments['remittanceText'])) {
+                $paymentData->setRemittanceText($arguments['remittanceText']);
+                $contentFrontendData_remittanceText = '<span>Text: ' . $arguments['remittanceText'] . '</span><br>';
+            }
+
+            $qrOptions = new QROptions([
+                'eccLevel' => QRCode::ECC_M // required by EPC standard
+            ]);
+            
+            $qrCodeData = (new QRCode($qrOptions))->render($paymentData);
+
+            $contentFrontendData = '<img src="' . $qrCodeData . '" alt="QR Code" class="rounded shadow w-100" style="max-width: 16rem !important; height: auto !important; max-height: 16rem !important;"><br>' .
+                '<span><strong>' . $arguments['amount'] . '</strong> EUR</span> <i class="mdi mdi-arrow-right mx-2 text-cyber"></i> <span>' . $arguments['name'] . '</span><br>' .
+                '<span><strong>IBAN:</strong> ' . $arguments['iban'] . '</span><br>' .
+                '<span><strong>BIC:</strong> ' . $arguments['bic'] . '</span><br>' .
+                $contentFrontendData_remittanceText;
+
+            return [
+                'success' => true,
+                'message' => 'SEPA payment QR code created successfully and displayed in user interface',
+                '_frontendData' => $contentFrontendData
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Error creating SEPA payment QR code: ' . $e->getMessage()
+            ];
+        }
     }
 }

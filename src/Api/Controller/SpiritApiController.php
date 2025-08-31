@@ -22,13 +22,17 @@ class SpiritApiController extends AbstractController
     #[Route('', name: 'app_api_spirit_get', methods: ['GET'])]
     public function get(): JsonResponse
     {
-        $spirit = $this->spiritService->getUserSpirit();
-        
-        if (!$spirit) {
-            return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+        try {
+            $spirit = $this->spiritService->getUserSpirit();
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            return $this->json($spirit);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        return $this->json($spirit);
     }
 
     #[Route('', name: 'app_api_spirit_create', methods: ['POST'])]
@@ -48,31 +52,35 @@ class SpiritApiController extends AbstractController
     #[Route('/interact', name: 'app_api_spirit_interact', methods: ['POST'])]
     public function interact(Request $request): JsonResponse
     {
-        $spirit = $this->spiritService->getUserSpirit();
+        try {
+            $spirit = $this->spiritService->getUserSpirit();
         
-        if (!$spirit) {
-            return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            if (!$spirit) {
+                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $data = json_decode($request->getContent(), true);
+            $interactionType = $data['interactionType'] ?? 'general';
+            $context = $data['context'] ?? null;
+            $experienceGained = $data['experienceGained'] ?? 5; // Default experience gain
+            
+            $interaction = $this->spiritService->logInteraction(
+                $spirit->getId(),
+                $interactionType,
+                $experienceGained,
+                $context
+            );
+            
+            // Get the updated spirit
+            $updatedSpirit = $this->spiritService->getUserSpirit();
+            
+            return $this->json([
+                'spirit' => $updatedSpirit,
+                'interaction' => $interaction
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        $data = json_decode($request->getContent(), true);
-        $interactionType = $data['interactionType'] ?? 'general';
-        $context = $data['context'] ?? null;
-        $experienceGained = $data['experienceGained'] ?? 5; // Default experience gain
-        
-        $interaction = $this->spiritService->logInteraction(
-            $spirit->getId(),
-            $interactionType,
-            $experienceGained,
-            $context
-        );
-        
-        // Get the updated spirit
-        $updatedSpirit = $this->spiritService->getUserSpirit();
-        
-        return $this->json([
-            'spirit' => $updatedSpirit,
-            'interaction' => $interaction
-        ]);
     }
 
     #[Route('/interactions', name: 'app_api_spirit_interactions', methods: ['GET'])]
@@ -118,26 +126,30 @@ class SpiritApiController extends AbstractController
     #[Route('/update', name: 'app_api_spirit_update', methods: ['POST'])]
     public function update(Request $request): JsonResponse
     {
-        $spirit = $this->spiritService->getUserSpirit();
-        
-        if (!$spirit) {
-            return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+        try {
+            $spirit = $this->spiritService->getUserSpirit();
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $data = json_decode($request->getContent(), true);
+            
+            // Update the spirit's system prompt and AI model
+            if (isset($data['systemPrompt'])) {
+                $spirit->setSystemPrompt($data['systemPrompt']);
+            }
+            
+            if (isset($data['aiModel'])) {
+                $spirit->setAiModel($data['aiModel']);
+            }
+            
+            // Save the updated spirit
+            $this->spiritService->updateSpirit($spirit);
+            
+            return $this->json($spirit);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        
-        $data = json_decode($request->getContent(), true);
-        
-        // Update the spirit's system prompt and AI model
-        if (isset($data['systemPrompt'])) {
-            $spirit->setSystemPrompt($data['systemPrompt']);
-        }
-        
-        if (isset($data['aiModel'])) {
-            $spirit->setAiModel($data['aiModel']);
-        }
-        
-        // Save the updated spirit
-        $this->spiritService->updateSpirit($spirit);
-        
-        return $this->json($spirit);
     }
 }

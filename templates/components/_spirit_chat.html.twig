@@ -2,15 +2,17 @@
 <div class="modal fade" id="spiritChatModal" tabindex="-1" aria-labelledby="spiritChatModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
         <div class="modal-content glass-panel">
-            <div class="modal-header bg-cyber-g border-success">
-                <span id="spiritChatToolsAndConversationsToggle" class="btn_ btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu"></i></span>
-                <span id="spiritChatModalTitle" class="fs-4 me-2"></span>
-                <span class="modal-title fs-6 d-none d-md-inline-block" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }} <span class="spiritName"></span></span>
+            <div class="modal-header bg-cyber-g border-success py-1 py-md-2">
+                <span id="spiritChatToolsAndConversationsToggle" class="btn_ btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu-open"></i></span>
+                
+                <span id="spiritChatModalTitle" class="fs-6 me-2"></span>
+                <span class="modal-title small d-none d-md-inline-block text-secondary" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }} <span class="spiritName"></span></span>
+                
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body pt-0">
-                <div id="spiritChatToolsAndConversations" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4" style="z-index: 10;">
-                    <div class="col-md-4 d-none d-md-block">
+                <div id="spiritChatToolsAndConversations" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4 border-bottom-1 border-success border-opacity-50" style="z-index: 10;">
+                    {# <div class="col-md-4 d-none d-md-block">
                         <div class="row mb-4">
                             <div class="col-4 text-end pt-2">
                                 <a href="/spirit" title=""><h5 class="spiritName mt-2">{{ 'spirit.loading'|trans }}</h5></a>                            
@@ -26,8 +28,8 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-8">
+                    </div> #}
+                    <div class="col-md-8_">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6><i class="mdi mdi-forum-outline text-cyber me-2"></i>{{ 'spirit.chat.conversations'|trans }}</h6>
                             <div class="input-group w-50 mx-2">
@@ -58,8 +60,9 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer chat-container pb-4 border-secondary border-opacity-50">
+            <div class="modal-footer chat-container border-secondary border-opacity-50">
                 <form id="chatForm" class="d-flex flex-column w-100 m-0">
+
                     <div>
                         {# Hidden image upload input #}
                         <input type="file" id="imageUpload" accept="*" class="d-none" multiple>
@@ -67,35 +70,51 @@
                         <div id="imageUploadPreview" class="w-100 p-2 pt-0 d-none">
                         </div>
                     </div>
-                    <div class="d-flex align-items-center gap-2">
 
-                        <div class="d-flex flex-column gap-2">
-                            <i class="mdi mdi-tune-vertical text-cyber cursor-pointer" id="chatSettingsIcon" data-bs-toggle="collapse" data-bs-target="#chatSettings" aria-expanded="false" aria-controls="chatSettings"></i>
+                    <div class="d-flex align-items-top gap-2">
+
+                        <div class="d-flex flex-column gap-2 text-end pt-1">                        
+                            <button type="button" id="imageUploadButton" class="btn btn-cyber" title="{{ 'file_browser.upload'|trans }}">
+                                <i class="mdi mdi-file-plus"></i>
+                            </button>
+
+                            <div class="d-flex gap-2">
+                                <i class="mdi mdi-information-outline text-cyber cursor-pointer ms-1" id="chatInfoIcon" data-bs-toggle="collapse" data-bs-target="#chatInfo" aria-expanded="false" aria-controls="chatInfo"></i>
+                                <i class="mdi mdi-tune-vertical text-cyber cursor-pointer me-1" id="chatSettingsIcon" data-bs-toggle="collapse" data-bs-target="#chatSettings" aria-expanded="false" aria-controls="chatSettings"></i>
+                            </div>
                         </div>
 
-                        <button type="button" id="imageUploadButton" class="btn btn-cyber" title="{{ 'file_browser.upload'|trans }}">
-                            <i class="mdi mdi-file-plus"></i>
-                        </button>
+                        <div class="d-flex flex-column gap-2" style="flex-grow: 1;"> 
+                            <textarea id="messageInput" class="form-control flex-grow-1" rows="3" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off" focus></textarea>
 
-                        <textarea id="messageInput" class="form-control flex-grow-1" rows="2" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off" focus></textarea>
+                            <div class="d-flex flex-column gap-1 align-items-center mt-2 ps-2">
+                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
+                                    <label class="form-range-label small text-end" for="responseMaxOutputSlider">
+                                        <i class="mdi mdi-arrow-collapse-right text-white me-2"></i>
+                                        <span class="d-none d-md-inline">{{ 'spirit.chat.response_max_output'|trans }}:</span> 
+                                        <span id="responseMaxOutputValue" class="text-cyber fw-bold d-inline-block text-end" style="width: 3.2em;">-</span> tokens
+                                    </label>
+                                    <input class="form-range-input" type="range" id="responseMaxOutputSlider" min="10" max="4096" value="500" step="10">
+                                </div>
+
+                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatInfo">
+                                    <i class="mdi mdi-brain text-cyber_"></i>
+                                    <span id="chatInfoPrimaryAiModel" class="small" title="AI Model">-</span>
+                                </div>
+                            </div>
+                        </div>
                         
-                        <button type="submit" id="sendMessageBtn" class="btn btn-cyber" style="max-height: min-content !important; padding: 0.4rem 0.8rem !important;">
-                            <i class="mdi mdi-message-check"></i>
-                        </button>
+                        <div class="d-flex flex-column gap-2 pt-1"> 
+                            <button type="submit" id="sendMessageBtn" class="btn btn-cyber" style="max-height: min-content !important; padding: 0.4rem 1.2rem !important;">
+                                <i class="mdi mdi-message-check"></i>
+                            </button>
 
-                        <div id="creditIndicator" class="d-flex flex-column gap-0">                           
+                            <div id="creditIndicator" class="d-flex gap-2 align-items-center">                           
+                            </div>
                         </div>
 
                     </div>
-                    <div class="d-flex align-items-center mt-2 ps-2">
-                        <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
-                            <label class="form-range-label small" for="responseMaxOutputSlider">
-                                {{ 'spirit.chat.response_max_output'|trans }}: 
-                                <span id="responseMaxOutputValue" class="text-cyber d-inline-block text-end" style="width: 3.2em;">-</span> tokens
-                            </label>
-                            <input class="form-range-input" type="range" id="responseMaxOutputSlider" min="10" max="65535" value="500">
-                        </div>  
-                    </div>
+
                 </form>
             </div>
         </div>
@@ -142,6 +161,27 @@
                         <button type="submit" class="btn btn-danger"><i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Content showcase modal - full-screen modal for all (text, md, pdf, image, audio, video) content viewing #}
+<div class="modal fade" id="contentShowcaseModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-success border-bottom d-none py-2">
+                <h5 class="modal-title" id="contentShowcaseModalLabel"><i class="" id="contentShowcaseModalHeaderIcon"></i> <span id="contentShowcaseModalTitle"></span></h5>
+            </div>
+            <div class="modal-body position-relative">
+                <i class="mdi mdi-close text-cyber bg-dark bg-opacity-75 rounded p-1 cursor-pointer position-fixed end-0 top-0 me-1 fs-5" style="z-index: 1;" 
+                    data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}" title="{{ 'ui.close'|trans }}"></i>
+                <div class="contentShowcaseModal-content w-100 h-100 position-relative">
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between d-none">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.close'|trans }}</button>
+                <button type="button" class="btn btn-cyber"><i class="mdi mdi-download me-2"></i>{{ 'file_browser.download'|trans }}</button>
             </div>
         </div>
     </div>

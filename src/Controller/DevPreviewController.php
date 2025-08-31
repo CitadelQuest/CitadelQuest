@@ -19,7 +19,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 class DevPreviewController extends AbstractController
 {
-    #[Route('/dev-preview', name: 'app_dev_preview', methods: ['GET'])]
+    /* #[Route('/dev-preview', name: 'app_dev_preview', methods: ['GET'])]
     public function preview(
         TokenStorageInterface $tokenStorage,
         EntityManagerInterface $entityManager,
@@ -63,5 +63,5 @@ class DevPreviewController extends AbstractController
         
         // Redirect to homepage
         return $this->redirectToRoute('app_home');
-    }
+    } */
 }

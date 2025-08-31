@@ -295,7 +295,7 @@ strong, .strong {
         background: rgba(255, 255, 255, 0.1);
         border-color: rgba(255, 255, 255, 0.3);
         color: colors.$text-light;
-        box-shadow: 0 0 0 0.2rem rgba(bs.$primary, 0.25);
+        box-shadow: 0 0 0 0.2rem rgba(colors.$cyber, 0.25);
     }
 }
 .form-select option {

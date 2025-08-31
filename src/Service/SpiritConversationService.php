@@ -117,7 +117,7 @@ class SpiritConversationService
     {
         $db = $this->getUserDb();
         
-        $result = $db->executeQuery('SELECT * FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', [$spiritId]);
+        $result = $db->executeQuery('SELECT id, spirit_id, title, created_at, last_interaction FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', [$spiritId]);
         $results = $result->fetchAllAssociative();
         
         $conversations = [];
@@ -198,7 +198,7 @@ class SpiritConversationService
         return $count;
     }
 
-    public function saveFilesFromMessage(array $message, string $projectId = 'general'): array
+    public function saveFilesFromMessage(array $message, string $projectId = 'general', string $path = '/uploads'): array
     {
         if (!is_array($message['content'])) {
             return [];
@@ -237,7 +237,7 @@ class SpiritConversationService
                 isset($content['file']['file_data']) && 
                 isset($content['file']['filename'])) {
 
-                $filePath = '/uploads';
+                $filePath = $path;
                 try {
                     $newFile = $this->projectFileService->createFile($projectId, $filePath, $content['file']['filename'], $content['file']['file_data']);
                     $newFiles[] = $newFile;
@@ -274,9 +274,38 @@ class SpiritConversationService
             'content' => $message,
             'timestamp' => (new \DateTime())->format(\DateTimeInterface::ATOM)
         ];
+        // save files from message
+        $newFiles = $this->saveFilesFromMessage($userMessage, 'general');
+        $newFilesInfo = [];
+        foreach ($newFiles as $file) {
+            $newFilesInfo[] = [
+                'type' => 'text',
+                'text' => 'File: `' . $file->getFullPath() . '` (projectId: `' . $file->getProjectId() . '`)',
+            ];
+        }
+        if (count($newFilesInfo) > 0) {
+            $userMessage['content'] = array_merge($userMessage['content'], $newFilesInfo);
+        }
+        // save images from message
+        $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
+            new AiServiceResponse('', $userMessage, []),
+            'general',
+            '/uploads/img'
+        );
+        $newImagesInfo = [];
+        foreach ($newImages as $image) {
+            $newImagesInfo[] = [
+                'type' => 'text',
+                'text' => '<div class="small float-end text-end">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
+            ];
+        }
+        if (count($newImagesInfo) > 0) {
+            $userMessage['content'] = array_merge($userMessage['content'], $newImagesInfo);
+        }
+
+        // Add user message to conversation
         $conversation->addMessage($userMessage);
 
-        $this->saveFilesFromMessage($userMessage, 'general');
 
         // Get user's primary AI gateway and model
         $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
@@ -294,7 +323,7 @@ class SpiritConversationService
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
             $aiServiceModel->getId(),
             $messages,
-            $maxOutput, 0.7, null, $tools
+            $maxOutput, 0.5, null, $tools
         );
         
         // Create spirit conversation request
@@ -561,6 +590,9 @@ class SpiritConversationService
                             $annotationFileContent = json_decode($this->projectFileService->getFileContent($annotationFile->getId()), true);
                             if (isset($annotationFileContent['file']) && isset($annotationFileContent['file']['name']) && 
                                 $annotationFileContent['file']['name'] == $contentItem['file']['filename']) {
+
+                                // update file name with absolute path
+                                //$annotationFileContent['file']['name']
                                 
                                 // not sure if this is correct, so rather use foreach?? $messageWithFileContentAnnotations['content'][] = ...$annotationFileContent['file']['content'];
                                 if (is_array($annotationFileContent['file']['content'])) {

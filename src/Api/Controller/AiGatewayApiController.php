@@ -49,6 +49,46 @@ class AiGatewayApiController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
+    #[Route('/primary-model', name: 'app_api_ai_gateway_primary_model_get', methods: ['GET'])]
+    public function getPrimaryModel(): JsonResponse
+    {
+        try {
+            $model = $this->aiGatewayService->getPrimaryAiServiceModel();
+        
+            if (!$model) {
+                return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);
+            }
+        
+            return $this->json($model, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/primary-model', name: 'app_api_ai_gateway_primary_model_set', methods: ['PUT'])]
+    public function setPrimaryModel(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+        
+            if (empty($data)) {
+                return $this->json(['error' => 'No update data provided'], Response::HTTP_BAD_REQUEST);
+            }
+        
+            $model = $this->aiGatewayService->setPrimaryAiServiceModel(
+                $data['id']
+            );
+        
+            if (!$model) {
+                return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);
+            }
+        
+            return $this->json($model, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/{id}', name: 'app_api_ai_gateway_get', methods: ['GET'])]
     public function get(string $id): JsonResponse
     {
@@ -58,7 +98,7 @@ class AiGatewayApiController extends AbstractController
             return $this->json(['error' => 'Gateway not found'], Response::HTTP_NOT_FOUND);
         }
 
-        return $this->json($gateway->jsonSerialize());
+        return $this->json($gateway->jsonSerialize(), Response::HTTP_OK);
     }
     
     #[Route('/{id}/full', name: 'app_api_ai_gateway_get_full', methods: ['GET'])]
@@ -101,7 +141,7 @@ class AiGatewayApiController extends AbstractController
 
         return $this->json([
             'gateway' => $gateway->jsonSerialize()
-        ]);
+        ], Response::HTTP_OK);
     }
 
     #[Route('/{id}', name: 'app_api_ai_gateway_delete', methods: ['DELETE'])]

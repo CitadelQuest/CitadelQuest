@@ -221,4 +221,85 @@ class AiServiceResponseService
 
         return $newFiles;
     }
+
+    public function saveImagesFromMessage(AiServiceResponse $response, string $projectId = 'general', string $path = '/uploads/ai/img', string $filename = ''): array
+    {
+        $message = $response->getMessage();
+
+        /* if (!isset($message['images']) || !is_array($message['images'])) {
+            return [];
+        } */
+        /* message data structure:
+
+            "message": {
+                "content": "Certainly! Here is a pattern texture created from the image you provided. ",
+                "images": [
+                    {
+                        "image_url": {
+                            "url": "data:image/png;base64,..."
+                        },
+                        "index": 0,
+                        "type": "image_url"
+                    }
+                ],
+            
+        */
+
+        // check if message['content'] is string or array
+        if (isset($message['content']) && is_string($message['content'])) {
+            $originalContent = $message['content'];
+            $message['content'] = [];
+            $message['content'][] = [
+                'text' => $originalContent,
+                'type' => 'text'
+            ];
+        }
+
+        $newFiles = [];
+
+        $messages = $message['content'];
+        if (isset($message['images']) && is_array($message['images'])) {
+            $messages = array_merge($messages, $message['images']);
+        }
+
+        foreach ($messages as $image) {
+            if (is_array($image) && 
+                isset($image['image_url']) && 
+                is_array($image['image_url']) && 
+                isset($image['image_url']['url'])) {
+                
+                $filePath = $path;
+                try {
+                    // index
+                    $index = isset($image['index']) && is_int($image['index']) && $image['index'] > 0 ? '-' . $image['index'] : '';
+                    // generate new filename, second part of mimetype is extension
+                    $mimeType = mime_content_type($image['image_url']['url']);
+                    $newFilename = '';
+                    if ($filename === '') {
+                        $newFilename = uniqid() . $index . '.' . explode('/', $mimeType)[1];
+                    } else {
+                        $filenameparts = pathinfo($filename);
+                        $newFilename = $filenameparts['filename'] . $index . '.' . $filenameparts['extension'];
+                    }
+
+                    $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $image['image_url']['url']);
+                    $newFiles[] = [
+                        'id' => $newFile->getId(),
+                        'name' => $newFile->getName(),
+                        'path' => $newFile->getPath(),
+                        'projectId' => $projectId,
+                        'fullPath' => $newFile->getFullPath(),
+                        'size' => $newFile->getSize(),
+                        'base64data' => $image['image_url']['url']
+                    ];
+
+                    $this->logger->info('saveImageFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
+                } catch (\Exception $e) {
+                    $this->logger->error('saveImageFromMessage(): Error creating file: ' . $e->getMessage());
+                }
+            }
+        }
+
+        return $newFiles;
+    }
 }
