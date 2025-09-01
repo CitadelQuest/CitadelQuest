@@ -206,7 +206,7 @@ class CQAIGateway implements AiGatewayInterface
                     $injectedSystemDataItems[] = 
                     "<div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>\n" . 
                         $toolExecutionResult['_frontendData'] . 
-                    "</div>\n";
+                    "</div><!-- injected system FE data end -->\n";
 
                     // remove _frontendData from toolExecutionResult for AI
                     unset($toolExecutionResult['_frontendData']);
@@ -242,13 +242,13 @@ class CQAIGateway implements AiGatewayInterface
             // > Inject system data
             // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
             $responseContent_injectedSystemData = "\n<div data-src='injected system data' data-type='tool_calls_response' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded'>\n" . 
-                                        implode("<br>\n", $injectedSystemDataItems) . 
-                                    "</div>\n";
+                                                        implode("<br>\n", $injectedSystemDataItems) . 
+                                                    "</div><!-- injected system data end -->\n";
 
             // > append after tool call AI response
             $responseContent_after = isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '';
             // TODO: Gemini 2.5 pro (and others too) - sometimes produces same response + tool call / reproduce, debug, fix
-            if ($responseContent_before == $responseContent_after) {
+            if ($responseContent_before == $responseContent_after && $responseContent_before != '') {
                 $responseContent_after = '<br>-+<br>';
             }
 
@@ -270,7 +270,8 @@ class CQAIGateway implements AiGatewayInterface
     {
         $filteredMessages = [];
         // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-        $filterRegex = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>\n/s';
+        $filterRegex = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div><!-- injected system FE data end -->\n/s';
+        $filterRegex_2 = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div><!-- injected system data end -->\n/s';
 
         foreach ($messages as $message) {
             $filteredMessage = $message;
@@ -282,6 +283,7 @@ class CQAIGateway implements AiGatewayInterface
                 // simple string message content
                 if (is_string($filteredContent)) {
                     $filteredContent = preg_replace($filterRegex, '', $filteredContent);
+                    $filteredContent = preg_replace($filterRegex_2, '', $filteredContent);
                     // do not execute next line, it's actually usefull to hallucination detection to keep it (and keep this comment too)
                     //$filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>\n/s', '', $filteredContent);
                     $filteredMessage['content'] = $filteredContent;
@@ -292,6 +294,7 @@ class CQAIGateway implements AiGatewayInterface
                         // we are only interested in text content for now filtering
                         if (isset($filteredContent[$i]['type']) && $filteredContent[$i]['type'] == 'text' && isset($filteredContent[$i]['text'])) {
                             $filteredContent[$i]['text'] = preg_replace($filterRegex, '', $filteredContent[$i]['text']);
+                            $filteredContent[$i]['text'] = preg_replace($filterRegex_2, '', $filteredContent[$i]['text']);
                         }
                     }
                     $filteredMessage['content'] = $filteredContent;
@@ -333,10 +336,10 @@ class CQAIGateway implements AiGatewayInterface
     public function detectAndMarkInjectedSystemDataAsHallucination(string $messageContent): string
     {
         // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div>/s', 
+        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div><!-- injected system FE data end -->/s', 
             '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls frontend data generated)</div>', $messageContent);
         
-        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>/s', 
+        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div><!-- injected system data end -->/s', 
             '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls response generated)</div>', $messageContent);
         
         return $messageContent;

@@ -6,6 +6,8 @@ use App\Service\SettingsService;
 use App\SSE\EventPublisher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
+use Symfony\Component\Routing\RouterInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class AuthenticationSuccessListener implements EventSubscriberInterface
 {
@@ -13,7 +15,8 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     
     public function __construct(
         private readonly SettingsService $settingsService,
-        private readonly EventPublisher $eventPublisher
+        private readonly EventPublisher $eventPublisher,
+        private readonly RouterInterface $router
     ) {}
     
     public static function getSubscribedEvents(): array
@@ -43,5 +46,8 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
         
         // Set the locale in the request (for the current request)
         $request->setLocale($locale);
+
+        // redirect to route name: app_user_settings_ai, to auto-update AI models from CQ AI Gateway
+        $event->setResponse(new RedirectResponse($this->router->generate('app_user_settings_ai')));
     }
 }

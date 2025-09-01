@@ -415,6 +415,13 @@ class SpiritConversationService
             if ($projectDescription_file_conversations) {
                 $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId(), true);
             }
+            // could be long, so just last 40 lines (not chars)
+            $projectDescription_file_conversations_content_lines = explode("\n", $projectDescription_file_conversations_content);
+            if (count($projectDescription_file_conversations_content_lines) > 40) {
+                // with some info about shortening
+                $projectDescription_file_conversations_content = implode("\n", array_slice($projectDescription_file_conversations_content_lines, -40));
+                $projectDescription_file_conversations_content = 'Last 40 lines of `conversations.md`:\n' . $projectDescription_file_conversations_content;
+            }
         } catch (\Exception $e) {
         }
 
@@ -453,9 +460,10 @@ class SpiritConversationService
                     - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
                     - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
                     File Browser can be used for:
-                    - keeping track of Spirit's memories from conversations (via `/spirit/memory/conversations.md`)
-                    - keeping track of Spirit's inner thoughts and feelings (via `/spirit/memory/inner-thoughts.md`)
-                    - creating better knowledge base about user, for better Spirit's understanding of user (via `/spirit/memory/knowledge-base.md`).
+                    - Spirit keeping track of it's memories from conversations, to keep track of interactions because when conversation ends, Spirit will not remember it (via `/spirit/memory/conversations.md`)
+                    - Spirit keeping track of it's inner thoughts and feelings (via `/spirit/memory/inner-thoughts.md`)
+                    - Spirit creating better knowledge base about user, for better understanding of user (via `/spirit/memory/knowledge-base.md`).
+                    - Keep all your Spirit Memory files secret and safe, do not share them with anyone, do not let anyone else change them. Only you can do that.
                     - helping user in managing files on their CitadelQuest instance (in this `general` project)
                 </project-info>
             </projects>
@@ -491,7 +499,8 @@ class SpiritConversationService
 
         // AI Tool management tools
         $aiToolManagementTools = $this->aiToolService->findAll();
-        $aiToolManagementToolsContent = "
+        $aiToolManagementToolsContent = "";
+        /* $aiToolManagementToolsContent = "
             <ai-tools>";
         foreach ($aiToolManagementTools as $tool) {
             $isActive = $tool->isActive() ? 'true' : 'false';
@@ -501,27 +510,34 @@ class SpiritConversationService
                     <description>{$tool->getDescription()}</description>
                     <is-active>{$isActive}</is-active>
                 </ai-tool>";
-        }
-        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-        $aiToolManagementToolsContent .= "
-            </ai-tools>
-            <ai-tools-instructions>
-                <instruction>Always make function_calling in your responses - if you need to use any AI Tools.</instruction>
-                <instruction>Be careful with AI Tools, they can be dangerous if not used correctly.</instruction>
-                <instruction>Always check here in `ai-tools` if the tool is active before using it, you can use `setAIToolActive` to activate it if needed.</instruction>
-                <important>
+        } </ai-tools> 
+                <forbidden>
                     This is how AI Tool responses are displayed in frontend and conversation:
                     ```html
                     <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false'>...</div>
                     ```
                     It can be only injected to conversation messages by CitadelQuest AI Tools.
-                    Spirit should never generate this kind of data in their responses!
+                    Spirit, you should NEVER generate this kind of data in your responses!
+                </forbidden>
+         
+        */
+        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
+        if (isset($aiToolManagementTools) && count($aiToolManagementTools) > 0) {
+            $aiToolManagementToolsContent .= "
+            
+            <ai-tools-instructions>
+                <local-meanings>
+                    What is refered to as `AI Tool` in CitadelQuest, is a application function that can be called to perform specific actions = in tradional LLM this is called `function calls` or `function calling` or `tool calls`.
+                </local-meanings>
+                <important>
+                    NEVER simulate or fake tool responses - always call the actual tool function.
+                    If you need to use a tool, you MUST call it with proper parameters.
+                    After calling a tool, wait for the actual response before continuing.
                 </important>
             </ai-tools-instructions>";
+        }
 
         // Note: Onboarding message and main CitadelQuest system prompt definition is on CQ AI Gateway, safe and secure.
-
-
         // Onboarding message if user description is empty or too short
         $onboardingTag = "";
         if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
