@@ -415,13 +415,7 @@ class SpiritConversationService
             if ($projectDescription_file_conversations) {
                 $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId(), true);
             }
-            // could be long, so just last 40 lines (not chars)
-            $projectDescription_file_conversations_content_lines = explode("\n", $projectDescription_file_conversations_content);
-            if (count($projectDescription_file_conversations_content_lines) > 40) {
-                // with some info about shortening
-                $projectDescription_file_conversations_content = implode("\n", array_slice($projectDescription_file_conversations_content_lines, -40));
-                $projectDescription_file_conversations_content = 'Last 40 lines of `conversations.md`:\n' . $projectDescription_file_conversations_content;
-            }
+            // could be long, so just last 40 lines (not chars) << it's causing problem, needs to be solved in other way
         } catch (\Exception $e) {
         }
 
