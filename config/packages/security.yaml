@@ -31,7 +31,7 @@ security:
         - { path: ^/language, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/site\.webmanifest$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/update-fg, roles: PUBLIC_ACCESS, requires_channel: https }
-        - { path: ^/dev-preview, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/friend-request, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:

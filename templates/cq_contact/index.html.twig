@@ -1,0 +1,364 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'cq_contact.page_title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-panel glass-panel-glow p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h3 mb-0">
+                        <i class="mdi mdi-account-group me-2 text-cyber"></i>
+                        {{ 'cq_contact.page_title'|trans }}
+                    </h1>
+                    <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#addContactModal">
+                        <i class="mdi mdi-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}
+                    </button>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify"></i></span>
+                            <input type="text" id="contactSearch" class="form-control glass-input" placeholder="{{ 'cq_contact.search_placeholder'|trans }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <select id="statusFilter" class="form-select glass-input">
+                            <option value="">{{ 'cq_contact.filter_all'|trans }}</option>
+                            <option value="active">{{ 'cq_contact.filter_active'|trans }}</option>
+                            <option value="pending">{{ 'cq_contact.filter_pending'|trans }}</option>
+                            <option value="rejected">{{ 'cq_contact.filter_rejected'|trans }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="contactsContainer">
+                    <div class="text-center py-5">
+                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                        <p class="mt-2">{{ 'cq_contact.loading'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contact Modal -->
+<div class="modal fade" id="addContactModal" tabindex="-1" aria-labelledby="addContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title" id="addContactModalLabel">{{ 'cq_contact.add_contact'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addContactForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="cqContactUrl" class="form-label">{{ 'cq_contact.url'|trans }}</label>
+                        <input type="url" class="form-control glass-input" id="cqContactUrl" required 
+                               placeholder="https://example.citadelquest.com/username">
+                        <div class="small text-muted ms-2 mt-2">{{ 'cq_contact.url_help'|trans }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">{{ 'cq_contact.description'|trans }}</label>
+                        <textarea class="form-control glass-input" id="description" rows="3" 
+                                  placeholder="{{ 'cq_contact.description_placeholder'|trans }}"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}</button>
+                    <button type="submit" class="btn btn-cyber">
+                        <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.send_friend_request'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Detail Modal -->
+<div class="modal fade" id="contactDetailModal" tabindex="-1" aria-labelledby="contactDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactDetailModalLabel">{{ 'cq_contact.contact_details'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="contactDetailContent">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const contactsContainer = document.getElementById('contactsContainer');
+    const contactSearch = document.getElementById('contactSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const addContactForm = document.getElementById('addContactForm');
+
+    let contacts = [];
+
+    // Load contacts
+    function loadContacts() {
+        fetch('/api/cq-contact')
+            .then(response => response.json())
+            .then(data => {
+                contacts = data;
+                renderContacts();
+            })
+            .catch(error => {
+                console.error('Error loading contacts:', error);
+                contactsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="mdi mdi-alert me-2"></i>{{ 'cq_contact.error_loading'|trans }}
+                    </div>
+                `;
+            });
+    }
+
+    // Render contacts
+    function renderContacts() {
+        const searchTerm = contactSearch.value.toLowerCase();
+        const statusFilterValue = statusFilter.value;
+
+        let filteredContacts = contacts.filter(contact => {
+            const matchesSearch = contact.cqContactUsername.toLowerCase().includes(searchTerm) ||
+                                contact.cqContactDomain.toLowerCase().includes(searchTerm) ||
+                                (contact.description && contact.description.toLowerCase().includes(searchTerm));
+            
+            let matchesStatus = true;
+            if (statusFilterValue === 'active') {
+                matchesStatus = contact.isActive && contact.friendRequestStatus === 'ACCEPTED';
+            } else if (statusFilterValue === 'pending') {
+                matchesStatus = contact.friendRequestStatus === 'SENT' || contact.friendRequestStatus === 'RECEIVED';
+            } else if (statusFilterValue === 'rejected') {
+                matchesStatus = contact.friendRequestStatus === 'REJECTED';
+            }
+
+            return matchesSearch && matchesStatus;
+        });
+
+        if (filteredContacts.length === 0) {
+            contactsContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="mdi mdi-account-off text-muted fs-2"></i>
+                    <p class="mt-2 text-muted">{{ 'cq_contact.no_contacts'|trans }}</p>
+                </div>
+            `;
+            return;
+        }
+
+        const contactsHtml = filteredContacts.map(contact => {
+            const statusBadge = getStatusBadge(contact.friendRequestStatus, contact.isActive);
+            return `
+                <div class="card glass-panel mb-3 contact-card" data-contact-id="${contact.id}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-1">
+                                    <i class="mdi mdi-account me-2"></i>
+                                    ${contact.cqContactUsername}@${contact.cqContactDomain}
+                                </h6>
+                                <p class="card-text text-muted small mb-2">
+                                    <i class="mdi mdi-web me-1"></i>
+                                    ${contact.cqContactUrl}
+                                </p>
+                                ${contact.description ? `<p class="card-text text-muted small">${contact.description}</p>` : ''}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                ${statusBadge}
+                                <div class="btn-group mt-2" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-light view-contact" 
+                            data-contact-id="${contact.id}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#contactDetailModal">
+                        <i class="mdi mdi-eye"></i>
+                    </button>
+                                    ${getActionButtons(contact)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        contactsContainer.innerHTML = contactsHtml;
+
+        // Add event listeners for view contact buttons
+        document.querySelectorAll('.view-contact').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const contactId = e.target.closest('.view-contact').dataset.contactId;
+                showContactDetail(contactId);
+            });
+        });
+
+        document.querySelectorAll('.accept-request').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const contactId = e.target.closest('.accept-request').dataset.contactId;
+                handleFriendRequest(contactId, 'ACCEPTED');
+            });
+        });
+
+        document.querySelectorAll('.reject-request').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const contactId = e.target.closest('.reject-request').dataset.contactId;
+                handleFriendRequest(contactId, 'REJECTED');
+            });
+        });
+    }
+
+    function getStatusBadge(status, isActive) {
+        if (status === 'ACCEPTED' && isActive) {
+            return '<span class="badge bg-success"><i class="mdi mdi-check me-1"></i>{{ "cq_contact.status_active"|trans }}</span>';
+        } else if (status === 'SENT') {
+            return '<span class="badge bg-warning"><i class="mdi mdi-clock me-1"></i>{{ "cq_contact.status_sent"|trans }}</span>';
+        } else if (status === 'RECEIVED') {
+            return '<span class="badge bg-info"><i class="mdi mdi-inbox me-1"></i>{{ "cq_contact.status_received"|trans }}</span>';
+        } else if (status === 'REJECTED') {
+            return '<span class="badge bg-danger"><i class="mdi mdi-close me-1"></i>{{ "cq_contact.status_rejected"|trans }}</span>';
+        }
+        return '<span class="badge bg-secondary">{{ "cq_contact.status_unknown"|trans }}</span>';
+    }
+
+    function getActionButtons(contact) {
+        if (contact.friendRequestStatus === 'RECEIVED') {
+            return `
+                <button type="button" class="btn btn-sm btn-success accept-request" data-contact-id="${contact.id}">
+                    <i class="mdi mdi-check"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-danger reject-request" data-contact-id="${contact.id}">
+                    <i class="mdi mdi-close"></i>
+                </button>
+            `;
+        }
+        return '';
+    }
+
+    function showContactDetail(contactId) {
+        const contact = contacts.find(c => c.id === contactId);
+        if (!contact) return;
+
+        document.getElementById('contactDetailContent').innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>{{ 'cq_contact.contact_info'|trans }}</h6>
+                    <p><strong>{{ 'cq_contact.username'|trans }}:</strong> ${contact.cqContactUsername}</p>
+                    <p><strong>{{ 'cq_contact.domain'|trans }}:</strong> ${contact.cqContactDomain}</p>
+                    <p><strong>{{ 'cq_contact.url'|trans }}:</strong> <a href="https://${contact.cqContactUrl}" target="_blank">${contact.cqContactUrl}</a></p>
+                    <p><strong>{{ 'cq_contact.status'|trans }}:</strong> ${getStatusBadge(contact.friendRequestStatus, contact.isActive)}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>{{ 'cq_contact.additional_info'|trans }}</h6>
+                    <p><strong>{{ 'cq_contact.description'|trans }}:</strong> ${contact.description || '{{ "ui.none"|trans }}'}</p>
+                    <p><strong>{{ 'cq_contact.created_at'|trans }}:</strong> ${new Date(contact.createdAt).toLocaleString()}</p>
+                    <p><strong>{{ 'cq_contact.updated_at'|trans }}:</strong> ${new Date(contact.updatedAt).toLocaleString()}</p>
+                </div>
+            </div>
+        `;
+
+        // Modal will be triggered by the data-bs-toggle attribute on the button
+    }
+
+    function handleFriendRequest(contactId, status) {
+        fetch(`/api/cq-contact/${contactId}/friend-request`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                friendRequestStatus: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.toast.success('{{ "cq_contact.friend_request_updated"|trans }}');
+                loadContacts();
+            } else {
+                window.toast.error(data.message || '{{ "cq_contact.error_updating"|trans }}');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating friend request:', error);
+            window.toast.error('{{ "cq_contact.error_updating"|trans }}');
+        });
+    }
+
+    // Add contact form submission
+    addContactForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const url = document.getElementById('cqContactUrl').value;
+        const description = document.getElementById('description').value;
+        
+        // Parse URL to extract domain and username
+        try {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split('/').filter(p => p);
+            const username = pathParts[pathParts.length - 1];
+            const domain = urlObj.hostname;
+            
+            fetch('/api/cq-contact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cqContactUrl: `https://${domain}/${username}`,
+                    cqContactDomain: domain,
+                    cqContactUsername: username,
+                    description: description,
+                    //friendRequestStatus: 'SENT'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.id) {
+                    // Send friend request
+                    return fetch(`/api/cq-contact/${data.id}/friend-request`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            friendRequestStatus: 'SENT'
+                        })
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to create contact');
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.toast.success('{{ "cq_contact.friend_request_sent"|trans }}');
+                    document.getElementById('addContactModal').querySelector('[data-bs-dismiss="modal"]').click();
+                    addContactForm.reset();
+                    loadContacts();
+                } else {
+                    window.toast.error(data.message || '{{ "cq_contact.error_sending"|trans }}');
+                }
+            })
+            .catch(error => {
+                console.error('Error adding contact:', error);
+                window.toast.error(error.message || '{{ "cq_contact.error_adding"|trans }}');
+            });
+        } catch (error) {
+            window.toast.error('{{ "cq_contact.invalid_url"|trans }}');
+        }
+    });
+
+    // Search and filter event listeners
+    contactSearch.addEventListener('input', renderContacts);
+    statusFilter.addEventListener('change', renderContacts);
+
+    // Initial load
+    loadContacts();
+});
+</script>
+{% endblock %}

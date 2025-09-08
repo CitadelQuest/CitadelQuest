@@ -369,7 +369,9 @@ ui:
     delete: 'Smazat'
     update: 'Aktualizovat'
     edit: 'Upravit'
-    loading: 'Načítám...' 
+    loading: 'Načítám...'
+    view: 'Zobrazit'
+    none: 'Žádný' 
 
 file_browser:
     page_title: 'Správce souborů'
@@ -416,3 +418,47 @@ file_browser:
     drag_files: 'Přetáhněte soubory sem'
     or: 'nebo'
     browse_files: 'Procházet soubory'
+
+cq_contact:
+    page_title: 'CitadelQuest Kontakty'
+    add_contact: 'Přidat kontakt'
+    search_placeholder: 'Hledat kontakty...'
+    filter_all: 'Všechny kontakty'
+    filter_active: 'Aktivní kontakty'
+    filter_pending: 'Čekající žádosti'
+    filter_rejected: 'Zamítnuté žádosti'
+    loading: 'Načítám kontakty...'
+    no_contacts: 'Žádné kontakty nenalezeny'
+    error_loading: 'Chyba při načítání kontaktů'
+    
+    # Contact form
+    url: 'URL kontaktu'
+    url_help: 'Úplná URL adresa kontaktu (např. example.citadelquest.com/username)'
+    description: 'Popis'
+    description_placeholder: 'Volitelný popis nebo poznámka o tomto kontaktu'
+    send_friend_request: 'Poslat žádost o přátelství'
+    
+    # Contact details
+    contact_details: 'Detaily kontaktu'
+    contact_info: 'Informace o kontaktu'
+    username: 'Uživatelské jméno'
+    domain: 'Doména'
+    status: 'Stav'
+    additional_info: 'Dodatečné informace'
+    created_at: 'Vytvořeno'
+    updated_at: 'Aktualizováno'
+    
+    # Status labels
+    status_active: 'Aktivní'
+    status_sent: 'Žádost odeslána'
+    status_received: 'Žádost přijata'
+    status_rejected: 'Zamítnuto'
+    status_unknown: 'Neznámý'
+    
+    # Messages
+    friend_request_sent: 'Žádost o přátelství úspěšně odeslána'
+    friend_request_updated: 'Stav žádosti o přátelství aktualizován'
+    error_sending: 'Chyba při odesílání žádosti o přátelství'
+    error_updating: 'Chyba při aktualizaci žádosti o přátelství'
+    error_adding: 'Chyba při přidávání kontaktu'
+    invalid_url: 'Neplatný formát URL'

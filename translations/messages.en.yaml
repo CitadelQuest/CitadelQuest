@@ -377,6 +377,8 @@ ui:
     update: 'Update'
     edit: 'Edit'
     loading: 'Loading...'
+    view: 'View'
+    none: 'None'
 
 file_browser:
     page_title: 'File Browser'
@@ -423,3 +425,47 @@ file_browser:
     drag_files: 'Drag files here'
     or: 'or'
     browse_files: 'Browse files'
+
+cq_contact:
+    page_title: 'CitadelQuest Contacts'
+    add_contact: 'Add Contact'
+    search_placeholder: 'Search contacts...'
+    filter_all: 'All contacts'
+    filter_active: 'Active contacts'
+    filter_pending: 'Pending requests'
+    filter_rejected: 'Rejected requests'
+    loading: 'Loading contacts...'
+    no_contacts: 'No contacts found'
+    error_loading: 'Error loading contacts'
+    
+    # Contact form
+    url: 'Contact URL'
+    url_help: 'Full URL to the contact (e.g., example.citadelquest.com/username)'
+    description: 'Description'
+    description_placeholder: 'Optional description or note about this contact'
+    send_friend_request: 'Send Friend Request'
+    
+    # Contact details
+    contact_details: 'Contact Details'
+    contact_info: 'Contact Information'
+    username: 'Username'
+    domain: 'Domain'
+    status: 'Status'
+    additional_info: 'Additional Information'
+    created_at: 'Created'
+    updated_at: 'Updated'
+    
+    # Status labels
+    status_active: 'Active'
+    status_sent: 'Request Sent'
+    status_received: 'Request Received'
+    status_rejected: 'Rejected'
+    status_unknown: 'Unknown'
+    
+    # Messages
+    friend_request_sent: 'Friend request sent successfully'
+    friend_request_updated: 'Friend request status updated'
+    error_sending: 'Error sending friend request'
+    error_updating: 'Error updating friend request'
+    error_adding: 'Error adding contact'
+    invalid_url: 'Invalid URL format'
