@@ -1,0 +1,335 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'cq_chat.page_title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-panel glass-panel-glow p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h3 mb-0">
+                        <i class="mdi mdi-chat me-2 text-cyber"></i>
+                        {{ 'cq_chat.page_title'|trans }}
+                    </h1>
+                    <div class="dropdown">
+                        <button class="btn btn-cyber dropdown-toggle" type="button" id="contactDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="mdi mdi-message-plus me-2"></i><span class="d-none d-md-inline">{{ 'cq_chat.message_contact'|trans }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" id="contactDropdownMenu" aria-labelledby="contactDropdown">
+                            <li class="dropdown-item text-center text-muted small">{{ 'cq_chat.loading_contacts'|trans }}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="input-group">
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify"></i></span>
+                            <input type="text" id="chatSearch" class="form-control glass-input" placeholder="{{ 'cq_chat.search_placeholder'|trans }}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <select id="chatFilter" class="form-select glass-input">
+                            <option value="">{{ 'cq_chat.filter_all'|trans }}</option>
+                            <option value="starred">{{ 'cq_chat.filter_starred'|trans }}</option>
+                            <option value="pinned">{{ 'cq_chat.filter_pinned'|trans }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="chatsContainer">
+                    <div class="text-center py-5">
+                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                        <p class="mt-2">{{ 'cq_chat.loading'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- No modal needed for direct messaging -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatsContainer = document.getElementById('chatsContainer');
+    const chatSearch = document.getElementById('chatSearch');
+    const chatFilter = document.getElementById('chatFilter');
+
+    let chats = [];
+    let contacts = [];
+
+    // Load chats
+    function loadChats() {
+        fetch('/api/cq-chat')
+            .then(response => response.json())
+            .then(data => {
+                chats = data;
+                renderChats();
+            })
+            .catch(error => {
+                console.error('Error loading chats:', error);
+                chatsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="mdi mdi-alert me-2"></i>{{ 'cq_chat.error_loading'|trans }}
+                    </div>
+                `;
+            });
+    }
+
+    // Load contacts for direct messaging
+    function loadContacts() {
+        const contactDropdownMenu = document.getElementById('contactDropdownMenu');
+        
+        fetch('/api/cq-contact')
+            .then(response => response.json())
+            .then(data => {
+                contacts = data.filter(contact => 
+                    contact.isActive && contact.friendRequestStatus === 'ACCEPTED'
+                );
+                
+                if (contacts.length === 0) {
+                    contactDropdownMenu.innerHTML = `<li class="dropdown-item text-center text-muted small">{{ 'cq_chat.no_contacts'|trans }}</li>`;
+                    return;
+                }
+                
+                // Populate contact dropdown
+                contactDropdownMenu.innerHTML = '';
+                contacts.forEach(contact => {
+                    const contactItem = document.createElement('li');
+                    contactItem.innerHTML = `<a class="dropdown-item" href="#" data-contact-id="${contact.id}">
+                        <i class="mdi mdi-account me-2"></i>${contact.cqContactUsername}@${contact.cqContactDomain}
+                    </a>`;
+                    contactDropdownMenu.appendChild(contactItem);
+                    
+                    // Add click event to start chat
+                    contactItem.querySelector('a').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        startChatWithContact(contact.id);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('Error loading contacts:', error);
+                contactDropdownMenu.innerHTML = `<li class="dropdown-item text-center text-danger">{{ 'cq_chat.error_loading_contacts'|trans }}</li>`;
+            });
+    }
+    
+    // Start chat with contact
+    function startChatWithContact(contactId) {
+        // Redirect to a new URL that will auto-create the chat
+        window.location.href = `/cq-chat/contact/${contactId}`;
+    }
+
+    // Render chats
+    function renderChats() {
+        const searchTerm = chatSearch.value.toLowerCase();
+        const filterValue = chatFilter.value;
+
+        let filteredChats = chats.filter(chat => {
+            const matchesSearch = chat.title.toLowerCase().includes(searchTerm) || 
+                                 (chat.summary && chat.summary.toLowerCase().includes(searchTerm));
+            
+            let matchesFilter = true;
+            if (filterValue === 'starred') {
+                matchesFilter = chat.isStar;
+            } else if (filterValue === 'pinned') {
+                matchesFilter = chat.isPin;
+            }
+
+            return matchesSearch && matchesFilter;
+        });
+
+        if (filteredChats.length === 0) {
+            chatsContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="mdi mdi-chat-remove text-muted fs-2"></i>
+                    <p class="mt-2 text-muted">{{ 'cq_chat.no_chats'|trans }}</p>
+                </div>
+            `;
+            return;
+        }
+
+        const chatsHtml = filteredChats.map(chat => {
+            const statusIcons = [];
+            if (chat.isStar) statusIcons.push('<i class="mdi mdi-star text-warning" title="{{ "cq_chat.starred"|trans }}"></i>');
+            if (chat.isPin) statusIcons.push('<i class="mdi mdi-pin text-info" title="{{ "cq_chat.pinned"|trans }}"></i>');
+            if (chat.isMute) statusIcons.push('<i class="mdi mdi-volume-off text-secondary" title="{{ "cq_chat.muted"|trans }}"></i>');
+            
+            return `
+                <div class="card glass-panel mb-3 chat-card ${chat.isPin ? 'border-info' : ''}" data-chat-id="${chat.id}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-1">
+                                    <i class="mdi mdi-chat me-2"></i>
+                                    ${chat.title}
+                                    ${statusIcons.join(' ')}
+                                </h6>
+                                ${chat.summary ? `<p class="card-text text-muted small mb-2">${chat.summary}</p>` : ''}
+                                <p class="card-text text-muted small mb-2">
+                                    <i class="mdi mdi-clock-outline me-1"></i>
+                                    ${new Date(chat.updatedAt).toLocaleString()}
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <a href="/cq-chat/${chat.id}" class="btn btn-sm btn-cyber">
+                                        <i class="mdi mdi-message-text me-1"></i> {{ 'ui.view'|trans }}
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="mdi mdi-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item toggle-star" data-chat-id="${chat.id}">
+                                            <i class="mdi ${chat.isStar ? 'mdi-star-off' : 'mdi-star'} me-2"></i>
+                                            ${chat.isStar ? '{{ "cq_chat.unstar"|trans }}' : '{{ "cq_chat.star"|trans }}'}
+                                        </button></li>
+                                        <li><button class="dropdown-item toggle-pin" data-chat-id="${chat.id}">
+                                            <i class="mdi ${chat.isPin ? 'mdi-pin-off' : 'mdi-pin'} me-2"></i>
+                                            ${chat.isPin ? '{{ "cq_chat.unpin"|trans }}' : '{{ "cq_chat.pin"|trans }}'}
+                                        </button></li>
+                                        <li><button class="dropdown-item toggle-mute" data-chat-id="${chat.id}">
+                                            <i class="mdi ${chat.isMute ? 'mdi-volume-high' : 'mdi-volume-off'} me-2"></i>
+                                            ${chat.isMute ? '{{ "cq_chat.unmute"|trans }}' : '{{ "cq_chat.mute"|trans }}'}
+                                        </button></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><button class="dropdown-item text-danger delete-chat" data-chat-id="${chat.id}">
+                                            <i class="mdi mdi-delete me-2"></i>{{ "ui.delete"|trans }}
+                                        </button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        chatsContainer.innerHTML = chatsHtml;
+
+        // Add event listeners
+        document.querySelectorAll('.toggle-star').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chatId = e.target.closest('.toggle-star').dataset.chatId;
+                toggleChatStar(chatId);
+            });
+        });
+
+        document.querySelectorAll('.toggle-pin').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chatId = e.target.closest('.toggle-pin').dataset.chatId;
+                toggleChatPin(chatId);
+            });
+        });
+
+        document.querySelectorAll('.toggle-mute').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chatId = e.target.closest('.toggle-mute').dataset.chatId;
+                toggleChatMute(chatId);
+            });
+        });
+
+        document.querySelectorAll('.delete-chat').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chatId = e.target.closest('.delete-chat').dataset.chatId;
+                if (confirm('{{ "cq_chat.confirm_delete"|trans }}')) {
+                    deleteChat(chatId);
+                }
+            });
+        });
+    }
+
+    // Toggle star status
+    function toggleChatStar(chatId) {
+        fetch(`/api/cq-chat/${chatId}/toggle-star`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                loadChats();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling star:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    }
+
+    // Toggle pin status
+    function toggleChatPin(chatId) {
+        fetch(`/api/cq-chat/${chatId}/toggle-pin`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                loadChats();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling pin:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    }
+
+    // Toggle mute status
+    function toggleChatMute(chatId) {
+        fetch(`/api/cq-chat/${chatId}/toggle-mute`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                loadChats();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling mute:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    }
+
+    // Delete chat
+    function deleteChat(chatId) {
+        fetch(`/api/cq-chat/${chatId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                loadChats();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting chat:', error);
+            window.toast.error('{{ "cq_chat.error_deleting"|trans }}');
+        });
+    }
+
+    // No create new chat code needed - using direct messaging instead
+
+    // Search and filter event listeners
+    chatSearch.addEventListener('input', renderChats);
+    chatFilter.addEventListener('change', renderChats);
+
+    // Initial load
+    loadChats();
+    loadContacts();
+});
+</script>
+{% endblock %}

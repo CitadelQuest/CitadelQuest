@@ -499,3 +499,72 @@ input[type="range"].form-range-input,
 {
     box-shadow: none;
 }
+
+// from _navigation.scss, we need this here too, but will refactor in future
+.nav-link {
+    color: colors.$text-light;
+    position: relative;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 1rem;
+        right: 1rem;
+        height: 2px;
+        background: colors.$cyber;
+        transform: scaleX(0);
+        transition: transform vars.$duration-smooth vars.$ease-smooth;
+    }
+    
+    // Desktop hover
+    @media (hover: hover) {
+        &:hover {
+            color: colors.$cyber;
+            background: transparent;
+            
+            &::after {
+                transform: scaleX(1);
+            }
+        }
+    }
+    
+    // Active state (both desktop and mobile)
+    &.active,
+    &[aria-expanded="true"] {
+        color: colors.$cyber;
+        background: transparent;
+        
+        &::after {
+            transform: scaleX(1);
+        }
+    }
+    
+    // Reset color when dropdown is closed
+    &[aria-expanded="false"] {
+        color: colors.$text-light;
+        
+        &::after {
+            transform: scaleX(0);
+        }
+    }
+}
+.dropdown-menu {
+    background: rgba(colors.$dark, 1);
+    border: none;
+    box-shadow: 0 0 2rem rgba(colors.$cyber, 0.2);
+    
+    .dropdown-item {
+        color: colors.$text-light;
+        &:hover, &.active {
+            background: transparent;
+            color: colors.$cyber !important;
+        }
+    }
+    
+    .dropdown-divider {
+        border-color: rgba(colors.$cyber, 0.2);
+    }
+}

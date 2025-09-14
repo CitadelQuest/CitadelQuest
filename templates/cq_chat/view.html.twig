@@ -1,0 +1,434 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ chat.title }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Chat sidebar -->
+        <div class="col-md-3" style="z-index: 1020;">
+            <div class="glass-panel p-3 mb-3" style="overflow-wrap: anywhere;">
+                <div class="d-flex justify-content-end align-items-center mb-2">
+                    {# <h5 class="mb-0">
+                        <i class="mdi mdi-chat me-2 text-cyber"></i>
+                        {{ chat.title }}
+                    </h5> #}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary_ border-0 text-cyber position-absolute top-0 end-0" style="padding: 0rem !important;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="mdi mdi-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-center">
+                            <li><a class="dropdown-item" href="{{ path('app_cq_chat_index') }}">
+                                <i class="mdi mdi-arrow-left me-2"></i>{{ 'cq_chat.back_to_chats'|trans }}
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item toggle-star" data-chat-id="{{ chat.id }}">
+                                <i class="mdi {% if chat.isStar %}mdi-star-off{% else %}mdi-star{% endif %} me-2"></i>
+                                {% if chat.isStar %}{{ 'cq_chat.unstar'|trans }}{% else %}{{ 'cq_chat.star'|trans }}{% endif %}
+                            </button></li>
+                            <li><button class="dropdown-item toggle-pin" data-chat-id="{{ chat.id }}">
+                                <i class="mdi {% if chat.isPin %}mdi-pin-off{% else %}mdi-pin{% endif %} me-2"></i>
+                                {% if chat.isPin %}{{ 'cq_chat.unpin'|trans }}{% else %}{{ 'cq_chat.pin'|trans }}{% endif %}
+                            </button></li>
+                            <li><button class="dropdown-item toggle-mute" data-chat-id="{{ chat.id }}">
+                                <i class="mdi {% if chat.isMute %}mdi-volume-high{% else %}mdi-volume-off{% endif %} me-2"></i>
+                                {% if chat.isMute %}{{ 'cq_chat.unmute'|trans }}{% else %}{{ 'cq_chat.mute'|trans }}{% endif %}
+                            </button></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item text-danger delete-chat" data-chat-id="{{ chat.id }}">
+                                <i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}
+                            </button></li>
+                        </ul>
+                    </div>
+                </div>
+
+                {% if contact %}
+                <div class="contact-info mb-3">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="avatar-container me-2">
+                            <div class="avatar bg-cyber-g rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <i class="mdi mdi-account fs-4"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">{{ contact.cqContactUsername }}</h6>
+                            <small class="text-muted">{{ contact.cqContactDomain }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if chat.summary %}
+                <div class="chat-summary mb-3">
+                    <h6>{{ 'cq_chat.summary'|trans }}</h6>
+                    <p class="small text-muted">{{ chat.summary }}</p>
+                </div>
+                {% endif %}
+
+                <div class="chat-info">
+                    <div class="d-flex justify-content-between mb-1 flex-column">
+                        <span class="text-muted small">{{ 'cq_chat.created_at'|trans }}:</span>
+                        <span class="small">{{ chat.createdAt|date('Y-m-d H:i') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between flex-column">
+                        <span class="text-muted small">{{ 'cq_chat.updated_at'|trans }}:</span>
+                        <span class="small">{{ chat.updatedAt|date('Y-m-d H:i') }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat main area -->
+        <div class="col-md-9">
+            <div class="glass-panel p-3 mb-3 d-flex flex-column" _style="height: calc(100vh - 120px);">
+                <!-- Chat messages area -->
+                <div id="cqChatMessages" class="flex-grow-1 overflow-auto mb-3" style="min-height: 200px;">
+                    <div class="text-center py-5">
+                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                        <p class="mt-2">{{ 'cq_chat.loading_messages'|trans }}</p>
+                    </div>
+                </div>
+
+                <!-- Message input area -->
+                <div class="message-input-area">
+                    <form id="cqMessageForm" class="d-flex">
+                        <div class="flex-grow-1 me-2">
+                            <textarea id="messageContent" class="form-control glass-input" rows="2" 
+                                      placeholder="{{ 'cq_chat.type_message'|trans }}" required></textarea>
+                        </div>
+                        <div class="d-flex flex-column">
+                            <button type="submit" class="btn btn-cyber h-100">
+                                <i class="mdi mdi-send"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatId = '{{ chat.id }}';
+    const cqChatMessages = document.getElementById('cqChatMessages');
+    const cqMessageForm = document.getElementById('cqMessageForm');
+    const messageContent = document.getElementById('messageContent');
+    
+    let messages = [];
+    let lastMessageTime = null;
+    let pollingInterval = null;
+
+    // Load messages
+    function loadMessages(scrollToBottom = true) {
+        fetch(`/api/cq-chat/${chatId}/messages`)
+            .then(response => response.json())
+            .then(data => {
+                messages = data.messages || [];
+                renderMessages(scrollToBottom);
+                
+                // Update last message time for polling
+                if (messages.length > 0) {
+                    const latestMessage = messages.reduce((latest, message) => {
+                        const messageDate = new Date(message.createdAt || message.created_at);
+                        const latestDate = new Date(latest.createdAt || latest.created_at);
+                        return messageDate > latestDate ? message : latest;
+                    }, messages[0]);
+                    
+                    lastMessageTime = new Date(latestMessage.createdAt || latestMessage.created_at);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading messages:', error);
+                cqChatMessages.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="mdi mdi-alert me-2"></i>{{ 'cq_chat.error_loading_messages'|trans }}
+                    </div>
+                `;
+            });
+    }
+
+    // Render messages
+    function renderMessages(scrollToBottom = false) {
+        if (!messages || messages.length === 0) {
+            cqChatMessages.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="mdi mdi-chat-outline text-muted fs-2"></i>
+                    <p class="mt-2 text-muted">{{ 'cq_chat.no_messages'|trans }}</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort messages by creation time
+        messages.sort((a, b) => new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+
+        const messagesHtml = messages.map(message => {
+            // Handle different property naming conventions
+            const content = message.content || '';
+            const id = message.id || '';
+            const createdAt = message.createdAt || message.created_at || new Date().toISOString();
+            const contactId = message.cqContactId || message.cq_contact_id;
+            const status = message.status || 'SENT';
+            
+            const isOutgoing = status === 'DELIVERED';
+            let messageClass = isOutgoing ? 'outgoing' : 'incoming';
+            let messageAlign = isOutgoing ? 'align-self-end' : 'align-self-start';
+            let messageBg = isOutgoing ? 'bg-cyber-g' : 'glass-panel';
+            let messageTime = new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            let statusIcon = '';
+            if (isOutgoing) {
+                if (status === 'DELIVERED') {
+                    statusIcon = '<i class="mdi mdi-check-all text-cyber ms-1" title="{{ "cq_chat.delivered"|trans }}"></i>';
+                } else if (status === 'SENT') {
+                    statusIcon = '<i class="mdi mdi-check text-muted ms-1" title="{{ "cq_chat.sent"|trans }}"></i>';
+                } else if (status === 'FAILED') {
+                    statusIcon = '<i class="mdi mdi-alert-circle text-danger ms-1" title="{{ "cq_chat.failed"|trans }}"></i>';
+                }
+            }
+            
+            // Use Spirit Chat styling
+            messageClass = isOutgoing ? 'chat-message-user' : 'chat-message-assistant';
+            const nameDisplay = isOutgoing 
+                ? '<div class="text-end"><small class="text-cyber">{{ app.user.username }}</small></div>' 
+                : '<div><small class="text-cyber">{{ contact.cqContactUsername ?? "Contact" }}</small></div>';
+            
+            let returnHtml = '<div class="chat-message ' + messageClass + '" data-message-id="' + id + '">';
+            returnHtml += '<div class="chat-bubble">';
+            returnHtml += nameDisplay;
+            returnHtml += '<div class="chat-content">' + content + '</div>';
+            returnHtml += '<div class="chat-timestamp">' + messageTime;
+            if (isOutgoing && statusIcon) {
+                returnHtml += ' ' + statusIcon;
+            }
+            returnHtml += '</div>';
+            returnHtml += '</div>';
+            returnHtml += '</div>';
+            return returnHtml;
+        }).join('');
+
+        cqChatMessages.innerHTML = messagesHtml;
+        
+        // Scroll to bottom if requested
+        if (scrollToBottom) {
+            cqChatMessages.scrollTop = cqChatMessages.scrollHeight;
+        }
+    }
+
+    // Send message
+    cqMessageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const content = messageContent.value.trim();
+        if (!content) return;
+        
+        // Disable form while sending
+        const submitButton = cqMessageForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        
+        fetch(`/api/cq-chat/${chatId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: content
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear input
+                messageContent.value = '';
+                
+                // Reload messages
+                loadMessages(true);
+            } else {
+                window.toast.error(data.error || '{{ "cq_chat.error_sending"|trans }}');
+            }
+        })
+        .catch(error => {
+            console.error('Error sending message:', error);
+            window.toast.error('{{ "cq_chat.error_sending"|trans }}');
+        })
+        .finally(() => {
+            // Re-enable form
+            submitButton.disabled = false;
+        });
+    });
+
+    // Toggle star status
+    document.querySelector('.toggle-star').addEventListener('click', function() {
+        fetch(`/api/cq-chat/${chatId}/toggle-star`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                window.location.reload();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling star:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    });
+
+    // Toggle pin status
+    document.querySelector('.toggle-pin').addEventListener('click', function() {
+        fetch(`/api/cq-chat/${chatId}/toggle-pin`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                window.location.reload();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling pin:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    });
+
+    // Toggle mute status
+    document.querySelector('.toggle-mute').addEventListener('click', function() {
+        fetch(`/api/cq-chat/${chatId}/toggle-mute`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                window.toast.success(data.message);
+                window.location.reload();
+            } else if (data.error) {
+                window.toast.error(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling mute:', error);
+            window.toast.error('{{ "cq_chat.error_updating"|trans }}');
+        });
+    });
+
+    // Delete chat
+    document.querySelector('.delete-chat').addEventListener('click', function() {
+        if (confirm('{{ "cq_chat.confirm_delete"|trans }}')) {
+            fetch(`/api/cq-chat/${chatId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    window.toast.success(data.message);
+                    window.location.href = '{{ path("app_cq_chat_index") }}';
+                } else if (data.error) {
+                    window.toast.error(data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting chat:', error);
+                window.toast.error('{{ "cq_chat.error_deleting"|trans }}');
+            });
+        }
+    });
+
+    // Setup polling for new messages
+    function setupPolling() {
+        // Clear any existing interval
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+        
+        // Poll every 4 seconds
+        pollingInterval = setInterval(() => {
+            loadMessages(false);
+        }, 4000);
+    }
+
+    // Initial load
+    loadMessages(true);
+    setupPolling();
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+    });
+});
+</script>
+
+<style>
+/* Chat styling based on Spirit Chat */
+.chat-messages {
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.chat-message {
+    margin-bottom: 1rem;
+    display: flex;
+}
+
+.chat-message.chat-message-user {
+    justify-content: flex-end;
+}
+
+.chat-message.chat-message-user .chat-bubble {
+    background-color: rgba(149, 236, 134, 0.3);
+    border-radius: 1rem 1rem 0 1rem;
+}
+
+.chat-message.chat-message-assistant {
+    justify-content: flex-start;
+}
+
+.chat-message.chat-message-assistant .chat-bubble {
+    background-color: rgba(33, 37, 41, 0.5);
+    border-radius: 1rem 1rem 1rem 0;
+}
+
+.chat-bubble {
+    max-width: 90%;
+    padding: 0.75rem 1rem;
+    position: relative;
+}
+
+.chat-content {
+    word-break: break-word;
+}
+
+.chat-timestamp {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    text-align: right;
+    margin-top: 0.25rem;
+}
+
+/* Scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 170, 0.3);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 170, 0.5);
+}
+</style>
+{% endblock %}

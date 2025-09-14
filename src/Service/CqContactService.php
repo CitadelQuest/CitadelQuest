@@ -138,6 +138,21 @@ class CqContactService
         return CqContact::fromArray($result);
     }
 
+    public function findByApiKey(string $apiKey): ?CqContact
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM cq_contact WHERE cq_contact_api_key = ? AND is_active = 1',
+            [$apiKey]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return CqContact::fromArray($result);
+    }
+
     public function findByDomain(string $domain): array
     {
         $userDb = $this->getUserDb();

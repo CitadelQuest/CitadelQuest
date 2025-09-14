@@ -463,3 +463,62 @@ cq_contact:
     error_updating: 'Chyba pri aktualizácii žiadosti o priateľstvo'
     error_adding: 'Chyba pri pridávaní kontaktu'
     invalid_url: 'Neplatný formát URL'
+
+cq_chat:
+    page_title: 'CitadelQuest Chat'
+    new_chat: 'Nový chat'
+    message_contact: 'Napísať kontaktu'
+    search_placeholder: 'Hľadať chaty...'
+    filter_all: 'Všetky chaty'
+    filter_starred: 'Označené hviezdičkou'
+    filter_pinned: 'Pripnuté chaty'
+    loading: 'Načítavam chaty...'
+    loading_contacts: 'Načítavam kontakty...'
+    no_chats: 'Žiadne chaty nenájdené'
+    no_contacts: 'Žiadne kontakty nenájdené'
+    error_loading: 'Chyba pri načítavaní chatov'
+    error_loading_contacts: 'Chyba pri načítavaní kontaktov'
+    
+    # Chat form
+    title: 'Názov'
+    summary: 'Zhrnutie'
+    select_contact: 'Vyberte kontakt'
+    select_contact_placeholder: 'Vyberte kontakt pre chat'
+    select_contact_required: 'Prosím vyberte kontakt'
+    create_chat: 'Vytvoriť chat'
+    
+    # Chat details
+    chat_details: 'Detaily chatu'
+    chat_info: 'Informácie o chate'
+    back_to_chats: 'Späť na chaty'
+    created_at: 'Vytvorené'
+    updated_at: 'Aktualizované'
+    
+    # Chat status
+    starred: 'Označené hviezdičkou'
+    pinned: 'Pripnuté'
+    muted: 'Stlmené'
+    star: 'Označiť hviezdičkou'
+    unstar: 'Odstrániť hviezdičku'
+    pin: 'Pripnúť'
+    unpin: 'Odopnúť'
+    mute: 'Stlmiť'
+    unmute: 'Zrušiť stlmenie'
+    
+    # Messages
+    loading_messages: 'Načítavam správy...'
+    no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu!'
+    type_message: 'Napíšte vašu správu...'
+    error_loading_messages: 'Chyba pri načítavaní správ'
+    error_sending: 'Chyba pri odosielaní správy'
+    error_updating: 'Chyba pri aktualizácii chatu'
+    error_creating: 'Chyba pri vytváraní chatu'
+    error_deleting: 'Chyba pri mazaní chatu'
+    chat_created: 'Chat úspešne vytvorený'
+    confirm_delete: 'Naozaj chcete zmazať tento chat? Všetky správy budú natrvalo odstránené.'
+    
+    # Message status
+    sent: 'Odoslané'
+    delivered: 'Doručené'
+    read: 'Prečítané'
+    failed: 'Nepodarilo sa odoslať'

@@ -469,3 +469,62 @@ cq_contact:
     error_updating: 'Error updating friend request'
     error_adding: 'Error adding contact'
     invalid_url: 'Invalid URL format'
+
+cq_chat:
+    page_title: 'CitadelQuest Chat'
+    new_chat: 'New Chat'
+    message_contact: 'Message Contact'
+    search_placeholder: 'Search chats...'
+    filter_all: 'All chats'
+    filter_starred: 'Starred chats'
+    filter_pinned: 'Pinned chats'
+    loading: 'Loading chats...'
+    loading_contacts: 'Loading contacts...'
+    no_chats: 'No chats found'
+    no_contacts: 'No contacts found'
+    error_loading: 'Error loading chats'
+    error_loading_contacts: 'Error loading contacts'
+    
+    # Chat form
+    title: 'Title'
+    summary: 'Summary'
+    select_contact: 'Select Contact'
+    select_contact_placeholder: 'Select a contact to chat with'
+    select_contact_required: 'Please select a contact'
+    create_chat: 'Create Chat'
+    
+    # Chat details
+    chat_details: 'Chat Details'
+    chat_info: 'Chat Information'
+    back_to_chats: 'Back to Chats'
+    created_at: 'Created'
+    updated_at: 'Updated'
+    
+    # Chat status
+    starred: 'Starred'
+    pinned: 'Pinned'
+    muted: 'Muted'
+    star: 'Star'
+    unstar: 'Unstar'
+    pin: 'Pin'
+    unpin: 'Unpin'
+    mute: 'Mute'
+    unmute: 'Unmute'
+    
+    # Messages
+    loading_messages: 'Loading messages...'
+    no_messages: 'No messages yet. Start the conversation!'
+    type_message: 'Type your message here...'
+    error_loading_messages: 'Error loading messages'
+    error_sending: 'Error sending message'
+    error_updating: 'Error updating chat'
+    error_creating: 'Error creating chat'
+    error_deleting: 'Error deleting chat'
+    chat_created: 'Chat created successfully'
+    confirm_delete: 'Are you sure you want to delete this chat? All messages will be permanently deleted.'
+    
+    # Message status
+    sent: 'Sent'
+    delivered: 'Delivered'
+    read: 'Read'
+    failed: 'Failed to send'

@@ -462,3 +462,62 @@ cq_contact:
     error_updating: 'Chyba při aktualizaci žádosti o přátelství'
     error_adding: 'Chyba při přidávání kontaktu'
     invalid_url: 'Neplatný formát URL'
+
+cq_chat:
+    page_title: 'CitadelQuest Chat'
+    new_chat: 'Nový chat'
+    message_contact: 'Napsat kontaktu'
+    search_placeholder: 'Hledat chaty...'
+    filter_all: 'Všechny chaty'
+    filter_starred: 'Označené hvězdičkou'
+    filter_pinned: 'Připnuté chaty'
+    loading: 'Načítám chaty...'
+    loading_contacts: 'Načítám kontakty...'
+    no_chats: 'Žádné chaty nenalezeny'
+    no_contacts: 'Žádné kontakty nenalezeny'
+    error_loading: 'Chyba při načítání chatů'
+    error_loading_contacts: 'Chyba při načítání kontaktů'
+    
+    # Chat form
+    title: 'Název'
+    summary: 'Shrnutí'
+    select_contact: 'Vyberte kontakt'
+    select_contact_placeholder: 'Vyberte kontakt pro chat'
+    select_contact_required: 'Prosím vyberte kontakt'
+    create_chat: 'Vytvořit chat'
+    
+    # Chat details
+    chat_details: 'Detaily chatu'
+    chat_info: 'Informace o chatu'
+    back_to_chats: 'Zpět na chaty'
+    created_at: 'Vytvořeno'
+    updated_at: 'Aktualizováno'
+    
+    # Chat status
+    starred: 'Označeno hvězdičkou'
+    pinned: 'Připnuto'
+    muted: 'Ztlumeno'
+    star: 'Označit hvězdičkou'
+    unstar: 'Odebrat hvězdičku'
+    pin: 'Připnout'
+    unpin: 'Odepnout'
+    mute: 'Ztlumit'
+    unmute: 'Zrušit ztlumení'
+    
+    # Messages
+    loading_messages: 'Načítám zprávy...'
+    no_messages: 'Zatím žádné zprávy. Začněte konverzaci!'
+    type_message: 'Napište vaši zprávu...'
+    error_loading_messages: 'Chyba při načítání zpráv'
+    error_sending: 'Chyba při odesílání zprávy'
+    error_updating: 'Chyba při aktualizaci chatu'
+    error_creating: 'Chyba při vytváření chatu'
+    error_deleting: 'Chyba při mazání chatu'
+    chat_created: 'Chat úspěšně vytvořen'
+    confirm_delete: 'Opravdu chcete smazat tento chat? Všechny zprávy budou trvale odstraněny.'
+    
+    # Message status
+    sent: 'Odesláno'
+    delivered: 'Doručeno'
+    read: 'Přečteno'
+    failed: 'Nepodařilo se odeslat'
