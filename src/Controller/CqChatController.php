@@ -49,7 +49,7 @@ class CqChatController extends AbstractController
             $chat = $this->cqChatService->createChat(
                 $contactId,
                 $title,
-                'Chat with ' . $title,
+                '',
                 false,  // isStar
                 false,  // isPin
                 false,  // isMute

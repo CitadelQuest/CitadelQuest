@@ -19,6 +19,7 @@
             {{ encore_entry_script_tags('app') }}
             {% if app.user %}
                 {{ encore_entry_script_tags('spirit-chat') }}
+                {{ encore_entry_script_tags('cq-chat2') }}
             {% endif %}
         {% endblock %}
     </head>
@@ -33,6 +34,7 @@
         <div id="toast-container" class="toast-container position-fixed top-0 start-0 p-3"></div>
         
         {{ include('components/_spirit_chat.html.twig') }}
+        {{ include('components/_cq_chat2.html.twig') }}
         
         {# Initialize flashes as toasts #}
         {% set allFlashes = {}
@@ -68,5 +70,8 @@
                 </small>
             </div>
         </footer>
+
+        <!-- User data for JS -->
+        <div class="js-user" data-username="{{ app.user.username }}"></div>
     </body>
 </html>

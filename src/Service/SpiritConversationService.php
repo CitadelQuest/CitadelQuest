@@ -528,6 +528,9 @@ class SpiritConversationService
                     If you need to use a tool, you MUST call it with proper parameters.
                     After calling a tool, wait for the actual response before continuing.
                 </important>
+                <important>
+                    If tool call result is negative 3x, do not call the tool again.
+                </important>
             </ai-tools-instructions>";
         }
 

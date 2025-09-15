@@ -4,6 +4,7 @@
 
 // Import styles
 import '../styles/app.scss';
+//import '../styles/components/_cq_chat2.scss';
 import '@mdi/font/css/materialdesignicons.min.css';
 
 // Import icons and images
@@ -38,6 +39,14 @@ import themeService from '../js/shared/theme';
 
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {
+    // Get username
+    const userBlock = document.querySelector('.js-user');
+    if (userBlock) {
+        window.appUsername = userBlock.dataset.username;
+    } else {
+        window.appUsername = null;
+    }
+
     // Initialize theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {

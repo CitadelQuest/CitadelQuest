@@ -29,6 +29,9 @@ class CqContactApiController extends AbstractController
     {
         try {
             $contacts = $this->cqContactService->findAll(false);
+            foreach ($contacts as &$contact) {
+                $contact->setCqContactApiKey('***');
+            }   
             return $this->json($contacts);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
@@ -40,6 +43,8 @@ class CqContactApiController extends AbstractController
     {
         try {
             $contact = $this->cqContactService->findById($id);
+
+            $contact->setCqContactApiKey('***');
             
             if (!$contact) {
                 return $this->json(['error' => 'Contact not found'], Response::HTTP_NOT_FOUND);

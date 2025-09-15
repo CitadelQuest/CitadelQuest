@@ -77,7 +77,7 @@ class FederationChatMessageController extends AbstractController
                     $this->cqChatService->createChat(
                         $contact->getId(),
                         $title,
-                        'Chat with ' . $title,
+                        '',
                         false,  // isStar
                         false,  // isPin
                         false,  // isMute

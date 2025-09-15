@@ -1,0 +1,84 @@
+{% if app.user %}
+<div class="modal fade" id="cqChatModal" tabindex="-1" aria-labelledby="cqChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success py-1 py-md-2">
+                <span id="cqChatToolsToggle" class="btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu-open"></i></span>
+                
+                <span id="cqChatModalTitle" class="fs-6 me-2"></span>
+                <span class="modal-title small d-none d-md-inline-block text-secondary" id="cqChatModalLabel">{{ 'cq_chat.page_title'|trans }}</span>
+                
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body pt-0">
+                <div id="cqChatTools" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4 border-bottom-1 border-success border-opacity-50" style="z-index: 10;">
+                    <div class="w-100">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6><i class="mdi mdi-forum-outline text-cyber me-2"></i>{{ 'cq_chat.page_title'|trans }}</h6>
+                            <div class="input-group w-50 mx-2">
+                                <span class="input-group-text border-secondary border-opacity-50" style="background-color: transparent;"><i class="mdi mdi-magnify text-secondary"></i></span>
+                                <input type="text" class="form-control" id="chatSearch" placeholder="{{ 'cq_chat.search_placeholder'|trans }}">
+                            </div>
+                        </div>
+                        <div id="chatsList" class="list-group chat-list">
+                            <div class="text-center p-3">
+                                <div class="spinner-border text-cyber" role="status">
+                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row h-100">
+                    <div class="col-12">
+                        <div id="chatContainer" class="chat-container">
+                            <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
+                                <h6 id="currentChatTitle" class="text-cyber"><i class="mdi mdi-chat-outline me-2"></i>{{ 'cq_chat.select_chat'|trans }}</h6>
+                            </div>
+                            <div id="chatMessages" class="chat-messages mb-3">
+                                <div class="text-center p-3 loading-indicator">
+                                    <div class="spinner-border text-cyber" role="status">
+                                        <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary border-opacity-50">
+                <form id="chatForm" class="d-flex flex-column w-100 m-0">
+                    <div class="d-flex align-items-top gap-2">
+                        <textarea id="messageInput" class="form-control flex-grow-1" rows="3" placeholder="{{ 'cq_chat.type_message'|trans }}" autocomplete="off"></textarea>
+                        <button type="submit" id="sendMessageBtn" class="btn btn-cyber" style="max-height: min-content !important; padding: 0.4rem 1.2rem !important;">
+                            <i class="mdi mdi-message-check"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteChatModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <i class="mdi mdi-message-alert me-2"></i> <span class="modal-title text-white" id="deleteChatModalLabel"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteChatForm">
+                    <div class="mb-3 w-100 py-2 text-center fs-5">
+                        <span>{{ 'cq_chat.confirm_delete'|trans }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
+                        <button type="submit" class="btn btn-danger"><i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
