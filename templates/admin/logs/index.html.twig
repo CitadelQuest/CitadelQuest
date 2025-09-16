@@ -70,9 +70,11 @@
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
                                                         <button type="button" 
-                                                                class="btn btn-sm btn-outline-warning" 
+                                                                class="btn btn-sm btn-outline-warning clear-log-btn" 
                                                                 title="{{ 'admin.logs.clear'|trans }}"
-                                                                onclick="clearLogFile('{{ file.name }}')">
+                                                                data-filename="{{ file.name }}"
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#clearLogModal">
                                                             <i class="mdi mdi-delete"></i>
                                                         </button>
                                                     </div>
@@ -123,11 +125,15 @@
 </div>
 
 <script>
-function clearLogFile(filename) {
-    const modal = new bootstrap.Modal(document.getElementById('clearLogModal'));
-    const form = document.getElementById('clearLogForm');
-    form.action = '{{ path('app_admin_logs_clear', {filename: '__FILENAME__'}) }}'.replace('__FILENAME__', filename);
-    modal.show();
-}
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners for clear log buttons
+    document.querySelectorAll('.clear-log-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const filename = e.target.closest('.clear-log-btn').dataset.filename;
+            const form = document.getElementById('clearLogForm');
+            form.action = '{{ path('app_admin_logs_clear', {filename: '__FILENAME__'}) }}'.replace('__FILENAME__', filename);
+        });
+    });
+});
 </script>
 {% endblock %}
