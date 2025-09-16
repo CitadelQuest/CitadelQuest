@@ -58,7 +58,7 @@
                     <div class="mb-3">
                         <label for="cqContactUrl" class="form-label">{{ 'cq_contact.url'|trans }}</label>
                         <input type="url" class="form-control glass-input" id="cqContactUrl" required 
-                               placeholder="https://example.citadelquest.com/username">
+                               placeholder="https://example.citadelquest.com/username" value="https://">
                         <div class="small text-muted ms-2 mt-2">{{ 'cq_contact.url_help'|trans }}</div>
                     </div>
                     <div class="mb-3">
@@ -70,7 +70,7 @@
                 <div class="modal-footer d-flex justify-content-between border-top-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}</button>
-                    <button type="submit" class="btn btn-cyber">
+                    <button type="submit" id="addContactModalSubmit" class="btn btn-cyber">
                         <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.send_friend_request'|trans }}</button>
                 </div>
             </form>
@@ -88,6 +88,35 @@
             </div>
             <div class="modal-body" id="contactDetailContent">
                 <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Contact Confirmation Modal -->
+<div class="modal fade" id="deleteContactModal" tabindex="-1" aria-labelledby="deleteContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-white" id="deleteContactModalLabel">
+                    <i class="mdi mdi-delete me-2"></i>{{ 'cq_contact.delete_contact'|trans }}
+                </span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-alert-triangle text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'cq_contact.delete_confirm_message'|trans }}</p>
+                <p class="text-muted small text-center">{{ 'cq_contact.delete_info'|trans }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteContact">
+                    <i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}
+                </button>
             </div>
         </div>
     </div>
@@ -172,13 +201,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-4 text-end">
                                 ${statusBadge}
                                 <div class="btn-group mt-2" role="group">
-                                    <button type="button" class="btn btn-sm btn-outline-light view-contact" 
-                            data-contact-id="${contact.id}"
-                            data-bs-toggle="modal" 
-                            data-bs-target="#contactDetailModal">
-                        <i class="mdi mdi-eye"></i>
-                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary view-contact" 
+                                            data-contact-id="${contact.id}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#contactDetailModal">
+                                        <i class="mdi mdi-eye"></i>
+                                    </button>
                                     ${getActionButtons(contact)}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-contact" 
+                                            data-contact-id="${contact.id}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteContactModal"
+                                            title="{{ 'ui.delete'|trans }}">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -208,6 +244,15 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', (e) => {
                 const contactId = e.target.closest('.reject-request').dataset.contactId;
                 handleFriendRequest(contactId, 'REJECTED');
+            });
+        });
+
+        // Add event listeners for delete contact buttons
+        document.querySelectorAll('.delete-contact').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const contactId = e.target.closest('.delete-contact').dataset.contactId;
+                // Store the contact ID for deletion when modal opens
+                document.getElementById('confirmDeleteContact').dataset.contactId = contactId;
             });
         });
     }
@@ -264,6 +309,30 @@ document.addEventListener('DOMContentLoaded', function() {
         // Modal will be triggered by the data-bs-toggle attribute on the button
     }
 
+    function deleteContact(contactId) {
+        fetch(`/api/cq-contact/${contactId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data) {
+                window.toast.success('{{ "cq_contact.contact_deleted"|trans }}');
+                loadContacts();
+                // Hide the modal using Bootstrap's data-bs-dismiss
+                document.querySelector('#deleteContactModal [data-bs-dismiss="modal"]').click();
+            } else {
+                window.toast.error(data.message || '{{ "cq_contact.error_deleting"|trans }}');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting contact:', error);
+            window.toast.error('{{ "cq_contact.error_deleting"|trans }}');
+        });
+    }
+
     function handleFriendRequest(contactId, status) {
         fetch(`/api/cq-contact/${contactId}/friend-request`, {
             method: 'POST',
@@ -280,12 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.toast.success('{{ "cq_contact.friend_request_updated"|trans }}');
                 loadContacts();
             } else {
-                window.toast.error(data.message || '{{ "cq_contact.error_updating"|trans }}');
+                window.toast.error(data.message || data.error || '{{ "cq_contact.error_updating"|trans }}');
             }
         })
         .catch(error => {
             console.error('Error updating friend request:', error);
-            window.toast.error('{{ "cq_contact.error_updating"|trans }}');
+            window.toast.error(error.message || error.error || '{{ "cq_contact.error_updating"|trans }}');
         });
     }
 
@@ -295,6 +364,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const url = document.getElementById('cqContactUrl').value;
         const description = document.getElementById('description').value;
+
+        // disable button
+        document.getElementById('addContactModalSubmit').disabled = true;
+        document.getElementById('addContactModalSubmit').classList.add('disabled');
+        document.getElementById('addContactModalSubmit').setAttribute('disabled', 'disabled');
         
         // Parse URL to extract domain and username
         try {
@@ -309,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    cqContactUrl: `https://${domain}/${username}`,
+                    cqContactUrl: url,//`https://${domain}/${username}`,
                     cqContactDomain: domain,
                     cqContactUsername: username,
                     description: description,
@@ -341,15 +415,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     addContactForm.reset();
                     loadContacts();
                 } else {
-                    window.toast.error(data.message || '{{ "cq_contact.error_sending"|trans }}');
+                    window.toast.error(data.message || data.error || '{{ "cq_contact.error_sending"|trans }}');
                 }
             })
             .catch(error => {
                 console.error('Error adding contact:', error);
-                window.toast.error(error.message || '{{ "cq_contact.error_adding"|trans }}');
+                window.toast.error(error.message || error.error || '{{ "cq_contact.error_adding"|trans }}');
+            })
+            .finally(() => {
+                document.getElementById('addContactModalSubmit').disabled = false;
+                document.getElementById('addContactModalSubmit').classList.remove('disabled');
+                document.getElementById('addContactModalSubmit').removeAttribute('disabled');
             });
         } catch (error) {
             window.toast.error('{{ "cq_contact.invalid_url"|trans }}');
+        }
+    });
+
+    // Delete confirmation button event listener
+    document.getElementById('confirmDeleteContact').addEventListener('click', function() {
+        const contactId = this.dataset.contactId;
+        if (contactId) {
+            deleteContact(contactId);
         }
     });
 

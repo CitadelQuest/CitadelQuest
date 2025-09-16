@@ -20,6 +20,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\CitadelVersion;
+use Psr\Log\LoggerInterface;
 
 #[Route('/settings')]
 #[IsGranted('ROLE_USER')]
@@ -29,7 +30,8 @@ class UserSettingsController extends AbstractController
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly SettingsService $settingsService,
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -159,27 +161,55 @@ class UserSettingsController extends AbstractController
     #[Route('/ai', name: 'app_user_settings_ai')]
     public function aiSettings(Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
     {
-        // Get user's settings
-        $settings = $this->settingsService->getAllSettings();
+        $this->logger->info('UserSettingsController::aiSettings - Starting AI settings method', [
+            'method' => $request->getMethod(),
+            'user_id' => $this->getUser()?->getId(),
+            'user_username' => $this->getUser()?->getUsername(),
+            'request_uri' => $request->getRequestUri(),
+            'user_agent' => $request->headers->get('User-Agent')
+        ]);
         
-        // Handle form submission
-        if ($request->isMethod('POST')) {
-            // Update existing settings:
-            // 1. API key
-            $request_api_key = $request->request->get('cq_ai_gateway_api_key');
-            if ($request_api_key && $request_api_key !== '') {
-                $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-                if ($gateway) {
-                    $gateway->setApiKey($request_api_key);
-                    $entityManager->flush();
-                    $this->addFlash('success', 'API key updated successfully.');
-                } else {
-                    try {
-                        // Validate key
-                        //  request models from CQ AI Gateway via http client
-                        $responseModels = $this->httpClient->request(
-                            'GET',
-                            'https://cqaigateway.com/api/ai/models', 
+        try {
+            // Get user's settings
+            $this->logger->info('UserSettingsController::aiSettings - Getting user settings');
+            $settings = $this->settingsService->getAllSettings();
+            $this->logger->info('UserSettingsController::aiSettings - Retrieved settings', ['settings_count' => count($settings)]);
+        
+            // Handle form submission
+            if ($request->isMethod('POST')) {
+                $this->logger->info('UserSettingsController::aiSettings - Processing POST request');
+                
+                // Update existing settings:
+                // 1. API key
+                $request_api_key = $request->request->get('cq_ai_gateway_api_key');
+                $this->logger->info('UserSettingsController::aiSettings - Processing API key update', [
+                    'has_api_key' => !empty($request_api_key),
+                    'api_key_length' => $request_api_key ? strlen($request_api_key) : 0
+                ]);
+                
+                if ($request_api_key && $request_api_key !== '') {
+                    $this->logger->info('UserSettingsController::aiSettings - Looking for existing CQ AI Gateway');
+                    $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+                    
+                    if ($gateway) {
+                        $this->logger->info('UserSettingsController::aiSettings - Found existing gateway', ['gateway_id' => $gateway->getId()]);
+                        $gateway->setApiKey($request_api_key);
+                        $entityManager->flush();
+                        $this->logger->info('UserSettingsController::aiSettings - Updated existing gateway API key');
+                        $this->addFlash('success', 'API key updated successfully.');
+                    } else {
+                        $this->logger->info('UserSettingsController::aiSettings - No existing gateway found, validating new API key');
+                        try {
+                            // Validate key
+                            //  request models from CQ AI Gateway via http client
+                            $this->logger->info('UserSettingsController::aiSettings - Making HTTP request to validate API key', [
+                                'url' => 'https://cqaigateway.com/api/ai/models',
+                                'user_agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
+                            ]);
+                            
+                            $responseModels = $this->httpClient->request(
+                                'GET',
+                                'https://cqaigateway.com/api/ai/models', 
                             [
                                 'headers' => [
                                     'Authorization' => 'Bearer ' . $request_api_key,
@@ -188,42 +218,67 @@ class UserSettingsController extends AbstractController
                                 ]
                             ]
                         );
-                        //  check response status
-                        $responseStatus = $responseModels->getStatusCode(false);
-                        if ($responseStatus !== Response::HTTP_OK) {
-                            if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
-                                return new JsonResponse([
-                                    'success' => false,
-                                    'message' => 'Invalid API key'
-                                ], Response::HTTP_UNAUTHORIZED);
-                            } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
-                                        || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
-                                        || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
-                                        || $responseStatus === Response::HTTP_BAD_GATEWAY
-                                        || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
-                                        || $responseStatus === Response::HTTP_NOT_FOUND) {
-                                return new JsonResponse([
-                                    'success' => false,
-                                    'message' => 'CQ AI Gateway is currently unavailable, please try again later'
-                                ], Response::HTTP_SERVICE_UNAVAILABLE);
-                            } else {
-                                return new JsonResponse([
-                                    'success' => false,
-                                    'message' => 'Failed to validate API key (' . $responseStatus . ')'
-                                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                            //  check response status
+                            $responseStatus = $responseModels->getStatusCode(false);
+                            $this->logger->info('UserSettingsController::aiSettings - Received HTTP response', [
+                                'status_code' => $responseStatus,
+                                'expected' => Response::HTTP_OK
+                            ]);
+                            
+                            if ($responseStatus !== Response::HTTP_OK) {
+                                if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
+                                    $this->logger->warning('UserSettingsController::aiSettings - API key validation failed - Unauthorized', [
+                                        'status_code' => $responseStatus
+                                    ]);
+                                    return new JsonResponse([
+                                        'success' => false,
+                                        'message' => 'Invalid API key'
+                                    ], Response::HTTP_UNAUTHORIZED);
+                                } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
+                                            || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
+                                            || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
+                                            || $responseStatus === Response::HTTP_BAD_GATEWAY
+                                            || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
+                                            || $responseStatus === Response::HTTP_NOT_FOUND) {
+                                    $this->logger->warning('UserSettingsController::aiSettings - CQ AI Gateway unavailable', [
+                                        'status_code' => $responseStatus
+                                    ]);
+                                    return new JsonResponse([
+                                        'success' => false,
+                                        'message' => 'CQ AI Gateway is currently unavailable, please try again later'
+                                    ], Response::HTTP_SERVICE_UNAVAILABLE);
+                                } else {
+                                    $this->logger->error('UserSettingsController::aiSettings - Unexpected HTTP status code', [
+                                        'status_code' => $responseStatus
+                                    ]);
+                                    return new JsonResponse([
+                                        'success' => false,
+                                        'message' => 'Failed to validate API key (' . $responseStatus . ')'
+                                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                                }
                             }
-                        }
-                        
-                        // Get models from response
-                        $cq_ai_models = json_decode($responseModels->getContent(), true)['models']??[];
+                            
+                            // Get models from response
+                            $responseContent = $responseModels->getContent();
+                            $this->logger->info('UserSettingsController::aiSettings - Processing response content', [
+                                'content_length' => strlen($responseContent)
+                            ]);
+                            
+                            $cq_ai_models = json_decode($responseContent, true)['models']??[];
+                            $this->logger->info('UserSettingsController::aiSettings - Parsed models from response', [
+                                'models_count' => count($cq_ai_models)
+                            ]);
                         $models = [];
             
-                        if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
-                            return new JsonResponse([
-                                'success' => false,
-                                'message' => 'No models found on CQ AI Gateway'
-                            ], Response::HTTP_SERVICE_UNAVAILABLE);
-                        }
+                            if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
+                                $this->logger->error('UserSettingsController::aiSettings - No models found in response', [
+                                    'models_data' => $cq_ai_models
+                                ]);
+                                return new JsonResponse([
+                                    'success' => false,
+                                    'message' => 'No models found on CQ AI Gateway'
+                                ], Response::HTTP_SERVICE_UNAVAILABLE);
+                            }
             
                         // Create CQ AI Gateway if not already created
                         $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
@@ -412,13 +467,35 @@ class UserSettingsController extends AbstractController
         // Get all available AI models
         $aiModels = $this->aiServiceModelService->findByGateway($gateway->getId(), true);
         
-        return $this->render('user_settings/ai.html.twig', [
-            'settings' => $settings,
-            'aiModels' => $aiModels,
-            'api_key_state' => $apiKeyState,
-            'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
-            'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername
-        ]);
+            return $this->render('user_settings/ai.html.twig', [
+                'settings' => $settings,
+                'aiModels' => $aiModels,
+                'api_key_state' => $apiKeyState,
+                'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
+                'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::aiSettings - Exception occurred', [
+                'exception_class' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString(),
+                'user_id' => $this->getUser()?->getId(),
+                'user_username' => $this->getUser()?->getUsername()
+            ]);
+            
+            $this->addFlash('error', 'An error occurred while processing your AI settings. Please try again.');
+            
+            return $this->render('user_settings/ai.html.twig', [
+                'settings' => [],
+                'aiModels' => [],
+                'api_key_state' => 'unknown',
+                'CQ_AI_GatewayCredits' => '-',
+                'CQ_AI_GatewayUsername' => null
+            ]);
+        }
     }
     
     #[Route('/ai/gateways', name: 'app_user_settings_ai_gateways')]

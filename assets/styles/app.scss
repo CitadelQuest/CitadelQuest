@@ -569,3 +569,29 @@ input[type="range"].form-range-input,
         border-color: rgba(colors.$cyber, 0.2);
     }
 }
+
+.page-link {
+    border-color: rgba(colors.$cyber, 0.2);
+    background-color: transparent;
+    color: colors.$cyber !important;
+
+    &:hover {
+        background-color: rgba(colors.$cyber, 0.1);
+    }
+}
+
+.active>.page-link, .page-link.active {
+    background-color: colors.$cyber !important;
+    color: colors.$body-bg !important;
+    border-color: colors.$cyber !important;
+}
+
+.log-content {
+    @include mix.cyber-scrollbar;
+}
+
+.card-body {
+    color: colors.$body-color;
+    @include mix.cyber-scrollbar;
+}
+

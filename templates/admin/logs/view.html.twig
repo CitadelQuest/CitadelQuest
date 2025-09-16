@@ -1,0 +1,224 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'admin.logs.view_title'|trans }} - {{ filename }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-panel glass-panel-glow">
+                <div class="card-header bg-cyber-g d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="mdi mdi-file-document me-2"></i>
+                        {{ filename }}
+                    </h4>
+                    <div>
+                        <a href="{{ path('app_admin_logs_download', {filename: filename}) }}" 
+                           class="btn btn-cyber btn-sm me-2">
+                            <i class="mdi mdi-download me-1"></i>
+                            {{ 'admin.logs.download'|trans }}
+                        </a>
+                        <a href="{{ path('app_admin_logs') }}" class="btn btn-light btn-sm link-light">
+                            <i class="mdi mdi-arrow-left me-1"></i>
+                            {{ 'admin.logs.back'|trans }}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- File Info -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="mdi mdi-information me-1"></i>
+                                {{ 'admin.logs.file_size'|trans }}: 
+                                {% if fileSize < 1024 %}
+                                    {{ fileSize }} B
+                                {% elseif fileSize < 1048576 %}
+                                    {{ (fileSize / 1024)|round(1) }} KB
+                                {% else %}
+                                    {{ (fileSize / 1048576)|round(1) }} MB
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted">
+                                <i class="mdi mdi-clock me-1"></i>
+                                {{ 'admin.logs.last_modified'|trans }}: {{ lastModified|date('Y-m-d H:i:s') }}
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Search Form -->
+                    <form method="GET" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" 
+                                   name="search" 
+                                   class="form-control" 
+                                   placeholder="{{ 'admin.logs.search_placeholder'|trans }}"
+                                   value="{{ search }}">
+                            <button class="btn btn-cyber" type="submit">
+                                <i class="mdi mdi-magnify"></i>
+                            </button>
+                            {% if search %}
+                                <a href="{{ path('app_admin_logs_view', {filename: filename}) }}" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="mdi mdi-close"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <!-- Results Info -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            {% if search %}
+                                <span class="badge bg-info">
+                                    {{ 'admin.logs.filtered_results'|trans({'%filtered%': filteredLines, '%total%': totalLines}) }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ 'admin.logs.total_lines'|trans({'%total%': totalLines}) }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Pagination Info -->
+                        {% if totalPages > 1 %}
+                            <div>
+                                <span class="text-muted small">
+                                    {{ 'admin.logs.page_info'|trans({'%current%': currentPage, '%total%': totalPages}) }}
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Log Content -->
+                    <div class="log-content">
+                        {% if lines is empty %}
+                            <div class="alert alert-info">
+                                <i class="mdi mdi-information me-2"></i>
+                                {% if search %}
+                                    {{ 'admin.logs.no_search_results'|trans }}
+                                {% else %}
+                                    {{ 'admin.logs.empty_file'|trans }}
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            {% for line in lines %}
+                                <div class="log-entry mb-2 p-2 border-start border-3 
+                                    {% if line.parsed and line.parsed.level %}
+                                        {% if line.parsed.level == 'ERROR' %}border-danger bg-danger bg-opacity-10
+                                        {% elseif line.parsed.level == 'WARNING' %}border-warning bg-warning bg-opacity-10
+                                        {% elseif line.parsed.level == 'INFO' %}border-info bg-info bg-opacity-10
+                                        {% else %}border-secondary bg-secondary bg-opacity-10
+                                        {% endif %}
+                                    {% else %}border-secondary bg-secondary bg-opacity-10
+                                    {% endif %}">
+                                    
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <small class="text-muted">Line {{ line.line_number }}</small>
+                                        {% if line.parsed and line.parsed.datetime %}
+                                            <small class="text-muted">{{ line.parsed.datetime }}</small>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if line.parsed %}
+                                        <div class="mt-1">
+                                            {% if line.parsed.level %}
+                                                <span class="badge 
+                                                    {% if line.parsed.level == 'ERROR' %}bg-danger
+                                                    {% elseif line.parsed.level == 'WARNING' %}bg-warning
+                                                    {% elseif line.parsed.level == 'INFO' %}bg-info
+                                                    {% else %}bg-secondary
+                                                    {% endif %} me-2">
+                                                    {{ line.parsed.level }}
+                                                </span>
+                                            {% endif %}
+                                            
+                                            {% if line.parsed.channel %}
+                                                <span class="badge bg-dark me-2">{{ line.parsed.channel }}</span>
+                                            {% endif %}
+                                            
+                                            <strong>{{ line.parsed.message }}</strong>
+                                        </div>
+                                        
+                                        {% if line.parsed.context and line.parsed.context is not empty %}
+                                            <details class="mt-2">
+                                                <summary class="text-cyber" style="cursor: pointer;">
+                                                    <i class="mdi mdi-code-braces me-1"></i>
+                                                    {{ 'admin.logs.context_data'|trans }}
+                                                </summary>
+                                                <pre class="mt-2 p-2 bg-dark rounded small"><code>{{ line.parsed.context|json_encode(constant('JSON_PRETTY_PRINT')) }}</code></pre>
+                                            </details>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="mt-1">
+                                            <code class="text-light">{{ line.raw }}</code>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if totalPages > 1 %}
+                        <nav class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if currentPage > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ path('app_admin_logs_view', {filename: filename, page: currentPage - 1, search: search}) }}">
+                                            <i class="mdi mdi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for page in range(max(1, currentPage - 2), min(totalPages, currentPage + 2)) %}
+                                    <li class="page-item {% if page == currentPage %}active{% endif %}">
+                                        <a class="page-link" href="{{ path('app_admin_logs_view', {filename: filename, page: page, search: search}) }}">
+                                            {{ page }}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                                
+                                {% if currentPage < totalPages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ path('app_admin_logs_view', {filename: filename, page: currentPage + 1, search: search}) }}">
+                                            <i class="mdi mdi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.log-content {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.log-entry {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.log-entry code {
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+
+.log-entry details summary {
+    outline: none;
+}
+
+.log-entry details[open] summary {
+    margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}

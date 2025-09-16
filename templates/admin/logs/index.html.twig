@@ -1,0 +1,133 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'admin.logs.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-panel glass-panel-glow">
+                <div class="card-header bg-cyber-g d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="mdi mdi-file-document-multiple me-2"></i>
+                        {{ 'admin.logs.title'|trans }}
+                    </h4>
+                    <a href="{{ path('app_admin_dashboard') }}" class="btn btn-light btn-sm link-light">
+                        <i class="mdi mdi-arrow-left me-1"></i>
+                        {{ 'admin.logs.back_to_dashboard'|trans }}
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if logFiles is empty %}
+                        <div class="alert alert-info">
+                            <i class="mdi mdi-information me-2"></i>
+                            {{ 'admin.logs.no_files'|trans }}
+                        </div>
+                    {% else %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.logs.filename'|trans }}</th>
+                                        <th>{{ 'admin.logs.size'|trans }}</th>
+                                        <th>{{ 'admin.logs.modified'|trans }}</th>
+                                        <th>{{ 'admin.logs.actions'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for file in logFiles %}
+                                        <tr>
+                                            <td>
+                                                <i class="mdi mdi-file-document text-cyber me-2"></i>
+                                                {{ file.name }}
+                                                {% if not file.readable %}
+                                                    <span class="badge bg-warning ms-2">{{ 'admin.logs.not_readable'|trans }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if file.size < 1024 %}
+                                                    {{ file.size }} B
+                                                {% elseif file.size < 1048576 %}
+                                                    {{ (file.size / 1024)|round(1) }} KB
+                                                {% else %}
+                                                    {{ (file.size / 1048576)|round(1) }} MB
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ file.modified|date('Y-m-d H:i:s') }}
+                                            </td>
+                                            <td>
+                                                {% if file.readable %}
+                                                    <div class="btn-group" role="group">
+                                                        <a href="{{ path('app_admin_logs_view', {filename: file.name}) }}" 
+                                                           class="btn btn-sm btn-outline-info" 
+                                                           title="{{ 'admin.logs.view'|trans }}">
+                                                            <i class="mdi mdi-eye"></i>
+                                                        </a>
+                                                        <a href="{{ path('app_admin_logs_download', {filename: file.name}) }}" 
+                                                           class="btn btn-sm btn-outline-success" 
+                                                           title="{{ 'admin.logs.download'|trans }}">
+                                                            <i class="mdi mdi-download"></i>
+                                                        </a>
+                                                        <button type="button" 
+                                                                class="btn btn-sm btn-outline-warning" 
+                                                                title="{{ 'admin.logs.clear'|trans }}"
+                                                                onclick="clearLogFile('{{ file.name }}')">
+                                                            <i class="mdi mdi-delete"></i>
+                                                        </button>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">{{ 'admin.logs.no_access'|trans }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Log File Modal -->
+<div class="modal fade" id="clearLogModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ 'admin.logs.clear_confirm_title'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ 'admin.logs.clear_confirm_message'|trans }}</p>
+                <p class="text-warning">
+                    <i class="mdi mdi-alert-triangle me-2"></i>
+                    {{ 'admin.logs.clear_backup_info'|trans }}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ 'ui.cancel'|trans }}
+                </button>
+                <form id="clearLogForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="mdi mdi-delete me-1"></i>
+                        {{ 'admin.logs.clear'|trans }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function clearLogFile(filename) {
+    const modal = new bootstrap.Modal(document.getElementById('clearLogModal'));
+    const form = document.getElementById('clearLogForm');
+    form.action = '{{ path('app_admin_logs_clear', {filename: '__FILENAME__'}) }}'.replace('__FILENAME__', filename);
+    modal.show();
+}
+</script>
+{% endblock %}
