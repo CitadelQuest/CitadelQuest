@@ -14,6 +14,7 @@ export class AdminDashboardManager {
         this.updateModalCheckUpdates_step_1 = document.getElementById('updateModalCheckUpdates_step_1');
         this.updateModalCheckUpdates_step_2 = document.getElementById('updateModalCheckUpdates_step_2');
         this.updateModalCheckUpdates_step_3 = document.getElementById('updateModalCheckUpdates_step_3');
+        this.updateModalCheckUpdates_step_4 = document.getElementById('updateModalCheckUpdates_step_4');
     }
 
     init() {
