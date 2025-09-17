@@ -156,8 +156,8 @@ class AdminController extends AbstractController
         ]);
     }
 
-    #[Route('/update/check', name: 'app_admin_update_check', methods: ['GET'])]
-    public function updateCheck(): JsonResponse
+    #[Route('/update/check/{step}', name: 'app_admin_update_check', methods: ['GET'])]
+    public function updateCheck(int $step): JsonResponse
     {
         // Generate unique update script
         $uuid = Uuid::v4();
@@ -180,7 +180,8 @@ class AdminController extends AbstractController
         // Read template and add security token
         $content = file_get_contents($templatePath);
         $content = "<?php\ndefine('CITADEL_UPDATE_TOKEN', '{$updateToken}');\n" .
-                  "define('CITADEL_UPDATE_SCRIPT', __FILE__);\n" . $content;
+                  "define('CITADEL_UPDATE_SCRIPT', __FILE__);\n" . 
+                  "define('CITADEL_UPDATE_STEP', {$step});\n" . $content;
         
         // Write the unique update script
         file_put_contents($scriptPath, $content);

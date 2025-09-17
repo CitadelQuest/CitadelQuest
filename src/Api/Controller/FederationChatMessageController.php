@@ -8,6 +8,7 @@ use App\Service\CqContactService;
 use App\Service\CqChatMsgService;
 use App\Service\CqChatService;
 use App\Service\NotificationService;
+use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,7 +23,8 @@ class FederationChatMessageController extends AbstractController
         private readonly CqChatMsgService $cqChatMsgService,
         private readonly CqChatService $cqChatService,
         private readonly EntityManagerInterface $entityManager,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly SettingsService $settingsService
     ) {
     }
 
@@ -90,14 +92,11 @@ class FederationChatMessageController extends AbstractController
             // Create the message
             $message = $this->cqChatMsgService->receiveMessage($data, $contact->getId());
 
-            // Send a `new chat message` notification
-            $this->notificationService->createNotification(
-                $user,
-                'New chat message from ' . $contact->getCqContactUsername() . '!',
-                ' "' . substr($message->getContent(), 0, 42) . (strlen($message->getContent()) > 42 ? '...' : '') . '" ',
-                'success'
-            );
-            
+            // TODO tutu
+            // Save the message ID and increment the new messages count
+            $this->settingsService->setSetting('cq_chat.cq_msg_id', $message->getId());
+            $this->settingsService->setSetting('cq_chat.new_msgs_count', (int)$this->settingsService->getSettingValue('cq_chat.new_msgs_count', '0') + 1);
+
             return $this->json([
                 'success' => true,
                 'message' => 'Message received successfully',

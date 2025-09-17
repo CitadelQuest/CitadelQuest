@@ -138,7 +138,7 @@ class WelcomeController extends AbstractController
                 $modelSlug = $model['id'];
                 $modelSlugProvider = substr($modelSlug, 0, strpos($modelSlug, '/'));
 
-                if ($modelSlugProvider === 'citadelquest') {            
+                if ($modelSlugProvider === 'citadelquest' && (strpos($modelSlug, '-') === false)) {            
                     $maxOutputTokens = isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : null;
                     $pricingInput = isset($model['pricing']) && isset($model['pricing']['prompt']) ? $model['pricing']['prompt'] : null;
                     $pricingOutput = isset($model['pricing']) && isset($model['pricing']['completion']) ? $model['pricing']['completion'] : null;

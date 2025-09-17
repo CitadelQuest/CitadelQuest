@@ -326,6 +326,10 @@ admin:
         stats_error: 'Error refreshing statistics'
         check_updates: 'Check Updates'
         update: 'Update'
+        update_step_1: '1 - Create backup'
+        update_step_2: '2 - Download update'
+        update_step_3: '3 - Install update'
+        update_step_4: '4 - Refresh page'
     
     stats:
         total_users: 'Total Users'

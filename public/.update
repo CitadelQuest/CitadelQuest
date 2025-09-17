@@ -218,6 +218,12 @@ class CitadelQuestUpdater
             if (!isset($latestRelease['tag_name'])) {
                 throw new Exception('Invalid release data');
             }
+
+            // check if not `test` version
+            if (strpos($latestRelease['tag_name'], 'test') !== false) {
+                $this->log('Latest release is a test version, skipping update check', 'warning');
+                return null;
+            }
             
             return $latestRelease['tag_name'];
             
@@ -304,7 +310,7 @@ class CitadelQuestUpdater
             $zip->close();
 
             // clear /vendor dir
-            if (version_compare($this->version, '0.4.19', '<')) {
+            if (version_compare(str_replace('v', '', $this->version), '0.4.19', '<')) {
                 //error_log("version: " . $this->version . " is less than 0.4.19 >> removing /vendor");
                 $this->removeDirectory($this->installDir . '/vendor');
             }
@@ -817,58 +823,67 @@ class CitadelQuestUpdater
     public function update(): void
     {
         try {
-            // Check requirements first
-            if (!$this->checkRequirements()) {
-                throw new Exception("System requirements not met");
-            }
 
-            // Check for updates
-            $latestVersion = $this->checkLatestVersion();
-            if (!$latestVersion) {
-                throw new Exception("Failed to check for updates");
-            }
+            if (CITADEL_UPDATE_STEP == 1) {
 
-            if (version_compare($latestVersion, $this->version, '<=')) {
-                $this->log("✓ Your CitadelQuest installation is up to date (version {$this->version})", 'success');
-                return;
-            }
+                // Create backup
+                if (!$this->createBackup()) {
+                    throw new Exception("Backup creation failed");
+                }
 
-            $this->log("New version available: {$latestVersion} (current: {$this->version})", 'warning');
+            } else {
 
-            // Clear and warm up cache
-            if (!$this->clearCache()) {
-                throw new Exception("Start-up Cache clearing failed");
-            }
+                // Check requirements first
+                if (!$this->checkRequirements()) {
+                    throw new Exception("System requirements not met");
+                }
 
-            // Create backup
-            if (!$this->createBackup()) {
-                throw new Exception("Backup creation failed");
-            }
+                // Check for updates
+                $latestVersion = $this->checkLatestVersion();
+                if (!$latestVersion) {
+                    throw new Exception("Failed to check for updates");
+                }
 
-            // Download update
-            if (!$this->downloadUpdate($latestVersion)) {
-                throw new Exception("Update download failed");
-            }
+                if (version_compare($latestVersion, $this->version, '<=')) {
+                    $this->log("✓ Your CitadelQuest installation is up to date (version {$this->version})", 'success');
+                    return;
+                }
 
-            // Apply update
-            if (!$this->applyUpdate()) {
-                throw new Exception("Update application failed");
-            }
+                $this->log("New version available: {$latestVersion} (current: {$this->version})", 'warning');
 
-            // Run migrations
-            if (!$this->runMigrations()) {
-                throw new Exception("Database migrations failed");
-            }
-            
-            // Clear and warm up cache
-            if (!$this->clearCache()) {
-                throw new Exception("Cache clearing failed");
-            }
+                // Clear and warm up cache
+                if (!$this->clearCache()) {
+                    throw new Exception("Start-up Cache clearing failed");
+                }
 
-            $this->log("✓ Update completed successfully!", 'success');
-            $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
-            //$this->log("<a href='/' class='alert-link'>Click here to go to your CitadelQuest homepage</a>", 'warning');
-            $this->log("Refresh the page to enjoy the new update!", 'warning');
+                if (CITADEL_UPDATE_STEP == 2) {
+                    // Download update
+                    if (!$this->downloadUpdate($latestVersion)) {
+                        throw new Exception("Update download failed");
+                    }
+                }
+
+                if (CITADEL_UPDATE_STEP == 3) {
+                    // Apply update
+                    if (!$this->applyUpdate()) {
+                        throw new Exception("Update application failed");
+                    }
+                    
+                    // Run migrations
+                    if (!$this->runMigrations()) {
+                        throw new Exception("Database migrations failed");
+                    }
+                    
+                    // Clear and warm up cache
+                    if (!$this->clearCache()) {
+                        throw new Exception("Cache clearing failed");
+                    }
+
+                    $this->log("✓ Update completed successfully!", 'success');
+                    $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
+                    $this->log("Refresh the page to enjoy the new update!", 'warning');
+                }
+            }
 
         } catch (Exception $e) {
             $this->log("Error: " . $e->getMessage(), 'error');

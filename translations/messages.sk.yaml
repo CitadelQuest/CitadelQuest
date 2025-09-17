@@ -5,7 +5,7 @@ app:
     tagline_html: 'Váš osobný bezpečný priestor pre spoluprácu s umelou inteligenciou.<br/>Vytvorené s dôrazom na súkromie a suverenitu vašich dát.'
     footer:
         made_with_love: 'Vytvorené s 💜 človekom a AI'
-        version: 'Verzia %version%'
+        version: '%version%'
 
 auth:
     login:
@@ -320,6 +320,10 @@ admin:
         stats_error: 'Chyba pri obnovovaní štatistík'
         check_updates: 'Skontrolovať aktualizácie'
         update: 'Aktualizovať'
+        update_step_1: '1 - Vytvoriť zálohu'
+        update_step_2: '2 - Stiahnuť aktualizáciu'
+        update_step_3: '3 - Inštalovať aktualizáciu'
+        update_step_4: '4 - Obnoviť stránku'
     
     stats:
         total_users: 'Celkom používateľov'

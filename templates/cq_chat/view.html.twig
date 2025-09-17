@@ -68,11 +68,11 @@
                 <div class="chat-info">
                     <div class="d-flex justify-content-between mb-1 flex-column">
                         <span class="text-muted small">{{ 'cq_chat.created_at'|trans }}:</span>
-                        <span class="small">{{ chat.createdAt|date('Y-m-d H:i') }}</span>
+                        <span class="small" id="chatCreatedAt">{{ chat.createdAt|date('Y-m-d H:i') }}</span>
                     </div>
                     <div class="d-flex justify-content-between flex-column">
                         <span class="text-muted small">{{ 'cq_chat.updated_at'|trans }}:</span>
-                        <span class="small">{{ chat.updatedAt|date('Y-m-d H:i') }}</span>
+                        <span class="small" id="chatUpdatedAt">{{ chat.updatedAt|date('Y-m-d H:i') }}</span>
                     </div>
                 </div>
             </div>
@@ -130,12 +130,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update last message time for polling
                 if (messages.length > 0) {
                     const latestMessage = messages.reduce((latest, message) => {
-                        const messageDate = new Date(message.createdAt || message.created_at);
-                        const latestDate = new Date(latest.createdAt || latest.created_at);
+                        const messageDate = new Date(message.createdAt);
+                        const latestDate = new Date(latest.createdAt);
                         return messageDate > latestDate ? message : latest;
                     }, messages[0]);
                     
-                    lastMessageTime = new Date(latestMessage.createdAt || latestMessage.created_at);
+                    lastMessageTime = new Date(latestMessage.createdAt);
+                    document.getElementById('chatUpdatedAt').textContent = new Date(latestMessage.updatedAt).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Prague' });
+                    document.getElementById('chatUpdatedAt').textContent += ' ' + new Date(latestMessage.updatedAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
+
+                    document.getElementById('chatCreatedAt').textContent = new Date('{{ chat.createdAt | date('Y-m-d H:i:s') }}').toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Prague' });
+                    document.getElementById('chatCreatedAt').textContent += ' ' + new Date('{{ chat.createdAt | date('Y-m-d H:i:s') }}').toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
                 }
             })
             .catch(error => {
@@ -175,7 +180,8 @@ document.addEventListener('DOMContentLoaded', function() {
             let messageClass = isOutgoing ? 'outgoing' : 'incoming';
             let messageAlign = isOutgoing ? 'align-self-end' : 'align-self-start';
             let messageBg = isOutgoing ? 'bg-cyber-g' : 'glass-panel';
-            let messageTime = new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let messageDate = new Date(createdAt).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Prague' });
+            let messageTime = new Date(createdAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
             
             let statusIcon = '';
             if (isOutgoing) {
@@ -198,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function() {
             returnHtml += '<div class="chat-bubble">';
             returnHtml += nameDisplay;
             returnHtml += '<div class="chat-content">' + content + '</div>';
-            returnHtml += '<div class="chat-timestamp">' + messageTime;
+            returnHtml += '<div class="chat-timestamp" data-message-date="' + messageDate + '" title="' + messageDate + '">' + messageTime;
             if (isOutgoing && statusIcon) {
                 returnHtml += ' ' + statusIcon;
             }

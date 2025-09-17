@@ -8,8 +8,12 @@ export class AdminDashboardManager {
         // DOM elements
         this.iframe = document.getElementById('updateModalIframe');
         this.updateModal = document.getElementById('updateModal');
-        this.updateModalCheckUpdates = document.getElementById('updateModalCheckUpdates');
+        //this.updateModalCheckUpdates = document.getElementById('updateModalCheckUpdates');
         this.updateModalClose = document.getElementById('updateModalClose');
+
+        this.updateModalCheckUpdates_step_1 = document.getElementById('updateModalCheckUpdates_step_1');
+        this.updateModalCheckUpdates_step_2 = document.getElementById('updateModalCheckUpdates_step_2');
+        this.updateModalCheckUpdates_step_3 = document.getElementById('updateModalCheckUpdates_step_3');
     }
 
     init() {
@@ -74,58 +78,97 @@ export class AdminDashboardManager {
             this.iframe.classList.add('d-none');
             this.iframe.setAttribute('height', '0px');
             this.iframe.src = "";
-            this.updateModalCheckUpdates.disabled = false;
+
+            //this.updateModalCheckUpdates.disabled = false;
             this.updateModalClose.disabled = false;
-            this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i>' + this.updateModalCheckUpdates.getAttribute('data-original-text');
+            //this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i>' + this.updateModalCheckUpdates.getAttribute('data-original-text');
+
+            this.updateModalCheckUpdates_step_1.disabled = false;
+            this.updateModalCheckUpdates_step_2.disabled = false;
+            this.updateModalCheckUpdates_step_3.disabled = true;
         });
 
-        this.updateModalCheckUpdates.addEventListener('click', () => {
-            if (this.iframe) {
-                this.updateModalCheckUpdates.disabled = true;
-                this.updateModalClose.disabled = true;
-                this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-loading mdi-spin me-2"></i>Please wait... don\'t touch anything!';
-                
-                this.iframe.classList.remove('d-none');
-                this.iframe.setAttribute('height', '460px');
-                
-                fetch('/admin/update/check', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => {
-                    // Store response.ok before parsing JSON
-                    const isResponseOk = response.ok;
-                    return response.json().then(data => ({ data, isResponseOk }));
-                })
-                .then(({ data, isResponseOk }) => {
-                    if (isResponseOk && data.success) {
-                        this.iframe.src = data.redirect_url;
-                        // set interval to scroll to bottom of iframe, to see updates
-                        const interval = setInterval(() => {
-                            if (this.iframe.contentWindow) {
-                                this.iframe.contentWindow.scrollTo(0, this.iframe.contentWindow.document.body.scrollHeight);
-                            }
-                        }, 500);
+        // Update modal check updates steps
+        // 1 - Create backup
+        this.updateModalCheckUpdates_step_1.addEventListener('click', () => this.updateModalCheckUpdateStep(1)); 
+        // 2 - Download update
+        this.updateModalCheckUpdates_step_2.addEventListener('click', () => this.updateModalCheckUpdateStep(2)); 
+        // 3 - Install update
+        this.updateModalCheckUpdates_step_3.addEventListener('click', () => this.updateModalCheckUpdateStep(3)); 
+
+    }
+
+    updateModalCheckUpdateStep(step) {
+        if (this.iframe) {
+            this.updateModalClose.disabled = true;
+            //this.updateModalCheckUpdates.disabled = true;
+            //this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-loading mdi-spin me-2"></i>Please wait... don\'t touch anything!';
+
+            this.updateModalCheckUpdates_step_1.disabled = true;
+            this.updateModalCheckUpdates_step_2.disabled = true;
+            this.updateModalCheckUpdates_step_3.disabled = true;
+            
+            this.iframe.classList.remove('d-none');
+            this.iframe.setAttribute('height', '460px');
+            
+            fetch('/admin/update/check/' + step, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                // Store response.ok before parsing JSON
+                const isResponseOk = response.ok;
+                return response.json().then(data => ({ data, isResponseOk }));
+            })
+            .then(({ data, isResponseOk }) => {
+                if (isResponseOk && data.success) {
+                    this.iframe.src = data.redirect_url;
+                    // set interval to scroll to bottom of iframe, to see updates
+                    const interval = setInterval(() => {
+                        if (this.iframe.contentWindow) {
+                            this.iframe.contentWindow.scrollTo(0, this.iframe.contentWindow.document.body.scrollHeight);
+                        }
+                    }, 500);
+                    
+                    this.iframe.addEventListener('load', () => {
+                        clearInterval(interval);
+                        this.updateModalClose.disabled = false;
+                        //this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i> Refresh';
+                        //this.updateModalCheckUpdates.style.display = 'none';
                         
-                        this.iframe.addEventListener('load', () => {
-                            clearInterval(interval);
-                            //this.updateModalCheckUpdates.innerHTML = '<i class="mdi mdi-update me-2"></i> Refresh';
-                            this.updateModalCheckUpdates.style.display = 'none';
-                            this.updateModalClose.disabled = false;
-                        });
+                        switch (step) {
+                            case 1:
+                                this.updateModalCheckUpdates_step_1.disabled = false;
+                                this.updateModalCheckUpdates_step_2.disabled = false;
+                                this.updateModalCheckUpdates_step_3.disabled = true;
+                                break;
+                            case 2:
+                                this.updateModalCheckUpdates_step_1.disabled = false;
+                                this.updateModalCheckUpdates_step_2.disabled = false;
+                                this.updateModalCheckUpdates_step_3.disabled = false;
+                                break;
+                            case 3:
+                                this.updateModalCheckUpdates_step_1.disabled = true;
+                                this.updateModalCheckUpdates_step_2.disabled = true;
+                                this.updateModalCheckUpdates_step_3.disabled = true;
 
-                    } else {
-                        window.toast.error(data.message || 'Update check failed');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking for updates:', error);
-                    window.toast.error('Failed to check for updates');
-                });
-            }
-        });
+                                this.updateModalCheckUpdates_step_4.disabled = false;
+                                this.updateModalCheckUpdates_step_4.classList.remove('d-none');
+                                break;
+                        }
+                    });
+
+                } else {
+                    window.toast.error(data.message || 'Update check failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error checking for updates:', error);
+                window.toast.error('Failed to check for updates');
+            });
+        }
     }
 }

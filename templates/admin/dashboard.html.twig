@@ -29,42 +29,11 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card glass-panel border-cyber">
-                <div class="card-body text-center">
-                    <i class="mdi mdi-account-group display-4 text-cyber mb-2"></i>
-                    <h3 class="text-cyber" id="totalUsers">{{ userStats.total }}</h3>
-                    <p class="text-light mb-0">{{ 'admin.stats.total_users'|trans }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card glass-panel border-cyber">
-                <div class="card-body text-center">
-                    <i class="mdi mdi-account-cowboy-hat display-4 text-warning mb-2"></i>
-                    <h3 class="text-warning" id="adminUsers">{{ userStats.admins }}</h3>
-                    <p class="text-light mb-0">{{ 'admin.stats.admin_users'|trans }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card glass-panel border-cyber">
-                <div class="card-body text-center">
-                    <i class="mdi mdi-account display-4 text-info mb-2"></i>
-                    <h3 class="text-light" id="regularUsers">{{ userStats.regular }}</h3>
-                    <p class="text-light mb-0">{{ 'admin.stats.regular_users'|trans }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Quick Actions -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card glass-panel border-cyber">
-                <div class="card-header">
+                <div class="card-header bg-cyber-g pt-3 border-0">
                     <h5 class="text-cyber mb-0">
                         <i class="mdi mdi-lightning-bolt me-2"></i>
                         {{ 'admin.dashboard.quick_actions'|trans }}
@@ -96,7 +65,38 @@
         </div>
     </div>
 
-    <!-- Recent Users -->
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account-group display-4 text-cyber mb-2"></i>
+                    <h3 class="text-cyber" id="totalUsers">{{ userStats.total }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.total_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account-cowboy-hat display-4 text-warning mb-2"></i>
+                    <h3 class="text-warning" id="adminUsers">{{ userStats.admins }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.admin_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card glass-panel border-cyber">
+                <div class="card-body text-center">
+                    <i class="mdi mdi-account display-4 text-light mb-2"></i>
+                    <h3 class="text-light" id="regularUsers">{{ userStats.regular }}</h3>
+                    <p class="text-light mb-0">{{ 'admin.stats.regular_users'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# <!-- Recent Users -->
     <div class="row">
         <div class="col-12">
             <div class="card bg-dark border-cyber">
@@ -114,8 +114,6 @@
                                     <tr>
                                         <th>{{ 'admin.users.username'|trans }}</th>
                                         <th>{{ 'admin.users.email'|trans }}</th>
-                                        {# <th>{{ 'admin.users.roles'|trans }}</th>
-                                        <th>{{ 'admin.users.database'|trans }}</th> #}
                                         <th>{{ 'admin.users.actions'|trans }}</th>
                                     </tr>
                                 </thead>
@@ -134,18 +132,7 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ user.email|replace({"@": "<span class='text-cyber'>@</span>"})|raw }}</td>
-                                            {# <td>
-                                                {% for role in user.roles %}
-                                                    {% if role == 'ROLE_ADMIN' %}
-                                                        <span class="badge bg-warning">{{ 'admin.roles.admin'|trans }}</span>
-                                                    {% elseif role == 'ROLE_USER' %}
-                                                        <span class="badge bg-info">{{ 'admin.roles.user'|trans }}</span>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </td>
-                                            <td>
-                                                <code class="text-cyber">{{ user.databasePath }}</code>
-                                            </td> #}
+                                            
                                             <td>
                                                 <a href="{{ path('app_admin_users') }}" class="btn btn-sm btn-outline-cyber">
                                                     <i class="mdi mdi-eye"></i>
@@ -172,7 +159,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> #}
 </div>
 
 <div id="updateModal" class="modal fade" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
@@ -188,15 +175,37 @@
                     <iframe id="updateModalIframe" src="" width="100%" frameborder="0" class="rounded border-0 d-none"></iframe>
                 </div>
             </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-sm btn-secondary me-2" data-bs-dismiss="modal" id="updateModalClose">
+            <div class="modal-footer border-0 d-block">
+                <button type="button" class="btn btn-sm btn-secondary me-2 float-start" data-bs-dismiss="modal" id="updateModalClose">
                     <i class="mdi mdi-close me-2"></i>
                     {{ 'ui.close'|trans }}
                 </button>
-                <button type="button" class="btn btn-sm btn-cyber" id="updateModalCheckUpdates" data-original-text="{{ 'admin.dashboard.update'|trans }}">                    
-                    <i class="mdi mdi-update me-2"></i>
-                    {{ 'admin.dashboard.update'|trans }}
+
+                {# Create backup #}
+                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_1" data-original-text="{{ 'admin.dashboard.update_step_1'|trans }}">                    
+                    <i class="mdi mdi-database-check me-2"></i>
+                    {{ 'admin.dashboard.update_step_1'|trans }}
                 </button>
+
+                {# Download update #}
+                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_2" data-original-text="{{ 'admin.dashboard.update_step_2'|trans }}">                    
+                    <i class="mdi mdi-download me-2"></i>
+                    {{ 'admin.dashboard.update_step_2'|trans }}
+                </button>
+
+                {# Install update #}
+                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_3" data-original-text="{{ 'admin.dashboard.update_step_3'|trans }}">                    
+                    <i class="mdi mdi-cog me-2"></i>
+                    {{ 'admin.dashboard.update_step_3'|trans }}
+                </button>
+
+                {# Refresh #}
+                <button type="button" class="btn btn-sm btn-cyber float-end mb-2 d-none" id="updateModalCheckUpdates_step_4" data-original-text="{{ 'admin.dashboard.update_step_4'|trans }}"
+                    onclick="window.location.reload()">                    
+                    <i class="mdi mdi-refresh me-2"></i>
+                    {{ 'admin.dashboard.update_step_4'|trans }}
+                </button>
+                <div style="clear: both;"></div>
             </div>
         </div>
     </div>
