@@ -4,6 +4,8 @@ namespace App\Controller;
 
 use App\Service\CqChatService;
 use App\Service\CqContactService;
+use App\Service\SettingsService;
+use App\Service\CqChatMsgService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -15,7 +17,9 @@ class CqChatController extends AbstractController
 {
     public function __construct(
         private readonly CqChatService $cqChatService,
-        private readonly CqContactService $cqContactService
+        private readonly CqContactService $cqContactService,
+        private readonly SettingsService $settingsService,
+        private readonly CqChatMsgService $cqChatMsgService
     ) {
     }
 
@@ -56,7 +60,7 @@ class CqChatController extends AbstractController
                 true    // isActive
             );
         }
-        
+
         // Redirect to the chat view
         return $this->redirectToRoute('app_cq_chat_view', ['id' => $chat->getId()]);
     }
@@ -76,8 +80,20 @@ class CqChatController extends AbstractController
         if ($chat->getCqContactId()) {
             $contact = $this->cqContactService->findById($chat->getCqContactId());
         }
+
+        $messages = $this->cqChatMsgService->findByChatId($id);
+        $total = $this->cqChatMsgService->countByChatId($id);
+
+        // Check if there are unseen messages in this chat
+        $hasNewMsgs = $this->cqChatMsgService->countUnseenMessagesByChat($id) > 0;
+        
+        // Mark all RECEIVED messages in this chat as SEEN
+        if ($hasNewMsgs) {
+            $this->cqChatMsgService->markChatMessagesAsSeen($id);
+        }
         
         return $this->render('cq_chat/view.html.twig', [
+            'hasNewMsgs' => $hasNewMsgs,
             'chat' => $chat,
             'contact' => $contact,
             'page_title' => $chat->getTitle()

@@ -9,7 +9,7 @@
             <div class="glass-panel glass-panel-glow p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1 class="h3 mb-0">
-                        <i class="mdi mdi-chat me-2 text-cyber"></i>
+                        <i class="mdi mdi-forum me-2 text-cyber"></i>
                         {{ 'cq_chat.page_title'|trans }}
                     </h1>
                     <div class="dropdown">
@@ -156,17 +156,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (chat.isStar) statusIcons.push('<i class="mdi mdi-star text-warning" title="{{ "cq_chat.starred"|trans }}"></i>');
             if (chat.isPin) statusIcons.push('<i class="mdi mdi-pin text-info" title="{{ "cq_chat.pinned"|trans }}"></i>');
             if (chat.isMute) statusIcons.push('<i class="mdi mdi-volume-off text-secondary" title="{{ "cq_chat.muted"|trans }}"></i>');
-            
+
             return `
                 <div class="card glass-panel mb-3 chat-card ${chat.isPin ? 'border-info' : ''}" data-chat-id="${chat.id}">
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-md-8">
-                                <h6 class="card-title mb-1">
-                                    <i class="mdi mdi-chat me-2"></i>
-                                    ${chat.title}
+                                <span class="mb-1 d-flex align-items-center">
+                                    <i class="mdi ${chat.hasNewMsgs ? 'mdi-message-badge text-cyber' : 'mdi-forum text-light'} me-2"></i>
+                                    <span class="h5">${chat.title}</span>
                                     ${statusIcons.join(' ')}
-                                </h6>
+                                    ${chat.unseenCount > 0 ? `<span class="badge bg-cyber text-dark ms-2">${chat.unseenCount}</span>` : ''}
+                                </span>
                                 ${chat.summary ? `<p class="card-text text-muted small mb-2">${chat.summary}</p>` : ''}
                                 <p class="card-text text-muted small mb-2">
                                     <i class="mdi mdi-clock-outline me-1"></i>
@@ -176,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-4 text-end">
                                 <div class="btn-group" role="group">
                                     <a href="/cq-chat/${chat.id}" class="btn btn-sm btn-cyber">
-                                        <i class="mdi mdi-message-text me-1"></i> {{ 'ui.view'|trans }}
+                                        <i class="mdi mdi-message-text ${chat.hasNewMsgs ? 'text-cyber' : ''} me-1"></i> {{ 'ui.view'|trans }}
                                     </a>
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="mdi mdi-dots-vertical"></i>

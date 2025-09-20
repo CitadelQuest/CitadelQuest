@@ -62,6 +62,7 @@ class FederationChatMessageController extends AbstractController
             $this->cqContactService->setUser($user);
             $this->cqChatMsgService->setUser($user);
             $this->cqChatService->setUser($user);
+            $this->settingsService->setUser($user);
             
             // Find the contact by API key
             $contact = $this->cqContactService->findByApiKey($apiKey);
@@ -89,13 +90,8 @@ class FederationChatMessageController extends AbstractController
                 }
             }
             
-            // Create the message
+            // Create the message (it will have status 'RECEIVED' by default)
             $message = $this->cqChatMsgService->receiveMessage($data, $contact->getId());
-
-            // TODO tutu
-            // Save the message ID and increment the new messages count
-            $this->settingsService->setSetting('cq_chat.cq_msg_id', $message->getId());
-            $this->settingsService->setSetting('cq_chat.new_msgs_count', (int)$this->settingsService->getSettingValue('cq_chat.new_msgs_count', '0') + 1);
 
             return $this->json([
                 'success' => true,

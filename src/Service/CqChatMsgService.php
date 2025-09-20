@@ -16,7 +16,8 @@ class CqChatMsgService
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly HttpClientInterface $httpClient,
-        private readonly CqContactService $cqContactService
+        private readonly CqContactService $cqContactService,
+        private readonly CqChatService $cqChatService
     ) {
         $this->user = $security->getUser();
     }
@@ -31,6 +32,9 @@ class CqChatMsgService
      */
     private function getUserDb()
     {
+        if (!$this->user) {
+            throw new \Exception('User not found');
+        }
         return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
 
@@ -168,13 +172,108 @@ class CqChatMsgService
     }
     
     /**
+     * Count unseen messages (status = 'RECEIVED') for the current user
+     */
+    public function countUnseenMessages(): int
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT COUNT(*) as count FROM cq_chat_msg WHERE status = ? AND cq_contact_id IS NOT NULL',
+            ['RECEIVED']
+        )->fetchAssociative();
+
+        return (int) ($result['count'] ?? 0);
+    }
+    
+    /**
+     * Count unseen messages for a specific chat
+     */
+    public function countUnseenMessagesByChat(string $cqChatId): int
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT COUNT(*) as count FROM cq_chat_msg WHERE cq_chat_id = ? AND status = ? AND cq_contact_id IS NOT NULL',
+            [$cqChatId, 'RECEIVED']
+        )->fetchAssociative();
+
+        return (int) ($result['count'] ?? 0);
+    }
+    
+    /**
+     * Mark all RECEIVED messages in a chat as SEEN
+     */
+    public function markChatMessagesAsSeen(string $cqChatId): int
+    {
+        $userDb = $this->getUserDb();
+        
+        // First, get the messages that will be marked as seen for federation notification
+        $messagesToUpdate = $userDb->executeQuery(
+            'SELECT id, cq_contact_id FROM cq_chat_msg WHERE cq_chat_id = ? AND status = ? AND cq_contact_id IS NOT NULL',
+            [$cqChatId, 'RECEIVED']
+        )->fetchAllAssociative();
+        
+        // Update the messages
+        $result = $userDb->executeStatement(
+            'UPDATE cq_chat_msg SET status = ?, updated_at = ? WHERE cq_chat_id = ? AND status = ? AND cq_contact_id IS NOT NULL',
+            ['SEEN', date('Y-m-d H:i:s'), $cqChatId, 'RECEIVED']
+        );
+        
+        // Notify federation about status updates
+        foreach ($messagesToUpdate as $messageData) {
+            $this->notifyFederationStatusUpdate($messageData['id'], $messageData['cq_contact_id'], 'SEEN');
+        }
+
+        return $result;
+    }
+    
+    /**
+     * Notify federation about message status update
+     */
+    private function notifyFederationStatusUpdate(string $messageId, string $contactId, string $status): void
+    {
+        try {
+            $contact = $this->cqContactService->findById($contactId);
+            if (!$contact) {
+                return;
+            }
+            
+            $this->httpClient->request(
+                'PUT',
+                $contact->getCqContactUrl() . '/api/federation/chat-message/' . $messageId . '/status',
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                        'User-Agent' => 'CitadelQuest HTTP Client',
+                        'Content-Type' => 'application/json',
+                    ],
+                    'json' => [
+                        'status' => $status
+                    ],
+                    'timeout' => 10
+                ]
+            );
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            error_log('Failed to notify federation about status update: ' . $e->getMessage());
+        }
+    }
+    
+    /**
      * Send a message to a contact
      */
     public function sendMessage(CqChatMsg $message, string $currentDomain): array
     {
         try {
-            // Get the contact
-            $contact = $this->cqContactService->findById($message->getCqContactId());
+            // For outgoing messages, get the contact from the chat (since message.cq_contact_id is null)
+            $chat = $this->cqChatService->findById($message->getCqChatId());
+            if (!$chat || !$chat->getCqContactId()) {
+                return [
+                    'success' => false,
+                    'message' => 'Chat or contact not found'
+                ];
+            }
+            
+            $contact = $this->cqContactService->findById($chat->getCqContactId());
             if (!$contact) {
                 return [
                     'success' => false,

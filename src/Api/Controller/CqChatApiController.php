@@ -7,6 +7,7 @@ use App\Entity\CqChatMsg;
 use App\Service\CqChatService;
 use App\Service\CqChatMsgService;
 use App\Service\CqContactService;
+use App\Service\SettingsService;
 use App\CitadelVersion;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,6 +26,7 @@ class CqChatApiController extends AbstractController
         private readonly CqChatService $cqChatService,
         private readonly CqChatMsgService $cqChatMsgService,
         private readonly CqContactService $cqContactService,
+        private readonly SettingsService $settingsService,
         private readonly HttpClientInterface $httpClient
     ) {
     }
@@ -34,23 +36,17 @@ class CqChatApiController extends AbstractController
     {
         try {
             $chats = $this->cqChatService->findAll();
-            return $this->json($chats);
-        } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
-        }
-    }
 
-    #[Route('/{id}', name: 'app_api_cq_chat_get', methods: ['GET'])]
-    public function get(string $id): JsonResponse
-    {
-        try {
-            $chat = $this->cqChatService->findById($id);
-            
-            if (!$chat) {
-                return $this->json(['error' => 'Chat not found'], Response::HTTP_NOT_FOUND);
-            }
-            
-            return $this->json($chat);
+            // Check for unseen messages in each chat
+            $chats = array_map(function ($chat) {
+                $chat = $chat->jsonSerialize();
+                $unseenCount = $this->cqChatMsgService->countUnseenMessagesByChat($chat['id']);
+                $chat['hasNewMsgs'] = $unseenCount > 0;
+                $chat['unseenCount'] = $unseenCount;
+                return $chat;
+            }, $chats);
+
+            return $this->json($chats);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -73,6 +69,37 @@ class CqChatApiController extends AbstractController
             );
             
             return $this->json($chat, Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/unseen-count', name: 'app_api_cq_chat_unseen_count', methods: ['GET'])]
+    public function getUnseenCount(): JsonResponse
+    {
+        try {
+            $unseenCount = $this->cqChatMsgService->countUnseenMessages();
+
+            return $this->json([
+                'success' => true,
+                'unseenCount' => $unseenCount
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}', name: 'app_api_cq_chat_get', methods: ['GET'])]
+    public function get(string $id): JsonResponse
+    {
+        try {
+            $chat = $this->cqChatService->findById($id);
+            
+            if (!$chat) {
+                return $this->json(['error' => 'Chat not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            return $this->json($chat);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -210,6 +237,27 @@ class CqChatApiController extends AbstractController
         }
     }
 
+    #[Route('/{id}/mark-seen', name: 'app_api_cq_chat_mark_seen', methods: ['POST'])]
+    public function markSeen(string $id): JsonResponse
+    {
+        try {
+            $chat = $this->cqChatService->findById($id);
+            
+            if (!$chat) {
+                return $this->json(['error' => 'Chat not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $markedCount = $this->cqChatMsgService->markChatMessagesAsSeen($id);
+            
+            return $this->json([
+                'success' => true,
+                'markedCount' => $markedCount
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
     #[Route('/{id}/messages', name: 'app_api_cq_chat_send_message', methods: ['POST'])]
     public function sendMessage(string $id, Request $request): JsonResponse
     {
@@ -243,7 +291,7 @@ class CqChatApiController extends AbstractController
             
             $message = $this->cqChatMsgService->createMessage(
                 $id,
-                $chat->getCqContactId(),
+                null, // NULL for outgoing messages (sent by current user)
                 $data['content'] ?? null,
                 $data['attachments'] ?? null
             );

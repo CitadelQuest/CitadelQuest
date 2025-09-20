@@ -30,6 +30,9 @@ class CqContactService
      */
     private function getUserDb()
     {
+        if (!$this->user) {
+            throw new \Exception('User not found');
+        }
         return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
 
@@ -93,8 +96,12 @@ class CqContactService
         return $contact;
     }
 
-    public function findById(string $id): ?CqContact
+    public function findById(?string $id): ?CqContact
     {
+        if ($id === null) {
+            return null;
+        }
+        
         $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
             'SELECT * FROM cq_contact WHERE id = ?',

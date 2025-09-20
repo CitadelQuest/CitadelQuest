@@ -107,7 +107,13 @@
                     <i id="cqChatIcon2" class="mdi mdi-chat-processing"></i>
                 </span> #}
                 <a class="nav-link" href="{{ path('app_cq_chat_index') }}" title="{{ 'cq_chat.page_title'|trans }}">
-                    <i class="mdi mdi-chat-processing"></i>
+                    <i class="mdi mdi-forum"></i>
+                    {% set unseenCount = get_cq_chat_unseen_count() %}
+                    
+                    <span class="position-absolute top-0 start-50 badge rounded-pill text-cyber" id="cqChatUnseenCountBadge">
+                        {% if unseenCount > 0 %}{{ unseenCount }}{% endif %}
+                    </span>
+                    
                 </a>
             </li>
 
@@ -140,3 +146,52 @@
         </ul>
     </div>
 </nav>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Polling for unseen messages
+        let cqChatUnseenCountBadge = document.getElementById('cqChatUnseenCountBadge');
+        let minInterval = 3000;
+        let maxInterval = 30000;
+        let interval = minInterval;
+
+        let poll = () => {
+            // Get unseen messages count from server
+            fetch(
+                '{{ path('app_api_cq_chat_unseen_count') }}',
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                }
+            )
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const unseenCount = parseInt(data.unseenCount);
+                    if (cqChatUnseenCountBadge) {
+                        cqChatUnseenCountBadge.textContent = unseenCount > 0 ? unseenCount : '';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching unseen count:', error);
+            });
+            
+            // Increase interval
+            interval = interval * 1.2;
+            if (interval > maxInterval) {
+                interval = minInterval;
+            }
+
+            setTimeout(() => {
+                // Poll again
+                poll();
+            }, interval);
+        };
+
+        // Initial poll
+        poll();
+    });
+</script>

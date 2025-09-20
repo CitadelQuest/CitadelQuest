@@ -117,15 +117,28 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let messages = [];
     let lastMessageTime = null;
-    let pollingInterval = null;
+    
+    let minInterval = 3000;
+    let maxInterval = 30000;
+    let interval = minInterval;
 
     // Load messages
     function loadMessages(scrollToBottom = true) {
         fetch(`/api/cq-chat/${chatId}/messages`)
             .then(response => response.json())
             .then(data => {
+                const previousMessageCount = messages.length;
                 messages = data.messages || [];
                 renderMessages(scrollToBottom);
+                
+                // If new messages were loaded, mark them as seen
+                if (messages.length > previousMessageCount) {
+                    fetch(`/api/cq-chat/${chatId}/mark-seen`, {
+                        method: 'POST'
+                    }).catch(error => {
+                        console.error('Error marking messages as seen:', error);
+                    });
+                }
                 
                 // Update last message time for polling
                 if (messages.length > 0) {
@@ -176,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const contactId = message.cqContactId || message.cq_contact_id;
             const status = message.status || 'SENT';
             
-            const isOutgoing = status === 'DELIVERED';
+            const isOutgoing = !contactId; // NULL cq_contact_id = outgoing (sent by current user)
             let messageClass = isOutgoing ? 'outgoing' : 'incoming';
             let messageAlign = isOutgoing ? 'align-self-end' : 'align-self-start';
             let messageBg = isOutgoing ? 'bg-cyber-g' : 'glass-panel';
@@ -185,12 +198,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let statusIcon = '';
             if (isOutgoing) {
-                if (status === 'DELIVERED') {
+                if (status === 'SEEN') {
+                    statusIcon = '<i class="mdi mdi-eye text-cyber ms-1" title="{{ "cq_chat.seen"|trans }}"></i>';
+                } else if (status === 'DELIVERED') {
                     statusIcon = '<i class="mdi mdi-check-all text-cyber ms-1" title="{{ "cq_chat.delivered"|trans }}"></i>';
                 } else if (status === 'SENT') {
                     statusIcon = '<i class="mdi mdi-check text-muted ms-1" title="{{ "cq_chat.sent"|trans }}"></i>';
                 } else if (status === 'FAILED') {
                     statusIcon = '<i class="mdi mdi-alert-circle text-danger ms-1" title="{{ "cq_chat.failed"|trans }}"></i>';
+                }
+            } else {
+                // Incoming message status icons
+                if (status === 'SEEN') {
+                    statusIcon = '<i class="mdi mdi-eye ms-1" title="{{ "cq_chat.seen"|trans }}"></i>';
+                } else if (status === 'RECEIVED') {
+                    statusIcon = '<i class="mdi mdi-circle-small text-cyber ms-1" title="{{ "cq_chat.unread"|trans }}"></i>';
                 }
             }
             
@@ -205,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
             returnHtml += nameDisplay;
             returnHtml += '<div class="chat-content">' + content + '</div>';
             returnHtml += '<div class="chat-timestamp" data-message-date="' + messageDate + '" title="' + messageDate + '">' + messageTime;
-            if (isOutgoing && statusIcon) {
+            if (statusIcon) {
                 returnHtml += ' ' + statusIcon;
             }
             returnHtml += '</div>';
@@ -218,14 +240,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Scroll to bottom if requested
         if (scrollToBottom) {
-            cqChatMessages.scrollTop = cqChatMessages.scrollHeight;
+            document.querySelector(`[data-message-id="${messages[messages.length - 1].id}"]`).scrollIntoView({ behavior: 'smooth' });
         }
     }
 
     // Send message
-    cqMessageForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
+    function sendMessage() {
         const content = messageContent.value.trim();
         if (!content) return;
         
@@ -262,7 +282,23 @@ document.addEventListener('DOMContentLoaded', function() {
             // Re-enable form
             submitButton.disabled = false;
         });
+    }
+
+    cqMessageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        sendMessage();
     });
+
+    // Send on `Ctrl + Enter`
+    if (messageContent) {
+        messageContent.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    }
 
     // Toggle star status
     document.querySelector('.toggle-star').addEventListener('click', function() {
@@ -347,28 +383,24 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Setup polling for new messages
-    function setupPolling() {
-        // Clear any existing interval
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
+    function poll() {
+        // Load messages
+        loadMessages(false);
+
+        // increase interval
+        interval = interval * 1.2;
+        if (interval > maxInterval) {
+            interval = minInterval;
         }
         
-        // Poll every 4 seconds
-        pollingInterval = setInterval(() => {
-            loadMessages(false);
-        }, 4000);
+        setTimeout(() => {
+            // Poll again
+            poll();
+        }, interval);
     }
 
     // Initial load
-    loadMessages(true);
-    setupPolling();
-
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', function() {
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-        }
-    });
+    poll();  
 });
 </script>
 

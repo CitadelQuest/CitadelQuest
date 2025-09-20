@@ -43,6 +43,24 @@ export class CqChatApiService {
             throw error;
         }
     }
+
+    /**
+     * Get new messages count
+     * @returns {Promise<number>} - The new messages count
+     */
+    async getNewMsgsCount() {
+        try {
+            const response = await fetch(`${this.baseUrl}/new-msgs-count`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to fetch new messages count');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching new messages count:', error);
+            throw error;
+        }
+    }
     
     /**
      * Get messages for a specific chat

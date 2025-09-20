@@ -10,10 +10,18 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 class SettingsService
 {
+    private ?User $user;
+    
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security
     ) {
+        $this->user = $security->getUser();
+    }
+
+    public function setUser(User $user): void
+    {
+        $this->user = $user;
     }
     
     /**
@@ -21,12 +29,10 @@ class SettingsService
      */
     private function getUserDb()
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
-        if (!$user) {
+        if (!$this->user) {
             throw new \Exception('User not found');
         }
-        return $this->userDatabaseManager->getDatabaseConnection($user);
+        return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
 
     /**

@@ -452,7 +452,7 @@ file_browser:
     browse_files: 'Procházet soubory'
 
 cq_contact:
-    page_title: 'CitadelQuest Kontakty'
+    page_title: 'CQ Kontakty'
     add_contact: 'Přidat kontakt'
     search_placeholder: 'Hledat kontakty...'
     filter_all: 'Všechny kontakty'
@@ -501,7 +501,7 @@ cq_contact:
     error_deleting: 'Chyba při mazání kontaktu'
 
 cq_chat:
-    page_title: 'CitadelQuest Chat'
+    page_title: 'CQ Chat'
     new_chat: 'Nový chat'
     message_contact: 'Napsat kontaktu'
     search_placeholder: 'Hledat chaty...'
@@ -558,3 +558,5 @@ cq_chat:
     delivered: 'Doručeno'
     read: 'Přečteno'
     failed: 'Nepodařilo se odeslat'
+    seen: 'Viděno'
+    unread: 'Nepřečteno'

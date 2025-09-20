@@ -70,6 +70,16 @@ export class CqChatManager2 {
                 this.sendMessage();
             });
         }
+
+        // Send on `Ctrl + Enter`
+        if (this.messageInput) {
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+        }
         
         // Search functionality
         if (this.chatSearch) {

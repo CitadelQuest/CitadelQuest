@@ -227,13 +227,21 @@ export class SpiritChatManager {
             }
         }
 
-        // Message input textarea - dynamic rows
+        // Message input textarea - dynamic rows + send on `Ctrl + Enter`
         if (this.messageInput) {
-            this.messageInput.addEventListener('input', () => {
+            this.messageInput.addEventListener('input', (e) => {
+                // Dynamic rows
                 this.messageInput.rows = 3;
                 let rowCount = this.messageInput.value.split('\n').length;
                 let contentLength = this.messageInput.value.length / 140;
                 this.messageInput.rows = Math.min( Math.max(rowCount + contentLength, 2), 9 );
+            });
+
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
             });
         }
 

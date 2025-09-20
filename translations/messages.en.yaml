@@ -459,7 +459,7 @@ file_browser:
     browse_files: 'Browse files'
 
 cq_contact:
-    page_title: 'CitadelQuest Contacts'
+    page_title: 'CQ Contacts'
     add_contact: 'Add Contact'
     search_placeholder: 'Search contacts...'
     filter_all: 'All contacts'
@@ -508,7 +508,7 @@ cq_contact:
     error_deleting: 'Error deleting contact'
 
 cq_chat:
-    page_title: 'CitadelQuest Chat'
+    page_title: 'CQ Chat'
     new_chat: 'New Chat'
     message_contact: 'Message Contact'
     search_placeholder: 'Search chats...'
@@ -565,3 +565,5 @@ cq_chat:
     delivered: 'Delivered'
     read: 'Read'
     failed: 'Failed to send'
+    seen: 'Seen'
+    unread: 'Unread'

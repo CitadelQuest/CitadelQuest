@@ -30,6 +30,9 @@ class CqChatService
      */
     private function getUserDb()
     {
+        if (!$this->user) {
+            throw new \Exception('User not found');
+        }
         return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
 
@@ -180,6 +183,13 @@ class CqChatService
     public function deleteChat(string $id): bool
     {
         $userDb = $this->getUserDb();
+
+        // delete also related `cq_chat_msg`
+        $userDb->executeStatement(
+            'DELETE FROM cq_chat_msg WHERE cq_chat_id = ?',
+            [$id]
+        );
+        
         $result = $userDb->executeStatement(
             'DELETE FROM cq_chat WHERE id = ?',
             [$id]
