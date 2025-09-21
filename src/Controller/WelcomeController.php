@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Spirit;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
+use App\Service\AiModelsSyncService;
 use App\Service\SettingsService;
 use App\Service\SpiritService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,6 +25,7 @@ class WelcomeController extends AbstractController
     public function __construct(
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
+        private readonly AiModelsSyncService $aiModelsSyncService,
         private readonly SettingsService $settingsService,
         private readonly SpiritService $spiritService,
         private readonly HttpClientInterface $httpClient
@@ -43,10 +45,18 @@ class WelcomeController extends AbstractController
         }
 
         $apiKey = $this->settingsService->getSettingValue('cqaigateway.api_key');
+
+        $step = 1;
+        if ($apiKey && $apiKey !== '') {
+            $step = 2;
+        }
+
+        $session->set('currentStep', $step);
         
         return $this->render('welcome/onboarding.html.twig', [
-            'apiKey' => $apiKey,
-            '_locale' => $session->get('_locale')
+            //'apiKey' => $apiKey,
+            '_locale' => $session->get('_locale'),
+            'step' => $step
         ]);
     }
     
@@ -70,114 +80,32 @@ class WelcomeController extends AbstractController
                 'message' => 'API key is required'
             ], Response::HTTP_BAD_REQUEST);
         }
-        
-        try {
-            // Validate key
-            //  request models from CQ AI Gateway via http client
-            $responseModels = $this->httpClient->request(
-                'GET',
-                'https://cqaigateway.com/api/ai/models', 
-                [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $apiKey,
-                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
-                        'Content-Type' => 'application/json',
-                    ]
-                ]
-            );
-            //  check response status
-            $responseStatus = $responseModels->getStatusCode(false);
-            if ($responseStatus !== Response::HTTP_OK) {
-                if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
-                    return new JsonResponse([
-                        'success' => false,
-                        'message' => 'Invalid API key'
-                    ], Response::HTTP_UNAUTHORIZED);
-                } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
-                            || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
-                            || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
-                            || $responseStatus === Response::HTTP_BAD_GATEWAY
-                            || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
-                            || $responseStatus === Response::HTTP_NOT_FOUND) {
-                    return new JsonResponse([
-                        'success' => false,
-                        'message' => 'CQ AI Gateway is currently unavailable, please try again later'
-                    ], Response::HTTP_SERVICE_UNAVAILABLE);
-                } else {
-                    return new JsonResponse([
-                        'success' => false,
-                        'message' => 'Failed to validate API key (' . $responseStatus . ')'
-                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
-                }
-            }
-            
-            // Get models from response
-            $cq_ai_models = json_decode($responseModels->getContent(), true)['models']??[];
-            $models = [];
 
-            if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
+        try {
+            // Use the new centralized sync service
+            $result = $this->aiModelsSyncService->syncModels($apiKey, $session);
+            
+            if (!$result['success']) {
+                // Map error codes to appropriate HTTP status codes
+                $statusCode = match($result['error_code'] ?? 'UNKNOWN') {
+                    'INVALID_API_KEY' => Response::HTTP_UNAUTHORIZED,
+                    'GATEWAY_UNAVAILABLE', 'NO_MODELS' => Response::HTTP_SERVICE_UNAVAILABLE,
+                    default => Response::HTTP_INTERNAL_SERVER_ERROR
+                };
+                
                 return new JsonResponse([
                     'success' => false,
-                    'message' => 'No models found on CQ AI Gateway'
-                ], Response::HTTP_SERVICE_UNAVAILABLE);
+                    'message' => $result['message']
+                ], $statusCode);
             }
 
-            // Create CQ AI Gateway if not already created
-            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-            if (!$gateway) {
-                $gateway = $this->aiGatewayService->createGateway(
-                    'CQ AI Gateway',
-                    $apiKey,
-                    'https://cqaigateway.com/api',
-                    'cq_ai_gateway'
-                );
-            }
-            
-            // Add models to database
-            foreach ($cq_ai_models as $model) {
-                $modelSlug = $model['id'];
-                $modelSlugProvider = substr($modelSlug, 0, strpos($modelSlug, '/'));
-
-                if ($modelSlugProvider === 'citadelquest' && (strpos($modelSlug, '-') === false)) {            
-                    $maxOutputTokens = isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : null;
-                    $pricingInput = isset($model['pricing']) && isset($model['pricing']['prompt']) ? $model['pricing']['prompt'] : null;
-                    $pricingOutput = isset($model['pricing']) && isset($model['pricing']['completion']) ? $model['pricing']['completion'] : null;
-        
-                    $newModel = $this->aiServiceModelService->createModel(
-                        $gateway->getId(),          // gateway id
-                        $model['name'],             // model name
-                        $modelSlug,                 // model slug
-                        null,                       // virtual key = null, deprecated
-                        $model['context_length'],   // context length
-                        $model['context_length'],   // max input
-                        0,                          // maxInputImageSize
-                        $maxOutputTokens,           // max output(response) tokens
-                        $pricingInput,              // ppmInput
-                        $pricingOutput,             // ppmOutput
-                        true                        // is active
-                    );
-
-                    $models[] = $newModel;
-
-                    // Set first model as primary model
-                    if (count($models) === 1) {
-                        $this->settingsService->setSetting('ai.primary_ai_service_model_id', $newModel->getId());
-                        $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $newModel->getId());
-                    }
-                }
-            }
-
-            $session->set('models', json_encode($models));
-            
             return new JsonResponse([
                 'success' => true,
-                'message' => 'CQ AI Gateway added successfully',
-                'gateway' => [
-                    'id' => $gateway->getId(),
-                    'name' => $gateway->getName()
-                ],
-                'models' => $models
+                'message' => $result['message'],
+                'gateway' => $result['gateway'],
+                'models' => $result['models']
             ], Response::HTTP_OK);
+            
         } catch (\Exception $e) {
             return new JsonResponse([
                 'success' => false,
@@ -256,8 +184,7 @@ class WelcomeController extends AbstractController
                 ]
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
-            error_log('Create Spirit Exception: ' . $e->getMessage() . '
-' . $e->getTraceAsString());
+            error_log('Create Spirit Exception: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
             return new JsonResponse([
                 'success' => false,
                 'message' => 'Error creating spirit: ' . $e->getMessage()

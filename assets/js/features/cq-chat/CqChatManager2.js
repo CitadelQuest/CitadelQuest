@@ -182,7 +182,7 @@ export class CqChatManager2 {
         if (!this.chatMessages) return;
         
         if (messages.length === 0) {
-            this.chatMessages.innerHTML = '<div class="text-center p-3 text-muted">No messages yet</div>';
+            this.chatMessages.innerHTML = '<div class="text-center p-3 text-muted">Say `Hi` to your Spirit :)</div>';
             return;
         }
         

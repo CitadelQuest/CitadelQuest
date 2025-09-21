@@ -146,6 +146,7 @@
         </ul>
     </div>
 </nav>
+{% if app.user %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // Polling for unseen messages
@@ -195,3 +196,4 @@
         poll();
     });
 </script>
+{% endif %}

@@ -72,6 +72,6 @@
         </footer>
 
         <!-- User data for JS -->
-        <div class="js-user" data-username="{{ app.user.username }}"></div>
+        <div class="js-user" data-username="{% if app.user is defined and app.user is not null and app.user.username is defined %}{{ app.user.username }}{% endif %}"></div>
     </body>
 </html>

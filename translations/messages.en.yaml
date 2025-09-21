@@ -162,7 +162,7 @@ spirit:
         conversation_deleted: 'Conversation deleted successfully'
         no_conversations: 'No conversations yet'
         type_message: 'Type your message here...'
-        no_messages: 'No messages yet. Start a conversation!'
+        no_messages: 'No messages yet. Start a conversation! Say "Hello" to your Spirit :)'
         loading_response: 'Spirit is thinking...'
         response_max_output: 'Max response length'
 
@@ -550,7 +550,7 @@ cq_chat:
     
     # Messages
     loading_messages: 'Loading messages...'
-    no_messages: 'No messages yet. Start the conversation!'
+    no_messages: 'No messages yet. Start the conversation! Say "Hello" to your Spirit :)'
     type_message: 'Type your message here...'
     error_loading_messages: 'Error loading messages'
     error_sending: 'Error sending message'

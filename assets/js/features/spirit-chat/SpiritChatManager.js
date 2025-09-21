@@ -412,12 +412,11 @@ export class SpiritChatManager {
                 }
             }
             
-            let spiritAvatar = document.querySelectorAll(
-                '.spirit-icon-container > .spirit-icon > .spirit-glow, .spirit-avatar-container > .spirit-avatar > .spirit-glow');
+            let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
             if (spiritAvatar) {
                 let color = JSON.parse(spirit.visualState)?.color??null;
                 if (color) {
-                    spiritAvatar.forEach(glow => glow.style.backgroundColor = color);
+                    spiritAvatar.forEach(icon => icon.style.color = color);
                 }
             }
             
@@ -614,7 +613,7 @@ export class SpiritChatManager {
         if (messages.length === 0) {
             this.chatMessages.innerHTML = `
                 <div class="text-center p-3">
-                    <p>${window.translations && window.translations['spirit.chat.no_messages'] ? window.translations['spirit.chat.no_messages'] : 'No messages yet'}</p>
+                    <p>${window.translations && window.translations['spirit.chat.no_messages'] ? window.translations['spirit.chat.no_messages'] : 'Say `Hi` to your Spirit :)'}</p>
                 </div>
             `;
             return;

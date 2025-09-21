@@ -7,7 +7,7 @@ use App\Entity\AiGateway;
 use App\Repository\UserRepository;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
-use App\Service\NotificationService;
+use App\Service\AiModelsSyncService;
 use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,6 +29,7 @@ class UserSettingsController extends AbstractController
     public function __construct(
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceModelService $aiServiceModelService,
+        private readonly AiModelsSyncService $aiModelsSyncService,
         private readonly SettingsService $settingsService,
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger
@@ -88,6 +89,47 @@ class UserSettingsController extends AbstractController
         return new JsonResponse([
             'message' => $translator->trans('profile.email.updated.title')
         ]);
+    }
+
+    #[Route('/ai/sync-models', name: 'app_user_settings_ai_sync_models', methods: ['POST'])]
+    public function syncAiModels(): JsonResponse
+    {
+        $this->logger->info('UserSettingsController::syncAiModels - Manual AI models sync requested');
+        
+        try {
+            $result = $this->aiModelsSyncService->syncModels();
+            
+            if ($result['success']) {
+                $this->logger->info('UserSettingsController::syncAiModels - Manual sync completed successfully', [
+                    'models_count' => count($result['models'] ?? [])
+                ]);
+                
+                return new JsonResponse([
+                    'success' => true,
+                    'message' => 'AI models synchronized successfully',
+                    'models_count' => count($result['models'] ?? [])
+                ]);
+            } else {
+                $this->logger->warning('UserSettingsController::syncAiModels - Manual sync failed', [
+                    'error' => $result['message'],
+                    'error_code' => $result['error_code'] ?? 'UNKNOWN'
+                ]);
+                
+                return new JsonResponse([
+                    'success' => false,
+                    'message' => $result['message']
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::syncAiModels - Exception during manual sync', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Error synchronizing models: ' . $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     #[Route('/password', name: 'app_user_settings_password', methods: ['POST'])]
@@ -200,146 +242,51 @@ class UserSettingsController extends AbstractController
                     } else {
                         $this->logger->info('UserSettingsController::aiSettings - No existing gateway found, validating new API key');
                         try {
-                            // Validate key
-                            //  request models from CQ AI Gateway via http client
-                            $this->logger->info('UserSettingsController::aiSettings - Making HTTP request to validate API key', [
-                                'url' => 'https://cqaigateway.com/api/ai/models',
-                                'user_agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
-                            ]);
+                            // Use the new centralized sync service
+                            $this->logger->info('UserSettingsController::aiSettings - Using AiModelsSyncService for API key validation and model sync');
                             
-                            $responseModels = $this->httpClient->request(
-                                'GET',
-                                'https://cqaigateway.com/api/ai/models', 
-                            [
-                                'headers' => [
-                                    'Authorization' => 'Bearer ' . $request_api_key,
-                                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
-                                    'Content-Type' => 'application/json',
-                                ]
-                            ]
-                        );
-                            //  check response status
-                            $responseStatus = $responseModels->getStatusCode(false);
-                            $this->logger->info('UserSettingsController::aiSettings - Received HTTP response', [
-                                'status_code' => $responseStatus,
-                                'expected' => Response::HTTP_OK
-                            ]);
+                            $result = $this->aiModelsSyncService->syncModels($request_api_key);
                             
-                            if ($responseStatus !== Response::HTTP_OK) {
-                                if ($responseStatus === Response::HTTP_UNAUTHORIZED) {
-                                    $this->logger->warning('UserSettingsController::aiSettings - API key validation failed - Unauthorized', [
-                                        'status_code' => $responseStatus
-                                    ]);
-                                    return new JsonResponse([
-                                        'success' => false,
-                                        'message' => 'Invalid API key'
-                                    ], Response::HTTP_UNAUTHORIZED);
-                                } else if ($responseStatus === Response::HTTP_SERVICE_UNAVAILABLE 
-                                            || $responseStatus === Response::HTTP_GATEWAY_TIMEOUT 
-                                            || $responseStatus === Response::HTTP_INTERNAL_SERVER_ERROR 
-                                            || $responseStatus === Response::HTTP_BAD_GATEWAY
-                                            || $responseStatus === Response::HTTP_TOO_MANY_REQUESTS
-                                            || $responseStatus === Response::HTTP_NOT_FOUND) {
-                                    $this->logger->warning('UserSettingsController::aiSettings - CQ AI Gateway unavailable', [
-                                        'status_code' => $responseStatus
-                                    ]);
-                                    return new JsonResponse([
-                                        'success' => false,
-                                        'message' => 'CQ AI Gateway is currently unavailable, please try again later'
-                                    ], Response::HTTP_SERVICE_UNAVAILABLE);
-                                } else {
-                                    $this->logger->error('UserSettingsController::aiSettings - Unexpected HTTP status code', [
-                                        'status_code' => $responseStatus
-                                    ]);
-                                    return new JsonResponse([
-                                        'success' => false,
-                                        'message' => 'Failed to validate API key (' . $responseStatus . ')'
-                                    ], Response::HTTP_INTERNAL_SERVER_ERROR);
-                                }
-                            }
-                            
-                            // Get models from response
-                            $responseContent = $responseModels->getContent();
-                            $this->logger->info('UserSettingsController::aiSettings - Processing response content', [
-                                'content_length' => strlen($responseContent)
-                            ]);
-                            
-                            $cq_ai_models = json_decode($responseContent, true)['models']??[];
-                            $this->logger->info('UserSettingsController::aiSettings - Parsed models from response', [
-                                'models_count' => count($cq_ai_models)
-                            ]);
-                        $models = [];
-            
-                            if (!$cq_ai_models || !is_array($cq_ai_models) || count($cq_ai_models) === 0) {
-                                $this->logger->error('UserSettingsController::aiSettings - No models found in response', [
-                                    'models_data' => $cq_ai_models
+                            if (!$result['success']) {
+                                $this->logger->warning('UserSettingsController::aiSettings - Models sync failed', [
+                                    'error' => $result['message'],
+                                    'error_code' => $result['error_code'] ?? 'UNKNOWN'
                                 ]);
+                                
+                                // Map error codes to appropriate HTTP status codes
+                                $statusCode = match($result['error_code'] ?? 'UNKNOWN') {
+                                    'INVALID_API_KEY' => Response::HTTP_UNAUTHORIZED,
+                                    'GATEWAY_UNAVAILABLE', 'NO_MODELS' => Response::HTTP_SERVICE_UNAVAILABLE,
+                                    default => Response::HTTP_INTERNAL_SERVER_ERROR
+                                };
+                                
                                 return new JsonResponse([
                                     'success' => false,
-                                    'message' => 'No models found on CQ AI Gateway'
-                                ], Response::HTTP_SERVICE_UNAVAILABLE);
+                                    'message' => $result['message']
+                                ], $statusCode);
                             }
-            
-                        // Create CQ AI Gateway if not already created
-                        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-                        if (!$gateway) {
-                            $gateway = $this->aiGatewayService->createGateway(
-                                'CQ AI Gateway',
-                                $request_api_key,
-                                'https://cqaigateway.com/api',
-                                'cq_ai_gateway'
-                            );
+                            
+                            $this->logger->info('UserSettingsController::aiSettings - Models sync completed successfully', [
+                                'models_count' => count($result['models'] ?? [])
+                            ]);
+                            
+                            return new JsonResponse([
+                                'success' => true,
+                                'message' => $result['message'],
+                                'gateway' => $result['gateway'],
+                                'models' => $result['models']
+                            ], Response::HTTP_OK);
+                            
+                        } catch (\Exception $e) {
+                            $this->logger->error('UserSettingsController::aiSettings - Exception during models sync', [
+                                'error' => $e->getMessage()
+                            ]);
+                            
+                            return new JsonResponse([
+                                'success' => false,
+                                'message' => 'Error adding gateway: ' . $e->getMessage()
+                            ], Response::HTTP_INTERNAL_SERVER_ERROR);
                         }
-                        
-                        // Add models to database
-                        foreach ($cq_ai_models as $model) {
-                            $modelSlug = $model['id'];
-                            $modelSlugProvider = substr($modelSlug, 0, strpos($modelSlug, '/'));
-            
-                            if ($modelSlugProvider === 'citadelquest') {            
-                                $maxOutputTokens = isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : null;
-                                $pricingInput = isset($model['pricing']) && isset($model['pricing']['prompt']) ? $model['pricing']['prompt'] : null;
-                                $pricingOutput = isset($model['pricing']) && isset($model['pricing']['completion']) ? $model['pricing']['completion'] : null;
-                    
-                                $newModel = $this->aiServiceModelService->createModel(
-                                    $gateway->getId(),          // gateway id
-                                    $model['name'],             // model name
-                                    $modelSlug,                 // model slug
-                                    null,                       // virtual key = null, deprecated
-                                    $model['context_length'],   // context length
-                                    $model['context_length'],   // max input
-                                    0,                          // maxInputImageSize
-                                    $maxOutputTokens,           // max output(response) tokens
-                                    $pricingInput,              // ppmInput
-                                    $pricingOutput,             // ppmOutput
-                                    true                        // is active
-                                );
-            
-                                $models[] = $newModel;
-            
-                                // Set first model as primary model
-                                if (count($models) === 1) {
-                                    $this->settingsService->setSetting('ai.primary_ai_service_model_id', $newModel->getId());
-                                    $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $newModel->getId());
-                                }
-                            }
-                        }
-            
-                        return new JsonResponse([
-                            'success' => true,
-                            'message' => 'CQ AI Gateway added successfully',
-                            'gateway' => [
-                                'id' => $gateway->getId(),
-                                'name' => $gateway->getName()
-                            ],
-                            'models' => $models
-                        ], Response::HTTP_OK);
-                    } catch (\Exception $e) {
-                        return new JsonResponse([
-                            'success' => false,
-                            'message' => 'Error adding gateway: ' . $e->getMessage()
-                        ], Response::HTTP_INTERNAL_SERVER_ERROR);
-                    }
                     
             
                     $this->addFlash('success', 'API key updated successfully.');
@@ -392,73 +339,40 @@ class UserSettingsController extends AbstractController
                 $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
             }
 
-            $CQ_AI_GatewayUsername = $this->settingsService->getSetting('cqaigateway.username');
+            $CQ_AI_GatewayUsername = $this->settingsService->getSettingValue('cqaigateway.username');
             if ($CQ_AI_GatewayUsername === null) {
-                $CQ_AI_GatewayUsername = $userRepository->getCQAIGatewayUsername($this->getUser());
+                $CQ_AI_GatewayUsername = '[cqaigateway.username not set]';//$userRepository->getCQAIGatewayUsername($this->getUser());
             }
 
-            // check for new models
-            $availableModels = $this->aiGatewayService->getAvailableModels($gateway->getId());
-            $currentModels = $this->aiServiceModelService->findByGateway($gateway->getId());
-            /* $currentModels = array_filter($currentModels, function ($currentModel) use ($gateway) {
-                return $currentModel->getAiGatewayId() === $gateway->getId();
-            }); */
-
-            $newModels = [];
-            // add new models
-            foreach ($availableModels as $model) {
-                if (!isset($model['id'])) {
-                    continue;
-                }
-                if (!in_array($model['id'], array_map(function ($currentModel) {
-                    return $currentModel->getModelSlug();
-                }, $currentModels))) {
-                    $newModels[] = $model;
-                    try {
-                        $this->aiServiceModelService->createModel(
-                            $gateway->getId(),          // gateway id
-                            $model['name'],             // model name
-                            $model['id'],               // model slug
-                            null,                       // virtual key = null, deprecated
-                            $model['context_length'],   // context length
-                            $model['context_length'],   // max input
-                            0,                          // maxInputImageSize
-                            isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096, // max output(response) tokens
-                            $model['pricing']['prompt'],        // ppmInput
-                            $model['pricing']['completion'],    // ppmOutput
-                            true                        // is active
-                        );
-                    } catch (\Exception $e) {
-                        $this->addFlash('error', 'Error adding model: ' . $e->getMessage());
+            // Check if models need updating and sync if necessary
+            if ($this->aiModelsSyncService->shouldUpdateModels()) {
+                $this->logger->info('UserSettingsController::aiSettings - Models need updating, syncing from CQ AI Gateway');
+                
+                try {
+                    $syncResult = $this->aiModelsSyncService->syncModels();
+                    
+                    if ($syncResult['success']) {
+                        $this->logger->info('UserSettingsController::aiSettings - Models updated successfully', [
+                            'models_count' => count($syncResult['models'] ?? [])
+                        ]);
+                        
+                        if (count($syncResult['models'] ?? []) > 0) {
+                            $this->addFlash('success', 'AI models updated successfully from CQ AI Gateway.');
+                        }
+                    } else {
+                        $this->logger->warning('UserSettingsController::aiSettings - Models sync failed', [
+                            'error' => $syncResult['message']
+                        ]);
+                        $this->addFlash('warning', 'Could not update AI models: ' . $syncResult['message']);
                     }
-                } else {
-                    // update and set existing model as active
-                    $currentModel = array_filter($currentModels, function ($currentModel) use ($model) {
-                        return $currentModel->getModelSlug() === $model['id'];
-                    });
-                    $this->aiServiceModelService->updateModel($currentModel[array_key_first($currentModel)]->getId(), [
-                        'isActive' => true,
-                        'contextWindow' => $model['context_length'],
-                        'maxInput' => $model['context_length'],
-                        'maxOutput' => isset($model['top_provider']) && isset($model['top_provider']['max_completion_tokens']) ? $model['top_provider']['max_completion_tokens'] : 4096,
-                        'ppmInput' => $model['pricing']['prompt'],
-                        'ppmOutput' => $model['pricing']['completion']
+                } catch (\Exception $e) {
+                    $this->logger->error('UserSettingsController::aiSettings - Exception during models sync', [
+                        'error' => $e->getMessage()
                     ]);
+                    $this->addFlash('warning', 'Could not update AI models: ' . $e->getMessage());
                 }
-            }
-            if (count($newModels) > 0) {
-                $this->addFlash('success', 'New models: [' . implode(', ', array_map(function ($model) {
-                    return $model['name'];
-                }, $newModels)) . '] added successfully.');
-            }
-
-            // set current models which are not in the list to inactive
-            foreach ($currentModels as $model) {
-                if (!in_array($model->getModelSlug(), array_map(function ($model) {
-                    return isset($model['id']) ? $model['id'] : null;
-                }, $availableModels))) {
-                    $this->aiServiceModelService->updateModel($model->getId(), ['isActive' => false]);
-                }
+            } else {
+                $this->logger->info('UserSettingsController::aiSettings - Models are up to date, no sync needed');
             }
             
 

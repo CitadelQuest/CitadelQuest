@@ -8,6 +8,7 @@ use App\Repository\UserRepository;
 use App\Service\UserDatabaseManager;
 use App\Service\UserKeyManager;
 use App\Service\SettingsService;
+use App\Service\AiModelsSyncService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,7 +27,8 @@ class RegistrationController extends AbstractController
 {
     public function __construct(
         private TranslatorInterface $translator,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private AiModelsSyncService $aiModelsSyncService
     ) {}
     #[Route('/register', name: 'app_register')]
     public function register(
@@ -87,6 +89,8 @@ class RegistrationController extends AbstractController
                 throw $e;
             }
 
+            $settingsService->setUser($user);
+
             // Save user's locale, from cookie
             $session->set('_locale', $request->cookies->get('citadel_locale', 'en'));
             $settingsService->setSetting('_locale', $session->get('_locale'));
@@ -137,6 +141,28 @@ class RegistrationController extends AbstractController
                     // save username, email for CQ AI Gateway
                     $settingsService->setSetting('cqaigateway.username', $data['username']);
                     $settingsService->setSetting('cqaigateway.email', $data['email']);
+
+                    // update AI models list from CQ AI Gateway
+                    try {
+                        // Attempt to sync models in background
+                        $syncModelsResult = $this->aiModelsSyncService->syncModels($apiKey, $session, $user);
+                        
+                        if ($syncModelsResult['success']) {
+
+                            $this->logger->info('RegistrationController: AI models updated successfully', [
+                                'models_count' => count($syncModelsResult['models'] ?? [])
+                            ]);
+                        } else {
+                            $this->logger->warning('RegistrationController: AI models sync failed', [
+                                'error' => $syncModelsResult['message'],
+                                'error_code' => $syncModelsResult['error_code'] ?? 'UNKNOWN'
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        $this->logger->error('RegistrationController: Exception during AI models sync', [
+                            'error' => $e->getMessage()
+                        ]);
+                    }
 
                     $this->logger->info('CQAIGateway registration successful for user ' . $user->getEmail());
                     

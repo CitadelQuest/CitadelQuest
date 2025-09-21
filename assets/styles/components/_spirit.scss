@@ -166,23 +166,6 @@
     }
 }
 
-// Animations
-@keyframes spirit-glow {
-    0% {
-        box-shadow: 0 0 20px rgba(colors.$cyber, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 40px rgba(colors.$cyber, 0.7);
-    }
-    100% {
-        box-shadow: 0 0 20px rgba(colors.$cyber, 0.5);
-    }
-}
-
-.spirit-visual-container {
-    animation: spirit-glow 3s infinite ease-in-out;
-}
-
 // Responsive adjustments
 @media (max-width: 768px) {
     .spirit-visual-container {

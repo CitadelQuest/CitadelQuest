@@ -14,27 +14,20 @@
         height: 32px;
         border-radius: 50%;
         background-color: #89898921 !important;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all vars.$transition-quick ease-in-out;
-        overflow: hidden;
-        
-        .spirit-glow {
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background-color: colors.$cyber;
-            opacity: 0.5;
-            top: 40%;
-            left: 40%;
-            transform: translate(-50%, -50%);
-            filter: blur(4px);
-            //animation: spirit-pulse 3s infinite alternate ease-in-out;
-        }
+        overflow: hidden;        
     }
+
+    #spiritChatButtonIcon {
+        color: colors.$secondary;
+        transition: all vars.$transition-quick ease-in-out;
+        animation: spirit-fading 3s ease-in-out infinite;
+    }
+}
+
+.spiritChatButtonIcon {
+    color: colors.$secondary;
+    transition: all vars.$transition-quick ease-in-out;
+    animation: spirit-fading 3s ease-in-out infinite;
 }
 
 // Spirit Avatar in Chat
@@ -56,26 +49,7 @@
         background-color: #89898921 !important;
         overflow: hidden;
         position: relative;
-
-        .spirit-glow {
-            content: '';
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            top: 40%;
-            left: 40%;
-            transform: translate(-50%, -50%);
-            border-radius: 50%;
-            background-color: colors.$cyber;
-            opacity: 0.5;
-            filter: blur(8px);
-            //animation: spirit-pulse 4s infinite alternate ease-in-out;
-
-            &.big {
-                width: 120px;
-                height: 120px;
-            }
-        }
+        font-size: 5rem;
     }
 }
 
@@ -270,5 +244,19 @@
     100% {
         opacity: 0.7;
         transform: scale(1.1);
+    }
+}
+
+// Fading animation
+// something more smooth, and in loop, this has some nosaty step  at the loop repeat..
+@keyframes spirit-fading {
+    0% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.6;
     }
 }

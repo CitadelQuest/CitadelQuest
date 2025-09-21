@@ -1,19 +1,10 @@
 {% if app.user %}
 <div class="spirit-icon-container">
-    {# <div id="spiritIcon" class="spirit-icon" data-bs-toggle="dropdown" aria-expanded="false">
-        <div class="spirit-glow"></div>
-    </div>
-    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="spiritIcon">
-        <li><a class="dropdown-item link-light" href="#" id="spiritChatButton" data-bs-toggle="modal" data-bs-target="#spiritChatModal">
-            <i class="mdi mdi-chat me-2"></i> {{ 'spirit.menu.talk'|trans }}
-        </a></li>
-        <li><a class="dropdown-item link-light" href="{{ path('spirit_index') }}" id="spiritSettingsButton">
-            <i class="mdi mdi-ghost me-2"></i> <span class="spiritName">{{ 'spirit.menu.settings'|trans }}</span>
-        </a></li>
-    </ul> #}
     <div id="spiritIcon" class="spirit-icon">
-        <a href="#" id="spiritChatButton" data-bs-toggle="modal" data-bs-target="#spiritChatModal" class="d-inline-block w-100 h-100"></a>
-        <div class="spirit-glow" style="pointer-events: none;"></div>
+        <a href="#" id="spiritChatButton" data-bs-toggle="modal" data-bs-target="#spiritChatModal" 
+            class="d-flex align-items-center justify-content-center w-100 h-100">
+            <i class="mdi mdi-ghost" id="spiritChatButtonIcon"></i>
+        </a>
     </div>
 </div>
 {% endif %}

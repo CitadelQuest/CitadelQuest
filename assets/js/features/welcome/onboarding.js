@@ -13,10 +13,16 @@ function saveCurrentStep(currentStep) {
 
 // load currentStep from localStorage
 function loadCurrentStep() {
-    return parseInt(localStorage.getItem('currentStep')) || parseInt(sessionStorage.getItem('currentStep')) || 1;
+    let currentStep = parseInt(localStorage.getItem('currentStep')) || parseInt(sessionStorage.getItem('currentStep')) || 1;
+    let currentStepEl = document.getElementById('currentStep');
+    if (currentStepEl) {
+        currentStep = parseInt(currentStepEl.innerText);
+    }
+    return currentStep;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Onboarding loaded');
     // Disable spirit chat during onboarding to prevent errors
     // The spirit icon in the menu should be inactive during onboarding
     const spiritChatButton = document.getElementById('spiritChatButton');
@@ -39,33 +45,92 @@ document.addEventListener('DOMContentLoaded', function() {
     const steps = document.querySelectorAll('.step-container');
     
     // Skip if elements don't exist (not on onboarding page)
+    console.log('Elements:', apiKeyInput, validateApiKeyBtn);
     if (!apiKeyInput || !validateApiKeyBtn) return;
     
     // State
     let currentStep = loadCurrentStep();
+    console.log('Current step:', currentStep);
     let selectedColor = '#6c5ce7';
     
     // Color picker functionality
     const colorOptions = document.querySelectorAll('.color-option');
+    const colorPickerInput = document.getElementById('colorPickerInput');
+    const colorPicker = document.getElementById('colorPicker');
+    const colorOptionCustom = document.getElementById('color-option-custom');
+    
+    // Function to update selected color and UI
+    function selectColor(element, color) {
+        // Remove selected class from all options
+        colorOptions.forEach(opt => opt.classList.remove('selected'));
+        // Add selected class to clicked option
+        element.classList.add('selected');
+        // Update selected color
+        selectedColor = color;
+        // Update avatar glow color
+        updateSpiritAvatarColor(color);
+    }
+    
+    // Function to update spirit avatar color
+    function updateSpiritAvatarColor(color) {
+        const spiritAvatars = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
+        if (spiritAvatars && color) {
+            spiritAvatars.forEach(icon => icon.style.color = color);
+        }
+    }
+    
+    // Add click handlers to predefined color options
     colorOptions.forEach(option => {
+        // Skip the custom color option - it has special handling
+        if (option.id === 'color-option-custom') return;
+        
         option.addEventListener('click', function() {
-            // Remove selected class from all options
-            colorOptions.forEach(opt => opt.classList.remove('selected'));
-            // Add selected class to clicked option
-            this.classList.add('selected');
-            // Update selected color
-            selectedColor = this.dataset.color;
-            // update avatar glow color
-            let spiritAvatar = document.querySelectorAll(
-                '.spirit-icon-container > .spirit-icon > .spirit-glow, .spirit-avatar-container > .spirit-avatar > .spirit-glow');
-            if (spiritAvatar) {
-                let color = selectedColor;
-                if (color) {
-                    spiritAvatar.forEach(glow => glow.style.backgroundColor = color);
-                }
+            // Reset custom color option when selecting predefined colors
+            if (colorOptionCustom && colorPicker) {
+                colorOptionCustom.style.backgroundColor = '#ffffff';
+                colorOptionCustom.style.border = '2px dashed #6c757d';
+                colorOptionCustom.dataset.color = '';
+                colorPicker.style.display = 'block';
+                colorPicker.style.color = '#6c757d';
             }
+            
+            selectColor(this, this.dataset.color);
         });
     });
+
+    // Custom color picker functionality
+    if (colorPicker && colorPickerInput && colorOptionCustom) {
+        // When clicking the palette icon, open the color picker
+        colorPicker.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent the parent div click
+            // deselect all color options
+            colorOptions.forEach(opt => opt.classList.remove('selected'));
+            colorOptionCustom.classList.remove('selected');
+
+            colorPickerInput.click();
+        });
+        
+        // When clicking the custom color option itself, also open color picker
+        colorOptionCustom.addEventListener('click', function() {
+            colorPickerInput.click();
+        });
+        
+        // When color is selected from the picker
+        colorPickerInput.addEventListener('input', function() {
+            const selectedCustomColor = this.value;
+            
+            // Update the custom option appearance
+            colorOptionCustom.style.backgroundColor = selectedCustomColor;
+            colorOptionCustom.style.border = '2px solid #ffffff';
+            colorOptionCustom.dataset.color = selectedCustomColor;
+            
+            // Hide the palette icon when a color is selected
+            colorPicker.style.display = 'none';
+            
+            // Select this custom color
+            selectColor(colorOptionCustom, selectedCustomColor);
+        });
+    }
     
     // Enable/disable validate button based on API key input
     apiKeyInput.addEventListener('input', function() {
@@ -211,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.spiritChatManager.init();
                         
                         // Open spirit chat modal
-                        document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
+                        //document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
 
                         // Hide onboarding and show onboarding complete
                         document.querySelector('.onboarding-container').classList.add('d-none');
@@ -281,12 +346,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Clear existing models
         const modelSelection = document.getElementById('modelSelection');
+        modelSelection.classList.add('d-none');
+        modelSelection.classList.remove('d-flex');
         modelSelection.innerHTML = '';
         
         // Add new models
         models.forEach(model => {
             const modelId = model.id;
             const modelName = model.modelName;
+            const modelSlug = model.modelSlug;
+            const modelSlugProvider = modelSlug.split('/')[0];
+            
+            if (modelSlugProvider === 'citadelquest' && (modelSlug.indexOf('-') === -1)) {
+                // (modelSlug.indexOf('-') === -1) means it's one of MAIN CQ AI Gateway models
+                // we want to show only MAIN CQ AI Gateway models
+                // so we skip models that have '-' in their slug
+            } else {
+                return;
+            }
 
             // Create the label element
             const modelLabel = document.createElement('label');
@@ -315,6 +392,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Append the label to the model selection container
             modelSelection.appendChild(modelLabel);
         });
+
+        // show model selection
+        modelSelection.classList.remove('d-none');
+        modelSelection.classList.add('d-flex');
     }
 
     if (currentStep > 1) {

@@ -6,29 +6,16 @@
                 <span id="spiritChatToolsAndConversationsToggle" class="btn_ btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu-open"></i></span>
                 
                 <span id="spiritChatModalTitle" class="fs-6 me-2"></span>
-                <span class="modal-title small d-none d-md-inline-block text-secondary" id="spiritChatModalLabel">{{ 'spirit.chat.title'|trans }} <span class="spiritName"></span></span>
+                <span class="modal-title small d-flex align-items-center text-light" id="spiritChatModalLabel">
+                    {# {{ 'spirit.chat.title'|trans }}  #}
+                    {% include "components/_spirit_icon.html.twig" %}
+                    <span class="spiritName opacity-75"></span>
+                </span>
                 
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body pt-0">
                 <div id="spiritChatToolsAndConversations" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4 border-bottom-1 border-success border-opacity-50" style="z-index: 10;">
-                    {# <div class="col-md-4 d-none d-md-block">
-                        <div class="row mb-4">
-                            <div class="col-4 text-end pt-2">
-                                <a href="/spirit" title=""><h5 class="spiritName mt-2">{{ 'spirit.loading'|trans }}</h5></a>                            
-                                <div class="spirit-info">
-                                    <span id="spiritLevel" class="badge bg-cyber">{{ 'spirit.level'|trans }}: 1</span>
-                                </div>
-                            </div>
-                            <div class="col-6 text-center">
-                                <div class="spirit-avatar-container">
-                                    <div id="spiritChatAvatar" class="spirit-avatar">
-                                        <div class="spirit-glow"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div> #}
                     <div class="col-md-8_">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6><i class="mdi mdi-forum-outline text-cyber me-2"></i>{{ 'spirit.chat.conversations'|trans }}</h6>

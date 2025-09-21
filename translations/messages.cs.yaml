@@ -162,7 +162,7 @@ spirit:
         conversation_deleted: 'Konverzace úspěšně smazána'
         no_conversations: 'Zatím žádné konverzace'
         type_message: 'Napište vaši zprávu zde...'
-        no_messages: 'Zatím žádné zprávy. Začněte konverzaci!'
+        no_messages: 'Zatím žádné zprávy. Začněte konverzaci! Pozdravte svého Ducha :)'
         loading_response: 'Duch přemýšlí...'
         response_max_output: 'Maximální délka odpovědi'
 
@@ -543,7 +543,7 @@ cq_chat:
     
     # Messages
     loading_messages: 'Načítám zprávy...'
-    no_messages: 'Zatím žádné zprávy. Začněte konverzaci!'
+    no_messages: 'Zatím žádné zprávy. Začněte konverzaci! Pozdravte svého Ducha :)'
     type_message: 'Napište vaši zprávu...'
     error_loading_messages: 'Chyba při načítání zpráv'
     error_sending: 'Chyba při odesílání zprávy'
