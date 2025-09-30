@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'auth.register.disabled.title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card glass-panel border-cyber">
+                <div class="card-header bg-cyber-g text-center py-4">
+                    <i class="mdi mdi-account-off display-1 text-cyber"></i>
+                    <h3 class="text-cyber mt-3 mb-0">{{ 'auth.register.disabled.title'|trans }}</h3>
+                </div>
+                <div class="card-body text-center py-5">
+                    <p class="text-light mb-4">{{ 'auth.register.disabled.message'|trans }}</p>
+                    <a href="{{ path('app_login') }}" class="btn btn-cyber">
+                        <i class="mdi mdi-login me-2"></i>
+                        {{ 'auth.login.title'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

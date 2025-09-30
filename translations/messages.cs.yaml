@@ -61,6 +61,9 @@ auth:
         createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>S kredity zdarma</li><li>Kreditní karta není nutná</li><li>Osobní údaje nejsou vyžadovány</li></div><div class="col"><li>Žádný sběr dat</li><li>Žádné sledování</li><li>Žádné reklamy</li></div></ul>'
         createAlsoCQAIGatewayAccountConfirm: 'Už máte účet a API klíč na CQ AI Gateway? :)' 
         createAlsoCQAIGatewayAccountClaim: 'Vdechněte život svému průvodci a vylepšete nástroje silou AI'
+        disabled:
+            title: 'Registrace zakázána'
+            message: 'Registrace nových uživatelů je momentálně zakázána. Pokud potřebujete přístup, kontaktujte prosím administrátora.'
 
 notifications:
     title: Oznámení
@@ -365,6 +368,13 @@ admin:
         cannot_delete_last_admin: 'Nelze smazat posledního administrátora'
         delete_failed: 'Smazání uživatele se nezdařilo'
     
+    settings:
+        title: 'Systémová nastavení'
+        user_registration: 'Registrace uživatelů'
+        user_registration_help: 'Povolit novým uživatelům registrovat účty'
+        registration_enabled: 'Registrace uživatelů byla povolena'
+        registration_disabled: 'Registrace uživatelů byla zakázána'
+    
     logs:
         title: 'Systémové logy'
         view_title: 'Zobrazení logu'
@@ -543,7 +553,7 @@ cq_chat:
     
     # Messages
     loading_messages: 'Načítám zprávy...'
-    no_messages: 'Zatím žádné zprávy. Začněte konverzaci! Pozdravte svého Ducha :)'
+    no_messages: 'Zatím žádné zprávy. Začněte konverzaci!'
     type_message: 'Napište vaši zprávu...'
     error_loading_messages: 'Chyba při načítání zpráv'
     error_sending: 'Chyba při odesílání zprávy'

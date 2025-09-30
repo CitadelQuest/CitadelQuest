@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  */
 class AiModelsSyncService
 {
-    private const MODELS_CACHE_DURATION_HOURS = 48; // 2 days
+    private const MODELS_CACHE_DURATION_HOURS = 2; // 2 hours
     private const SETTINGS_KEY_LAST_UPDATE = 'ai_models_list.updated_at';
     private const SETTINGS_KEY_MODELS_COUNT = 'ai_models_list.count';
     

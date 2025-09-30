@@ -14,6 +14,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\HttpFoundation\RequestStack;
+use App\Service\SystemSettingsService;
 
 #[Route('/admin')]
 #[IsGranted('ROLE_ADMIN')]
@@ -23,7 +24,8 @@ class AdminController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatorInterface $translator,
-        private readonly RequestStack $requestStack
+        private readonly RequestStack $requestStack,
+        private readonly SystemSettingsService $systemSettingsService
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -36,9 +38,13 @@ class AdminController extends AbstractController
             'regular' => count(array_filter($users, fn($user) => !in_array('ROLE_ADMIN', $user->getRoles()))),
         ];
 
+        // Get registration enabled status
+        $registrationEnabled = $this->systemSettingsService->getBooleanValue('cq_register', true);
+
         return $this->render('admin/dashboard.html.twig', [
             'users' => $users,
             'userStats' => $userStats,
+            'registrationEnabled' => $registrationEnabled,
         ]);
     }
 
@@ -195,6 +201,23 @@ class AdminController extends AbstractController
             'success' => true,
             'redirect_url' => '/' . $scriptName,
             'message' => 'Update script generated successfully',
+        ]);
+    }
+
+    #[Route('/settings/registration/toggle', name: 'app_admin_toggle_registration', methods: ['POST'])]
+    public function toggleRegistration(): JsonResponse
+    {
+        $currentValue = $this->systemSettingsService->getBooleanValue('cq_register', true);
+        $newValue = !$currentValue;
+        
+        $this->systemSettingsService->setBooleanValue('cq_register', $newValue);
+        
+        return $this->json([
+            'success' => true,
+            'enabled' => $newValue,
+            'message' => $this->translator->trans(
+                $newValue ? 'admin.settings.registration_enabled' : 'admin.settings.registration_disabled'
+            )
         ]);
     }
 }

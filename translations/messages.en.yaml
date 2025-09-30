@@ -61,6 +61,9 @@ auth:
         createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>With free credits</li><li>No credit card required</li><li>No personal data required</li></div><div class="col"><li>No data collection</li><li>No tracking</li><li>No ads</li></div></ul>'
         createAlsoCQAIGatewayAccountConfirm: 'Do you already have CQ AI Gateway account and API key? :)' 
         createAlsoCQAIGatewayAccountClaim: 'Bring your Spirit to life and enhance all tools with power of AI'
+        disabled:
+            title: 'Registration Disabled'
+            message: 'New user registration is currently disabled. Please contact the administrator if you need access.'
 
 notifications:
     title: Notifications
@@ -372,6 +375,13 @@ admin:
         cannot_delete_last_admin: 'Cannot delete the last admin user'
         delete_failed: 'Failed to delete user'
     
+    settings:
+        title: 'System Settings'
+        user_registration: 'User Registration'
+        user_registration_help: 'Allow new users to register accounts'
+        registration_enabled: 'User registration has been enabled'
+        registration_disabled: 'User registration has been disabled'
+    
     logs:
         title: 'System Logs'
         filename: 'File Name'
@@ -550,7 +560,7 @@ cq_chat:
     
     # Messages
     loading_messages: 'Loading messages...'
-    no_messages: 'No messages yet. Start the conversation! Say "Hello" to your Spirit :)'
+    no_messages: 'No messages yet. Start the conversation!'
     type_message: 'Type your message here...'
     error_loading_messages: 'Error loading messages'
     error_sending: 'Error sending message'

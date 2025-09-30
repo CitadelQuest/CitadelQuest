@@ -9,6 +9,7 @@ use App\Service\UserDatabaseManager;
 use App\Service\UserKeyManager;
 use App\Service\SettingsService;
 use App\Service\AiModelsSyncService;
+use App\Service\SystemSettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -42,8 +43,13 @@ class RegistrationController extends AbstractController
         HttpClientInterface $httpClient,
         SettingsService $settingsService,
         SessionInterface $session,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        SystemSettingsService $systemSettingsService
     ): Response {
+        // Check if registration is enabled
+        if (!$systemSettingsService->getBooleanValue('cq_register', true)) {
+            return $this->render('registration/disabled.html.twig');
+        }
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
         $form->handleRequest($request);

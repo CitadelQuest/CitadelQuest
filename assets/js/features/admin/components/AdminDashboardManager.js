@@ -15,11 +15,14 @@ export class AdminDashboardManager {
         this.updateModalCheckUpdates_step_2 = document.getElementById('updateModalCheckUpdates_step_2');
         this.updateModalCheckUpdates_step_3 = document.getElementById('updateModalCheckUpdates_step_3');
         this.updateModalCheckUpdates_step_4 = document.getElementById('updateModalCheckUpdates_step_4');
+        
+        this.registrationToggle = document.getElementById('registrationToggle');
     }
 
     init() {
         this.initRefreshStats();
         this.initUpdateModal();
+        this.initRegistrationToggle();
     }
 
     /**
@@ -171,5 +174,42 @@ export class AdminDashboardManager {
                 window.toast.error('Failed to check for updates');
             });
         }
+    }
+
+    /**
+     * Initialize the registration toggle functionality
+     */
+    initRegistrationToggle() {
+        if (!this.registrationToggle) return;
+
+        this.registrationToggle.addEventListener('change', async (e) => {
+            const toggle = e.target;
+            const url = toggle.dataset.url;
+            const originalState = toggle.checked;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    window.toast.success(data.message);
+                    toggle.checked = data.enabled;
+                } else {
+                    window.toast.error(data.message || 'Failed to toggle registration');
+                    toggle.checked = originalState;
+                }
+            } catch (error) {
+                console.error('Error toggling registration:', error);
+                window.toast.error('Failed to toggle registration');
+                toggle.checked = originalState;
+            }
+        });
     }
 }
