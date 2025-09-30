@@ -364,6 +364,14 @@ admin:
         admin_granted: 'Admin role granted to %username%'
         admin_removed: 'Admin role removed from %username%'
         deleted: 'User %username% has been deleted'
+        reset_password: 'Reset Password'
+        password_reset_title: 'Reset User Password'
+        password_reset_warning: 'This will generate a temporary password for the user. The user will be required to change it on next login.'
+        temporary_password: 'Temporary Password'
+        password_reset_instructions: 'Copy this password and send it to the user securely. This password will only be shown once.'
+        confirm_reset_password: 'Reset Password'
+        confirm_reset_password_message: 'Are you sure you want to reset the password for this user?'
+        password_reset_success: 'Password reset successfully for %username%'
     
     roles:
         admin: 'Admin'
@@ -374,6 +382,8 @@ admin:
         cannot_delete_self: 'You cannot delete your own account'
         cannot_delete_last_admin: 'Cannot delete the last admin user'
         delete_failed: 'Failed to delete user'
+        cannot_reset_own_password: 'You cannot reset your own password this way'
+        password_reset_failed: 'Failed to reset password'
     
     settings:
         title: 'System Settings'
@@ -409,6 +419,26 @@ admin:
         clear_confirm_message: 'Are you sure you want to clear this log file? This action cannot be undone.'
         clear_backup_info: 'A backup will be created before clearing the file.'    
         back_to_dashboard: 'Back to Dashboard'
+
+password_change:
+    title: 'Change Password Required'
+    required_message: 'Your password has been reset by an administrator. Please set a new password to continue.'
+    new_password: 'New Password'
+    confirm_password: 'Confirm New Password'
+    submit: 'Change Password'
+    success: 'Password changed successfully!'
+    error:
+        empty: 'Please enter a password'
+        mismatch: 'Passwords do not match'
+        too_short: 'Password must be at least 8 characters'
+        weak: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    requirements:
+        title: 'Password Requirements:'
+        min_length: 'At least 8 characters'
+        uppercase: 'One uppercase letter'
+        lowercase: 'One lowercase letter'
+        number: 'One number'
+        special: 'One special character (@$!%*?&)'
 
 ui:
     close: 'Close'

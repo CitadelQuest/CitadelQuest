@@ -103,6 +103,13 @@
                                                     </button>
                                                     
                                                     {% if user != app.user %}
+                                                        <button type="button" class="btn btn-sm btn-outline-info reset-password-btn" 
+                                                                data-user-id="{{ user.id }}" 
+                                                                data-username="{{ user.username }}"
+                                                                title="{{ 'admin.users.reset_password'|trans }}">
+                                                            <i class="mdi mdi-lock-reset"></i>
+                                                        </button>
+                                                        
                                                         <button type="button" class="btn btn-sm btn-outline-warning toggle-admin-btn" 
                                                                 data-user-id="{{ user.id }}" 
                                                                 title="{{ 'admin.users.toggle_admin'|trans }}"
@@ -167,6 +174,54 @@
                 <span data-confirm-delete="{{ 'admin.users.confirm_delete'|trans }}"></span>
                 <span data-error-toggle-admin="{{ 'admin.users.error_toggle_admin'|trans }}"></span>
                 <span data-error-delete="{{ 'admin.users.error_delete'|trans }}"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div class="modal fade" id="passwordResetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel cyber-glow">
+            <div class="modal-header bg-cyber-g">
+                <h5 class="modal-title text-cyber">
+                    <i class="mdi mdi-lock-reset me-2"></i>
+                    {{ 'admin.users.password_reset_title'|trans }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning mb-3">
+                    <i class="mdi mdi-alert me-2"></i>
+                    {{ 'admin.users.password_reset_warning'|trans }}
+                </div>
+                <div id="temporaryPasswordDisplay" class="d-none">
+                    <div class="alert alert-success">
+                        <h6 class="mb-2">{{ 'admin.users.temporary_password'|trans }}</h6>
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace" id="tempPasswordInput" readonly>
+                            <button class="btn btn-outline-cyber" type="button" id="copyPasswordBtn">
+                                <i class="mdi mdi-content-copy"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="mdi mdi-information me-1"></i>
+                            {{ 'admin.users.password_reset_instructions'|trans }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    {{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="confirmResetPasswordBtn">
+                    <i class="mdi mdi-lock-reset me-2"></i>
+                    {{ 'admin.users.confirm_reset_password'|trans }}
+                </button>
+            </div>
+            <div class="d-none">
+                <span data-confirm-reset-password="{{ 'admin.users.confirm_reset_password_message'|trans }}"></span>
             </div>
         </div>
     </div>

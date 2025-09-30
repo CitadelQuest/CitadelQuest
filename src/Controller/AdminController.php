@@ -15,6 +15,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
+use App\Service\PasswordResetService;
 
 #[Route('/admin')]
 #[IsGranted('ROLE_ADMIN')]
@@ -25,7 +26,8 @@ class AdminController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly TranslatorInterface $translator,
         private readonly RequestStack $requestStack,
-        private readonly SystemSettingsService $systemSettingsService
+        private readonly SystemSettingsService $systemSettingsService,
+        private readonly PasswordResetService $passwordResetService
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -219,5 +221,35 @@ class AdminController extends AbstractController
                 $newValue ? 'admin.settings.registration_enabled' : 'admin.settings.registration_disabled'
             )
         ]);
+    }
+
+    #[Route('/user/{id}/reset-password', name: 'app_admin_user_reset_password', methods: ['POST'])]
+    public function resetUserPassword(User $user): JsonResponse
+    {
+        // Prevent resetting own password this way
+        if ($user === $this->getUser()) {
+            return $this->json([
+                'success' => false,
+                'message' => $this->translator->trans('admin.error.cannot_reset_own_password')
+            ], 400);
+        }
+
+        try {
+            $admin = $this->getUser();
+            $temporaryPassword = $this->passwordResetService->resetUserPassword($user, $admin);
+            
+            return $this->json([
+                'success' => true,
+                'temporaryPassword' => $temporaryPassword,
+                'message' => $this->translator->trans('admin.users.password_reset_success', [
+                    '%username%' => $user->getUsername()
+                ])
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => $this->translator->trans('admin.error.password_reset_failed')
+            ], 500);
+        }
     }
 }

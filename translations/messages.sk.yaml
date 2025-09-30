@@ -358,6 +358,14 @@ admin:
         admin_granted: 'Admin rola udelená používateľovi %username%'
         admin_removed: 'Admin rola odobratá používateľovi %username%'
         deleted: 'Používateľ %username% bol zmazaný'
+        reset_password: 'Resetovať heslo'
+        password_reset_title: 'Resetovať heslo používateľa'
+        password_reset_warning: 'Týmto vygenerujete dočasné heslo pre používateľa. Používateľ bude musieť heslo zmeniť pri ďalšom prihlásení.'
+        temporary_password: 'Dočasné heslo'
+        password_reset_instructions: 'Skopírujte toto heslo a bezpečne ho odovzdajte používateľovi. Toto heslo bude zobrazené iba raz.'
+        confirm_reset_password: 'Resetovať heslo'
+        confirm_reset_password_message: 'Naozaj chcete resetovať heslo pre tohto používateľa?'
+        password_reset_success: 'Heslo úspešne resetované pre používateľa %username%'
     
     roles:
         admin: 'Administrátor'
@@ -368,6 +376,8 @@ admin:
         cannot_delete_self: 'Nemôžete zmazať svoj vlastný účet'
         cannot_delete_last_admin: 'Nie je možné zmazať posledného administrátora'
         delete_failed: 'Zmazanie používateľa sa nepodarilo'
+        cannot_reset_own_password: 'Nemôžete resetovať svoje vlastné heslo týmto spôsobom'
+        password_reset_failed: 'Resetovanie hesla sa nepodarilo'
     
     settings:
         title: 'Systémové nastavenia'
@@ -403,6 +413,26 @@ admin:
         clear_backup_info: 'Pred vymazaním bude vytvorená záloha súboru.'
         showing_lines: 'Zobrazujem %filtered% z %total% riadkov'
         total_lines: 'Celkom %total% riadkov'
+
+password_change:
+    title: 'Vyžadovaná zmena hesla'
+    required_message: 'Vaše heslo bolo resetované administrátorom. Pre pokračovanie si prosím nastavte nové heslo.'
+    new_password: 'Nové heslo'
+    confirm_password: 'Potvrďte nové heslo'
+    submit: 'Zmeniť heslo'
+    success: 'Heslo úspešne zmenené!'
+    error:
+        empty: 'Prosím zadajte heslo'
+        mismatch: 'Heslá sa nezhodujú'
+        too_short: 'Heslo musí mať aspoň 8 znakov'
+        weak: 'Heslo musí obsahovať aspoň jedno veľké písmeno, jedno malé písmeno, jedno číslo a jeden špeciálny znak'
+    requirements:
+        title: 'Požiadavky na heslo:'
+        min_length: 'Minimálne 8 znakov'
+        uppercase: 'Jedno veľké písmeno'
+        lowercase: 'Jedno malé písmeno'
+        number: 'Jedno číslo'
+        special: 'Jeden špeciálny znak (@$!%*?&)'
 
 ui:
     close: 'Zavrieť'

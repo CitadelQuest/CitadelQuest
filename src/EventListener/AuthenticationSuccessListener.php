@@ -34,6 +34,16 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     {
         $this->logger->info('AuthenticationSuccessListener: User login successful');
         
+        $user = $event->getUser();
+        
+        // Check if user needs to change password
+        if ($user->isRequirePasswordChange()) {
+            $this->logger->info('AuthenticationSuccessListener: User requires password change, redirecting');
+            $response = new RedirectResponse($this->router->generate('app_change_password'));
+            $event->setResponse($response);
+            return;
+        }
+        
         // Get the user's locale preference from settings
         $locale = $this->settingsService->getSettingValue('_locale');
         

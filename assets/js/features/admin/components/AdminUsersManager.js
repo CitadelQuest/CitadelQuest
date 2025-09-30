@@ -9,6 +9,9 @@ export class AdminUsersManager {
     constructor() {
         this.initSearchFilter();
         this.initUserActions();
+        this.initPasswordReset();
+        this.currentResetUserId = null;
+        this.currentResetUsername = null;
     }
 
     /**
@@ -71,6 +74,15 @@ export class AdminUsersManager {
             const username = btn.dataset.username;
             if (userId && username) {
                 btn.addEventListener('click', () => this.deleteUser(userId, username));
+            }
+        });
+
+        // Add event listeners to reset password buttons
+        document.querySelectorAll('.reset-password-btn').forEach(btn => {
+            const userId = btn.dataset.userId;
+            const username = btn.dataset.username;
+            if (userId && username) {
+                btn.addEventListener('click', () => this.showResetPasswordModal(userId, username));
             }
         });
     }
@@ -236,11 +248,123 @@ export class AdminUsersManager {
                     }
                 }
             } else {
-                window.toast.error(data.message);
+                window.toast.error(data.message || document.querySelector('[data-error-delete]')?.dataset.errorDelete || 'Error deleting user');
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error deleting user:', error);
             window.toast.error(document.querySelector('[data-error-delete]')?.dataset.errorDelete || 'Error deleting user');
+        }
+    }
+
+    /**
+     * Initialize password reset functionality
+     */
+    initPasswordReset() {
+        const modal = document.getElementById('passwordResetModal');
+        if (!modal) return;
+
+        this.passwordResetModal = new bootstrap.Modal(modal);
+        
+        // Confirm reset button
+        const confirmBtn = document.getElementById('confirmResetPasswordBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => this.resetPassword());
+        }
+
+        // Copy password button
+        const copyBtn = document.getElementById('copyPasswordBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => this.copyPassword());
+        }
+
+        // Reset modal state when closed
+        modal.addEventListener('hidden.bs.modal', () => {
+            document.getElementById('temporaryPasswordDisplay').classList.add('d-none');
+            document.getElementById('tempPasswordInput').value = '';
+            document.getElementById('confirmResetPasswordBtn').classList.remove('d-none');
+            this.currentResetUserId = null;
+            this.currentResetUsername = null;
+        });
+    }
+
+    /**
+     * Show password reset modal
+     */
+    showResetPasswordModal(userId, username) {
+        this.currentResetUserId = userId;
+        this.currentResetUsername = username;
+        this.passwordResetModal.show();
+    }
+
+    /**
+     * Reset user password
+     */
+    async resetPassword() {
+        if (!this.currentResetUserId) return;
+
+        const confirmBtn = document.getElementById('confirmResetPasswordBtn');
+        const originalText = confirmBtn.innerHTML;
+        
+        try {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="mdi mdi-loading mdi-spin me-2"></i>Resetting...';
+
+            const response = await fetch(`/admin/user/${this.currentResetUserId}/reset-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show temporary password
+                document.getElementById('tempPasswordInput').value = data.temporaryPassword;
+                document.getElementById('temporaryPasswordDisplay').classList.remove('d-none');
+                confirmBtn.classList.add('d-none');
+                
+                window.toast.success(data.message);
+            } else {
+                window.toast.error(data.message || document.querySelector('[data-error-reset-password]')?.dataset.errorResetPassword || 'Failed to reset password');
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalText;
+            }
+        } catch (error) {
+            console.error('Error resetting password:', error);
+            window.toast.error(document.querySelector('[data-error-reset-password]')?.dataset.errorResetPassword || 'Failed to reset password');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalText;
+        }
+    }
+
+    /**
+     * Copy temporary password to clipboard
+     */
+    async copyPassword() {
+        const input = document.getElementById('tempPasswordInput');
+        const copyBtn = document.getElementById('copyPasswordBtn');
+        
+        try {
+            await navigator.clipboard.writeText(input.value);
+            
+            // Visual feedback
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="mdi mdi-check"></i>';
+            copyBtn.classList.add('btn-success');
+            copyBtn.classList.remove('btn-outline-cyber');
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalHTML;
+                copyBtn.classList.remove('btn-success');
+                copyBtn.classList.add('btn-outline-cyber');
+            }, 2000);
+            
+            window.toast.success('Password copied to clipboard');
+        } catch (error) {
+            console.error('Error copying password:', error);
+            window.toast.error(document.querySelector('[data-error-copy-password]')?.dataset.errorCopyPassword || 'Failed to copy password');
         }
     }
 }

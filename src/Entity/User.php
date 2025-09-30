@@ -34,7 +34,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, unique: true)]
     private ?string $databasePath = null;
 
-
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $requirePasswordChange = false;
 
     public function __construct()
     {
@@ -108,7 +109,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function isRequirePasswordChange(): bool
+    {
+        return $this->requirePasswordChange;
+    }
 
+    public function setRequirePasswordChange(bool $requirePasswordChange): static
+    {
+        $this->requirePasswordChange = $requirePasswordChange;
+        return $this;
+    }
 
     public function eraseCredentials(): void
     {
