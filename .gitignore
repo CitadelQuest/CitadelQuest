@@ -64,6 +64,7 @@ cookies.txt
 /upload-assets.sh
 /deploy-to-dev.sh
 /git-push.sh
+/build-release.sh
 /unzip-assets.php
 /assets.zip
 *.zip
@@ -74,3 +75,4 @@ cookies.txt
 *.crt
 *.key
 *.pem
+build-release.sh

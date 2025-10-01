@@ -65,8 +65,63 @@ mkdir -p "$RELEASE_DIR/var/cache/prod"
 cd "$RELEASE_DIR"
 # Create and migrate main database
 echo "Creating and migrating main database..."
-APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:database:create
-APP_ENV=prod DATABASE_URL="sqlite:///%kernel.project_dir%/var/main.db" php bin/console doctrine:migrations:migrate --no-interaction
+php -r '
+$dbPath = __DIR__ . "/var/main.db";
+$pdo = new PDO("sqlite:" . $dbPath);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+// Create doctrine_migration_versions table
+$pdo->exec("CREATE TABLE IF NOT EXISTS doctrine_migration_versions (
+    version VARCHAR(191) NOT NULL PRIMARY KEY,
+    executed_at DATETIME DEFAULT NULL,
+    execution_time INTEGER DEFAULT NULL
+)");
+
+// Get all migration files
+$migrationsDir = __DIR__ . "/migrations";
+$migrations = [];
+foreach (new DirectoryIterator($migrationsDir) as $file) {
+    if ($file->isDot() || $file->isDir()) continue;
+    if (preg_match("/^Version(\d+)\.php$/", $file->getFilename(), $matches)) {
+        $migrations[$matches[1]] = $file->getPathname();
+    }
+}
+ksort($migrations);
+
+// Run migrations
+foreach ($migrations as $version => $file) {
+    $migrationVersion = "DoctrineMigrations\\Version" . $version;
+    
+    // Check if already applied
+    $stmt = $pdo->prepare("SELECT version FROM doctrine_migration_versions WHERE version = ?");
+    $stmt->execute([$migrationVersion]);
+    if ($stmt->fetch()) {
+        echo "Migration Version{$version} already applied\n";
+        continue;
+    }
+    
+    echo "Running migration: Version{$version}\n";
+    require_once $file;
+    $migration = new $migrationVersion();
+    
+    $pdo->beginTransaction();
+    try {
+        $startTime = microtime(true);
+        $migration->up($pdo);
+        $executionTime = round((microtime(true) - $startTime) * 1000);
+        
+        $stmt = $pdo->prepare("INSERT INTO doctrine_migration_versions (version, executed_at, execution_time) VALUES (?, datetime(\"now\"), ?)");
+        $stmt->execute([$migrationVersion, $executionTime]);
+        
+        $pdo->commit();
+        echo "✓ Migration Version{$version} completed ({$executionTime}ms)\n";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw new Exception("Migration Version{$version} failed: " . $e->getMessage());
+    }
+}
+echo "✓ All migrations completed\n";
+'
 
 # Create release zip
 echo "Creating release archive..."

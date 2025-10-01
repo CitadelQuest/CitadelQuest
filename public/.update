@@ -512,8 +512,6 @@ class CitadelQuestUpdater
                     
                     // Run migration
                     $migration->up($mainDb);
-                    
-                    // Calculate execution time
                     $executionTime = round((microtime(true) - $startTime) * 1000);
                     
                     // Record migration
