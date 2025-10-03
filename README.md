@@ -185,4 +185,16 @@ symfony server:start
 
 ## License
 
-This project is proprietary software. All rights reserved.
+CitadelQuest is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License v3.0** (AGPL-3.0) as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+**Why AGPL-3.0?**
+- Ensures all hosted versions remain open source
+- Protects data sovereignty principles
+- Requires sharing of modifications
+- Guarantees freedom for all users
+
+See the [LICENSE](LICENSE) file for the full license text.
+
+Copyright (C) 2024-2025 CitadelQuest Development Team
