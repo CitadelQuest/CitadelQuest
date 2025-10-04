@@ -199,6 +199,14 @@ profile:
     error:
         connection: 'Connection error. Please try again.'
 
+settings:
+    theme:
+        title: 'Theme'
+        background: 'Background Theme'
+        background_desc: 'Change the background visual theme'
+        toggle: 'Toggle theme'
+        change: 'Change Theme'
+
 backup:
     title: 'Backup Management'
     description: 'Create an backup of your CitadelQuest data. The backup includes:'

@@ -199,6 +199,13 @@ profile:
     error:
         connection: 'Chyba pripojenia. Skúste to prosím znova.'
 
+settings:
+    theme:
+        title: 'Téma'
+        background: 'Téma pozadia'
+        background_desc: 'Zmeniť vizuálnu tému pozadia'
+        toggle: 'Prepnúť tému'
+        change: 'Zmeniť tému'
 
 backup:
     title: 'Správa záloh'

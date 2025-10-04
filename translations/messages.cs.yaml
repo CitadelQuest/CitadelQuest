@@ -199,6 +199,14 @@ profile:
     error:
         connection: 'Chyba připojení. Zkuste to prosím znovu.'
 
+settings:
+    theme:
+        title: 'Téma'
+        background: 'Téma pozadí'
+        background_desc: 'Změnit vizuální téma pozadí'
+        toggle: 'Přepnout téma'
+        change: 'Změnit téma'
+
 backup:
     title: 'Správa záloh'
     description: 'Vytvořte zálohu vašich CitadelQuest dat. Záloha obsahuje:'
