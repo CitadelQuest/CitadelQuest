@@ -9,6 +9,7 @@ use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiModelsSyncService;
 use App\Service\SettingsService;
+use App\Service\StorageService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,7 +33,8 @@ class UserSettingsController extends AbstractController
         private readonly AiModelsSyncService $aiModelsSyncService,
         private readonly SettingsService $settingsService,
         private readonly HttpClientInterface $httpClient,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly StorageService $storageService
     ) {
     }
 

@@ -199,6 +199,18 @@ profile:
     error:
         connection: 'Chyba připojení. Zkuste to prosím znovu.'
 
+dashboard:
+    title: 'Přehled'
+    welcome: 'Vítejte, %username%!'
+    description: 'Váš osobní přehled CitadelQuest a rychlý přístup ke všem funkcím.'
+    quick_actions: 'Rychlé akce'
+    spirit_description: 'Chatujte s vaším AI Duchem'
+    contacts_description: 'Spravujte vaše kontakty Citadel'
+    files_description: 'Procházejte a spravujte vaše soubory'
+    settings_description: 'Nakonfigurujte váš CitadelQuest'
+    backup_description: 'Vytvářejte a obnovujte zálohy'
+    admin_description: 'Správa Citadely'
+
 settings:
     theme:
         title: 'Téma'
@@ -206,6 +218,12 @@ settings:
         background_desc: 'Změnit vizuální téma pozadí'
         toggle: 'Přepnout téma'
         change: 'Změnit téma'
+    storage:
+        title: 'Využití úložiště'
+        total: 'Celkové úložiště'
+        database: 'Databáze'
+        data: 'Uživatelská data'
+        backups: 'Zálohy'
 
 backup:
     title: 'Správa záloh'

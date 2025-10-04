@@ -1,0 +1,170 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'dashboard.title'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-panel mb-4">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
+                    <h4 class="mb-0">
+                        <i class="mdi mdi-view-dashboard me-3"></i>{{ 'dashboard.welcome'|trans({'%username%': user.username}) }}
+                    </h4>
+                </div>
+                <div class="p-4">
+                    <p class="text-muted">{{ 'dashboard.description'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+
+        <!-- Quick Actions Section -->
+        <div class="col-12 col-sm-8 mb-2">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
+                    <h5 class="mb-0">
+                        <i class="mdi mdi-lightning-bolt me-2"></i>{{ 'dashboard.quick_actions'|trans }}
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row g-3">
+                        <!-- Spirit Chat -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('spirit_index') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-ghost fs-1 text-cyber mb-2"></i>
+                                        <h6 class="text-light">{{ 'spirit.menu.settings'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.spirit_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- CQ Contacts -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_cq_contact_index') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-account-group fs-1 text-primary mb-2"></i>
+                                        <h6 class="text-light">{{ 'cq_contact.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.contacts_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- File Browser -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_file_browser') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-file-star fs-1 text-warning mb-2"></i>
+                                        <h6 class="text-light">{{ 'file_browser.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.files_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Settings -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_user_settings') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-tune-vertical fs-1 text-secondary mb-2"></i>
+                                        <h6 class="text-light">{{ 'navigation.user_menu.settings'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.settings_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Backup -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_backup_index') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-backup-restore fs-1 text-success mb-2"></i>
+                                        <h6 class="text-light">{{ 'navigation.user_menu.backup'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.backup_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        {% if is_granted('ROLE_ADMIN') %}
+                        <!-- Admin Panel -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_admin_dashboard') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-account-cowboy-hat fs-1 text-light opacity-75 mb-2"></i>
+                                        <h6 class="text-light">{{ 'navigation.user_menu.admin'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.admin_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Storage Usage Section -->
+        <div class="col-12 col-sm-4 mb-2">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
+                    <h5 class="mb-0">
+                        <i class="mdi mdi-harddisk me-2"></i>{{ 'settings.storage.title'|trans }}
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row g-2">
+                        <!-- Total Storage -->
+                        <div class="w-100 d-flex align-items-center justify-content-start">
+                            <i class="mdi mdi-database fs-2 text-cyber"></i>
+                            <div class="d-flex flex-column align-items-start ms-3">
+                                <h5 class="text-cyber mb-1">{{ storageInfo.formatted }}</h5>
+                                <small class="text-muted">{{ 'settings.storage.total'|trans }}</small>
+                            </div>
+                        </div>
+                        
+                        <!-- User Database -->
+                        <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
+                            <i class="mdi mdi-database-outline fs-2 text-secondary"></i>
+                            <div class="d-flex flex-column align-items-start ms-3">
+                                <h5 class="mb-1">{{ storageInfo.database.formatted }}</h5>
+                                <small class="text-muted">{{ 'settings.storage.database'|trans }}</small>
+                            </div>
+                        </div>
+                        
+                        <!-- User Data -->
+                        <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
+                            <i class="mdi mdi-folder-multiple-outline fs-2 text-warning"></i>
+                            <div class="d-flex flex-column align-items-start ms-3">
+                                <h5 class="mb-1">{{ storageInfo.data.formatted }}</h5>
+                                <small class="text-muted">{{ 'settings.storage.data'|trans }}</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Backups -->
+                        <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
+                            <i class="mdi mdi-backup-restore fs-2 text-success"></i>
+                            <div class="d-flex flex-column align-items-start ms-3">
+                                <h5 class="mb-1">{{ storageInfo.backups.formatted }}</h5>
+                                <small class="text-muted">{{ 'settings.storage.backups'|trans }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

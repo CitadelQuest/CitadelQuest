@@ -199,6 +199,18 @@ profile:
     error:
         connection: 'Connection error. Please try again.'
 
+dashboard:
+    title: 'Dashboard'
+    welcome: 'Welcome, %username%!'
+    description: 'Your personal CitadelQuest overview and quick access to all features.'
+    quick_actions: 'Quick Actions'
+    spirit_description: 'Chat with your AI Spirit'
+    contacts_description: 'Manage your Citadel contacts'
+    files_description: 'Browse and manage your files'
+    settings_description: 'Configure your CitadelQuest'
+    backup_description: 'Create and restore backups'
+    admin_description: 'Citadel administration'
+
 settings:
     theme:
         title: 'Theme'
@@ -206,6 +218,12 @@ settings:
         background_desc: 'Change the background visual theme'
         toggle: 'Toggle theme'
         change: 'Change Theme'
+    storage:
+        title: 'Storage Usage'
+        total: 'Total Storage'
+        database: 'Database'
+        data: 'User Data'
+        backups: 'Backups'
 
 backup:
     title: 'Backup Management'
