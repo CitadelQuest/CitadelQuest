@@ -33,13 +33,7 @@ class SpiritConversationApiController extends AbstractController
     {
         try {
             // Get conversations, without 'messages' field
-            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
-            $conversations = array_map(function($conversation) {
-                $data = $conversation->jsonSerialize();
-                unset($data['messages']);
-                $data['messagesCount'] = count($conversation->getMessages());
-                return $data;
-            }, $conversations);
+            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);            
             
             return $this->json($conversations);
         } catch (\Exception $e) {

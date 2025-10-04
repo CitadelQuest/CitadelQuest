@@ -98,6 +98,31 @@ class SpiritConversation implements JsonSerializable
         $this->messages = json_encode($messages);
         return $this;
     }
+
+    /**
+     * Get the size of the conversation in bytes
+     * This includes all messages data (text + images)
+     */
+    public function getSizeInBytes(): int
+    {
+        return strlen($this->messages);
+    }
+
+    /**
+     * Get human-readable size
+     */
+    public function getFormattedSize(): string
+    {
+        $bytes = $this->getSizeInBytes();
+        
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        } elseif ($bytes < 1048576) {
+            return round($bytes / 1024, 1) . ' KB';
+        } else {
+            return round($bytes / 1048576, 1) . ' MB';
+        }
+    }
     
     public function getCreatedAt(): \DateTimeInterface
     {

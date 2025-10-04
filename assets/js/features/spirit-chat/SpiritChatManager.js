@@ -480,8 +480,12 @@ export class SpiritChatManager {
                             <i class="mdi mdi-delete"></i>
                         </button>
 
-                        <!-- TODO tutu: show conversation size (kB..) <span class="badge bg-dark bg-opacity-50 text-cyber float-end ms-2" style="width: 2rem !important;">${conversation.messagesCount}</span> -->
-                        <small class="text-muted pt-1 float-end d-none d-md-inline-block">${formattedDate} <span class="text-cyber">/</span> ${formattedTime}</small>
+                        <small class="text-muted float-end d-none_d-md-inline-block pt-1 me-2">
+                            <span class="" title="Conversation size">${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
+                            <i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-2"></i><span class="" title="Messages count">${conversation.messagesCount || '0'}</span> <span class="text-cyber d-none">/</span>
+                            <i class="mdi mdi-image-outline text-cyber opacity-75 me-1 ms-2"></i><span class="" title="Images count">${conversation.imagesCount || '0'}</span>
+                            <i class="mdi mdi-clock-outline text-cyber opacity-75 me-1 ms-2"></i>${formattedDate} <span class="text-cyber">/</span> ${formattedTime}
+                        </small>
                     </div>
                 `;
                 

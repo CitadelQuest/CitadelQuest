@@ -112,17 +112,104 @@ class SpiritConversationService
     {
         return $this->getConversation($conversationId);
     }
+
+    /**
+     * Get human-readable size
+     */
+    public function getFormattedSize(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        } elseif ($bytes < 1048576) {
+            return round($bytes / 1024, 1) . ' KB';
+        } else {
+            return round($bytes / 1048576, 1) . ' MB';
+        }
+    }
     
     public function getConversationsBySpirit(string $spiritId): array
     {
         $db = $this->getUserDb();
         
-        $result = $db->executeQuery('SELECT id, spirit_id, title, created_at, last_interaction FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', [$spiritId]);
+        // Use LENGTH() to get byte size of messages column (works in SQLite)
+        $result = $db->executeQuery(
+            'SELECT id, spirit_id, title, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', 
+            [$spiritId]
+        );
         $results = $result->fetchAllAssociative();
         
         $conversations = [];
         foreach ($results as $data) {
-            $conversations[] = SpiritConversation::fromArray($data);
+            // Calculate messages count from the JSON array length
+            $messagesJson = $db->executeQuery('SELECT messages FROM spirit_conversation WHERE id = ?', [$data['id']])->fetchOne();
+            $messagesArray = json_decode($messagesJson, true) ?? [];
+            $messagesCount = count($messagesArray);
+            // images count: messages.type contains('image')
+            /*
+            [
+                {
+                    "content": [
+                        {
+                            "text": "Ahoj Bobo :)\nprosím o kolorizovaný obrázok z komiksu Shaman King, ktorý ti teraz posielam. \nVďaka1",
+                            "type": "text"
+                        },
+                        {
+                            "image_url": {
+                                "url": "https://example.com/image.jpg"
+                            },
+                            "type": "image_url"
+                        },
+                        {
+                            "text": "<div class=\"small float-end text-end\">Image file: `/uploads/img/68b44edac1428.jpeg`<br>projectId: `general`</div><div style=\"clear: both;\"></div>",
+                            "type": "text"
+                        }
+                    ],
+                    "role": "user",
+                    "timestamp": "2025-08-31T13:32:10+00:00"
+                },
+                ..
+            ]
+            */
+            $imagesCount = count(array_filter($messagesArray, function($message) {
+                $content = $message['content'] ?? [];
+                // go through content items and check if any of them contains `image`
+                if (is_array($content) && count($content) > 0) {
+                    foreach ($content as $item) {
+                        if (isset($item['type']) && strpos($item['type'], 'image') !== false) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }));
+            // + we need to also add the count of `<img ` in message content
+            foreach ($messagesArray as $message) {
+                $content = $message['content'] ?? [];
+                // go through content items and check how many `<img ` are there
+                if (is_array($content) && count($content) > 0) {
+                    foreach ($content as $item) {
+                        // number of `<img ` in item['text']
+                        if (isset($item['text'])) {
+                            $imagesCount += substr_count($item['text'], '<img ');
+                        }
+                    }
+                } else {
+                    $imagesCount += substr_count($content, '<img ');
+                } 
+            }
+            
+            $conversation = [
+                'id' => $data['id'],
+                'spiritId' => $data['spirit_id'],
+                'title' => $data['title'],
+                'createdAt' => $data['created_at'],
+                'lastInteraction' => $data['last_interaction'],
+                'messagesCount' => $messagesCount,
+                'imagesCount' => $imagesCount,
+                'sizeInBytes' => (int)$data['sizeInBytes'],
+                'formattedSize' => $this->getFormattedSize((int)$data['sizeInBytes'])
+            ];
+            $conversations[] = $conversation;
         }
         
         return $conversations;
