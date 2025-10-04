@@ -4,7 +4,6 @@
 
 // Import styles
 import '../styles/app.scss';
-//import '../styles/components/_cq_chat2.scss';
 import '@mdi/font/css/materialdesignicons.min.css';
 
 // Import icons and images
