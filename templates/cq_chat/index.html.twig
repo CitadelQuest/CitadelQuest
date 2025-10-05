@@ -118,8 +118,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Start chat with contact
     function startChatWithContact(contactId) {
-        // Redirect to a new URL that will auto-create the chat
-        window.location.href = `/cq-chat/contact/${contactId}`;
+        // Use the global CqChatModalManager to create new chat
+        if (window.cqChatModalManager) {
+            window.cqChatModalManager.newChatContactSelect.value = contactId;
+            const modal = new bootstrap.Modal(window.cqChatModalManager.newChatModal);
+            modal.show();
+        }
     }
 
     // Render chats
@@ -176,9 +180,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="btn-group" role="group">
-                                    <a href="/cq-chat/${chat.id}" class="btn btn-sm btn-cyber">
+                                    <button class="btn btn-sm btn-cyber open-chat-modal" data-chat-id="${chat.id}">
                                         <i class="mdi mdi-message-text ${chat.hasNewMsgs ? 'text-cyber' : ''} me-1"></i> {{ 'ui.view'|trans }}
-                                    </a>
+                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="mdi mdi-dots-vertical"></i>
                                     </button>
@@ -211,6 +215,16 @@ document.addEventListener('DOMContentLoaded', function() {
         chatsContainer.innerHTML = chatsHtml;
 
         // Add event listeners
+        document.querySelectorAll('.open-chat-modal').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chatId = e.target.closest('.open-chat-modal').dataset.chatId;
+                // Use the global CqChatModalManager instance
+                if (window.cqChatModalManager) {
+                    window.cqChatModalManager.openChat(chatId);
+                }
+            });
+        });
+
         document.querySelectorAll('.toggle-star').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const chatId = e.target.closest('.toggle-star').dataset.chatId;

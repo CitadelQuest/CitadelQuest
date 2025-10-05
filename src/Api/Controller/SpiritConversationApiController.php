@@ -4,6 +4,7 @@ namespace App\Api\Controller;
 
 use App\Service\SpiritConversationService;
 use App\Service\SpiritService;
+use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,14 +19,12 @@ use App\CitadelVersion;
 #[Route('/api/spirit-conversation')]
 #[IsGranted('ROLE_USER')]
 class SpiritConversationApiController extends AbstractController
-{
-    private SpiritConversationService $conversationService;
-    private SpiritService $spiritService;
-    
-    public function __construct(SpiritConversationService $conversationService, SpiritService $spiritService)
+{   
+    public function __construct(
+        private readonly SpiritConversationService $conversationService, 
+        private readonly SpiritService $spiritService, 
+        private readonly SettingsService $settingsService)
     {
-        $this->conversationService = $conversationService;
-        $this->spiritService = $spiritService;
     }
     
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
@@ -97,6 +96,9 @@ class SpiritConversationApiController extends AbstractController
 
                 if ($responseStatus == Response::HTTP_OK && isset($responseProfile->toArray()['credits'])) {    
                     $CQ_AI_GatewayCredits = round($responseProfile->toArray()['credits']);
+
+                    // save to settings
+                    $this->settingsService->setSetting('cqaigateway.credits', $CQ_AI_GatewayCredits);
 
                     return $this->json([
                         'success' => true,

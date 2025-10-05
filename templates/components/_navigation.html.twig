@@ -98,20 +98,37 @@
                 </ul>
             </li>
             
-            <!-- CQ Chat 2 Icon -->
-            <li class="nav-item">
-                {# <span id="cqChatButton2" class="nav-link cursor-pointer" title="{{ 'cq_chat.page_title'|trans }}">
-                    <i id="cqChatIcon2" class="mdi mdi-chat-processing"></i>
-                </span> #}
-                <a class="nav-link" href="{{ path('app_cq_chat_index') }}" title="{{ 'cq_chat.page_title'|trans }}">
+            <!-- CQ Chat Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link" href="#" id="cqChatDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'cq_chat.page_title'|trans }}">
                     <i class="mdi mdi-forum"></i>
                     {% set unseenCount = get_cq_chat_unseen_count() %}
                     
                     <span class="position-absolute top-0 start-50 badge rounded-pill text-cyber" id="cqChatUnseenCountBadge">
                         {% if unseenCount > 0 %}{{ unseenCount }}{% endif %}
                     </span>
-                    
                 </a>
+                <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="cqChatDropdown" style="min-width: 300px; max-height: 500px;">
+                    <li class="px-3 py-2 border-bottom border-secondary border-opacity-25">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ path('app_cq_chat_index') }}" class="text-decoration-none">
+                                <i class="mdi mdi-forum me-2"></i><span class="text-light">{{ 'cq_chat.page_title'|trans }}</span>
+                            </a>
+                            <button id="cqChatNewChatBtn" class="btn btn-sm btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
+                                <i class="mdi mdi-message-plus"></i>
+                            </button>
+                        </div>
+                    </li>
+                    <li>
+                        <div id="cqChatDropdownList" class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                            <div class="text-center p-3">
+                                <div class="spinner-border spinner-border-sm text-cyber" role="status">
+                                    <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
             </li>
 
             <!-- Notifications -->
@@ -143,54 +160,3 @@
         </ul>
     </div>
 </nav>
-{% if app.user %}
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Polling for unseen messages
-        let cqChatUnseenCountBadge = document.getElementById('cqChatUnseenCountBadge');
-        let minInterval = 3000;
-        let maxInterval = 30000;
-        let interval = minInterval;
-
-        let poll = () => {
-            // Get unseen messages count from server
-            fetch(
-                '{{ path('app_api_cq_chat_unseen_count') }}',
-                {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                }
-            )
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const unseenCount = parseInt(data.unseenCount);
-                    if (cqChatUnseenCountBadge) {
-                        cqChatUnseenCountBadge.textContent = unseenCount > 0 ? unseenCount : '';
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching unseen count:', error);
-            });
-            
-            // Increase interval
-            interval = interval * 1.2;
-            if (interval > maxInterval) {
-                interval = minInterval;
-            }
-
-            setTimeout(() => {
-                // Poll again
-                poll();
-            }, interval);
-        };
-
-        // Initial poll
-        poll();
-    });
-</script>
-{% endif %}

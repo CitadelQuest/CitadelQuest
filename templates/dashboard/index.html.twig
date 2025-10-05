@@ -4,7 +4,7 @@
 
 {% block body %}
 <div class="container mt-4">
-    <div class="row">
+    <div class="row d-none">
         <div class="col-12">
             <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
@@ -13,7 +13,7 @@
                     </h4>
                 </div>
                 <div class="p-4">
-                    <p class="text-muted">{{ 'dashboard.description'|trans }}</p>
+                    <p class="text-muted m-0">{{ 'dashboard.description'|trans }}</p>
                 </div>
             </div>
         </div>
@@ -21,9 +21,9 @@
 
     <div class="row">
 
-        <!-- Quick Actions Section -->
-        <div class="col-12 col-sm-8 mb-2">
-            <div class="glass-panel">
+        <div class="col-12 col-sm-8">
+            <!-- Quick Actions Section -->
+            <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
                     <h5 class="mb-0">
                         <i class="mdi mdi-lightning-bolt me-2"></i>{{ 'dashboard.quick_actions'|trans }}
@@ -113,17 +113,50 @@
                     </div>
                 </div>
             </div>
+
+            <!-- CQ AI Gateway -->
+            <div class="glass-panel mb-4">
+                <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
+                    <div class="mb-0 d-flex align-items-center justify-content-between">
+                        <span>
+                            <i class="mdi mdi-server-network me-2"></i>CQ AI Gateway
+                        </span>
+                        <span class="d-flex align-items-center justify-content-end gap-2">
+                            <i class="mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
+                                title="{{ CQ_AI_GatewayCredits }} Credits"></i>
+                        
+                            <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
+                            <span class="small">Credits</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="p-4 rounded-bottom">
+                    <div class="row g-2 small">
+                        <div class="col-12">
+                            {{ "auth.login.username"|trans }}: <span class="text-cyber">{{ CQ_AI_GatewayUsername }}</span>
+                        </div>
+                        <div class="col-12">
+                            {{ "auth.login.password"|trans }}: <span class="text-muted">same as CitadelQuest password</span>
+                        </div>
+                        <div class="col-12 text-end mt-3">
+                            <a href="https://cqaigateway.com/login?username={{ CQ_AI_GatewayUsername }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="mdi mdi-login me-2"></i> CQ AI Gateway - {{ 'navigation.menu.login'|trans }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Storage Usage Section -->
-        <div class="col-12 col-sm-4 mb-2">
-            <div class="glass-panel">
+        <div class="col-12 col-sm-4 mb-4">            
+            <!-- Storage Usage Section -->
+            <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
                     <h5 class="mb-0">
                         <i class="mdi mdi-harddisk me-2"></i>{{ 'settings.storage.title'|trans }}
                     </h5>
                 </div>
-                <div class="p-4">
+                <div class="p-4 bg-dark bg-opacity-10 rounded-bottom">
                     <div class="row g-2">
                         <!-- Total Storage -->
                         <div class="w-100 d-flex align-items-center justify-content-start">
@@ -160,6 +193,20 @@
                                 <small class="text-muted">{{ 'settings.storage.backups'|trans }}</small>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CitadelQuest About page `/` -->
+            <div class="glass-panel glass-panel-glow">
+                <div class="p-3 text-center bg-dark bg-cyber-g bg-opacity-25 rounded">
+                    <img src="{{ asset('build/images/logo-sm.png') }}" alt="{{ "app.name"|trans }}" class="w-100">
+                    <div class="small text-light mb-2">
+                        <div title="Server"><i class="mdi mdi-server me-1"></i>{{ app.request.host }}</div>
+                    </div>
+                    <a href="{{ path('app_home') }}" class="btn btn-cyber btn-sm mt-2">{{ "app.name"|trans }}</a>
+                    <div class="small text-light opacity-75">
+                        <div class="mt-2" title="Version">{{ citadel_version }}</div>
                     </div>
                 </div>
             </div>

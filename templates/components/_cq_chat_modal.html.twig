@@ -1,0 +1,107 @@
+{% if app.user %}
+<div class="modal fade" id="cqChatModal" tabindex="-1" aria-labelledby="cqChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success py-2">
+                <div class="d-flex align-items-center flex-grow-1">
+                    <i class="mdi mdi-forum text-cyber fs-5 me-2"></i>
+                    <span class="modal-title" id="cqChatModalLabel">
+                        <span id="cqChatModalTitle" class="text-light"></span>
+                    </span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body pt-0 d-flex flex-column" style="height: calc(100vh - 200px);">
+                <div id="cqChatMessages" class="flex-grow-1 overflow-auto mb-3 pt-3 cyber-scrollbar">
+                    <div class="text-center p-3 loading-indicator">
+                        <div class="spinner-border text-cyber" role="status">
+                            <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary border-opacity-50">
+                <form id="cqChatForm" class="d-flex w-100 gap-2">
+                    <textarea id="cqChatMessageInput" class="form-control" rows="2" placeholder="{{ 'cq_chat.type_message'|trans }}" autocomplete="off"></textarea>
+                    <button type="submit" id="cqChatSendBtn" class="btn btn-cyber">
+                        <i class="mdi mdi-send"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="cqChatNewChatModal" tabindex="-1" aria-labelledby="cqChatNewChatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="cqChatNewChatModalLabel">
+                    <i class="mdi mdi-message-plus me-2"></i>{{ 'cq_chat.new_chat'|trans }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="cqChatNewChatContact" class="form-label">{{ 'cq_chat.select_contact'|trans }}</label>
+                    <select id="cqChatNewChatContact" class="form-select">
+                        <option value="">{{ 'cq_chat.loading_contacts'|trans }}</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" id="cqChatNewChatConfirmBtn" class="btn btn-cyber">
+                    <i class="mdi mdi-check me-2"></i>{{ 'cq_chat.start_chat'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* CQ Chat styling (matching original cq_chat/view.html.twig) */
+.chat-message {
+    margin-bottom: 1rem;
+    display: flex;
+}
+
+.chat-message.chat-message-user {
+    justify-content: flex-end;
+}
+
+.chat-message.chat-message-user .chat-bubble {
+    background-color: rgba(149, 236, 134, 0.3);
+    border-radius: 1rem 1rem 0 1rem;
+}
+
+.chat-message.chat-message-assistant {
+    justify-content: flex-start;
+}
+
+.chat-message.chat-message-assistant .chat-bubble {
+    background-color: rgba(33, 37, 41, 0.5);
+    border-radius: 1rem 1rem 1rem 0;
+}
+
+.chat-bubble {
+    max-width: 70%;
+    padding: 0.75rem 1rem;
+    position: relative;
+}
+
+.chat-content {
+    word-break: break-word;
+}
+
+.chat-timestamp {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    text-align: right;
+    margin-top: 0.25rem;
+}
+</style>
+{% endif %}

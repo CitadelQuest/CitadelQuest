@@ -34,8 +34,47 @@
                         </div>
                     {% endfor %}
                     
-                    <p class="mb-4">Configure your AI service settings to power your Spirit and other AI features.</p>
+                    <p class="mb-0">Configure your AI service settings to power your Spirit and other AI features.</p>
 
+                    <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">                        
+                        <div>
+                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
+                            <p class="">Select which AI models to use for different purposes.</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6_ mb-3">
+                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
+                                    <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
+                                        {% for model in aiModels %}
+                                            <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3 d-none">
+                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Secondary AI Model</label>
+                                    <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
+                                        {% for model in aiModels %}
+                                            <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
+                                <i class="mdi mdi-content-save me-2"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
+                            </button>
+                        </div>
+                    </form>
+                
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">
                         
                         <div class="mb-2">
@@ -105,49 +144,8 @@
                             </div>
                         </div>
                         
-                        
                     </form>
-                                            
-                    
-                    <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">
-                        
-                        <div class="mb-4">
-                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
-                            <p class="">Select which AI models to use for different purposes.</p>
-                            
-                            <div class="row">
-                                <div class="col-md-6_ mb-3">
-                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
-                                    <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
-                                        {% for model in aiModels %}
-                                            <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3 d-none">
-                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Secondary AI Model</label>
-                                    <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
-                                        {% for model in aiModels %}
-                                            <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
-                                <i class="mdi mdi-content-save me-2"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
-                            </button>
-                        </div>
-                    </form>
+
                 </div>
             </div>
         </div>

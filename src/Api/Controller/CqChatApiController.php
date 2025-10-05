@@ -37,16 +37,77 @@ class CqChatApiController extends AbstractController
         try {
             $chats = $this->cqChatService->findAll();
 
-            // Check for unseen messages in each chat
+            // Check for unseen messages in each chat and load contact data
             $chats = array_map(function ($chat) {
-                $chat = $chat->jsonSerialize();
-                $unseenCount = $this->cqChatMsgService->countUnseenMessagesByChat($chat['id']);
-                $chat['hasNewMsgs'] = $unseenCount > 0;
-                $chat['unseenCount'] = $unseenCount;
-                return $chat;
+                $chatData = $chat->jsonSerialize();
+                $unseenCount = $this->cqChatMsgService->countUnseenMessagesByChat($chatData['id']);
+                $chatData['hasNewMsgs'] = $unseenCount > 0;
+                $chatData['unseenCount'] = $unseenCount;
+                $chatData['unreadCount'] = $unseenCount; // Alias for compatibility
+                
+                // Load contact data
+                if ($chat->getCqContactId()) {
+                    $contact = $this->cqContactService->findById($chat->getCqContactId());
+                    if ($contact) {
+                        $chatData['contact'] = $contact->jsonSerialize();
+                    }
+                }
+                
+                // Get last message
+                $messages = $this->cqChatMsgService->findByChatId($chatData['id'], 1);
+                if (!empty($messages)) {
+                    $chatData['lastMessage'] = $messages[0]->jsonSerialize();
+                }
+                
+                return $chatData;
             }, $chats);
 
             return $this->json($chats);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/dropdown', name: 'app_api_cq_chat_dropdown', methods: ['GET'])]
+    public function dropdown(): JsonResponse
+    {
+        try {
+            // Get unseen count
+            $unseenCount = $this->cqChatMsgService->countUnseenMessages();
+            
+            // Get chats (limit to 10 for dropdown)
+            $chats = $this->cqChatService->findAll();
+            $chats = array_slice($chats, 0, 10);
+
+            // Process chats with contact data and last message
+            $chats = array_map(function ($chat) {
+                $chatData = $chat->jsonSerialize();
+                $unseenCount = $this->cqChatMsgService->countUnseenMessagesByChat($chatData['id']);
+                $chatData['hasNewMsgs'] = $unseenCount > 0;
+                $chatData['unseenCount'] = $unseenCount;
+                $chatData['unreadCount'] = $unseenCount;
+                
+                // Load contact data
+                if ($chat->getCqContactId()) {
+                    $contact = $this->cqContactService->findById($chat->getCqContactId());
+                    if ($contact) {
+                        $chatData['contact'] = $contact->jsonSerialize();
+                    }
+                }
+                
+                // Get last message
+                $messages = $this->cqChatMsgService->findByChatId($chatData['id'], 1);
+                if (!empty($messages)) {
+                    $chatData['lastMessage'] = $messages[0]->jsonSerialize();
+                }
+                
+                return $chatData;
+            }, $chats);
+
+            return $this->json([
+                'unseenCount' => $unseenCount,
+                'chats' => $chats
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -99,7 +160,17 @@ class CqChatApiController extends AbstractController
                 return $this->json(['error' => 'Chat not found'], Response::HTTP_NOT_FOUND);
             }
             
-            return $this->json($chat);
+            $chatData = $chat->jsonSerialize();
+            
+            // Load contact data
+            if ($chat->getCqContactId()) {
+                $contact = $this->cqContactService->findById($chat->getCqContactId());
+                if ($contact) {
+                    $chatData['contact'] = $contact->jsonSerialize();
+                }
+            }
+            
+            return $this->json($chatData);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

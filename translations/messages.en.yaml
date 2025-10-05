@@ -595,6 +595,7 @@ cq_chat:
     select_contact_placeholder: 'Select a contact to chat with'
     select_contact_required: 'Please select a contact'
     create_chat: 'Create Chat'
+    start_chat: 'Start Chat'
     
     # Chat details
     chat_details: 'Chat Details'
