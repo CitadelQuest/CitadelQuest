@@ -6,7 +6,6 @@ A decentralized platform for AI-human collaboration with emphasis on personal da
 
 <img width="75%" alt="CitadelQuest - Welcome" src="https://github.com/user-attachments/assets/1c60a197-059e-4dd7-90df-beeac14af9ad" />
 
-<img width="75%" alt="CitadelQuest - Spirit Conversation" src="https://github.com/user-attachments/assets/bdc79f89-d623-4dad-9419-f0c4032c0028" />
 
 ## Technical Stack
 
