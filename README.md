@@ -2,6 +2,9 @@
 
 A decentralized platform for AI-human collaboration with emphasis on personal data sovereignty. Built with modern web technologies and a security-first approach.
 
+<img width="70%" alt="CitadelQuest - Dasshboard" src="https://github.com/user-attachments/assets/2c20e8a7-252c-4a63-86e9-bee265156b68" />
+<img width="30%" alt="SCitadelQuest - Spirit Conversation" src="https://github.com/user-attachments/assets/bdc79f89-d623-4dad-9419-f0c4032c0028" />
+
 ## Technical Stack
 
 ### Backend Requirements
