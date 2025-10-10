@@ -1,6 +1,7 @@
 # CitadelQuest
 
 A decentralized platform for AI-human collaboration with emphasis on personal data sovereignty. Built with modern web technologies and a security-first approach.
+
 <img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/dc67da41-bdee-402a-bafa-348db5cd8f35" />
 
 <img width="75%" alt="CitadelQuest - Welcome" src="https://github.com/user-attachments/assets/1c60a197-059e-4dd7-90df-beeac14af9ad" />
