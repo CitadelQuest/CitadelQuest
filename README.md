@@ -7,6 +7,75 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 <img width="75%" alt="CitadelQuest - Welcome" src="https://github.com/user-attachments/assets/1c60a197-059e-4dd7-90df-beeac14af9ad" />
 
 
+## New Installation
+1. Download the [latest release](https://github.com/CitadelQuest/CitadelQuest/releases/latest) **Installation Package** (`citadelquest-installer-vX.Y.Z.zip`)
+2. Upload `install.php` to your web server's public directory (`/myserver.com/cq/public/`)
+3. Access `install.php` through your web browser (e.g. `http://cq.myserver.com/install.php`)
+4. The installer will automatically handle everything!
+5. After installation, create a new user (administrator) and login
+6. Enjoy!
+
+## Core Features
+
+### Architecture
+- Fully decentralized, self-hosted deployment, your data stays on your server (not shared with tech-giants)
+- One SQLite database per user
+- Updater component for system updates
+- Backup component for auto/manual backups
+
+### Connect with your friends
+- **CitadelQuest Federation API/protocol** - direct server-to-server connection
+- Connect with other CitadelQuest users
+- Make friend requests - create **private CQ-CONTACT API key** for safe and secure communication
+- **CQ Chat**: one-on-one/group real-time chat
+- **No middlemen** - full privacy
+- _soon: share data and files, collaborate on projects with other users and Spirits_
+
+### Your Personal Cloud Storage
+- CitadelQuest serves as your safe personal cloud storage
+- File Browser GUI component (upload, download and manage files)
+- _soon: file sharing with other users and Spirits_
+
+### AI Spirits
+- **Spirit** - AI agent that can be used to multi-language chat, work with files, generate images, _soon: collaborate on projects with other users and Spirits_
+- **Spirit Memory** - spirit-managed memory storage (user, inner thoughts, conversations)
+- **Spirit Tools**
+  - file access and processing
+  - text/image generation and processing
+
+### AI Services
+- [CQ AI Gateway](https://cqaigateway.com) for secure and private AI service use 
+  - **Zero Data Retention (ZDR)** - no user data collected by AI service providers
+  - data is just processed and send back to user, no data stored, no data logs
+  - AI models curated by CitadelQuest to provide best quality, performance and security
+  - **no subscription required** - pay-as-you-go
+  - **free startup credits**
+  - **auto-registration** (API key generation and setup) on CitadelQuest user registration **for easy start**
+  - _soon: AI service providers integration - use your own AI models_
+
+### Security
+- HTTPS required (encryption for all communications)
+- Secure user authentication with Symfony's password hasher and CSRF protection
+- Per-user database isolation
+
+### User Interface
+- Clean, modern Bootstrap-based design
+- Responsive layout for all devices
+- PWA support - works as **fullscreen mobile app on Android and iOS**
+- Dark theme optimized for readability
+- Intuitive user registration and login
+- Spirit-User/User-User Conversation/Chat interface
+- File Browser interface
+- Settings interface - manage user settings, AI model, etc.
+- Administrators interface - manage users, system updates, etc.
+
+### Internationalization
+- Multi-language support for UI and Spirit communication
+- Currently supported languages:
+  - English (en) - default
+  - Czech (cs)
+  - Slovak (sk)
+
 ## Technical Stack
 
 ### Backend Requirements
@@ -22,12 +91,57 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 - Webpack Encore
 - Modern vanilla JavaScript
 
+## Development Guidelines
+
+### Code Structure
+- Follow Symfony 7.3 best practices
+- Maintain modular, single-responsibility components
+- Document all major functionality
+
+### Security Practices
+- HTTPS required for all operations
+- Implement encryption at rest
+- Secure all API endpoints
+- Validate all user input
+- Follow OWASP security guidelines
+- Keep secrets out of version control
+- Implement proper CSRF protection
+
+### Frontend Development
+- Use modern vanilla JavaScript
+- Follow Bootstrap conventions
+- Maintain responsive design
+- Optimize asset loading
+
+### JavaScript Organization
+- Structured directory layout:
+  ```
+  assets/
+  ├── entries/           # Webpack entry points
+  ├── js/
+      ├── features/      # Feature-specific modules
+      ├── shared/        # Reusable utilities
+      └── ui/           # UI components
+  ```
+- One entry point per feature in `assets/entries/`
+- Feature-specific code in dedicated directories under `features/`
+- Shared utilities (crypto, translations) in `shared/`
+- UI components in `ui/`
+- Descriptive, purpose-indicating filenames
+- Webpack-based bundling with code splitting
+
+### Database
+- Use migrations for schema changes
+- Implement proper UUID handling
+- Follow SQLite best practices
+- Maintain data isolation
+
 ## Project Setup
 
 1. Clone the repository:
 ```bash
 git clone [repository-url]
-cd citadel
+cd CitadelQuest
 ```
 
 2. Install PHP dependencies:
@@ -74,119 +188,6 @@ npm run dev
 ```bash
 symfony server:start
 ```
-
-## Core Features
-
-### Architecture
-- Fully decentralized, self-hosted deployment
-- One SQLite database per user (not per Citadel)
-- UUID-based identification system
-- No external service dependencies
-
-### Backup System
-- ZIP-based backup format for database and user settings
-- Automatic backup creation before database restore
-- Version-aware restore functionality
-- Transaction-safe database operations
-- User-friendly backup management interface
-- Toast notifications for operation feedback
-
-### Security
-- End-to-end encryption for all communications
-- Secure user authentication with Symfony's password hasher
-- HTTPS required for all sensitive routes
-- Per-user database isolation
-- Environment-based configuration
-- CSRF protection on all forms
-
-### User Interface
-- Clean, modern Bootstrap-based design
-- Responsive layout for all devices
-- Dark theme optimized for readability
-- Intuitive user registration and login
-- Spirit-User conversation interface
-- File browser interface
-- Backups interface
-- Administrators interface - manage users, system updates, etc.
-
-### Internationalization
-- Multi-language support with Symfony's translation component
-- Supported languages:
-  - English (en) - default
-  - Czech (cs)
-  - Slovak (sk)
-- Features:
-  - Language switching for all users (authenticated and non-authenticated)
-  - Complete translation coverage:
-    - UI elements and forms
-    - Error messages and validations
-    - JavaScript interactions and confirmations
-  - Translation files in YAML format
-  - Hierarchical translation keys for better organization
-  - ICU message format support for complex translations
-
-## Security Implementation
-
-### Encryption
-- Browser-generated RSA-OAEP 2048-bit keys
-- End-to-end encryption using Web Crypto API
-- Private keys never leave browser
-- Message integrity verification
-- Protection against replay attacks
-
-### Data Protection
-- Individual SQLite databases per user
-- UUID-based identification (no sequential IDs)
-- Secure password hashing
-- CSRF protection
-- Environment-specific secrets management
-
-## Development Guidelines
-
-### Code Structure
-- Follow Symfony 7.3 best practices
-- Maintain modular, single-responsibility components
-- Document all major functionality
-- Write unit tests for critical features
-
-### Security Practices
-- HTTPS required for all operations
-- Implement encryption at rest
-- Secure all API endpoints
-- Validate all user input
-- Follow OWASP security guidelines
-- Keep secrets out of version control
-- Use Symfony's security components
-- Implement proper CSRF protection
-
-### Frontend Development
-- Use modern vanilla JavaScript
-- Follow Bootstrap conventions
-- Maintain responsive design
-- Optimize asset loading
-
-#### JavaScript Organization
-- Structured directory layout:
-  ```
-  assets/
-  ├── entries/           # Webpack entry points
-  ├── js/
-      ├── features/      # Feature-specific modules
-      ├── shared/        # Reusable utilities
-      └── ui/           # UI components
-  ```
-- One entry point per feature in `assets/entries/`
-- Feature-specific code in dedicated directories under `features/`
-- Shared utilities (crypto, translations) in `shared/`
-- UI components in `ui/`
-- Descriptive, purpose-indicating filenames
-- Webpack-based bundling with code splitting
-
-### Database
-- Use migrations for schema changes
-- Implement proper UUID handling
-- Follow SQLite best practices
-- Maintain data isolation
 
 ## License
 
