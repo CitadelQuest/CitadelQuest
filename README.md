@@ -4,8 +4,6 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 
 <img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/dc67da41-bdee-402a-bafa-348db5cd8f35" />
 
-<img width="75%" alt="CitadelQuest - Welcome" src="https://github.com/user-attachments/assets/1c60a197-059e-4dd7-90df-beeac14af9ad" />
-
 
 ## New Installation
 1. Download the [latest release](https://github.com/CitadelQuest/CitadelQuest/releases/latest) **Installation Package** (`citadelquest-installer-vX.Y.Z.zip`)
