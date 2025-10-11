@@ -39,6 +39,7 @@ export class CqChatModalManager {
         this.groupSelectedCount = document.getElementById('cqChatGroupSelectedCount');
         this.newGroupConfirmBtn = document.getElementById('cqChatNewGroupConfirmBtn');
         this.newGroupBtn = document.getElementById('cqChatNewGroupBtn');
+        this.pageNewChatBtn = document.getElementById('cqChatPageNewChatBtn');
         this.selectedMembers = new Set();
         
         this.init();
@@ -55,6 +56,7 @@ export class CqChatModalManager {
         this.newChatBtn?.addEventListener('click', () => this.showNewChatModal());
         this.newChatConfirmBtn?.addEventListener('click', () => this.createNewChat());
         this.newGroupBtn?.addEventListener('click', () => this.showNewGroupModal());
+        this.pageNewChatBtn?.addEventListener('click', () => this.showNewGroupModal());
         this.newGroupConfirmBtn?.addEventListener('click', () => this.createNewGroup());
         
         // Modal events

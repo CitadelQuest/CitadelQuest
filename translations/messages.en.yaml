@@ -635,11 +635,11 @@ cq_chat:
     seen: 'Seen'
     unread: 'Unread'
     
-    # Group Chat
-    new_group_chat: 'New Group Chat'
-    group_name: 'Group Name'
-    enter_group_name: 'Enter group name'
+    # Group Chat (now used for all chats)
+    new_group_chat: 'New Chat'
+    group_name: 'Chat Name'
+    enter_group_name: 'Enter chat name'
     select_members: 'Select Members'
     selected: 'Selected'
-    create_group: 'Create Group'
+    create_group: 'Create Chat'
     cancel: 'Cancel'

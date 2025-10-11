@@ -627,11 +627,11 @@ cq_chat:
     seen: 'Viděno'
     unread: 'Nepřečteno'
     
-    # Group Chat
-    new_group_chat: 'Nový skupinový chat'
-    group_name: 'Název skupiny'
-    enter_group_name: 'Zadejte název skupiny'
+    # Group Chat (now used for all chats)
+    new_group_chat: 'Nový chat'
+    group_name: 'Název chatu'
+    enter_group_name: 'Zadejte název chatu'
     select_members: 'Vybrat členy'
     selected: 'Vybráno'
-    create_group: 'Vytvořit skupinu'
+    create_group: 'Vytvořit chat'
     cancel: 'Zrušit'

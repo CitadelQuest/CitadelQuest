@@ -12,14 +12,9 @@
                         <i class="mdi mdi-forum me-2 text-cyber"></i>
                         {{ 'cq_chat.page_title'|trans }}
                     </h1>
-                    <div class="dropdown">
-                        <button class="btn btn-cyber dropdown-toggle" type="button" id="contactDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="mdi mdi-message-plus me-2"></i><span class="d-none d-md-inline">{{ 'cq_chat.message_contact'|trans }}</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end" id="contactDropdownMenu" aria-labelledby="contactDropdown">
-                            <li class="dropdown-item text-center text-muted small">{{ 'cq_chat.loading_contacts'|trans }}</li>
-                        </ul>
-                    </div>
+                    <button id="cqChatPageNewChatBtn" class="btn btn-cyber">
+                        <i class="mdi mdi-message-plus me-2"></i><span class="d-none d-md-inline">{{ 'cq_chat.new_chat'|trans }}</span>
+                    </button>
                 </div>
 
                 <div class="row mb-3">
@@ -49,8 +44,6 @@
     </div>
 </div>
 
-<!-- No modal needed for direct messaging -->
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const chatsContainer = document.getElementById('chatsContainer');
@@ -78,53 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Load contacts for direct messaging
-    function loadContacts() {
-        const contactDropdownMenu = document.getElementById('contactDropdownMenu');
-        
-        fetch('/api/cq-contact')
-            .then(response => response.json())
-            .then(data => {
-                contacts = data.filter(contact => 
-                    contact.isActive && contact.friendRequestStatus === 'ACCEPTED'
-                );
-                
-                if (contacts.length === 0) {
-                    contactDropdownMenu.innerHTML = `<li class="dropdown-item text-center text-muted small">{{ 'cq_chat.no_contacts'|trans }}</li>`;
-                    return;
-                }
-                
-                // Populate contact dropdown
-                contactDropdownMenu.innerHTML = '';
-                contacts.forEach(contact => {
-                    const contactItem = document.createElement('li');
-                    contactItem.innerHTML = `<a class="dropdown-item" href="#" data-contact-id="${contact.id}">
-                        <i class="mdi mdi-account me-2"></i>${contact.cqContactUsername}@${contact.cqContactDomain}
-                    </a>`;
-                    contactDropdownMenu.appendChild(contactItem);
-                    
-                    // Add click event to start chat
-                    contactItem.querySelector('a').addEventListener('click', function(e) {
-                        e.preventDefault();
-                        startChatWithContact(contact.id);
-                    });
-                });
-            })
-            .catch(error => {
-                console.error('Error loading contacts:', error);
-                contactDropdownMenu.innerHTML = `<li class="dropdown-item text-center text-danger">{{ 'cq_chat.error_loading_contacts'|trans }}</li>`;
-            });
-    }
-    
-    // Start chat with contact
-    function startChatWithContact(contactId) {
-        // Use the global CqChatModalManager to create new chat
-        if (window.cqChatModalManager) {
-            window.cqChatModalManager.newChatContactSelect.value = contactId;
-            const modal = new bootstrap.Modal(window.cqChatModalManager.newChatModal);
-            modal.show();
-        }
-    }
+    // Old contact dropdown and 1-on-1 chat code removed
+    // Now using Group Chat modal for all chats (including 2-member chats)
 
     // Render chats
     function renderChats() {
@@ -340,7 +288,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // No create new chat code needed - using direct messaging instead
 
     // Search and filter event listeners
     chatSearch.addEventListener('input', renderChats);
@@ -348,7 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial load
     loadChats();
-    loadContacts();
 });
 </script>
 {% endblock %}

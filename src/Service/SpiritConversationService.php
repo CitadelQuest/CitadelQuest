@@ -186,11 +186,13 @@ class SpiritConversationService
             foreach ($messagesArray as $message) {
                 $content = $message['content'] ?? [];
                 // go through content items and check how many `<img ` are there
-                if (is_array($content) && count($content) > 0) {
-                    foreach ($content as $item) {
-                        // number of `<img ` in item['text']
-                        if (isset($item['text'])) {
-                            $imagesCount += substr_count($item['text'], '<img ');
+                if (is_array($content)) {
+                    if (count($content) > 0) {
+                        foreach ($content as $item) {
+                            // number of `<img ` in item['text']
+                            if (isset($item['text'])) {
+                                $imagesCount += substr_count($item['text'], '<img ');
+                            }
                         }
                     }
                 } else {
