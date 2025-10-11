@@ -1,6 +1,6 @@
 # CitadelQuest
 
-A decentralized platform for AI-human, human-human collaboration with emphasis on personal data sovereignty.
+A decentralized platform for AI-human, human-human collaboration with emphasis on personal data sovereignty and private communication.
 
 <img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/dc67da41-bdee-402a-bafa-348db5cd8f35" />
 
@@ -18,10 +18,13 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 ## Core Features
 
 ### Architecture
-- Fully decentralized, self-hosted deployment, your data stays on your server (not shared with tech-giants)
+- Fully **decentralized**, **self-hosted** deployment, **your data stays yours** (not shared with tech-giants)
 - One SQLite database per user
-- Updater component for system updates
+- **Updater** component for system updates
 - Backup component for auto/manual backups
+- **No third-parties monitoring and monetizing your privacy**
+- No third-party cookies
+- **Free - No ads**
 
 ### Connect with your friends
 - **CitadelQuest Federation API/protocol** - direct server-to-server connection
@@ -38,6 +41,7 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 
 ### AI Spirits
 - **Spirit** - AI agent that can be used to multi-language chat, work with files, generate images, _soon: collaborate on projects with other users and Spirits_
+- Go through everyday tasks, long-term projects or experience digital adventures with your trusted personal AI companions, while maintaining data sovereignty
 - **Spirit Memory** - spirit-managed memory storage (user, inner thoughts, conversations)
 - **Spirit Tools**
   - file access and processing
