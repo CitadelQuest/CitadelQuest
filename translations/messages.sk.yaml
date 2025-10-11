@@ -626,3 +626,12 @@ cq_chat:
     failed: 'Nepodarilo sa odoslať'
     seen: 'Videné'
     unread: 'Neprečítané'
+    
+    # Group Chat
+    new_group_chat: 'Nový skupinový chat'
+    group_name: 'Názov skupiny'
+    enter_group_name: 'Zadajte názov skupiny'
+    select_members: 'Vybrať členov'
+    selected: 'Vybraných'
+    create_group: 'Vytvoriť skupinu'
+    cancel: 'Zrušiť'

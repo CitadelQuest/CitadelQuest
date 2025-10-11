@@ -37,6 +37,7 @@ Encore
     .addEntry('admin-dashboard', './assets/entries/admin-dashboard.js')
     .addEntry('admin-users', './assets/entries/admin-users.js')
     .addEntry('file_browser', './assets/entries/file_browser.js')
+    .addEntry('dashboard-badges', './assets/js/features/dashboard/dashboard-badges.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

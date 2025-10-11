@@ -22,14 +22,9 @@ class HomeController extends AbstractController
         private readonly AiGatewayService $aiGatewayService
     ) {}
     
-    #[Route('/', name: 'app_home')]
-    public function index(): Response
+    #[Route('/about', name: 'app_about')]
+    public function about(): Response
     {
-        // If user is logged in and hasn't completed onboarding, redirect to welcome page
-        if ($this->getUser() && !$this->settingsService->getSettingValue('onboarding.completed', false)) {
-            return $this->redirectToRoute('app_welcome_onboarding');
-        }
-        
         return $this->render('home/index.html.twig', [
             'controller_name' => 'HomeController',
         ]);

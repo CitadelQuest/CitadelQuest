@@ -634,3 +634,12 @@ cq_chat:
     failed: 'Failed to send'
     seen: 'Seen'
     unread: 'Unread'
+    
+    # Group Chat
+    new_group_chat: 'New Group Chat'
+    group_name: 'Group Name'
+    enter_group_name: 'Enter group name'
+    select_members: 'Select Members'
+    selected: 'Selected'
+    create_group: 'Create Group'
+    cancel: 'Cancel'

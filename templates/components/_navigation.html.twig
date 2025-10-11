@@ -2,7 +2,7 @@
     <div class="container">
         <!-- Brand -->
         <div class="d-flex align-items-center">
-            <a class="navbar-brand d-flex align-items-center" href="{{ path('app_dashboard') }}">
+            <a class="navbar-brand d-flex align-items-center" href="{{ path('app_home') }}">
                 <img src="{{ asset('build/images/logo-sm.png') }}" alt="CitadelQuest" height="43" class="me-2">
                 <div class="d-none d-sm-block">
                     <span>{{ 'app.name'|trans }}</span>
@@ -108,15 +108,20 @@
                         {% if unseenCount > 0 %}{{ unseenCount }}{% endif %}
                     </span>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="cqChatDropdown" style="min-width: 300px; max-height: 500px;">
+                <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow cq-chat-menu" aria-labelledby="cqChatDropdown">
                     <li class="px-3 py-2 border-bottom border-secondary border-opacity-25">
                         <div class="d-flex justify-content-between align-items-center">
                             <a href="{{ path('app_cq_chat_index') }}" class="text-decoration-none">
-                                <i class="mdi mdi-forum me-2"></i><span class="text-light">{{ 'cq_chat.page_title'|trans }}</span>
+                                <i class="mdi mdi-forum me-2"></i><span class="text-light d-none d-md-inline-block">{{ 'cq_chat.page_title'|trans }}</span>
                             </a>
-                            <button id="cqChatNewChatBtn" class="btn btn-sm btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
-                                <i class="mdi mdi-message-plus"></i>
-                            </button>
+                            <div class="btn-group btn-group-sm">
+                                <button id="cqChatNewChatBtn" class="btn btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
+                                    <i class="mdi mdi-message-plus"></i>
+                                </button>
+                                <button id="cqChatNewGroupBtn" class="btn btn-cyber" title="{{ 'cq_chat.new_group_chat'|trans }}">
+                                    <i class="mdi mdi-account-multiple-plus"></i>
+                                </button>
+                            </div>
                         </div>
                     </li>
                     <li>

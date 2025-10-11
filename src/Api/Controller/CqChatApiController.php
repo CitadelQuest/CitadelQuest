@@ -9,6 +9,7 @@ use App\Service\CqChatMsgService;
 use App\Service\CqContactService;
 use App\Service\SettingsService;
 use App\CitadelVersion;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +28,10 @@ class CqChatApiController extends AbstractController
         private readonly CqChatMsgService $cqChatMsgService,
         private readonly CqContactService $cqContactService,
         private readonly SettingsService $settingsService,
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly \App\Service\GroupChatService $groupChatService,
+        private readonly \App\Service\GroupMessageDeliveryService $deliveryService,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -297,8 +301,28 @@ class CqChatApiController extends AbstractController
             $messages = $this->cqChatMsgService->findByChatId($id, $limit, $offset);
             $total = $this->cqChatMsgService->countByChatId($id);
             
+            // Convert messages to array format for JSON response
+            $messagesArray = array_map(function($msg) {
+                return $msg instanceof \JsonSerializable ? $msg->jsonSerialize() : $msg;
+            }, $messages);
+            
+            // For group chats, enrich messages with contact information
+            if ($chat->isGroupChat()) {
+                $messagesArray = array_map(function($message) {
+                    $contactId = $message['cqContactId'] ?? $message['cq_contact_id'] ?? null;
+                    if ($contactId) {
+                        $contact = $this->cqContactService->findById($contactId);
+                        if ($contact) {
+                            $message['contactUsername'] = $contact->getCqContactUsername();
+                            $message['contactDomain'] = $contact->getCqContactDomain();
+                        }
+                    }
+                    return $message;
+                }, $messagesArray);
+            }
+            
             return $this->json([
-                'messages' => $messages,
+                'messages' => $messagesArray,
                 'total' => $total,
                 'limit' => $limit,
                 'offset' => $offset
@@ -384,4 +408,240 @@ class CqChatApiController extends AbstractController
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
+
+    /**
+     * Create a new group chat
+     */
+    #[Route('/group', name: 'app_api_cq_chat_group_create', methods: ['POST'])]
+    public function createGroup(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            $groupName = $data['group_name'] ?? null;
+            $contactIds = $data['contact_ids'] ?? [];
+            
+            if (!$groupName || empty($contactIds)) {
+                return $this->json(['error' => 'Group name and contact IDs are required'], Response::HTTP_BAD_REQUEST);
+            }
+            
+            // Log for debugging
+            $this->logger->info('Creating group: ' . $groupName . ' with ' . count($contactIds) . ' members');
+            $this->logger->info('Contact IDs: ' . json_encode($contactIds));
+            
+            $chat = $this->groupChatService->createGroupChat($groupName, $contactIds);
+            
+            $this->logger->info('Group created successfully: ' . $chat->getId());
+            
+            return $this->json([
+                'success' => true,
+                'chat' => $chat
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            $this->logger->error('Error creating group: ' . $e->getMessage());
+            $this->logger->error('Stack trace: ' . $e->getTraceAsString());
+            return $this->json([
+                'error' => $e->getMessage(),
+                'details' => $e->getFile() . ':' . $e->getLine()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Get group members
+     */
+    #[Route('/group/{id}/members', name: 'app_api_cq_chat_group_members', methods: ['GET'])]
+    public function getGroupMembers(string $id): JsonResponse
+    {
+        try {
+            $members = $this->groupChatService->getGroupMembers($id);
+            
+            // Load contact data for each member
+            $membersData = array_map(function($member) {
+                $memberData = $member->jsonSerialize();
+                $contact = $this->cqContactService->findById($member->getCqContactId());
+                if ($contact) {
+                    $memberData['contact'] = $contact->jsonSerialize();
+                }
+                return $memberData;
+            }, $members);
+            
+            return $this->json([
+                'success' => true,
+                'members' => $membersData,
+                'count' => count($membersData)
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Add member to group
+     */
+    #[Route('/group/{id}/members', name: 'app_api_cq_chat_group_add_member', methods: ['POST'])]
+    public function addGroupMember(string $id, Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $contactId = $data['contact_id'] ?? null;
+            
+            if (!$contactId) {
+                return $this->json(['error' => 'Contact ID is required'], Response::HTTP_BAD_REQUEST);
+            }
+            
+            $member = $this->groupChatService->addMember($id, $contactId);
+            
+            return $this->json([
+                'success' => true,
+                'member' => $member
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Remove member from group
+     */
+    #[Route('/group/{id}/members/{contactId}', name: 'app_api_cq_chat_group_remove_member', methods: ['DELETE'])]
+    public function removeGroupMember(string $id, string $contactId): JsonResponse
+    {
+        try {
+            $this->groupChatService->removeMember($id, $contactId);
+            
+            return $this->json([
+                'success' => true,
+                'message' => 'Member removed successfully'
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Send group message
+     */
+    #[Route('/group/{id}/messages', name: 'app_api_cq_chat_group_send_message', methods: ['POST'])]
+    public function sendGroupMessage(string $id, Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $content = $data['content'] ?? null;
+            
+            if (!$content) {
+                return $this->json(['error' => 'Message content is required'], Response::HTTP_BAD_REQUEST);
+            }
+            
+            $chat = $this->cqChatService->findById($id);
+            if (!$chat || !$chat->isGroupChat()) {
+                return $this->json(['error' => 'Group chat not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            // Create the message
+            $message = $this->cqChatMsgService->sendGroupMessage($id, $content);
+            
+            // If user is host, forward to all members
+            if ($this->groupChatService->isUserHost($id)) {
+                $members = $this->groupChatService->getGroupMembers($id);
+                $this->deliveryService->createDeliveryRecords(
+                    $message->getId(),
+                    array_map(fn($m) => $m->getCqContactId(), $members)
+                );
+                
+                // Forward message to all members via Federation API
+                $this->forwardMessageToMembers($id, $message, $members);
+            } else {
+                // Send to host
+                $hostContactId = $chat->getGroupHostContactId();
+                if ($hostContactId) {
+                    $this->sendMessageToHost($id, $message, $hostContactId);
+                }
+            }
+            
+            return $this->json([
+                'success' => true,
+                'message' => $message
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Forward message to all group members (host only)
+     */
+    private function forwardMessageToMembers(string $groupChatId, $message, array $members): void
+    {
+        $user = $this->getUser();
+        $senderAddress = $user->getUsername() . '@' . $_SERVER['HTTP_HOST'];
+        
+        // Get group chat to send name
+        $chat = $this->cqChatService->findById($groupChatId);
+        $groupName = $chat ? $chat->getTitle() : 'Group Chat';
+        
+        foreach ($members as $member) {
+            try {
+                $contact = $this->cqContactService->findById($member->getCqContactId());
+                if (!$contact) {
+                    continue;
+                }
+                
+                $recipientUrl = 'https://' . $contact->getCqContactDomain() . '/' 
+                    . $contact->getCqContactUsername() . '/api/federation/group-message-forward';
+                
+                $this->httpClient->request('POST', $recipientUrl, [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                        'Content-Type' => 'application/json',
+                    ],
+                    'json' => [
+                        'group_chat_id' => $groupChatId,
+                        'group_name' => $groupName,
+                        'original_sender' => $senderAddress,
+                        'message_id' => $message->getId(),
+                        'content' => $message->getContent(),
+                        'timestamp' => $message->getCreatedAt()->format('c')
+                    ]
+                ]);
+                
+            } catch (\Exception $e) {
+                $this->logger->error('Failed to forward message to member: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Send message to host (member only)
+     */
+    private function sendMessageToHost(string $groupChatId, $message, string $hostContactId): void
+    {
+        try {
+            $hostContact = $this->cqContactService->findById($hostContactId);
+            if (!$hostContact) {
+                throw new \Exception('Host contact not found');
+            }
+            
+            $hostUrl = 'https://' . $hostContact->getCqContactDomain() . '/' 
+                . $hostContact->getCqContactUsername() . '/api/federation/group-message';
+            
+            $this->httpClient->request('POST', $hostUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $hostContact->getCqContactApiKey(),
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'group_chat_id' => $groupChatId,
+                    'message_id' => $message->getId(),
+                    'content' => $message->getContent(),
+                    'timestamp' => $message->getCreatedAt()->format('c')
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to send message to host: ' . $e->getMessage());
+            throw $e;
+        }
+    }
 }
+

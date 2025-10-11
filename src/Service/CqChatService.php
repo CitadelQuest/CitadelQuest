@@ -44,6 +44,8 @@ class CqChatService
         bool $isPin = true,
         bool $isMute = true,
         bool $isActive = true,
+        bool $isGroupChat = false,
+        ?string $groupHostContactId = null,
         ?string $specificId = null
     ): CqChat {
         $chat = new CqChat(
@@ -54,6 +56,8 @@ class CqChatService
             $isPin,
             $isMute,
             $isActive,
+            $isGroupChat,
+            $groupHostContactId,
             $specificId
         );
 
@@ -62,8 +66,8 @@ class CqChatService
         $userDb->executeStatement(
             'INSERT INTO cq_chat (
                 id, cq_contact_id, title, summary, is_star, is_pin, is_mute, is_active,
-                created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                is_group_chat, group_host_contact_id, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $chat->getId(),
                 $chat->getCqContactId(),
@@ -73,6 +77,8 @@ class CqChatService
                 $chat->isPin() ? 1 : 0,
                 $chat->isMute() ? 1 : 0,
                 $chat->isActive() ? 1 : 0,
+                $chat->isGroupChat() ? 1 : 0,
+                $chat->getGroupHostContactId(),
                 $chat->getCreatedAt()->format('Y-m-d H:i:s'),
                 $chat->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -162,7 +168,8 @@ class CqChatService
         $result = $userDb->executeStatement(
             'UPDATE cq_chat SET 
                 cq_contact_id = ?, title = ?, summary = ?,
-                is_star = ?, is_pin = ?, is_mute = ?, is_active = ?, updated_at = ?
+                is_star = ?, is_pin = ?, is_mute = ?, is_active = ?,
+                is_group_chat = ?, group_host_contact_id = ?, updated_at = ?
              WHERE id = ?',
             [
                 $chat->getCqContactId(),
@@ -172,6 +179,8 @@ class CqChatService
                 $chat->isPin() ? 1 : 0,
                 $chat->isMute() ? 1 : 0,
                 $chat->isActive() ? 1 : 0,
+                $chat->isGroupChat() ? 1 : 0,
+                $chat->getGroupHostContactId(),
                 $chat->getUpdatedAt()->format('Y-m-d H:i:s'),
                 $chat->getId()
             ]
@@ -252,4 +261,56 @@ class CqChatService
 
         return $result > 0;
     }
+
+    /**
+     * Find all group chats
+     */
+    public function findGroupChats(bool $activeOnly = true): array
+    {
+        $userDb = $this->getUserDb();
+        $sql = 'SELECT * FROM cq_chat WHERE is_group_chat = ?';
+        $params = [1];
+        
+        if ($activeOnly) {
+            $sql .= ' AND is_active = ?';
+            $params[] = 1;
+        }
+        
+        $sql .= ' ORDER BY updated_at DESC';
+        
+        $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
+
+        return array_map(fn($data) => CqChat::fromArray($data), $results);
+    }
+
+    /**
+     * Find all direct (1-to-1) chats
+     */
+    public function findDirectChats(bool $activeOnly = true): array
+    {
+        $userDb = $this->getUserDb();
+        $sql = 'SELECT * FROM cq_chat WHERE is_group_chat = ?';
+        $params = [0];
+        
+        if ($activeOnly) {
+            $sql .= ' AND is_active = ?';
+            $params[] = 1;
+        }
+        
+        $sql .= ' ORDER BY updated_at DESC';
+        
+        $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
+
+        return array_map(fn($data) => CqChat::fromArray($data), $results);
+    }
+
+    /**
+     * Check if a chat is a group chat
+     */
+    public function isGroupChat(string $chatId): bool
+    {
+        $chat = $this->findById($chatId);
+        return $chat ? $chat->isGroupChat() : false;
+    }
 }
+

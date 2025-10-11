@@ -23,6 +23,23 @@ class CqContactApiController extends AbstractController
         private readonly HttpClientInterface $httpClient
     ) {
     }
+    
+    /**
+     * Get badge counts (pending friend requests, etc.)
+     */
+    #[Route('/badges', name: 'app_api_cq_contact_badges', methods: ['GET'])]
+    public function getBadges(): JsonResponse
+    {
+        try {
+            $pendingRequests = $this->cqContactService->countPendingFriendRequests();
+            
+            return $this->json([
+                'pendingFriendRequests' => $pendingRequests
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
 
     #[Route('', name: 'app_api_cq_contact_list', methods: ['GET'])]
     public function list(): JsonResponse

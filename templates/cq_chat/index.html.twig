@@ -161,12 +161,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (chat.isPin) statusIcons.push('<i class="mdi mdi-pin text-info" title="{{ "cq_chat.pinned"|trans }}"></i>');
             if (chat.isMute) statusIcons.push('<i class="mdi mdi-volume-off text-secondary" title="{{ "cq_chat.muted"|trans }}"></i>');
 
+            // Group chat indicator
+            const groupIndicator = chat.isGroupChat ? '<i class="mdi mdi-account-multiple text-info me-1" title="Group Chat"></i>' : '';
+            
             return `
                 <div class="card glass-panel mb-3 chat-card ${chat.isPin ? 'border-info' : ''}" data-chat-id="${chat.id}">
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-md-8">
                                 <span class="mb-1 d-flex align-items-center">
+                                    ${groupIndicator}
                                     <i class="mdi ${chat.hasNewMsgs ? 'mdi-message-badge text-cyber' : 'mdi-forum text-light'} me-2"></i>
                                     <span class="h5">${chat.title}</span>
                                     ${statusIcons.join(' ')}

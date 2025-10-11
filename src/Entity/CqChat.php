@@ -14,6 +14,8 @@ class CqChat implements JsonSerializable
     private bool $isPin;
     private bool $isMute;
     private bool $isActive;
+    private bool $isGroupChat;
+    private ?string $groupHostContactId;
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $updatedAt;
     
@@ -25,6 +27,8 @@ class CqChat implements JsonSerializable
         bool $isPin = false,
         bool $isMute = false,
         bool $isActive = true,
+        bool $isGroupChat = false,
+        ?string $groupHostContactId = null,
         ?string $specificId = null
     ) {
         $this->id = $specificId ?? uuid_create();
@@ -35,6 +39,8 @@ class CqChat implements JsonSerializable
         $this->isPin = $isPin;
         $this->isMute = $isMute;
         $this->isActive = $isActive;
+        $this->isGroupChat = $isGroupChat;
+        $this->groupHostContactId = $groupHostContactId;
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
     }
@@ -162,6 +168,30 @@ class CqChat implements JsonSerializable
         return $this;
     }
     
+    public function isGroupChat(): bool
+    {
+        return $this->isGroupChat;
+    }
+    
+    public function setIsGroupChat(bool $isGroupChat): self
+    {
+        $this->isGroupChat = $isGroupChat;
+        $this->updateUpdatedAt();
+        return $this;
+    }
+    
+    public function getGroupHostContactId(): ?string
+    {
+        return $this->groupHostContactId;
+    }
+    
+    public function setGroupHostContactId(?string $groupHostContactId): self
+    {
+        $this->groupHostContactId = $groupHostContactId;
+        $this->updateUpdatedAt();
+        return $this;
+    }
+    
     public function jsonSerialize(): array
     {
         return [
@@ -173,6 +203,8 @@ class CqChat implements JsonSerializable
             'isPin' => $this->isPin,
             'isMute' => $this->isMute,
             'isActive' => $this->isActive,
+            'isGroupChat' => $this->isGroupChat,
+            'groupHostContactId' => $this->groupHostContactId,
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => $this->updatedAt->format(\DateTimeInterface::ATOM)
         ];
@@ -187,7 +219,9 @@ class CqChat implements JsonSerializable
             (bool) ($data['is_star'] ?? false),
             (bool) ($data['is_pin'] ?? false),
             (bool) ($data['is_mute'] ?? false),
-            (bool) ($data['is_active'] ?? true)
+            (bool) ($data['is_active'] ?? true),
+            (bool) ($data['is_group_chat'] ?? false),
+            $data['group_host_contact_id'] ?? null
         );
         
         $chat->setId($data['id']);

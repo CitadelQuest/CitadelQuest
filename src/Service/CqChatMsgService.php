@@ -389,4 +389,72 @@ class CqChatMsgService
             $data['id'] ?? null
         );
     }
+
+    /**
+     * Send a group message (stores locally and returns for federation forwarding)
+     * 
+     * @param string $chatId
+     * @param string $content
+     * @return CqChatMsg
+     */
+    public function sendGroupMessage(string $chatId, string $content): CqChatMsg
+    {
+        // Create message with NULL cq_contact_id (sent by local user)
+        return $this->createMessage(
+            $chatId,
+            null, // NULL = sent by local user
+            $content,
+            null,
+            'SENT'
+        );
+    }
+
+    /**
+     * Store a forwarded group message from host
+     * 
+     * @param string $chatId
+     * @param string $senderContactId
+     * @param string $content
+     * @param string $messageId
+     * @return CqChatMsg
+     */
+    public function storeForwardedGroupMessage(
+        string $chatId,
+        string $senderContactId,
+        string $content,
+        string $messageId
+    ): CqChatMsg {
+        return $this->createMessage(
+            $chatId,
+            $senderContactId,
+            $content,
+            null,
+            'RECEIVED',
+            $messageId
+        );
+    }
+
+    /**
+     * Update delivery status for a message
+     * 
+     * @param string $messageId
+     * @param string $status
+     * @return bool
+     */
+    public function updateDeliveryStatus(string $messageId, string $status): bool
+    {
+        $userDb = $this->getUserDb();
+        
+        $result = $userDb->executeStatement(
+            'UPDATE cq_chat_msg SET status = ?, updated_at = ? WHERE id = ?',
+            [
+                $status,
+                date('Y-m-d H:i:s'),
+                $messageId
+            ]
+        );
+
+        return $result > 0;
+    }
 }
+

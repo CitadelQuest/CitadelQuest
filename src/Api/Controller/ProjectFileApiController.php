@@ -28,6 +28,29 @@ class ProjectFileApiController extends AbstractController
     }
     
     /**
+     * Get project statistics (total size, file count, etc.)
+     */
+    #[Route('/stats/{projectId}', name: 'app_api_project_file_stats', methods: ['GET'])]
+    public function stats(string $projectId): JsonResponse
+    {
+        try {
+            $totalSize = $this->projectFileService->getTotalProjectSize($projectId);
+            $formattedSize = $this->projectFileService->formatBytes($totalSize);
+            
+            return $this->json([
+                'success' => true,
+                'totalSize' => $totalSize,
+                'formattedSize' => $formattedSize
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    
+    /**
      * List files in a directory
      */
     #[Route('/list/{projectId}', name: 'app_api_project_file_list', methods: ['GET'])]

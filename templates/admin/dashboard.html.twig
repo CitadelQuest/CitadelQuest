@@ -76,19 +76,19 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <a href="{{ path('app_admin_users') }}" class="btn btn-cyber w-100">
                                 <i class="mdi mdi-account-multiple me-2"></i>
                                 {{ 'admin.dashboard.manage_users'|trans }}
                             </a>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-4 mb-3 d-none">
                             <a href="{{ path('app_admin_logs') }}" class="btn btn-cyber w-100">
                                 <i class="mdi mdi-file-document-multiple me-2"></i>
                                 {{ 'admin.logs.title'|trans }}
                             </a>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <button class="btn btn-sm btn-cyber w-100" data-bs-toggle="modal" data-bs-target="#updateModal">
                                 <i class="mdi mdi-update me-2"></i>
                                 {{ 'admin.dashboard.check_updates'|trans }}

@@ -103,3 +103,18 @@
         }
     }
 }
+
+.cq-chat-menu {
+    cursor: default;
+
+    width: min(75vw, 300px);
+    top: auto;
+
+    max-height: 500px;
+    overflow-y: auto;
+    @include mix.cyber-scrollbar;
+
+    .dropdown-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}

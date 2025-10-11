@@ -97,13 +97,16 @@ export class FileBrowser {
         // Create breadcrumbs
         this.breadcrumbsRootLabel = document.createElement('div');
         this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
-        this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span>`;
+        this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span><span class="text-muted ms-2" id="project-size-badge">...</span>`;
         this.breadcrumbsRootLabel.addEventListener('click', () => {
             this.currentPath = '/';
             this.fileTreeView.setInitialExpandPath('/');
             this.fileTreeView.refresh();
             this.updateBreadcrumbs();
         });
+        
+        // Load and display project size
+        this.loadProjectSize();
         
         this.breadcrumbsElement = document.createElement('div');
         this.breadcrumbsElement.className = 'file-browser-breadcrumbs';
@@ -344,6 +347,9 @@ export class FileBrowser {
                 this.fileTreeView.setInitialExpandPath(this.currentPath);
                 await this.fileTreeView.refresh();
             }
+            
+            // Refresh project size
+            await this.loadProjectSize();
             
             // Show success message
             window.toast.success(this.translations.file_created || 'File created successfully');
@@ -709,6 +715,9 @@ export class FileBrowser {
                 this.updateBreadcrumbs();
             }
             
+            // Refresh project size
+            await this.loadProjectSize();
+            
             // Refresh the tree view
             if (this.fileTreeView) {
                 // Set current path and refresh the tree
@@ -750,6 +759,9 @@ export class FileBrowser {
     async uploadFile(file) {
         try {
             await this.apiService.uploadFile(this.projectId, this.currentPath, file);
+            
+            // Refresh project size
+            await this.loadProjectSize();
             
             // Refresh tree view after file upload
             if (this.fileTreeView) {
@@ -846,6 +858,25 @@ export class FileBrowser {
         } else {
             // Refresh the tree view
             this.fileTreeView.refresh();
+        }
+    }
+    
+    /**
+     * Load and display project size
+     */
+    async loadProjectSize() {
+        try {
+            const response = await fetch(`/api/project-file/stats/${this.projectId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const badge = document.getElementById('project-size-badge');
+                if (badge) {
+                    badge.textContent = `(${data.formattedSize})`;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading project size:', error);
         }
     }
 }

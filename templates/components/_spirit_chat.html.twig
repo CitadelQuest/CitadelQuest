@@ -6,7 +6,7 @@
                 <span id="spiritChatToolsAndConversationsToggle" class="btn_ btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu-open"></i></span>
                 
                 <span id="spiritChatModalTitle" class="fs-6 me-2"></span>
-                <span class="modal-title small d-flex align-items-center text-light" id="spiritChatModalLabel">
+                <span class="modal-title small d-flex align-items-center text-light me-2" id="spiritChatModalLabel">
                     {# {{ 'spirit.chat.title'|trans }}  #}
                     {% include "components/_spirit_icon.html.twig" %}
                     <span class="spiritName opacity-75"></span>
@@ -18,13 +18,16 @@
                 <div id="spiritChatToolsAndConversations" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4 border-bottom-1 border-success border-opacity-50" style="z-index: 10;">
                     <div class="col-md-8_">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6><i class="mdi mdi-forum-outline text-cyber me-2"></i>{{ 'spirit.chat.conversations'|trans }}</h6>
-                            <div class="input-group w-50 mx-2">
+                            <h6 class="d-none d-md-inline">
+                                <i class="mdi mdi-forum-outline text-cyber me-2"></i>
+                                <span>{{ 'spirit.chat.conversations'|trans }}</span>
+                            </h6>
+                            <div class="input-group w-auto mx-2">
                                 <span class="input-group-text border-secondary border-opacity-50" style="background-color: transparent;"><i class="mdi mdi-magnify text-secondary"></i></span>
                                 <input type="text" class="form-control" id="conversationSearch" placeholder="{{ 'spirit.chat.search_conversations'|trans }}">
                             </div>
-                            <button id="newConversationBtn" class="btn _btn-sm btn-cyber">
-                                <i class="mdi mdi-message-plus"></i><span class="ms-2 d-none _d-md-inline">{{ 'spirit.chat.new_conversation'|trans }}</span>
+                            <button id="newConversationBtn" class="btn btn-sm btn-cyber">
+                                <i class="mdi mdi-message-plus"></i><span class="ms-2 d-none d-md-inline">{{ 'spirit.chat.new_conversation'|trans }}</span>
                             </button>
                         </div>
                         <div id="conversationsList" class="list-group conversation-list">

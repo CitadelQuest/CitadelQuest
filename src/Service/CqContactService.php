@@ -256,4 +256,18 @@ class CqContactService
         return 'CQ-CONTACT-' . strtoupper(bin2hex(random_bytes(12))) . '-' . strtoupper(bin2hex(random_bytes(12)));
     }
 
+    /**
+     * Count pending friend requests (RECEIVED status)
+     */
+    public function countPendingFriendRequests(): int
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            "SELECT COUNT(*) as count FROM cq_contact WHERE friend_request_status = 'RECEIVED'",
+            []
+        )->fetchAssociative();
+
+        return (int) ($result['count'] ?? 0);
+    }
+
 }

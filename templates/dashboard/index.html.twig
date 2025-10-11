@@ -2,6 +2,11 @@
 
 {% block title %}{{ 'dashboard.title'|trans }}{% endblock %}
 
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('dashboard-badges') }}
+{% endblock %}
+
 {% block body %}
 <div class="container mt-4">
     <div class="row d-none">
@@ -21,7 +26,7 @@
 
     <div class="row">
 
-        <div class="col-12 col-sm-8">
+        <div class="col-12 col-sm-7 col-md-8">
             <!-- Quick Actions Section -->
             <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
@@ -47,11 +52,17 @@
                         <!-- CQ Contacts -->
                         <div class="col-12 col-md-6 col-lg-4">
                             <a href="{{ path('app_cq_contact_index') }}" class="text-decoration-none">
-                                <div class="card glass-panel h-100 glass-panel-glow">
+                                <div class="card glass-panel h-100 glass-panel-glow position-relative">
                                     <div class="card-body text-center">
                                         <i class="mdi mdi-account-group fs-1 text-primary mb-2"></i>
                                         <h6 class="text-light">{{ 'cq_contact.page_title'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.contacts_description'|trans }}</small>
+                                        <!-- Friend Request Badge -->
+                                        <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-danger d-none" 
+                                              id="friend-request-badge" 
+                                              style="font-size: 0.75rem;">
+                                            0
+                                        </span>
                                     </div>
                                 </div>
                             </a>
@@ -148,7 +159,7 @@
             </div>
         </div>
 
-        <div class="col-12 col-sm-4 mb-4">            
+        <div class="col-12 col-sm-5 col-md-4 mb-4">            
             <!-- Storage Usage Section -->
             <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
@@ -204,7 +215,7 @@
                     <div class="small text-light mb-2">
                         <div title="Server"><i class="mdi mdi-server me-1"></i>{{ app.request.host }}</div>
                     </div>
-                    <a href="{{ path('app_home') }}" class="btn btn-cyber btn-sm mt-2">{{ "app.name"|trans }}</a>
+                    <a href="{{ path('app_about') }}" class="btn btn-cyber btn-sm mt-2">{{ "app.name"|trans }}</a>
                     <div class="small text-light opacity-75">
                         <div class="mt-2" title="Version">{{ citadel_version }}</div>
                     </div>

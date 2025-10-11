@@ -571,6 +571,11 @@ export class SpiritChatManager {
             if (activeItem) {
                 activeItem.classList.add('active', 'bg-cyber-g');
                 activeItem.scrollIntoView({ behavior: 'smooth' });
+                let infoBlock = activeItem.querySelector('.text-muted');
+                if (infoBlock) {
+                    infoBlock.classList.remove('text-muted');
+                    infoBlock.classList.add('text-light');
+                }
             }
             
             // Fetch conversation

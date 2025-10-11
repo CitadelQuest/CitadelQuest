@@ -42,15 +42,15 @@ when@prod:
         handlers:
             main:
                 type: fingers_crossed
-                action_level: info  # Changed to 'info' to capture all our logging
+                action_level: error  # Only log errors and critical issues in production
                 handler: nested
                 excluded_http_codes: [404, 405]
-                buffer_size: 100 # Increased buffer for better debugging context
+                buffer_size: 50 # Reduced buffer - only for error context
+                channels: ["!event"]
             nested:
                 type: stream
                 path: "%kernel.project_dir%/var/log/%kernel.environment%.log"
-                level: debug
-                formatter: monolog.formatter.json
+                level: error  # Only write error level and above to file
             console:
                 type: console
                 process_psr_3_messages: false
@@ -59,4 +59,3 @@ when@prod:
                 type: stream
                 channels: [deprecation]
                 path: php://stderr
-                formatter: monolog.formatter.json

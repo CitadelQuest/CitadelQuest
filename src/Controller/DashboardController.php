@@ -19,10 +19,15 @@ class DashboardController extends AbstractController
     }
 
 
-    #[Route('/dashboard', name: 'app_dashboard')]
+    #[Route('/', name: 'app_home')]
     public function index(): Response
     {
         $user = $this->getUser();
+        
+        // If user hasn't completed onboarding, redirect to welcome page
+        if (!$this->settingsService->getSettingValue('onboarding.completed', false)) {
+            return $this->redirectToRoute('app_welcome_onboarding');
+        }
         
         // Get storage information
         $storageInfo = $this->storageService->getTotalUserStorageSize($user);
@@ -41,5 +46,14 @@ class DashboardController extends AbstractController
             'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername,
             'CQ_AI_GatewayCredits' => $credits,
         ]);
+    }
+    
+    /**
+     * Keep /dashboard as an alias for backward compatibility
+     */
+    #[Route('/dashboard', name: 'app_dashboard')]
+    public function dashboard(): Response
+    {
+        return $this->redirectToRoute('app_home');
     }
 }

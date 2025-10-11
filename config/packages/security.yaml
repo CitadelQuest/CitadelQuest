@@ -33,6 +33,9 @@ security:
         - { path: ^/update-fg, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/friend-request, roles: PUBLIC_ACCESS, requires_channel: https }   
         - { path: ^/.*/api/federation/chat-message, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/group-message, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/group-message-forward, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/group-message-status, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:

@@ -1461,4 +1461,35 @@ class ProjectFileService
             umask($oldUmask);
         }
     }
+    
+    /**
+     * Calculate total size of all files in a project
+     * Returns size in bytes
+     */
+    public function getTotalProjectSize(string $projectId): int
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT SUM(size) as total_size FROM project_file WHERE project_id = ? AND is_directory = 0',
+            [$projectId]
+        )->fetchAssociative();
+        
+        return (int) ($result['total_size'] ?? 0);
+    }
+    
+    /**
+     * Format bytes to human-readable size
+     */
+    public function formatBytes(int $bytes, int $precision = 2): string
+    {
+        if ($bytes === 0) {
+            return '0 B';
+        }
+        
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $base = 1024;
+        $exponent = floor(log($bytes) / log($base));
+        
+        return round($bytes / pow($base, $exponent), $precision) . ' ' . $units[$exponent];
+    }
 }

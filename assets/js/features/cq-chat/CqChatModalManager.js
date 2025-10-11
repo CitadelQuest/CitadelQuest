@@ -32,6 +32,15 @@ export class CqChatModalManager {
         this.newChatContactSelect = document.getElementById('cqChatNewChatContact');
         this.newChatConfirmBtn = document.getElementById('cqChatNewChatConfirmBtn');
         
+        // New group chat modal elements
+        this.newGroupModal = document.getElementById('cqChatNewGroupModal');
+        this.groupNameInput = document.getElementById('cqChatGroupName');
+        this.groupMembersList = document.getElementById('cqChatGroupMembersList');
+        this.groupSelectedCount = document.getElementById('cqChatGroupSelectedCount');
+        this.newGroupConfirmBtn = document.getElementById('cqChatNewGroupConfirmBtn');
+        this.newGroupBtn = document.getElementById('cqChatNewGroupBtn');
+        this.selectedMembers = new Set();
+        
         this.init();
     }
     
@@ -45,6 +54,8 @@ export class CqChatModalManager {
         this.messageForm?.addEventListener('submit', (e) => this.handleSendMessage(e));
         this.newChatBtn?.addEventListener('click', () => this.showNewChatModal());
         this.newChatConfirmBtn?.addEventListener('click', () => this.createNewChat());
+        this.newGroupBtn?.addEventListener('click', () => this.showNewGroupModal());
+        this.newGroupConfirmBtn?.addEventListener('click', () => this.createNewGroup());
         
         // Modal events
         this.modal.addEventListener('shown.bs.modal', () => {
@@ -121,7 +132,10 @@ export class CqChatModalManager {
             item.className = 'list-group-item list-group-item-action bg-transparent text-light border-0 py-2';
             item.dataset.chatId = chat.id;
             
-            const contactName = chat.contact?.cqContactUsername || chat.contact?.name || chat.contact?.citadelAddress || 'Unknown';
+            const isGroup = chat.isGroupChat || false;
+            const contactName = isGroup ? chat.title : (chat.contact?.cqContactUsername || chat.contact?.name || chat.contact?.citadelAddress || 'Unknown');
+            const contactDomain = isGroup ? '' : `@${chat.contact?.cqContactDomain || ''}`;
+            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-info me-1"></i>' : '';
             const lastMessage = chat.lastMessage?.content || '';
             const hasUnread = chat.unreadCount > 0;
             
@@ -129,7 +143,8 @@ export class CqChatModalManager {
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
                         <div class="d-flex align-items-center">
-                            <strong class="${hasUnread ? 'text-cyber' : ''}">${contactName}</strong><span class="opacity-50 small">@${chat.contact?.cqContactDomain || ''}</span>
+                            ${groupIcon}
+                            <strong class="${hasUnread ? 'text-cyber' : ''}">${contactName}</strong><span class="opacity-50 small">${contactDomain}</span>
                             ${hasUnread ? `<span class="badge bg-cyber text-dark ms-2">${chat.unreadCount}</span>` : ''}
                         </div>
                         <small class="text-muted text-truncate d-block" style="max-width: 250px;">${lastMessage}</small>
@@ -173,10 +188,16 @@ export class CqChatModalManager {
             const chat = await this.apiService.getChat(chatId);
             this.currentChat = chat;
             
-            // Update modal title with username and domain
-            const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
-            const contactDomain = chat.contact?.cqContactDomain || '';
-            this.modalTitle.innerHTML = contactDomain ? `<span class="fw-bold">${contactName}</span><span class="opacity-50">@${contactDomain}</span>` : contactName;
+            // Update modal title - handle both direct and group chats
+            const isGroup = chat.isGroupChat || false;
+            if (isGroup) {
+                const groupIcon = '<i class="mdi mdi-account-multiple text-info me-2"></i>';
+                this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
+            } else {
+                const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
+                const contactDomain = chat.contact?.cqContactDomain || '';
+                this.modalTitle.innerHTML = contactDomain ? `<span class="fw-bold">${contactName}</span><span class="opacity-50">@${contactDomain}</span>` : contactName;
+            }
             
             // Load messages
             await this.loadMessages(chatId);
@@ -297,8 +318,16 @@ export class CqChatModalManager {
             timeZone: 'Europe/Prague' 
         });
         
-        // Get contact name from current chat
-        const contactName = this.currentChat?.contact?.cqContactUsername || 'Contact';
+        // Get contact name - for group chats, use message's contact info
+        let contactName = 'Contact';
+        if (message.contactUsername) {
+            // Group chat - use contact info from message
+            contactName = message.contactUsername;
+        } else if (this.currentChat?.contact?.cqContactUsername) {
+            // Direct chat - use chat's contact
+            contactName = this.currentChat.contact.cqContactUsername;
+        }
+        
         const userName = document.querySelector('.js-user')?.dataset?.username || 'You';
         
         const nameDisplay = isOutgoing 
@@ -330,14 +359,33 @@ export class CqChatModalManager {
         try {
             this.sendBtn.disabled = true;
             
-            await this.apiService.sendMessage(this.currentChatId, content);
+            // Check if this is a group chat
+            const isGroup = this.currentChat?.isGroupChat || false;
+            
+            if (isGroup) {
+                // Send group message
+                const response = await fetch(`/api/cq-chat/group/${this.currentChatId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to send message');
+                }
+            } else {
+                // Send direct message
+                await this.apiService.sendMessage(this.currentChatId, content);
+            }
             
             this.messageInput.value = '';
             await this.loadMessages(this.currentChatId);
             
         } catch (error) {
             console.error('Error sending message:', error);
-            window.toast?.error(error.message);
+            window.toast?.error('Failed to send message');
         } finally {
             this.sendBtn.disabled = false;
             this.messageInput.focus();
@@ -448,4 +496,144 @@ export class CqChatModalManager {
         const date = new Date(dateString);
         return date.toLocaleString();
     }
+    
+    /**
+     * Show new group chat modal
+     */
+    async showNewGroupModal() {
+        this.selectedMembers.clear();
+        this.groupNameInput.value = '';
+        this.updateSelectedCount();
+        
+        // Load contacts for member selection
+        await this.loadContactsForGroup();
+        
+        const modal = new bootstrap.Modal(this.newGroupModal);
+        modal.show();
+    }
+    
+    /**
+     * Load contacts for group member selection
+     */
+    async loadContactsForGroup() {
+        try {
+            const response = await fetch('/api/cq-contact');
+            if (!response.ok) {
+                throw new Error('Failed to load contacts');
+            }
+            
+            const contacts = await response.json();
+            const activeContacts = contacts.filter(c => 
+                c.isActive && c.friendRequestStatus === 'ACCEPTED'
+            );
+            
+            if (activeContacts.length === 0) {
+                this.groupMembersList.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="mdi mdi-account-off"></i>
+                        <p class="mt-2">No contacts available</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Render contact checkboxes
+            this.groupMembersList.innerHTML = activeContacts.map(contact => `
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" value="${contact.id}" 
+                           id="groupMember${contact.id}" data-contact-name="${contact.cqContactUsername}@${contact.cqContactDomain}">
+                    <label class="form-check-label" for="groupMember${contact.id}">
+                        <i class="mdi mdi-account me-1"></i>
+                        ${contact.cqContactUsername}@${contact.cqContactDomain}
+                    </label>
+                </div>
+            `).join('');
+            
+            // Add change listeners
+            this.groupMembersList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        this.selectedMembers.add(e.target.value);
+                    } else {
+                        this.selectedMembers.delete(e.target.value);
+                    }
+                    this.updateSelectedCount();
+                });
+            });
+            
+        } catch (error) {
+            console.error('Error loading contacts:', error);
+            this.groupMembersList.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="mdi mdi-alert me-2"></i>Failed to load contacts
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Update selected members count
+     */
+    updateSelectedCount() {
+        this.groupSelectedCount.textContent = this.selectedMembers.size;
+    }
+    
+    /**
+     * Create new group chat
+     */
+    async createNewGroup() {
+        const groupName = this.groupNameInput.value.trim();
+        
+        if (!groupName) {
+            window.toast?.error('Please enter a group name');
+            return;
+        }
+        
+        if (this.selectedMembers.size === 0) {
+            window.toast?.error('Please select at least one member');
+            return;
+        }
+        
+        try {
+            this.newGroupConfirmBtn.disabled = true;
+            this.newGroupConfirmBtn.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> Creating...';
+            
+            const response = await fetch('/api/cq-chat/group', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    group_name: groupName,
+                    contact_ids: Array.from(this.selectedMembers)
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to create group');
+            }
+            
+            const data = await response.json();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(this.newGroupModal);
+            modal?.hide();
+            
+            // Reload chats
+            await this.loadChatsForDropdown();
+            
+            // Open the new group chat
+            this.openChat(data.chat.id);
+            
+            window.toast?.success('Group chat created successfully!');
+            
+        } catch (error) {
+            console.error('Error creating group:', error);
+            window.toast?.error('Failed to create group chat');
+        } finally {
+            this.newGroupConfirmBtn.disabled = false;
+            this.newGroupConfirmBtn.innerHTML = '<i class="mdi mdi-check me-2"></i>Create Group';
+        }
+    }
 }
+
