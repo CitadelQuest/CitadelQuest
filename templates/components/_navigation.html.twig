@@ -72,12 +72,12 @@
                             {{ 'navigation.user_menu.settings'|trans }}
                         </a>
                     </li>
-                    <li>
+                    {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_backup_index') }}">
                             <i class="mdi mdi-backup-restore me-3{% if app.request.pathInfo == path('app_backup_index') %} text-cyber{% else %} text-success{% endif %}"></i>
                             {{ 'navigation.user_menu.backup'|trans }}
                         </a>
-                    </li>
+                    </li> #}
                     {% if is_granted('ROLE_ADMIN') %}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_admin_dashboard') }}">
