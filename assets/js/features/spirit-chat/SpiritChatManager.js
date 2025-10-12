@@ -1324,6 +1324,13 @@ export class SpiritChatManager {
             // update credit indicator
             this.updateCreditIndicator();
             
+            // Trigger async database vacuum (user is now reading the response)
+            if (window.databaseVacuum) {
+                window.databaseVacuum.vacuum().catch(err => {
+                    console.error('Background vacuum failed:', err);
+                });
+            }
+            
         } catch (error) {
             console.error('Error sending message:', error);
             window.toast.error(error.message || 'Failed to send message');

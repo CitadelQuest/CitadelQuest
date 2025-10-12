@@ -226,6 +226,9 @@ class CqContactService
             [$id]
         );
 
+        // Vacuum the database
+        $userDb->executeStatement('VACUUM;');
+
         return $result > 0;
     }
 

@@ -235,31 +235,19 @@ class SpiritConversationService
     public function deleteConversation(string $conversationId): void
     {
         $db = $this->getUserDb();
-        
-        // First delete related: 
-        //  all ai_service_request related to spirit_conversation_request
-        //  all ai_service_response related to ai_service_request
-        //  all spirit_conversation_request related to conversation
 
-        // get all spirit_conversation_request related to conversation
-        $result = $db->executeQuery(
-            'SELECT * FROM spirit_conversation_request WHERE spirit_conversation_id = ?',
-            [$conversationId]
-        );
-        $ai_service_request_array = $result->fetchAllAssociative();
-        $ai_service_request_ids_list = implode(',', array_map(function($ai_service_request) {
-            return '"' . $ai_service_request['ai_service_request_id'] . '"';
-        }, $ai_service_request_array));
-
+        // delete
         $db->beginTransaction();
 
             // delete all ai_service_request related to spirit_conversation_request
             $db->executeStatement(
-                'DELETE FROM ai_service_request WHERE id IN (' . $ai_service_request_ids_list . ')'
+                'DELETE FROM ai_service_request WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)',
+                [$conversationId]
             );
             // delete all ai_service_response related to ai_service_request (related to spirit_conversation_request)
             $db->executeStatement(
-                'DELETE FROM ai_service_response WHERE ai_service_request_id IN (' . $ai_service_request_ids_list . ')'
+                'DELETE FROM ai_service_response WHERE ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)',
+                [$conversationId]
             );
 
             // delete all spirit_conversation_request related to conversation
@@ -275,6 +263,9 @@ class SpiritConversationService
             );
 
         $db->commit();
+
+        // Vacuum the database
+        $db->executeStatement('VACUUM;');
     }
 
     public function getConversationsCount(): int
@@ -482,6 +473,36 @@ class SpiritConversationService
         // and add spirit's experience
         $spirit->addExperience(1);
         $this->spiritService->updateSpirit($spirit);
+
+        // set redundant(previous requests) AiServiceRequest.messages and AiServiceRequest.tools to 'removed' to save space
+        // let's keep just the latest 2 ai_service_request.messages (and AiServiceRequest.tools)
+        $latestRequestIds = $db->fetchFirstColumn(
+            'SELECT ai_service_request_id FROM spirit_conversation_request 
+            WHERE spirit_conversation_id = ? ORDER BY created_at DESC LIMIT 2',
+            [$conversation->getId()]
+        );
+        
+        // Only proceed if we have IDs to exclude
+        if (!empty($latestRequestIds)) {
+            // Create placeholders for prepared statement
+            $placeholders = implode(',', array_fill(0, count($latestRequestIds), '?'));
+            
+            // Update ai_service_request
+            $db->executeStatement(
+                'UPDATE ai_service_request SET messages = "removed", tools = "removed" 
+                WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?) 
+                AND id NOT IN (' . $placeholders . ')',
+                array_merge([$conversation->getId()], $latestRequestIds)
+            );
+            
+            // Update ai_service_response
+            $db->executeStatement(
+                'UPDATE ai_service_response SET message = "removed", full_response = "removed" 
+                WHERE ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?) 
+                AND ai_service_request_id NOT IN (' . $placeholders . ')',
+                array_merge([$conversation->getId()], $latestRequestIds)
+            );
+        }
         
         return $conversation->getMessages();
     }

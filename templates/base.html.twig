@@ -20,6 +20,7 @@
             {% if app.user %}
                 {{ encore_entry_script_tags('spirit-chat') }}
                 {{ encore_entry_script_tags('cq-chat-modal') }}
+                {{ encore_entry_script_tags('database-vacuum') }}
             {% endif %}
         {% endblock %}
     </head>
