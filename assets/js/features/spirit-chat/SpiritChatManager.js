@@ -22,6 +22,10 @@ export class SpiritChatManager {
         this.maxImageSize = 1024; // Max width/height for optimal AI processing
         this.maxFileSize = 5 * 1024 * 1024; // 5MB max file size
         
+        // Async conversation state
+        this.executionStopped = false;
+        this.isExecutingTools = false;
+        
         // DOM Elements
         this.spiritIcon = document.getElementById('spiritIcon');
         this.spiritChatModal = document.getElementById('spiritChatModal');
@@ -50,6 +54,7 @@ export class SpiritChatManager {
         this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
         this.creditIndicator = document.getElementById('creditIndicator');
         this.sendMessageBtn = document.getElementById('sendMessageBtn');
+        this.stopExecutionBtn = document.getElementById('stopExecutionBtn');
         this.imageUpload = document.getElementById('imageUpload');
         this.imageUploadPreview = document.getElementById('imageUploadPreview');
         this.chatInfoPrimaryAiModel = document.getElementById('chatInfoPrimaryAiModel');
@@ -159,6 +164,13 @@ export class SpiritChatManager {
             this.chatForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.sendMessage();
+            });
+        }
+        
+        // Stop execution button
+        if (this.stopExecutionBtn) {
+            this.stopExecutionBtn.addEventListener('click', () => {
+                this.stopExecution();
             });
         }
 
@@ -630,6 +642,40 @@ export class SpiritChatManager {
         
         // Render each message
         messages.forEach(message => {
+            // Handle tool result messages - display frontendData if present
+            if (message.role === 'tool' || message.type === 'tool_result') {
+                // Check if message content has frontendData
+                let content = message.content;
+                if (Array.isArray(content)) {
+                    content.forEach(item => {
+                        if (item.frontendData) {
+                            const frontendDataEl = document.createElement('div');
+                            frontendDataEl.className = 'chat-message chat-message-system';
+                            
+                            frontendDataEl.innerHTML = `
+                                <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                                    ${item.frontendData}
+                                </div>
+                            `;
+                            
+                            this.chatMessages.appendChild(frontendDataEl);
+                        }
+                    });
+                } else if (content && typeof content === 'object' && content.frontendData) {
+                    const frontendDataEl = document.createElement('div');
+                    frontendDataEl.className = 'chat-message chat-message-system';
+                    
+                    frontendDataEl.innerHTML = `
+                        <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                            ${content.frontendData}
+                        </div>
+                    `;
+                    
+                    this.chatMessages.appendChild(frontendDataEl);
+                }
+                return;
+            }
+            
             const messageEl = document.createElement('div');
             messageEl.className = `chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`;
             
@@ -644,7 +690,39 @@ export class SpiritChatManager {
 
             // format message content
             let formattedContent = '';
-            if (Array.isArray(message.content)) {
+            
+            // Handle assistant messages with tool_use (content is full message object)
+            let hasToolExecution = false;
+            let toolExecutionHtml = '';
+            
+            if (message.role === 'assistant' && message.type === 'tool_use' && message.content && typeof message.content === 'object') {
+                // Extract text content from the full message object
+                const textContent = message.content.content;
+                // Handle null, empty string, or actual content (array vs string demon!)
+                if (textContent && textContent !== '') {
+                    if (typeof textContent === 'string') {
+                        formattedContent = this.formatMessageContent(textContent);
+                    } else if (Array.isArray(textContent)) {
+                        formattedContent = textContent.map(item => {
+                            if (item.type === 'text') {
+                                return this.formatMessageContent(item.text);
+                            }
+                            return '';
+                        }).join('');
+                    }
+                }
+                // Prepare tool execution indicator (will be added as separate element)
+                if (message.content.tool_calls && Array.isArray(message.content.tool_calls)) {
+                    hasToolExecution = true;
+                    const toolNames = message.content.tool_calls.map(tc => tc.function?.name || 'unknown').join(', ');
+                    toolExecutionHtml = `
+                        <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
+                            <i class="mdi mdi-check-circle text-success"></i>
+                            <span class="text-muted small">🔧 Executed: ${toolNames}</span>
+                        </div>
+                    `;
+                }
+            } else if (Array.isArray(message.content)) {
                 formattedContent = message.content.map(item => {
                     if (item.type === 'text') {
                         return `<div style="clear: both;"></div>` + this.formatMessageContent(item.text);
@@ -677,17 +755,19 @@ export class SpiritChatManager {
                                 </div>`;
                     }
                 }).join('');
-                formattedContent += '<div style="clear: both;"></div>';
+                if (formattedContent.trim() != '') {
+                    formattedContent += '<div style="clear: both;"></div>';
+                }
             } else {
                 formattedContent = this.formatMessageContent(message.content);
             }
             
-            messageEl.innerHTML = `
+            messageEl.innerHTML = formattedContent != '' ? `
                 <div class="chat-bubble">
                     <div class="chat-content">${formattedContent}</div>
                     <div class="chat-timestamp">${timestampHtml}</div>
                 </div>
-            `;
+            ` : '';
 
             // add content showcase icon event listener
             messageEl.querySelectorAll('.content-showcase-icon').forEach(el => {
@@ -723,6 +803,14 @@ export class SpiritChatManager {
             });
             
             this.chatMessages.appendChild(messageEl);
+            
+            // Add tool execution block as separate element (outside bubble)
+            if (hasToolExecution) {
+                const toolEl = document.createElement('div');
+                toolEl.className = 'chat-message chat-message-tool';
+                toolEl.innerHTML = toolExecutionHtml;
+                this.chatMessages.appendChild(toolEl);
+            }
         });
         
         // Scroll to bottom
@@ -796,6 +884,12 @@ export class SpiritChatManager {
      */
     formatMessageContent(content) {
         if (!content) return '';
+        
+        // Ensure content is a string (array vs string demon!)
+        if (typeof content !== 'string') {
+            console.warn('formatMessageContent received non-string:', typeof content, content);
+            return '';
+        }
 
         let md = new MarkdownIt({
             html: true,  // ← This enables HTML parsing
@@ -1179,12 +1273,13 @@ export class SpiritChatManager {
 
     
     /**
-     * Send a message in the current conversation
+     * Send a message in the current conversation (ASYNC MODE)
      */
     async sendMessage() {
         if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
 
         this.sendMessageBtn.disabled = true;
+        this.executionStopped = false;
         
         const message = this.messageInput.value.trim();
         let messageContent = message;
@@ -1196,7 +1291,6 @@ export class SpiritChatManager {
                     'text': message
                 },
                 ...this.imgPreviewData.map((imageData) => {
-                    // Both base64 data URLs and HTTP/HTTPS URLs go directly in image_url.url field
                     return {
                         'type': 'image_url',
                         'image_url': {
@@ -1205,7 +1299,6 @@ export class SpiritChatManager {
                     };
                 }),
                 ...this.pdfPreviewData.map((pdfData) => {
-                    // Both base64 data URLs and HTTP/HTTPS URLs go directly in file_data field
                     return {
                         'type': 'file',
                         'file': {
@@ -1223,7 +1316,7 @@ export class SpiritChatManager {
         this.imageUploadPreview.classList.add('d-none');
         this.imageUpload.value = '';
 
-        const maxOutput = this.responseMaxOutputSlider.value;
+        const maxOutput = this.getMaxOutput();
         
         this.messageInput.value = '';
         // reset message input height
@@ -1231,80 +1324,13 @@ export class SpiritChatManager {
         
         try {
             // Add user message to UI immediately
-            const userMessage = {
-                role: 'user',
-                content: messageContent,
-                timestamp: new Date().toISOString()
-            };
-            
-            if (this.chatMessages) {
-                const messageEl = document.createElement('div');
-                messageEl.className = 'chat-message chat-message-user';
-                
-                const date = new Date(userMessage.timestamp);
-                const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
-
-                // format message content
-                let formattedContent = '';
-                if (Array.isArray(userMessage.content)) {
-                    formattedContent = userMessage.content.map(item => {
-                        if (item.type === 'text') {
-                            return this.formatMessageContent(item.text);
-                        } else if (item.type === 'image_url') {
-                            return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
-                        } else if (item.type === 'file') {
-                            return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
-                                        onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
-                                    <div class="d-flex align-items-center px-1">
-                                        <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
-                                        <span class="text-cyber">${item.file.filename}</span>
-                                    </div>
-                                    <div class="p-2 pt-0 d-none embed-container">
-                                        <embed src="${item.file.file_data}"
-                                            width="100%" height="420"
-                                            class="rounded"
-                                            type="application/pdf"
-                                            title="${item.file.filename}" />
-                                    </div>
-                                </div>`;
-                        }
-                    }).join('');
-                } else {
-                    formattedContent = this.formatMessageContent(userMessage.content);
-                }
-                
-                messageEl.innerHTML = `
-                    <div class="chat-bubble">
-                        <div class="chat-content">${formattedContent}</div>
-                        <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
-                    </div>
-                `;
-                
-                this.chatMessages.appendChild(messageEl);
-                this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }
+            this.addUserMessageToUI(messageContent);
             
             // Add loading indicator for assistant response
-            const loadingEl = document.createElement('div');
-            loadingEl.className = 'chat-message chat-message-assistant';
-            loadingEl.innerHTML = `
-                <div class="chat-bubble">
-                    <div class="chat-content">
-                        <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                            <span class="visually-hidden">${window.translations && window.translations['auth.key_generation.loading'] ? window.translations['loading'] : 'Loading...'}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
+            const loadingEl = this.addLoadingIndicator();
             
-            if (this.chatMessages) {
-                this.chatMessages.appendChild(loadingEl);
-                this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }
-            
-            // Send message to API with max_output parameter
-            const response = await this.apiService.sendMessage(this.currentConversationId, messageContent, maxOutput);
+            // Send message to API (async - returns immediately)
+            const response = await this.apiService.sendMessageAsync(this.currentConversationId, messageContent, maxOutput);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
@@ -1313,10 +1339,15 @@ export class SpiritChatManager {
             
             if (response.error) {
                 throw new Error(response.error);
-            }           
-
-            // Render updated messages
-            this.renderMessages(response.messages);
+            }
+            
+            // Add AI's response to UI
+            this.addAssistantMessageToUI(response.message);
+            
+            // If AI wants to use tools, execute them
+            if (response.requiresToolExecution && response.toolCalls) {
+                await this.executeToolChain(response.message.id, response.toolCalls);
+            }
             
             // Update conversation list to reflect changes
             this.loadConversations();
@@ -1377,5 +1408,333 @@ export class SpiritChatManager {
             console.error('Error creating conversation:', error);
             window.toast.error(error.message || 'Failed to create conversation');
         }
+    }
+
+    // ========================================================================
+    // ASYNC CONVERSATION HELPER METHODS
+    // ========================================================================
+
+    /**
+     * Get max output from slider
+     */
+    getMaxOutput() {
+        return this.responseMaxOutputSlider ? this.responseMaxOutputSlider.value : 500;
+    }
+
+    /**
+     * Add user message to UI
+     */
+    addUserMessageToUI(messageContent) {
+        if (!this.chatMessages) return;
+        
+        // Clear welcome message if present (first message)
+        const welcomeMessage = this.chatMessages.querySelector('.text-center');
+        if (welcomeMessage) {
+            this.chatMessages.innerHTML = '';
+        }
+
+        const userMessage = {
+            role: 'user',
+            content: messageContent,
+            timestamp: new Date().toISOString()
+        };
+        
+        const messageEl = document.createElement('div');
+        messageEl.className = 'chat-message chat-message-user';
+        
+        const date = new Date(userMessage.timestamp);
+        const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+        const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+
+        // format message content
+        let formattedContent = '';
+        if (Array.isArray(userMessage.content)) {
+            formattedContent = userMessage.content.map(item => {
+                if (item.type === 'text') {
+                    return this.formatMessageContent(item.text);
+                } else if (item.type === 'image_url') {
+                    return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
+                } else if (item.type === 'file') {
+                    return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                                onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
+                            <div class="d-flex align-items-center px-1">
+                                <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                <span class="text-cyber">${item.file.filename}</span>
+                            </div>
+                            <div class="p-2 pt-0 d-none embed-container">
+                                <embed src="${item.file.file_data}"
+                                    width="100%" height="420"
+                                    class="rounded"
+                                    type="application/pdf"
+                                    title="${item.file.filename}" />
+                            </div>
+                        </div>`;
+                }
+            }).join('');
+        } else {
+            formattedContent = this.formatMessageContent(userMessage.content);
+        }
+        
+        messageEl.innerHTML = formattedContent != '' ? `
+            <div class="chat-bubble">
+                <div class="chat-content">${formattedContent}</div>
+                <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
+            </div>
+        ` : '';
+        
+        this.chatMessages.appendChild(messageEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    /**
+     * Add loading indicator
+     */
+    addLoadingIndicator() {
+        if (!this.chatMessages) return null;
+
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'chat-message chat-message-assistant';
+        loadingEl.innerHTML = `
+            <div class="chat-bubble">
+                <div class="chat-content">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status">
+                        <span class="visually-hidden">${window.translations && window.translations['loading'] ? window.translations['loading'] : 'Loading...'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.chatMessages.appendChild(loadingEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        
+        return loadingEl;
+    }
+
+    /**
+     * Add assistant message to UI
+     */
+    addAssistantMessageToUI(message) {
+        if (!this.chatMessages) return;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = 'chat-message chat-message-assistant';
+        
+        const date = new Date(message.timestamp || message.createdAt);
+        const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+        const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+
+        // Format content - handle different message types
+        let formattedContent = '';
+        
+        // Handle assistant messages with tool_use (content is full message object)
+        if (message.type === 'tool_use' && message.content && typeof message.content === 'object') {
+            // Extract text content from the full message object
+            const textContent = message.content.content;
+            // Handle null, empty string, or actual content (array vs string demon!)
+            if (textContent && textContent !== '') {
+                if (typeof textContent === 'string') {
+                    formattedContent = this.formatMessageContent(textContent);
+                } else if (Array.isArray(textContent)) {
+                    formattedContent = textContent
+                        .filter(item => item.type === 'text')
+                        .map(item => this.formatMessageContent(item.text))
+                        .join('');
+                }
+            }
+            // Don't show tool execution block in real-time - it will be shown separately
+            // This is only for when loading from history
+        } else if (Array.isArray(message.content)) {
+            formattedContent = message.content
+                .filter(item => item.type === 'text')  // Only show text blocks
+                .map(item => this.formatMessageContent(item.text))
+                .join('');
+        } else if (typeof message.content === 'string') {
+            formattedContent = this.formatMessageContent(message.content);
+        }
+        
+        // Only add message if there's actual content to display
+        if (!formattedContent.trim()) {
+            return;
+        }
+        
+        messageEl.innerHTML = formattedContent != '' ? `
+            <div class="chat-bubble">
+                <div class="chat-content">${formattedContent}</div>
+                <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
+            </div>
+        ` : '';
+        
+        this.chatMessages.appendChild(messageEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    /**
+     * Execute tool chain (loop until no more tools needed)
+     */
+    async executeToolChain(messageId, toolCalls) {
+        this.isExecutingTools = true;
+        
+        // Show stop button
+        if (this.stopExecutionBtn) {
+            this.stopExecutionBtn.classList.remove('d-none');
+        }
+        
+        while (toolCalls && !this.executionStopped) {
+            // Add tool execution indicator
+            const toolIndicator = this.addToolExecutionToUI(toolCalls);
+            
+            // Extract tool names for later use
+            const toolNames = toolCalls.map(tc => tc.function?.name || tc.name || 'unknown').join(', ');
+            
+            try {
+                // Execute tools
+                const response = await this.apiService.executeTools(
+                    this.currentConversationId,
+                    messageId,
+                    toolCalls
+                );
+                
+                if (response.error) {
+                    throw new Error(response.error);
+                }
+                
+                // Replace loading spinner with success indicator
+                if (toolIndicator) {
+                    toolIndicator.innerHTML = `
+                        <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
+                            <i class="mdi mdi-check-circle text-success"></i>
+                            <span class="text-muted small">🔧 Executed: ${toolNames}</span>
+                        </div>
+                    `;
+                }
+                
+                // Display tool results (frontendData)
+                if (response.toolResults) {
+                    this.addToolResultsToUI(response.toolResults);
+                }
+                
+                // Add AI's next response
+                this.addAssistantMessageToUI(response.message);
+                
+                // Update credit indicator
+                this.updateCreditIndicator();
+                
+                // Check if more tools needed
+                if (!response.requiresToolExecution) {
+                    break;
+                }
+                
+                // Continue with next tool calls
+                messageId = response.message.id;
+                toolCalls = response.toolCalls;
+                
+            } catch (error) {
+                console.error('Error executing tools:', error);
+                // Remove loading indicator on error
+                if (toolIndicator) {
+                    toolIndicator.remove();
+                }
+                this.addErrorMessageToUI(error.message);
+                break;
+            }
+        }
+        
+        this.isExecutingTools = false;
+        this.sendMessageBtn.disabled = false;
+        
+        // Hide stop button
+        if (this.stopExecutionBtn) {
+            this.stopExecutionBtn.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Add tool execution indicator to UI
+     * Returns the element so it can be removed later
+     */
+    addToolExecutionToUI(toolCalls) {
+        if (!this.chatMessages || !toolCalls) return null;
+
+        const toolEl = document.createElement('div');
+        toolEl.className = 'chat-message chat-message-tool';
+        
+        const toolNames = toolCalls.map(tc => {
+            return tc.function?.name || tc.name || 'unknown';
+        }).join(', ');
+        
+        toolEl.innerHTML = `
+            <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-25 rounded">
+                <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                <span class="text-cyber small">🔧 Executing: ${toolNames}</span>
+            </div>
+        `;
+        
+        this.chatMessages.appendChild(toolEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        
+        return toolEl;
+    }
+
+    /**
+     * Add tool results to UI
+     * Displays frontendData from tool execution results
+     */
+    addToolResultsToUI(toolResults) {
+        if (!this.chatMessages || !toolResults) return;
+
+        // Process each tool result and display frontendData if present
+        toolResults.forEach(toolResult => {
+            if (toolResult.frontendData) {
+                const frontendDataEl = document.createElement('div');
+                frontendDataEl.className = 'chat-message chat-message-system';
+                
+                frontendDataEl.innerHTML = `
+                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                        ${toolResult.frontendData}
+                    </div>
+                `;
+                
+                this.chatMessages.appendChild(frontendDataEl);
+            }
+        });
+        
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    /**
+     * Add error message to UI
+     */
+    addErrorMessageToUI(errorMessage) {
+        if (!this.chatMessages) return;
+
+        const errorEl = document.createElement('div');
+        errorEl.className = 'chat-message chat-message-error';
+        
+        errorEl.innerHTML = `
+            <div class="p-2 bg-danger bg-opacity-10 rounded border border-danger border-opacity-25">
+                <i class="mdi mdi-alert-circle text-danger"></i>
+                <span class="text-danger small">${errorMessage}</span>
+            </div>
+        `;
+        
+        this.chatMessages.appendChild(errorEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    /**
+     * Stop tool execution
+     */
+    async stopExecution() {
+        this.executionStopped = true;
+        
+        try {
+            await this.apiService.stopExecution(this.currentConversationId);
+            this.addErrorMessageToUI('Execution stopped by user');
+        } catch (error) {
+            console.error('Error stopping execution:', error);
+        }
+        
+        this.isExecutingTools = false;
+        this.sendMessageBtn.disabled = false;
     }
 }

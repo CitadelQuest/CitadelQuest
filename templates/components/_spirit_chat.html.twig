@@ -1,7 +1,7 @@
 {% if app.user %}
 <div class="modal fade" id="spiritChatModal" tabindex="-1" aria-labelledby="spiritChatModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
-        <div class="modal-content glass-panel">
+        <div class="modal-content glass-panel_" style="background-color: #2e3135;">
             <div class="modal-header bg-cyber-g border-success py-1 py-md-2">
                 <span id="spiritChatToolsAndConversationsToggle" class="btn_ btn-cyber btn-sm me-3 cursor-pointer fs-5"><i class="mdi mdi-menu-open"></i></span>
                 
@@ -97,6 +97,10 @@
                         <div class="d-flex flex-column gap-2 pt-1"> 
                             <button type="submit" id="sendMessageBtn" class="btn btn-cyber" style="max-height: min-content !important; padding: 0.4rem 1.2rem !important;">
                                 <i class="mdi mdi-message-check"></i>
+                            </button>
+                            
+                            <button type="button" id="stopExecutionBtn" class="btn btn-outline-danger d-none" style="max-height: min-content !important; padding: 0.4rem 1.2rem !important;" title="Stop execution">
+                                <i class="mdi mdi-stop-circle"></i>
                             </button>
 
                             <div id="creditIndicator" class="d-flex gap-2 align-items-center">                           

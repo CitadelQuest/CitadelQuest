@@ -290,8 +290,10 @@ class AiGatewayService
     
     /**
      * Send a request to an AI service
+     * 
+     * @param bool $handleToolCalls If false, returns response immediately without executing tools (async mode)
      */
-    public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English', string $projectId = 'general'): AiServiceResponse
+    public function sendRequest(AiServiceRequest $request, string $purpose, string $lang = 'English', string $projectId = 'general', bool $handleToolCalls = true): AiServiceResponse
     {
         $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
@@ -337,8 +339,11 @@ class AiGatewayService
         // Save images from response
         //$aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
         
-        // Handle tool calls by gateway implementation
-        $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
+        // Handle tool calls by gateway implementation (only if handleToolCalls is true)
+        // In async mode (handleToolCalls = false), we return immediately and let the frontend handle tool execution
+        if ($handleToolCalls) {
+            $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
+        }
 
         return $response;
     }

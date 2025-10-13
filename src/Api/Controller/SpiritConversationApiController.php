@@ -132,7 +132,7 @@ class SpiritConversationApiController extends AbstractController
     }
     
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
-    public function getConversation(string $id): JsonResponse
+    public function getConversation(string $id, \App\Service\SpiritConversationMessageService $messageService): JsonResponse
     {
         try {
             // Get conversation
@@ -141,7 +141,20 @@ class SpiritConversationApiController extends AbstractController
                 return $this->json(['error' => 'Conversation not found'], 404);
             }
 
-            return $this->json($conversation);
+            // Load messages from message table
+            $messages = $messageService->getMessagesByConversation($id);
+            
+            // Convert conversation to array and add messages
+            $conversationData = [
+                'id' => $conversation->getId(),
+                'spiritId' => $conversation->getSpiritId(),
+                'title' => $conversation->getTitle(),
+                'createdAt' => $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
+                'lastInteraction' => $conversation->getLastInteraction()->format('Y-m-d H:i:s'),
+                'messages' => array_map(fn($msg) => $msg->jsonSerialize(), $messages)
+            ];
+
+            return $this->json($conversationData);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -192,6 +205,116 @@ class SpiritConversationApiController extends AbstractController
             
             // Delete conversation
             $this->conversationService->deleteConversation($id);
+            
+            return $this->json(['success' => true]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    // ========================================================================
+    // ASYNC SPIRIT CONVERSATION ENDPOINTS
+    // ========================================================================
+    
+    /**
+     * Send message asynchronously (returns immediately without executing tools)
+     */
+    #[Route('/{id}/send-async', name: 'api_spirit_conversation_send_async', methods: ['POST'])]
+    public function sendMessageAsync(
+        string $id, 
+        Request $request, 
+        TranslatorInterface $translator,
+        \App\Service\SpiritConversationMessageService $messageService
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['message'])) {
+                return $this->json(['error' => 'Missing message parameter'], 400);
+            }
+            
+            // Get conversation
+            $conversation = $this->conversationService->getConversation($id);
+            if (!$conversation) {
+                return $this->json(['error' => 'Conversation not found'], 404);
+            }
+            
+            // Create user message
+            $messageContent = is_array($data['message']) ? $data['message'] : [['type' => 'text', 'text' => $data['message']]];
+            $userMessage = $messageService->createMessage(
+                $id,
+                'user',
+                'text',
+                $messageContent
+            );
+            
+            // Get max output
+            $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
+            
+            // Get locale for language
+            $locale = $request->getSession()->get('_locale') ?? 
+                      $request->getSession()->get('citadel_locale') ?? 'en';
+            $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+            
+            // Send to AI and get immediate response
+            $aiResponse = $this->conversationService->sendMessageAsync(
+                $id,
+                $userMessage,
+                $lang,
+                $maxOutput
+            );
+            
+            return $this->json($aiResponse);
+            
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Execute tools and get AI's next response
+     */
+    #[Route('/{id}/execute-tools', name: 'api_spirit_conversation_execute_tools', methods: ['POST'])]
+    public function executeTools(
+        string $id,
+        Request $request,
+        TranslatorInterface $translator
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['toolCalls']) || !isset($data['assistantMessageId'])) {
+                return $this->json(['error' => 'Missing required parameters'], 400);
+            }
+            
+            // Get locale for language
+            $locale = $request->getSession()->get('_locale') ?? 
+                      $request->getSession()->get('citadel_locale') ?? 'en';
+            $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+            
+            // Execute tools and get AI's next response
+            $aiResponse = $this->conversationService->executeToolsAsync(
+                $id,
+                $data['assistantMessageId'],
+                $data['toolCalls'],
+                $lang
+            );
+            
+            return $this->json($aiResponse);
+            
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Stop tool execution chain
+     */
+    #[Route('/{id}/stop-execution', name: 'api_spirit_conversation_stop_execution', methods: ['POST'])]
+    public function stopExecution(string $id): JsonResponse
+    {
+        try {
+            // For now, just return success
+            // In the future, this could set a flag in the database or session
+            // to signal the frontend to stop the execution chain
             
             return $this->json(['success' => true]);
         } catch (\Exception $e) {
