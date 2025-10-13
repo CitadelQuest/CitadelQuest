@@ -604,7 +604,7 @@ export class SpiritChatManager {
             // update conversation tokens
             this.apiService.getConversationTokens(conversationId).then(tokens => {
                 this.conversationTokens = tokens;
-                console.log('Conversation tokens:', this.conversationTokens);
+                //console.log('Conversation tokens:', this.conversationTokens);
             });
             
         } catch (error) {
@@ -633,7 +633,7 @@ export class SpiritChatManager {
         
         if (messages.length === 0) {
             this.chatMessages.innerHTML = `
-                <div class="text-center p-3">
+                <div class="text-center p-3" id="welcomeMessage">
                     <p>${window.translations && window.translations['spirit.chat.no_messages'] ? window.translations['spirit.chat.no_messages'] : 'Say `Hi` to your Spirit :)'}</p>
                 </div>
             `;
@@ -659,6 +659,7 @@ export class SpiritChatManager {
                             `;
                             
                             this.chatMessages.appendChild(frontendDataEl);
+                            this.showContentShowcase(frontendDataEl);
                         }
                     });
                 } else if (content && typeof content === 'object' && content.frontendData) {
@@ -672,6 +673,7 @@ export class SpiritChatManager {
                     `;
                     
                     this.chatMessages.appendChild(frontendDataEl);
+                    this.showContentShowcase(frontendDataEl);
                 }
                 return;
             }
@@ -770,37 +772,7 @@ export class SpiritChatManager {
             ` : '';
 
             // add content showcase icon event listener
-            messageEl.querySelectorAll('.content-showcase-icon').forEach(el => {
-                let showcase = el.parentElement;
-                el.addEventListener('click', (e) => {
-                    if (this.contentShowcaseModal) {    
-                        e.stopPropagation();
-                        e.preventDefault();
-
-                        // update modal content
-                        this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
-
-                        // remove icon
-                        this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
-
-                        // update modal embed height
-                        let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
-                        if (embedContainer) {
-                            embedContainer.querySelector('embed')?.setAttribute('height', '100%');
-                            embedContainer.classList.remove('d-none');
-                            embedContainer.classList.add('h-100');
-                            this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
-                        }
-
-                        // update `chat-image-preview` class
-                        this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
-                        
-                        // show modal
-                        const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
-                        newContentShowcaseModal.show();                    
-                    }
-                });
-            });
+            this.showContentShowcase(messageEl);
             
             this.chatMessages.appendChild(messageEl);
             
@@ -1428,9 +1400,9 @@ export class SpiritChatManager {
         if (!this.chatMessages) return;
         
         // Clear welcome message if present (first message)
-        const welcomeMessage = this.chatMessages.querySelector('.text-center');
+        const welcomeMessage = this.chatMessages.getElementById('welcomeMessage');
         if (welcomeMessage) {
-            this.chatMessages.innerHTML = '';
+            welcomeMessage.remove();
         }
 
         const userMessage = {
@@ -1648,6 +1620,41 @@ export class SpiritChatManager {
         }
     }
 
+    // add content showcase icon event listener
+    showContentShowcase(element) {
+        element.querySelectorAll('.content-showcase-icon').forEach(el => {
+            let showcase = el.parentElement;
+            el.addEventListener('click', (e) => {
+                if (this.contentShowcaseModal) {    
+                    e.stopPropagation();
+                    e.preventDefault();
+
+                    // update modal content
+                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
+
+                    // remove icon
+                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
+
+                    // update modal embed height
+                    let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
+                    if (embedContainer) {
+                        embedContainer.querySelector('embed')?.setAttribute('height', '100%');
+                        embedContainer.classList.remove('d-none');
+                        embedContainer.classList.add('h-100');
+                        this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
+                    }
+
+                    // update `chat-image-preview` class
+                    this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
+                    
+                    // show modal
+                    const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
+                    newContentShowcaseModal.show();                    
+                }
+            });
+        });
+    }
+
     /**
      * Add tool execution indicator to UI
      * Returns the element so it can be removed later
@@ -1695,6 +1702,7 @@ export class SpiritChatManager {
                 `;
                 
                 this.chatMessages.appendChild(frontendDataEl);
+                this.showContentShowcase(frontendDataEl);
             }
         });
         

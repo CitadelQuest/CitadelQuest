@@ -322,19 +322,22 @@ export class CqChatModalManager {
         
         // Get contact name - for group chats, use message's contact info
         let contactName = 'Contact';
+        let contactDomain = '';
         if (message.contactUsername) {
             // Group chat - use contact info from message
             contactName = message.contactUsername;
+            contactDomain = message.contactDomain;
         } else if (this.currentChat?.contact?.cqContactUsername) {
             // Direct chat - use chat's contact
             contactName = this.currentChat.contact.cqContactUsername;
+            contactDomain = this.currentChat.contact.cqContactDomain??'';
         }
         
         const userName = document.querySelector('.js-user')?.dataset?.username || 'You';
         
         const nameDisplay = isOutgoing 
             ? `<div class="text-end"><small class="text-cyber">${userName}</small></div>` 
-            : `<div><small class="text-cyber">${contactName}</small></div>`;
+            : `<div><small class="text-cyber">${contactName}</small><small class="opacity-25 ms-1">${contactDomain}</small></div>`;
         
         div.className = `chat-message ${messageClass}`;
         div.dataset.messageId = message.id;
