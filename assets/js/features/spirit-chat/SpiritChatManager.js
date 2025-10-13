@@ -1400,7 +1400,7 @@ export class SpiritChatManager {
         if (!this.chatMessages) return;
         
         // Clear welcome message if present (first message)
-        const welcomeMessage = this.chatMessages.getElementById('welcomeMessage');
+        const welcomeMessage = this.chatMessages.querySelector('#welcomeMessage');
         if (welcomeMessage) {
             welcomeMessage.remove();
         }
