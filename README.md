@@ -2,7 +2,7 @@
 
 A decentralized platform for AI-human, human-human collaboration with emphasis on personal data sovereignty and private communication.
 
-<img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/dc67da41-bdee-402a-bafa-348db5cd8f35" />
+<img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/b625b4a7-c444-45f7-8c8c-99c92b6d7413" />
 
 
 ## New Installation
