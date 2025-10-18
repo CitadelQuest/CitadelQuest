@@ -397,6 +397,9 @@ class CqChatApiController extends AbstractController
             if (!$result['success']) {
                 return $this->json($result, Response::HTTP_BAD_REQUEST);
             }
+
+            // Update chat (updated_at)
+            $this->cqChatService->updateChat($chat);
             
             return $this->json([
                 'success' => true,
@@ -558,6 +561,9 @@ class CqChatApiController extends AbstractController
                     $this->sendMessageToHost($id, $message, $hostContactId);
                 }
             }
+
+            // Update chat (updated_at)
+            $this->cqChatService->updateChat($chat);
             
             return $this->json([
                 'success' => true,

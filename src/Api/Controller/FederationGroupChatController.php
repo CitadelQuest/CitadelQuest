@@ -118,6 +118,9 @@ class FederationGroupChatController extends AbstractController
             
             // Forward message to all other members
             $this->forwardMessageToMembers($groupChatId, $messageId, $content, $contact, $recipientIds);
+
+            // Update chat (updated_at)
+            $this->cqChatService->updateChat($chat);
             
             return $this->json([
                 'success' => true,
@@ -208,6 +211,9 @@ class FederationGroupChatController extends AbstractController
             } elseif (!$chat->isGroupChat()) {
                 return $this->json(['error' => 'Chat exists but is not a group chat'], Response::HTTP_BAD_REQUEST);
             }
+
+            // Update chat (updated_at)
+            $this->cqChatService->updateChat($chat);
             
             // Verify sender is the host
             if ($chat->getGroupHostContactId() !== $contact->getId()) {
@@ -306,6 +312,12 @@ class FederationGroupChatController extends AbstractController
             
             // Update delivery status
             $this->deliveryService->updateMemberStatus($messageId, $contact->getId(), $status);
+
+            // Update chat (updated_at)
+            $chat = $this->cqChatService->findById($groupChatId);
+            if ($chat) {                
+                $this->cqChatService->updateChat($chat);
+            }
             
             return $this->json([
                 'success' => true,

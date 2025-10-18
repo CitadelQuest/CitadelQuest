@@ -13,7 +13,7 @@
                         {{ 'cq_contact.page_title'|trans }}
                     </h1>
                     <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#addContactModal">
-                        <i class="mdi mdi-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}
+                        <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}
                     </button>
                 </div>
 
@@ -50,25 +50,29 @@
     <div class="modal-dialog">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
-                <h5 class="modal-title" id="addContactModalLabel">{{ 'cq_contact.add_contact'|trans }}</h5>
+                <h5 class="modal-title" id="addContactModalLabel"><i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="addContactForm">
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="cqContactUrl" class="form-label">{{ 'cq_contact.url'|trans }}</label>
+                        <label for="cqContactUrl" class="form-label">
+                            <i class="mdi mdi-web me-2 text-cyber"></i>{{ 'cq_contact.url'|trans }}
+                        </label>
                         <input type="url" class="form-control glass-input" id="cqContactUrl" required 
                                placeholder="https://example.citadelquest.com/username" value="https://">
                         <div class="small text-muted ms-2 mt-2">{{ 'cq_contact.url_help'|trans }}</div>
                     </div>
                     <div class="mb-3">
-                        <label for="description" class="form-label">{{ 'cq_contact.description'|trans }}</label>
+                        <label for="description" class="form-label">
+                            <i class="mdi mdi-text-account me-2 text-cyber"></i>{{ 'cq_contact.description'|trans }}
+                        </label>
                         <textarea class="form-control glass-input" id="description" rows="3" 
                                   placeholder="{{ 'cq_contact.description_placeholder'|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer d-flex justify-content-between border-top-0">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
                         <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}</button>
                     <button type="submit" id="addContactModalSubmit" class="btn btn-cyber">
                         <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.send_friend_request'|trans }}</button>
@@ -83,7 +87,9 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content glass-panel">
             <div class="modal-header">
-                <h5 class="modal-title" id="contactDetailModalLabel">{{ 'cq_contact.contact_details'|trans }}</h5>
+                <h5 class="modal-title" id="contactDetailModalLabel">
+                    <i class="mdi mdi-account-details me-2 text-cyber"></i>{{ 'cq_contact.contact_details'|trans }}
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="contactDetailContent">
@@ -99,7 +105,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-danger">
                 <span class="modal-title text-white" id="deleteContactModalLabel">
-                    <i class="mdi mdi-delete me-2"></i>{{ 'cq_contact.delete_contact'|trans }}
+                    <i class="mdi mdi-account-minus me-2"></i>{{ 'cq_contact.delete_contact'|trans }}
                 </span>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -110,7 +116,7 @@
                 <p class="text-center">{{ 'cq_contact.delete_confirm_message'|trans }}</p>
                 <p class="text-muted small text-center">{{ 'cq_contact.delete_info'|trans }}</p>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer justify-content-between">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
                 </button>
@@ -186,17 +192,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return `
                 <div class="card glass-panel mb-3 contact-card" data-contact-id="${contact.id}">
                     <div class="card-body">
-                        <div class="row align-items-center">
+                        <div class="row align-items-top">
                             <div class="col-md-8">
                                 <h6 class="card-title mb-1">
                                     <i class="mdi mdi-account me-2"></i>
-                                    ${contact.cqContactUsername}@${contact.cqContactDomain}
+                                    ${contact.cqContactUsername}<!-- @${contact.cqContactDomain} -->
                                 </h6>
                                 <p class="card-text text-muted small mb-2">
-                                    <i class="mdi mdi-web me-1"></i>
+                                    <i class="mdi mdi-web me-1 text-cyber opacity-50"></i>
                                     ${contact.cqContactUrl}
                                 </p>
-                                ${contact.description ? `<p class="card-text text-muted small">${contact.description}</p>` : ''}
+                                ${contact.description ? `<p class="card-text text-muted small"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description}</p>` : ''}
                             </div>
                             <div class="col-md-4 text-end">
                                 ${statusBadge}
@@ -205,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             data-contact-id="${contact.id}"
                                             data-bs-toggle="modal" 
                                             data-bs-target="#contactDetailModal">
-                                        <i class="mdi mdi-eye"></i>
+                                        <i class="mdi mdi-account-details"></i>
                                     </button>
                                     ${getActionButtons(contact)}
                                     <button type="button" class="btn btn-sm btn-outline-danger delete-contact" 
@@ -213,7 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                             data-bs-toggle="modal" 
                                             data-bs-target="#deleteContactModal"
                                             title="{{ 'ui.delete'|trans }}">
-                                        <i class="mdi mdi-delete"></i>
+                                        <i class="mdi mdi-account-minus"></i>
                                     </button>
                                 </div>
                             </div>
@@ -259,15 +265,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getStatusBadge(status, isActive) {
         if (status === 'ACCEPTED' && isActive) {
-            return '<span class="badge bg-success"><i class="mdi mdi-check me-1"></i>{{ "cq_contact.status_active"|trans }}</span>';
+            return '<span class="badge bg-success mb-2"><i class="mdi mdi-check me-1"></i>{{ "cq_contact.status_active"|trans }}</span>';
         } else if (status === 'SENT') {
-            return '<span class="badge bg-warning"><i class="mdi mdi-clock me-1"></i>{{ "cq_contact.status_sent"|trans }}</span>';
+            return '<span class="badge bg-warning mb-2"><i class="mdi mdi-clock me-1"></i>{{ "cq_contact.status_sent"|trans }}</span>';
         } else if (status === 'RECEIVED') {
-            return '<span class="badge bg-info"><i class="mdi mdi-inbox me-1"></i>{{ "cq_contact.status_received"|trans }}</span>';
+            return '<span class="badge bg-info mb-2"><i class="mdi mdi-inbox me-1"></i>{{ "cq_contact.status_received"|trans }}</span>';
         } else if (status === 'REJECTED') {
-            return '<span class="badge bg-danger"><i class="mdi mdi-close me-1"></i>{{ "cq_contact.status_rejected"|trans }}</span>';
+            return '<span class="badge bg-danger mb-2"><i class="mdi mdi-close me-1"></i>{{ "cq_contact.status_rejected"|trans }}</span>';
         }
-        return '<span class="badge bg-secondary">{{ "cq_contact.status_unknown"|trans }}</span>';
+        return '<span class="badge bg-secondary mb-2">{{ "cq_contact.status_unknown"|trans }}</span>';
     }
 
     function getActionButtons(contact) {
@@ -292,16 +298,48 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="row">
                 <div class="col-md-6">
                     <h6>{{ 'cq_contact.contact_info'|trans }}</h6>
-                    <p><strong>{{ 'cq_contact.username'|trans }}:</strong> ${contact.cqContactUsername}</p>
-                    <p><strong>{{ 'cq_contact.domain'|trans }}:</strong> ${contact.cqContactDomain}</p>
-                    <p><strong>{{ 'cq_contact.url'|trans }}:</strong> <a href="https://${contact.cqContactUrl}" target="_blank">${contact.cqContactUrl}</a></p>
-                    <p><strong>{{ 'cq_contact.status'|trans }}:</strong> ${getStatusBadge(contact.friendRequestStatus, contact.isActive)}</p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-account me-2 text-cyber"></i> {{ 'cq_contact.username'|trans }}:
+                        </strong>
+                        <span class="ms-3">${contact.cqContactUsername}</span>
+                        </p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-web me-2 text-cyber"></i> {{ 'cq_contact.domain'|trans }}:
+                        </strong>
+                        <span class="ms-3">${contact.cqContactDomain}</span>
+                    </p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-web me-2 text-cyber"></i> {{ 'cq_contact.url'|trans }}:
+                        </strong>
+                        <span class="ms-3"><a href="${contact.cqContactUrl}" target="_blank">${contact.cqContactUrl}</a></span>
+                    </p>
+                    <p>
+                        ${getStatusBadge(contact.friendRequestStatus, contact.isActive)}
+                    </p>
                 </div>
                 <div class="col-md-6">
                     <h6>{{ 'cq_contact.additional_info'|trans }}</h6>
-                    <p><strong>{{ 'cq_contact.description'|trans }}:</strong> ${contact.description || '{{ "ui.none"|trans }}'}</p>
-                    <p><strong>{{ 'cq_contact.created_at'|trans }}:</strong> ${new Date(contact.createdAt).toLocaleString()}</p>
-                    <p><strong>{{ 'cq_contact.updated_at'|trans }}:</strong> ${new Date(contact.updatedAt).toLocaleString()}</p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-text-account me-2 text-cyber"></i> {{ 'cq_contact.description'|trans }}:
+                        </strong>
+                        <span class="ms-3">${contact.description || '{{ "ui.none"|trans }}'}</span>
+                    </p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-clock me-2 text-cyber"></i> {{ 'cq_contact.created_at'|trans }}:
+                        </strong>
+                        <span class="ms-3">${new Date(contact.createdAt).toLocaleString()}</span>
+                    </p>
+                    <p>
+                        <strong class="w-100 d-inline-block">
+                            <i class="mdi mdi-clock me-2 text-cyber"></i> {{ 'cq_contact.updated_at'|trans }}:
+                        </strong>
+                        <span class="ms-3">${new Date(contact.updatedAt).toLocaleString()}</span>
+                    </p>
                 </div>
             </div>
         `;

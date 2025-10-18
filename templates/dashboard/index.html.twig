@@ -12,12 +12,12 @@
     <div class="row d-none">
         <div class="col-12">
             <div class="glass-panel mb-4">
-                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
-                    <h4 class="mb-0">
+                <div class="bg-cyber-g py-2 px-4 rounded-top border-success border-1 border-bottom">
+                    <h5 class="mb-0">
                         <i class="mdi mdi-view-dashboard me-3"></i>{{ 'dashboard.welcome'|trans({'%username%': user.username}) }}
-                    </h4>
+                    </h5>
                 </div>
-                <div class="p-4">
+                <div class="py-2 px-4">
                     <p class="text-muted m-0">{{ 'dashboard.description'|trans }}</p>
                 </div>
             </div>
@@ -41,9 +41,14 @@
                             <a href="{{ path('spirit_index') }}" class="text-decoration-none">
                                 <div class="card glass-panel h-100 glass-panel-glow">
                                     <div class="card-body text-center">
-                                        <i class="mdi mdi-ghost fs-1 text-cyber mb-2"></i>
-                                        <h6 class="text-light">{{ 'spirit.menu.settings'|trans }}</h6>
-                                        <small class="text-muted">{{ 'dashboard.spirit_description'|trans }}</small>
+                                        <div class="mb-2 py-3 d-flex justify-content-center align-items-center">
+                                            {{ include('components/_spirit_icon.html.twig') }}
+                                        </div>
+                                        <h6 class="text-light">{{ 'spirit.title'|trans }} <span class="spiritName fw-bold"></span></h6>
+                                        {# <small class="text-muted w-100 d-inline-block">{{ 'dashboard.spirit_description'|trans }}</small> #}
+                                        <a class="small" href="{{ path('spirit_index') }}">
+                                            {{ 'spirit.menu.settings'|trans }}
+                                        </a>
                                     </div>
                                 </div>
                             </a>

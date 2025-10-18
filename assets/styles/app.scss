@@ -501,7 +501,7 @@ input[type="range"].form-range-input,
 }
 
 // from _navigation.scss, we need this here too, but will refactor in future
-.nav-link {
+/* .nav-link {
     color: colors.$text-light;
     position: relative;
     padding: 0.5rem 1rem;
@@ -567,7 +567,7 @@ input[type="range"].form-range-input,
     .dropdown-divider {
         border-color: rgba(colors.$cyber, 0.2);
     }
-}
+} */
 
 .page-link {
     border-color: rgba(colors.$cyber, 0.2);
@@ -594,3 +594,6 @@ input[type="range"].form-range-input,
     @include mix.cyber-scrollbar;
 }
 
+#cqChatMessages {
+    @include mix.cyber-scrollbar;
+}

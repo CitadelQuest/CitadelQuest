@@ -68,6 +68,13 @@ export class CqChatModalManager {
         this.modal.addEventListener('hidden.bs.modal', () => {
             this.stopPolling();
         });
+
+        this.messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                this.messageForm.dispatchEvent(new Event('submit'));
+            }
+        });
         
         // Start polling for dropdown updates
         this.startDropdownPolling();

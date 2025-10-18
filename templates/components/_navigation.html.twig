@@ -26,12 +26,12 @@
                     <span class="d-none d-sm-inline ms-1">{{ app.user.userIdentifier }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
-                    <li>
+                    {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('spirit_index') }}">
                             <i class="mdi mdi-ghost me-3{% if app.request.pathInfo == path('spirit_index') %} text-cyber{% endif %}"></i>
                             <span class="spiritName">{{ 'spirit.menu.settings'|trans }}</span>
                         </a>
-                    </li>
+                    </li> #}
                     {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('diary_index') }}">
                             <i class="mdi mdi-book me-3{% if app.request.pathInfo == path('diary_index') %} text-cyber{% endif %}"></i>
@@ -43,10 +43,10 @@
                             <i class="mdi mdi-palette me-3{% if app.request.pathInfo == path('app_visual_design') %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.visual_design'|trans }}
                         </a>
-                    </li> #}
+                    </li>
                     <li>
                         <hr class="dropdown-divider">
-                    </li>
+                    </li> #}
                     {# <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
                             <i class="mdi mdi-account me-3{% if app.request.pathInfo == path('app_user_settings_profile') %} text-cyber{% endif %}"></i>
@@ -112,13 +112,13 @@
                     <li class="px-3 py-2 border-bottom border-secondary border-opacity-25">
                         <div class="d-flex justify-content-between align-items-center">
                             <a href="{{ path('app_cq_chat_index') }}" class="text-decoration-none">
-                                <i class="mdi mdi-forum me-2"></i><span class="text-light d-none d-md-inline-block">{{ 'cq_chat.page_title'|trans }}</span>
+                                <i class="mdi mdi-forum me-2"></i><span class="text-light d-none d-sm-inline-block">{{ 'cq_chat.page_title'|trans }}</span>
                             </a>
-                            <div class="btn-group btn-group-sm">
-                                <button id="cqChatNewGroupBtn" class="btn btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
+                            {# <div class="btn-group btn-group-sm"> #}
+                                <button id="cqChatNewGroupBtn" class="btn btn-sm btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
                                     <i class="mdi mdi-message-plus"></i>
                                 </button>
-                            </div>
+                            {# </div> #}
                         </div>
                     </li>
                     <li>

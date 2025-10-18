@@ -44,6 +44,8 @@ export class SpiritChatManager {
         this.newConversationForm = document.getElementById('newConversationForm');
         this.deleteConversationModal = document.getElementById('deleteConversationModal');
         this.deleteConversationForm = document.getElementById('deleteConversationForm');
+        this.deleteConversationModalSubmit = document.getElementById('deleteConversationModalSubmit');
+        this.deleteConversationModalCancel = document.getElementById('deleteConversationModalCancel');
         this.conversationTitle = document.getElementById('conversationTitle');
         this.spiritChatModalTitle = document.getElementById('spiritChatModalTitle');
         this.responseMaxOutputSlider = document.getElementById('responseMaxOutputSlider');
@@ -814,6 +816,7 @@ export class SpiritChatManager {
      * Delete a conversation
      */
     async deleteConversation() {
+        let originalCaption = this.deleteConversationModalSubmit.innerHTML;
         try {
             if (!this.deleteConversationId) {
                 // this should never happen, but just in case
@@ -821,6 +824,13 @@ export class SpiritChatManager {
                 alert('No conversation ID found');
                 return;
             }
+
+            this.deleteConversationModalSubmit.disabled = true;
+            this.deleteConversationModalSubmit.classList.add('disabled');
+            this.deleteConversationModalSubmit.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...';
+            this.deleteConversationModalCancel.disabled = true;
+            this.deleteConversationModalCancel.classList.add('disabled');
+
             // delete conversation
             await this.apiService.deleteConversation(this.deleteConversationId);
             
@@ -848,6 +858,12 @@ export class SpiritChatManager {
         } catch (error) {
             console.error('Error deleting conversation:', error);
             window.toast.error(error.message || 'Failed to delete conversation');
+        } finally {
+            this.deleteConversationModalSubmit.disabled = false;
+            this.deleteConversationModalSubmit.classList.remove('disabled');
+            this.deleteConversationModalSubmit.innerHTML = originalCaption;
+            this.deleteConversationModalCancel.disabled = false;
+            this.deleteConversationModalCancel.classList.remove('disabled');
         }
     }
     
