@@ -104,7 +104,6 @@ home:
 
 navigation:
     user_menu:
-        profile: 'Profil'
         visual_design: 'Vizuálny štýl'
         settings: 'Nastavenia'
         backup: 'Záloha'

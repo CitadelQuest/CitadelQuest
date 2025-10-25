@@ -14,9 +14,6 @@
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-tune-variant me-2"></i> General
                     </a>
-                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-transparent border-0">
-                        <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
-                    </a>
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-robot me-2"></i> AI Services
                     </a>
@@ -54,10 +51,9 @@
                         </ul>
                     </div>
                     <div class="w-50 float-end">
-                        <strong>Direct Gateways (Limited Features)</strong>
+                        <strong>Direct Gateways (Implementation Pending)</strong>
                         <ul>
-                            <li>Anthropic</li>
-                            <li>Groq</li>
+                            <li>...</li>
                         </ul>
                     </div>
                     <div class="w-100 clear-both"></div>
@@ -143,9 +139,7 @@
                             <optgroup label="Official Gateways (All Features)">
                                 <option value="CQ AI Gateway">CQ AI Gateway</option>
                             </optgroup>
-                            <optgroup label="Direct Gateways (Limited Features)">
-                                <option value="Anthropic">Anthropic</option>
-                                <option value="Groq">Groq</option>
+                            <optgroup label="Direct Gateways (Implementation Pending)">
                             </optgroup>
                         </select>
                         <div class="form-text text-muted">Select which AI gateway provider to use</div>
@@ -248,11 +242,7 @@
             const selectedGateway = this.value;
             
             // Set default endpoint URL based on selection
-            if (selectedGateway === 'Anthropic') {
-                gatewayEndpointInput.value = 'https://api.anthropic.com';
-            } else if (selectedGateway === 'Groq') {
-                gatewayEndpointInput.value = 'https://api.groq.com/openai/v1';
-            } else if (selectedGateway === 'CQ AI Gateway') {
+            if (selectedGateway === 'CQ AI Gateway') {
                 gatewayEndpointInput.value = 'https://cqaigateway.com/api';
             } else {
                 gatewayEndpointInput.value = '';

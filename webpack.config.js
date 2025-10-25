@@ -26,7 +26,6 @@ Encore
     .addEntry('translations', './assets/entries/translations.js')
     .addEntry('visual-design', './assets/entries/visual-design.js')
     .addEntry('settings-general', './assets/entries/settings-general.js')
-    .addEntry('settings-profile', './assets/entries/settings-profile.js')
     .addEntry('js/toast', './assets/js/shared/toast.js')
     .addEntry('language-switcher', './assets/entries/language-switcher.js')
     .addEntry('diary', './assets/entries/diary.js')

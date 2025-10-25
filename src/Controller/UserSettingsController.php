@@ -190,18 +190,6 @@ class UserSettingsController extends AbstractController
         return $this->render('user_settings/admin.html.twig');
     }
 
-    #[Route('/profile', name: 'app_user_settings_profile')]
-    public function profile(SettingsService $settingsService): Response
-    {
-        // Get user description from settings or use default empty value
-        $description = $settingsService->getSettingValue('profile.description', '');
-
-        return $this->render('user_settings/profile.html.twig', [
-            'user' => $this->getUser(),
-            'profile_description' => $description
-        ]);
-    }
-
     #[Route('/ai', name: 'app_user_settings_ai')]
     public function aiSettings(Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
     {

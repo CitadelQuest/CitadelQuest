@@ -104,7 +104,6 @@ home:
 
 navigation:
     user_menu:
-        profile: 'Profile'
         visual_design: 'Visual Design'
         settings: 'Settings'
         backup: 'Backup'

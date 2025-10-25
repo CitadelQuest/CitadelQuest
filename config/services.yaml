@@ -47,16 +47,6 @@ services:
                 App\Service\AIToolToolService: '@App\Service\AIToolToolService'
                 App\Service\AIToolImageService: '@App\Service\AIToolImageService'
 
-    App\Service\AnthropicGateway:
-        autowire: true
-        arguments:
-            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
-
-    App\Service\GroqGateway:
-        autowire: true
-        arguments:
-            $serviceLocator: '@ai_tool_call.service_locator' # Inject the locator
-
     App\Service\CQAIGateway:
         autowire: true
         arguments:

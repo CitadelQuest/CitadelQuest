@@ -9,8 +9,6 @@ use App\Entity\AiServiceResponse;
 use App\Entity\AiServiceUseLog;
 use App\Entity\User;
 use App\Service\UserDatabaseManager;
-use App\Service\AnthropicGateway;
-use App\Service\GroqGateway;
 use App\Service\CQAIGateway;
 use App\Service\AiGatewayInterface;
 use App\Service\AiServiceUseLogService;
@@ -23,25 +21,17 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 class AiGatewayService
 {
     private array $gatewayImplementations = [];
-    private ?AnthropicGateway $anthropicGateway = null;
-    private ?GroqGateway $groqGateway = null;
     private ?CQAIGateway $CQAIGateway = null;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly ServiceLocator $serviceLocator,
-        ?AnthropicGateway $anthropicGateway = null,
-        ?GroqGateway $groqGateway = null,
         ?CQAIGateway $CQAIGateway = null
     ) {
-        $this->anthropicGateway = $anthropicGateway;
-        $this->groqGateway = $groqGateway;
         $this->CQAIGateway = $CQAIGateway;
         
         // Register gateway implementations
-        $this->registerGatewayImplementation('anthropic');
-        $this->registerGatewayImplementation('groq');
         $this->registerGatewayImplementation('cq_ai_gateway');
     }
     
@@ -193,14 +183,6 @@ class AiGatewayService
     {
         if (!isset($this->gatewayImplementations[$type])) {
             return null;
-        }
-        
-        if ($type === 'anthropic' && $this->anthropicGateway) {
-            return $this->anthropicGateway;
-        }
-        
-        if ($type === 'groq' && $this->groqGateway) {
-            return $this->groqGateway;
         }
         
         if ($type === 'cq_ai_gateway' && $this->CQAIGateway) {

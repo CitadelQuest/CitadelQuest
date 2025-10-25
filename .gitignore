@@ -38,9 +38,6 @@ Thumbs.db
 .phpunit.result.cache
 /phpunit.xml
 
-# project CitadelQuest gen 1 old source and assets
-/_gen_1_old_source/
-
 ###> symfony/webpack-encore-bundle ###
 /node_modules/
 /public/build/
@@ -49,20 +46,6 @@ yarn-error.log
 ###< symfony/webpack-encore-bundle ###
 
 # personal documentation
-GH-RELEASE.md
-CQ-GROUP-CHAT.md
-VISIONS.md
-DIARY-FEATURE.md
-ATP-AUTH.md
-SPIRITS.md
-AI-GATEWAYS.md
-PROJECTS.md
-CONTACTS.md
-FILE_BROWSER_IMPLEMENTATION_PLAN.md
-CITADELQUEST_PRESENTATION.md
-UNIFIED_UPDATES_API.md
-UNIFIED_UPDATES_POLLING.md
-REALTIME_STATUS_UPDATES_FIX.md
 docs/
 /docs/
 cookies.txt
