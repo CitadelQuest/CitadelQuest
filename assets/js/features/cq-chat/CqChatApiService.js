@@ -71,7 +71,8 @@ export class CqChatApiService {
      */
     async getMessages(chatId, limit = 50, offset = 0) {
         try {
-            const response = await fetch(`${this.baseUrl}/${chatId}/messages?limit=${limit}&offset=${offset}`);
+            const url = `${this.baseUrl}/${chatId}/messages?limit=${limit}&offset=${offset}`;
+            const response = await fetch(url);
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to fetch messages');

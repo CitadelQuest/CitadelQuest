@@ -12,7 +12,7 @@
                         <i class="mdi mdi-account-group me-2 text-cyber"></i>
                         {{ 'cq_contact.page_title'|trans }}
                     </h1>
-                    <button type="button" class="btn btn-cyber" data-bs-toggle="modal" data-bs-target="#addContactModal">
+                    <button type="button" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#addContactModal">
                         <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}
                     </button>
                 </div>
@@ -190,27 +190,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const contactsHtml = filteredContacts.map(contact => {
             const statusBadge = getStatusBadge(contact.friendRequestStatus, contact.isActive);
             return `
-                <div class="card glass-panel mb-3 contact-card" data-contact-id="${contact.id}">
-                    <div class="card-body">
-                        <div class="row align-items-top">
-                            <div class="col-md-8">
-                                <h6 class="card-title mb-1">
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
+                    <div class="card glass-panel h-100 contact-card" data-contact-id="${contact.id}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">
                                     <i class="mdi mdi-account me-2"></i>
-                                    ${contact.cqContactUsername}<!-- @${contact.cqContactDomain} -->
+                                    ${contact.cqContactUsername}
                                 </h6>
-                                <p class="card-text text-muted small mb-2">
-                                    <i class="mdi mdi-web me-1 text-cyber opacity-50"></i>
-                                    ${contact.cqContactUrl}
-                                </p>
-                                ${contact.description ? `<p class="card-text text-muted small"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description}</p>` : ''}
-                            </div>
-                            <div class="col-md-4 text-end">
                                 ${statusBadge}
-                                <div class="btn-group ms-2" role="group">
+                            </div>
+                            <p class="card-text text-muted small mb-2">
+                                <i class="mdi mdi-web me-1 text-cyber opacity-50"></i>
+                                ${contact.cqContactUrl}
+                            </p>
+                            ${contact.description ? `<p class="card-text text-muted small mb-3"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description}</p>` : '<div class="mb-3"></div>'}
+                            <div class="d-flex justify-content-end">
+                                <div class="btn-group" role="group">
                                     <button type="button" class="btn btn-sm btn-outline-secondary view-contact" 
                                             data-contact-id="${contact.id}"
                                             data-bs-toggle="modal" 
-                                            data-bs-target="#contactDetailModal">
+                                            data-bs-target="#contactDetailModal"
+                                            title="{{ 'cq_contact.view_details'|trans }}">
                                         <i class="mdi mdi-account-details"></i>
                                     </button>
                                     ${getActionButtons(contact)}
@@ -229,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }).join('');
 
-        contactsContainer.innerHTML = contactsHtml;
+        contactsContainer.innerHTML = '<div class="row">' + contactsHtml + '</div>';
 
         // Add event listeners for view contact buttons
         document.querySelectorAll('.view-contact').forEach(btn => {

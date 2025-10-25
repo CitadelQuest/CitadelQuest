@@ -12,7 +12,7 @@
                         <i class="mdi mdi-forum me-2 text-cyber"></i>
                         {{ 'cq_chat.page_title'|trans }}
                     </h1>
-                    <button id="cqChatPageNewChatBtn" class="btn btn-cyber">
+                    <button id="cqChatPageNewChatBtn" class="btn btn-sm btn-cyber">
                         <i class="mdi mdi-message-plus me-2"></i><span class="d-none d-md-inline">{{ 'cq_chat.new_chat'|trans }}</span>
                     </button>
                 </div>
@@ -104,58 +104,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const chatsHtml = filteredChats.map(chat => {
+            // Status icons for top-right corner
             const statusIcons = [];
             if (chat.isStar) statusIcons.push('<i class="mdi mdi-star text-warning" title="{{ "cq_chat.starred"|trans }}"></i>');
-            if (chat.isPin) statusIcons.push('<i class="mdi mdi-pin text-info" title="{{ "cq_chat.pinned"|trans }}"></i>');
+            if (chat.isPin) statusIcons.push('<i class="mdi mdi-pin text-light" title="{{ "cq_chat.pinned"|trans }}"></i>');
             if (chat.isMute) statusIcons.push('<i class="mdi mdi-volume-off text-secondary" title="{{ "cq_chat.muted"|trans }}"></i>');
 
             // Group chat indicator
-            const groupIndicator = chat.isGroupChat ? '<i class="mdi mdi-account-multiple text-info me-1" title="Group Chat"></i>' : '';
+            const groupIndicator = chat.isGroupChat ? '<i class="mdi mdi-account-multiple text-light me-1 opacity-50" title="Group Chat"></i>' : '';
             
             return `
-                <div class="card glass-panel mb-3 chat-card ${chat.isPin ? 'border-info' : ''}" data-chat-id="${chat.id}">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <span class="mb-1 d-flex align-items-center">
-                                    ${groupIndicator}
-                                    <i class="mdi ${chat.hasNewMsgs ? 'mdi-message-badge text-cyber' : 'mdi-forum text-light'} me-2"></i>
-                                    <span class="h5">${chat.title}</span>
-                                    ${statusIcons.join(' ')}
-                                    ${chat.unseenCount > 0 ? `<span class="badge bg-cyber text-dark ms-2">${chat.unseenCount}</span>` : ''}
-                                </span>
-                                ${chat.summary ? `<p class="card-text text-muted small mb-2">${chat.summary}</p>` : ''}
-                                <p class="card-text text-muted small mb-2">
-                                    <i class="mdi mdi-clock-outline me-1"></i>
-                                    ${new Date(chat.updatedAt).toLocaleString()}
-                                </p>
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
+                    <div class="card glass-panel h-100 chat-card ${chat.isPin ? 'border border-light border-opacity-50' : ''} ${chat.isStar ? 'bg-warning bg-opacity-10' : ''}" data-chat-id="${chat.id}">
+                        <div class="card-body d-flex flex-column">
+                            <div class="text-muted small d-flex justify-content-between mb-2">
+                                <div>${statusIcons.join(' ')}</div>
+                                <div><i class="mdi mdi-clock-outline me-1 text-cyber opacity-50"></i>${new Date(chat.updatedAt).toLocaleString()}</div>
                             </div>
-                            <div class="col-md-4 text-end">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="text-cyber cursor-pointer mb-0 open-chat-modal" data-chat-id="${chat.id}">
+                                    ${chat.unseenCount > 0 ? `<span class="badge bg-cyber text-dark">${chat.unseenCount}</span>` : ''}
+                                    <i class="mdi ${chat.hasNewMsgs ? 'mdi-message-badge text-cyber' : 'mdi-forum text-cyber opacity-100'} me-1"></i>
+                                    ${chat.title}
+                                    ${groupIndicator}
+                                </div>
+                                {# <div class="d-flex gap-1">
+                                </div> #}
+                            </div>
+                            ${chat.summary ? `<p class="card-text text-muted small mb-2"><i class="mdi mdi-text me-1 text-cyber opacity-50"></i>${chat.summary}</p>` : '<div class="mb-2"></div>'}
+                            <div class="mt-auto d-flex justify-content-end align-items-center">
+                                {# <button class="btn btn-sm btn-cyber open-chat-modal" data-chat-id="${chat.id}">
+                                    <i class="mdi mdi-message-text me-1"></i>{{ 'ui.view'|trans }}
+                                </button> #}
                                 <div class="btn-group" role="group">
-                                    <button class="btn btn-sm btn-cyber open-chat-modal" data-chat-id="${chat.id}">
-                                        <i class="mdi mdi-message-text ${chat.hasNewMsgs ? 'text-cyber' : ''} me-1"></i> {{ 'ui.view'|trans }}
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-star" data-chat-id="${chat.id}" title="${chat.isStar ? '{{ "cq_chat.unstar"|trans }}' : '{{ "cq_chat.star"|trans }}'}">
+                                        <i class="mdi ${chat.isStar ? 'mdi-star-off' : 'mdi-star'}"></i>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="mdi mdi-dots-vertical"></i>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-pin" data-chat-id="${chat.id}" title="${chat.isPin ? '{{ "cq_chat.unpin"|trans }}' : '{{ "cq_chat.pin"|trans }}'}">
+                                        <i class="mdi ${chat.isPin ? 'mdi-pin-off' : 'mdi-pin'}"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><button class="dropdown-item toggle-star" data-chat-id="${chat.id}">
-                                            <i class="mdi ${chat.isStar ? 'mdi-star-off' : 'mdi-star'} me-2"></i>
-                                            ${chat.isStar ? '{{ "cq_chat.unstar"|trans }}' : '{{ "cq_chat.star"|trans }}'}
-                                        </button></li>
-                                        <li><button class="dropdown-item toggle-pin" data-chat-id="${chat.id}">
-                                            <i class="mdi ${chat.isPin ? 'mdi-pin-off' : 'mdi-pin'} me-2"></i>
-                                            ${chat.isPin ? '{{ "cq_chat.unpin"|trans }}' : '{{ "cq_chat.pin"|trans }}'}
-                                        </button></li>
-                                        <li><button class="dropdown-item toggle-mute" data-chat-id="${chat.id}">
-                                            <i class="mdi ${chat.isMute ? 'mdi-volume-high' : 'mdi-volume-off'} me-2"></i>
-                                            ${chat.isMute ? '{{ "cq_chat.unmute"|trans }}' : '{{ "cq_chat.mute"|trans }}'}
-                                        </button></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><button class="dropdown-item text-danger delete-chat" data-chat-id="${chat.id}">
-                                            <i class="mdi mdi-delete me-2"></i>{{ "ui.delete"|trans }}
-                                        </button></li>
-                                    </ul>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary toggle-mute" data-chat-id="${chat.id}" title="${chat.isMute ? '{{ "cq_chat.unmute"|trans }}' : '{{ "cq_chat.mute"|trans }}'}">
+                                        <i class="mdi ${chat.isMute ? 'mdi-volume-high' : 'mdi-volume-off'}"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-chat" data-chat-id="${chat.id}" title="{{ 'ui.delete'|trans }}">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -164,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }).join('');
 
-        chatsContainer.innerHTML = chatsHtml;
+        chatsContainer.innerHTML = '<div class="row">' + chatsHtml + '</div>';
 
         // Add event listeners
         document.querySelectorAll('.open-chat-modal').forEach(btn => {

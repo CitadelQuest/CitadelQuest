@@ -205,7 +205,7 @@ dashboard:
     description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
     quick_actions: 'Rýchle akcie'
     spirit_description: 'Chatujte s vaším AI Duchom'
-    contacts_description: 'Spravujte vaše kontakty Citadel'
+    contacts_description: 'Spravujte vaše kontakty'
     files_description: 'Prehliadajte a spravujte vaše súbory'
     settings_description: 'Nakonfigurujte váš CitadelQuest'
     backup_description: 'Vytvárajte a obnovujte zálohy'

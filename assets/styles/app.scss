@@ -501,7 +501,7 @@ input[type="range"].form-range-input,
 }
 
 // from _navigation.scss, we need this here too, but will refactor in future
-/* .nav-link {
+.nav-link {
     color: colors.$text-light;
     position: relative;
     padding: 0.5rem 1rem;
@@ -555,6 +555,7 @@ input[type="range"].form-range-input,
     background: rgba(colors.$dark, 1);
     border: none;
     box-shadow: 0 0 2rem rgba(colors.$cyber, 0.2);
+    z-index: 1000;
     
     .dropdown-item {
         color: colors.$text-light;
@@ -567,7 +568,7 @@ input[type="range"].form-range-input,
     .dropdown-divider {
         border-color: rgba(colors.$cyber, 0.2);
     }
-} */
+}
 
 .page-link {
     border-color: rgba(colors.$cyber, 0.2);

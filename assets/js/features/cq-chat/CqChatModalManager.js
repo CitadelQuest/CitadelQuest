@@ -1,4 +1,5 @@
 import { CqChatApiService } from './CqChatApiService.js';
+import { updatesService } from '../../services/UpdatesService.js';
 import * as bootstrap from 'bootstrap';
 
 /**
@@ -8,12 +9,13 @@ import * as bootstrap from 'bootstrap';
 export class CqChatModalManager {
     constructor() {
         this.apiService = new CqChatApiService();
+        this.updatesService = updatesService;
         this.currentChatId = null;
         this.currentChat = null;
         this.chats = [];
-        this.pollingInterval = null;
         this.lastMessageCount = 0;
         this.hasMarkedSeen = false;
+        this.isInitialLoad = true;
         
         // DOM elements
         this.modal = document.getElementById('cqChatModal');
@@ -62,11 +64,11 @@ export class CqChatModalManager {
         // Modal events
         this.modal.addEventListener('shown.bs.modal', () => {
             this.messageInput?.focus();
-            this.startPolling();
         });
         
         this.modal.addEventListener('hidden.bs.modal', () => {
-            this.stopPolling();
+            // Clear current chat ID so updates don't fetch detailed messages
+            this.currentChatId = null;
         });
 
         this.messageInput.addEventListener('keydown', (e) => {
@@ -76,8 +78,10 @@ export class CqChatModalManager {
             }
         });
         
-        // Start polling for dropdown updates
-        this.startDropdownPolling();
+        // Register listener for updates (polling starts in entry point)
+        this.updatesService.addListener('cqChat', (updates) => {
+            this.handleUpdates(updates);
+        });
     }
     
     /**
@@ -144,7 +148,7 @@ export class CqChatModalManager {
             const isGroup = chat.isGroupChat || false;
             const contactName = isGroup ? chat.title : (chat.contact?.cqContactUsername || chat.contact?.name || chat.contact?.citadelAddress || 'Unknown');
             const contactDomain = isGroup ? '' : `@${chat.contact?.cqContactDomain || ''}`;
-            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-info me-1"></i>' : '';
+            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-light me-1"></i>' : '';
             const lastMessage = chat.lastMessage?.content || '';
             const hasUnread = chat.unreadCount > 0;
             
@@ -180,6 +184,7 @@ export class CqChatModalManager {
         this.currentChatId = chatId;
         this.lastMessageCount = 0;
         this.hasMarkedSeen = false;
+        this.isInitialLoad = true;
         
         // Show modal
         const modalInstance = new bootstrap.Modal(this.modal);
@@ -200,7 +205,7 @@ export class CqChatModalManager {
             // Update modal title - handle both direct and group chats
             const isGroup = chat.isGroupChat || false;
             if (isGroup) {
-                const groupIcon = '<i class="mdi mdi-account-multiple text-info me-2"></i>';
+                const groupIcon = '<i class="mdi mdi-account-multiple text-light me-2"></i>';
                 this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
             } else {
                 const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
@@ -217,26 +222,26 @@ export class CqChatModalManager {
     }
     
     /**
-     * Load messages for current chat
+     * Load messages for current chat (initial load only)
      */
     async loadMessages(chatId) {
         try {
+            // Initial load - fetch all messages
             const response = await this.apiService.getMessages(chatId);
             const messages = response.messages || [];
             
-            // Check if there are new messages
-            const hasNewMessages = messages.length > this.lastMessageCount;
-            this.lastMessageCount = messages.length;
-            
+            // Render all messages
             this.renderMessages(messages);
             
-            // Mark messages as seen only if:
-            // 1. We haven't marked them yet (first load), OR
-            // 2. There are new messages
-            if (!this.hasMarkedSeen || hasNewMessages) {
+            // Mark messages as seen on initial load
+            if (!this.hasMarkedSeen) {
                 await this.markMessagesAsSeen(chatId);
                 this.hasMarkedSeen = true;
             }
+            
+            this.isInitialLoad = false;
+            this.lastMessageCount = this.messagesContainer.querySelectorAll('.chat-message').length;
+            
         } catch (error) {
             console.error('Error loading messages:', error);
             this.messagesContainer.innerHTML = `
@@ -255,13 +260,17 @@ export class CqChatModalManager {
             await fetch(`/api/cq-chat/${chatId}/mark-seen`, {
                 method: 'POST'
             });
+            
+            // Reset timestamp to force immediate update on next poll
+            // This ensures status changes are picked up quickly
+            this.updatesService.resetTimestamp();
         } catch (error) {
             console.error('Error marking messages as seen:', error);
         }
     }
     
     /**
-     * Render messages
+     * Render messages (full reload)
      */
     renderMessages(messages) {
         this.messagesContainer.innerHTML = '';
@@ -289,6 +298,81 @@ export class CqChatModalManager {
     }
     
     /**
+     * Update message statuses in existing DOM elements
+     */
+    updateMessageStatuses(statusUpdates) {
+        statusUpdates.forEach(update => {
+            const messageEl = this.messagesContainer.querySelector(`[data-message-id="${update.id}"]`);
+            if (messageEl) {
+                // Find and update the status icon
+                const timestampEl = messageEl.querySelector('.chat-timestamp');
+                if (timestampEl) {
+                    // Get the time part (before the icon)
+                    const timeText = timestampEl.textContent.trim().split(' ')[0];
+                    
+                    // Generate new status icon
+                    let statusIcon = '';
+                    const status = update.status;
+                    if (status === 'SEEN') {
+                        statusIcon = '<i class="mdi mdi-eye text-cyber ms-1" title="Seen"></i>';
+                    } else if (status === 'DELIVERED') {
+                        statusIcon = '<i class="mdi mdi-check-all text-cyber ms-1" title="Delivered"></i>';
+                    } else if (status === 'SENT') {
+                        statusIcon = '<i class="mdi mdi-check text-muted ms-1" title="Sent"></i>';
+                    } else if (status === 'FAILED') {
+                        statusIcon = '<i class="mdi mdi-alert-circle text-danger ms-1" title="Failed"></i>';
+                    }
+                    
+                    // Update the timestamp element with new icon
+                    timestampEl.innerHTML = timeText + statusIcon;
+                }
+            }
+        });
+    }
+    
+    /**
+     * Append new messages (incremental update)
+     */
+    appendMessages(messages) {
+        if (messages.length === 0) return;
+        
+        // Check if user is scrolled near bottom
+        const isNearBottom = this.messagesContainer.scrollHeight - this.messagesContainer.scrollTop - this.messagesContainer.clientHeight < 100;
+        
+        // Sort messages by creation time (oldest first)
+        messages.sort((a, b) => new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+        
+        // Track if we added any new incoming messages
+        let hasNewIncomingMessages = false;
+        
+        // Append each new message
+        messages.forEach(message => {
+            // Check if message already exists (by ID)
+            const existingMessage = this.messagesContainer.querySelector(`[data-message-id="${message.id}"]`);
+            if (!existingMessage) {
+                const messageEl = this.createMessageElement(message);
+                this.messagesContainer.appendChild(messageEl);
+                
+                // Check if this is an incoming message (from contact)
+                const isIncoming = message.cqContactId || message.cq_contact_id;
+                if (isIncoming) {
+                    hasNewIncomingMessages = true;
+                }
+            }
+        });
+        
+        // If we received new incoming messages, mark them as seen
+        if (hasNewIncomingMessages && this.currentChatId) {
+            this.markMessagesAsSeen(this.currentChatId);
+        }
+        
+        // Only auto-scroll if user was near bottom
+        if (isNearBottom) {
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }
+    }
+    
+    /**
      * Create message element (matching original CQ Chat styling)
      */
     createMessageElement(message) {
@@ -307,13 +391,13 @@ export class CqChatModalManager {
             } else if (status === 'DELIVERED') {
                 statusIcon = '<i class="mdi mdi-check-all text-cyber ms-1" title="Delivered"></i>';
             } else if (status === 'SENT') {
-                statusIcon = '<i class="mdi mdi-check text-muted ms-1" title="Sent"></i>';
+                statusIcon = '<i class="mdi mdi-check text-cyber ms-1" title="Sent"></i>';
             } else if (status === 'FAILED') {
                 statusIcon = '<i class="mdi mdi-alert-circle text-danger ms-1" title="Failed"></i>';
             }
         } else {
             if (status === 'SEEN') {
-                statusIcon = '<i class="mdi mdi-eye ms-1" title="Seen"></i>';
+                statusIcon = '<i class="mdi mdi-eye ms-1 text-cyber" title="Seen"></i>';
             } else if (status === 'RECEIVED') {
                 statusIcon = '<i class="mdi mdi-circle-small text-cyber ms-1" title="Unread"></i>';
             }
@@ -393,7 +477,8 @@ export class CqChatModalManager {
             }
             
             this.messageInput.value = '';
-            await this.loadMessages(this.currentChatId);
+            // Reset UpdatesService timestamp to force immediate update
+            this.updatesService.resetTimestamp();
             
         } catch (error) {
             console.error('Error sending message:', error);
@@ -460,36 +545,60 @@ export class CqChatModalManager {
         }
     }
     
-    /**
-     * Start polling for new messages
-     */
-    startPolling() {
-        if (this.pollingInterval) return;
-        
-        this.pollingInterval = setInterval(() => {
-            if (this.currentChatId) {
-                this.loadMessages(this.currentChatId);
-            }
-        }, 3000);
-    }
     
     /**
-     * Stop polling
+     * Handle unified updates from UpdatesService
      */
-    stopPolling() {
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
+    handleUpdates(updates) {
+        // Update unread count badge (always)
+        if (updates.unreadCount !== undefined) {
+            this.updateUnreadBadge(updates.unreadCount);
+        }
+        
+        // Update chat list in dropdown (only if chats provided)
+        // Empty array means no updates, so don't re-render
+        if (updates.chats && updates.chats.length > 0) {
+            this.updateChatList(updates.chats);
+        }
+        
+        // Update messages in open chat
+        if (this.currentChatId && updates.messages && updates.messages.length > 0) {
+            this.appendMessages(updates.messages);
+        }
+        
+        // Update message statuses
+        if (this.currentChatId && updates.statusUpdates && updates.statusUpdates.length > 0) {
+            this.updateMessageStatuses(updates.statusUpdates);
         }
     }
     
     /**
-     * Start dropdown polling
+     * Update unread messages badge
      */
-    startDropdownPolling() {
-        setInterval(() => {
-            this.loadChatsForDropdown();
-        }, 10000); // Every 10 seconds
+    updateUnreadBadge(count) {
+        const badge = document.getElementById('cqChatUnseenCountBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = '';
+            } else {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+        }
+    }
+    
+    /**
+     * Update chat list with new data
+     */
+    updateChatList(chats) {
+        // Store chats
+        this.chats = chats;
+        
+        // Re-render dropdown if it's visible
+        if (this.dropdownList) {
+            this.renderDropdownList(chats);
+        }
     }
     
     /**
