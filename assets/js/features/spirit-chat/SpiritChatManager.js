@@ -50,6 +50,8 @@ export class SpiritChatManager {
         this.spiritChatModalTitle = document.getElementById('spiritChatModalTitle');
         this.responseMaxOutputSlider = document.getElementById('responseMaxOutputSlider');
         this.responseMaxOutputValue = document.getElementById('responseMaxOutputValue');
+        this.responseTemperatureSlider = document.getElementById('responseTemperatureSlider');
+        this.responseTemperatureValue = document.getElementById('responseTemperatureValue');
         this.chatSettingsIcon = document.getElementById('chatSettingsIcon');
         this.chatSettings = document.getElementById('chatSettings');
         this.spiritChatToolsAndConversationsToggle = document.getElementById('spiritChatToolsAndConversationsToggle');
@@ -279,6 +281,26 @@ export class SpiritChatManager {
             });
         }
 
+        // Response temperature slider
+        if (this.responseTemperatureSlider) {
+            this.responseTemperatureSlider.addEventListener('input', (event) => {
+                this.responseTemperatureValue.textContent = event.target.value;
+                localStorage.setItem('config.chat.settings.responseTemperature.value', event.target.value);
+            });
+        }
+
+        // Response temperature value click
+        if (this.responseTemperatureValue) {
+            this.responseTemperatureValue.addEventListener('click', (event) => {
+                let newTemperature = prompt('Enter response temperature', event.target.textContent); 
+                if (newTemperature) { 
+                    this.responseTemperatureSlider.value = newTemperature;
+                    localStorage.setItem('config.chat.settings.responseTemperature.value', newTemperature);
+                    this.responseTemperatureSlider.dispatchEvent(new Event('input')); 
+                }
+            });
+        }
+
         // Chat settings icon
         if (this.chatSettingsIcon) {
             this.chatSettingsIcon.addEventListener('click', () => {
@@ -395,9 +417,18 @@ export class SpiritChatManager {
                 }
 
                 this.responseMaxOutputSlider.max = maxOutput;
-                this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || '500';
+                localStorage.setItem('config.chat.settings.responseMaxOutput.value', maxOutput);
+                this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || maxOutput;
 
                 this.responseMaxOutputValue.textContent = this.responseMaxOutputSlider.value;
+            }
+
+            // set response temperature
+            if (this.responseTemperatureSlider) {
+                this.responseTemperatureSlider.value = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
+                localStorage.setItem('config.chat.settings.responseTemperature.value', this.responseTemperatureSlider.value);
+
+                this.responseTemperatureValue.textContent = this.responseTemperatureSlider.value;
             }
 
             // set chat settings open
@@ -729,7 +760,8 @@ export class SpiritChatManager {
             } else if (Array.isArray(message.content)) {
                 formattedContent = message.content.map(item => {
                     if (item.type === 'text') {
-                        return `<div style="clear: both;"></div>` + this.formatMessageContent(item.text);
+                        let formattedText = this.formatMessageContent(item.text);
+                        return (formattedText != '' ? `<div style="clear: both;"></div>` : '') + formattedText;
                     } else if (item.type === 'image_url') {
                         return `<div class="content-showcase position-relative d-inline-block float-end" data-title="" data-type="image">
                                     <img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">
@@ -766,7 +798,7 @@ export class SpiritChatManager {
                 formattedContent = this.formatMessageContent(message.content);
             }
             
-            messageEl.innerHTML = formattedContent != '' ? `
+            messageEl.innerHTML = (formattedContent != '') ? `
                 <div class="chat-bubble">
                     <div class="chat-content">${formattedContent}</div>
                     <div class="chat-timestamp">${timestampHtml}</div>
@@ -876,6 +908,10 @@ export class SpiritChatManager {
         // Ensure content is a string (array vs string demon!)
         if (typeof content !== 'string') {
             console.warn('formatMessageContent received non-string:', typeof content, content);
+            return '';
+        }
+
+        if (content === '<empty-content />' || content === '<empty-content></empty-content>') {
             return '';
         }
 
@@ -1305,6 +1341,7 @@ export class SpiritChatManager {
         this.imageUpload.value = '';
 
         const maxOutput = this.getMaxOutput();
+        const temperature = this.getResponseTemperature();
         
         this.messageInput.value = '';
         // reset message input height
@@ -1318,7 +1355,7 @@ export class SpiritChatManager {
             const loadingEl = this.addLoadingIndicator();
             
             // Send message to API (async - returns immediately)
-            const response = await this.apiService.sendMessageAsync(this.currentConversationId, messageContent, maxOutput);
+            const response = await this.apiService.sendMessageAsync(this.currentConversationId, messageContent, maxOutput, temperature);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
@@ -1334,7 +1371,7 @@ export class SpiritChatManager {
             
             // If AI wants to use tools, execute them
             if (response.requiresToolExecution && response.toolCalls) {
-                await this.executeToolChain(response.message.id, response.toolCalls);
+                await this.executeToolChain(response.message.id, response.toolCalls, maxOutput, 0.5/* temperature */);
             }
             
             // Update conversation list to reflect changes
@@ -1407,6 +1444,10 @@ export class SpiritChatManager {
      */
     getMaxOutput() {
         return this.responseMaxOutputSlider ? this.responseMaxOutputSlider.value : 500;
+    }
+
+    getResponseTemperature() {
+        return this.responseTemperatureSlider ? this.responseTemperatureSlider.value : 0.7;
     }
 
     /**
@@ -1559,7 +1600,7 @@ export class SpiritChatManager {
     /**
      * Execute tool chain (loop until no more tools needed)
      */
-    async executeToolChain(messageId, toolCalls) {
+    async executeToolChain(messageId, toolCalls, maxOutput, temperature) {
         this.isExecutingTools = true;
         
         // Show stop button
@@ -1579,7 +1620,9 @@ export class SpiritChatManager {
                 const response = await this.apiService.executeTools(
                     this.currentConversationId,
                     messageId,
-                    toolCalls
+                    toolCalls,
+                    maxOutput,
+                    temperature
                 );
                 
                 if (response.error) {

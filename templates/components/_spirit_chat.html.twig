@@ -78,13 +78,22 @@
                             <textarea id="messageInput" class="form-control flex-grow-1" rows="3" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off" focus></textarea>
 
                             <div class="d-flex flex-column gap-1 align-items-center mt-2 ps-2">
-                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
+                                <div class="form-range d-flex_ d-none align-items-center gap-2 collapse" id="chatSettings_">
                                     <label class="form-range-label small text-end" for="responseMaxOutputSlider">
                                         <i class="mdi mdi-arrow-collapse-right text-white me-2"></i>
                                         <span class="d-none d-md-inline">{{ 'spirit.chat.response_max_output'|trans }}:</span> 
                                         <span id="responseMaxOutputValue" class="text-cyber fw-bold d-inline-block text-end" style="width: 3.2em;">-</span> tokens
                                     </label>
                                     <input class="form-range-input" type="range" id="responseMaxOutputSlider" min="10" max="4096" value="500" step="10">
+                                </div>
+
+                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
+                                    <label class="form-range-label small text-end" for="responseTemperatureSlider">
+                                        <i class="mdi mdi-thermometer text-white me-2"></i>
+                                        <span class="d-none d-md-inline">{{ 'spirit.chat.response_temperature'|trans }}:</span> 
+                                        <span id="responseTemperatureValue" class="text-cyber fw-bold d-inline-block text-end" style="width: 3.2em;">-</span>
+                                    </label>
+                                    <input class="form-range-input" type="range" id="responseTemperatureSlider" min="0" max="1" value="0.7" step="0.1">
                                 </div>
 
                                 <div class="form-range d-flex align-items-center gap-2 collapse" id="chatInfo">

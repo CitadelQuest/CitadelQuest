@@ -167,6 +167,7 @@ spirit:
         no_messages: 'No messages yet. Start a conversation! Say "Hello" to your Spirit :)'
         loading_response: 'Spirit is thinking...'
         response_max_output: 'Max response length'
+        response_temperature: 'Response temperature'
 
 profile:
     title: 'Profile Settings'

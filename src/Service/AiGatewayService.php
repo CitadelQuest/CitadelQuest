@@ -319,7 +319,7 @@ class AiGatewayService
         $aiServiceResponseService->saveAnnotationsToFile($response, $projectId/*, ai_request_id > conversation_request.ai_service_request_id > conversation.project_id */);
 
         // Save images from response
-        //$aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
+        $aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
         
         // Handle tool calls by gateway implementation (only if handleToolCalls is true)
         // In async mode (handleToolCalls = false), we return immediately and let the frontend handle tool execution

@@ -196,7 +196,7 @@ export class SpiritChatApiService {
      * @param {number} maxOutput - The maximum output tokens for the AI response
      * @returns {Promise<Object>} - Response with message, type, toolCalls, requiresToolExecution
      */
-    async sendMessageAsync(conversationId, message, maxOutput = 500) {
+    async sendMessageAsync(conversationId, message, maxOutput = 500, temperature = 0.7) {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/send-async`, {
                 method: 'POST',
@@ -206,7 +206,8 @@ export class SpiritChatApiService {
                 credentials: 'include',
                 body: JSON.stringify({ 
                     message,
-                    max_output: maxOutput
+                    max_output: maxOutput,
+                    temperature
                 })
             });
             
@@ -229,7 +230,7 @@ export class SpiritChatApiService {
      * @param {Array} toolCalls - The tool calls to execute
      * @returns {Promise<Object>} - Response with message, type, toolCalls, toolResults, requiresToolExecution
      */
-    async executeTools(conversationId, assistantMessageId, toolCalls) {
+    async executeTools(conversationId, assistantMessageId, toolCalls, maxOutput = 500, temperature = 0.7) {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/execute-tools`, {
                 method: 'POST',
@@ -239,7 +240,9 @@ export class SpiritChatApiService {
                 credentials: 'include',
                 body: JSON.stringify({
                     assistantMessageId,
-                    toolCalls
+                    toolCalls,
+                    max_output: maxOutput,
+                    temperature
                 })
             });
             

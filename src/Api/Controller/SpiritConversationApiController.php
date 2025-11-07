@@ -2,9 +2,11 @@
 
 namespace App\Api\Controller;
 
+use App\Entity\AiServiceResponse;
 use App\Service\SpiritConversationService;
 use App\Service\SpiritService;
 use App\Service\SettingsService;
+use App\Service\AiServiceResponseService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +25,8 @@ class SpiritConversationApiController extends AbstractController
     public function __construct(
         private readonly SpiritConversationService $conversationService, 
         private readonly SpiritService $spiritService, 
-        private readonly SettingsService $settingsService)
+        private readonly SettingsService $settingsService,
+        private readonly AiServiceResponseService $aiServiceResponseService)
     {
     }
     
@@ -246,6 +249,38 @@ class SpiritConversationApiController extends AbstractController
                 'text',
                 $messageContent
             );
+
+            $userMessageArray = $userMessage->jsonSerialize();
+            // save files from message
+            $newFiles = $this->conversationService->saveFilesFromMessage($userMessageArray, 'general');
+            $newFilesInfo = [];
+            foreach ($newFiles as $file) {
+                $newFilesInfo[] = [
+                    'type' => 'text',
+                    'text' => 'File: `' . $file->getFullPath() . '` (projectId: `' . $file->getProjectId() . '`)',
+                ];
+            }
+            if (count($newFilesInfo) > 0) {
+                $userMessageArray['content'] = array_merge($userMessageArray['content'], $newFilesInfo);
+            }
+            // save images from message
+            $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
+                new AiServiceResponse('', $userMessageArray, []),
+                'general',
+                '/uploads/img'
+            );
+            $newImagesInfo = [];
+            foreach ($newImages as $image) {
+                $newImagesInfo[] = [
+                    'type' => 'text',
+                    'text' => '<div class="small float-end text-end">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
+                ];
+            }
+            if (count($newImagesInfo) > 0) {
+                $userMessageArray['content'] = array_merge($userMessageArray['content'], $newImagesInfo);
+            }
+            $userMessage->setContent($userMessageArray['content']);
+            $messageService->updateMessageContent($userMessage);
             
             // Get max output
             $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
@@ -260,7 +295,8 @@ class SpiritConversationApiController extends AbstractController
                 $id,
                 $userMessage,
                 $lang,
-                $maxOutput
+                $maxOutput,
+                $data['temperature'] ?? 0.7
             );
             
             return $this->json($aiResponse);
@@ -295,7 +331,9 @@ class SpiritConversationApiController extends AbstractController
                 $id,
                 $data['assistantMessageId'],
                 $data['toolCalls'],
-                $lang
+                $lang,
+                $data['max_output'] ?? 500,
+                $data['temperature'] ?? 0.7
             );
             
             return $this->json($aiResponse);

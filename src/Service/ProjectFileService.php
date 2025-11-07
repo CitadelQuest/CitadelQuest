@@ -1148,6 +1148,8 @@ class ProjectFileService
 
             // Normalize path
             $destination['path'] = $this->normalizePath($destination['path']);
+
+            $this->ensureParentDirectoriesExist($projectId, $destination['path']);
             
             // Update file path and name in database using existing patterns
             $userDb->executeStatement(
@@ -1217,6 +1219,8 @@ class ProjectFileService
             
             $oldPath = $sourceDir->getPath() . $sourceDir->getName();
             $newPath = ($destination['path'] == "/" ? '' : $destination['path']) . '/' . $destination['name'];
+
+            $this->ensureParentDirectoriesExist($projectId, $newPath);
             
             // Update directory itself using existing patterns
             $userDb->executeStatement(

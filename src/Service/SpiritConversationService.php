@@ -795,7 +795,8 @@ class SpiritConversationService
         string $conversationId,
         \App\Entity\SpiritConversationMessage $userMessage,
         string $lang = 'English',
-        int $maxOutput = 500
+        int $maxOutput = 500,
+        float $temperature = 0.7
     ): array {
         $db = $this->getUserDb();
         
@@ -828,7 +829,7 @@ class SpiritConversationService
             $aiServiceModel->getId(),
             $messages,
             $maxOutput,
-            0.5,
+            $temperature,
             null,
             $tools
         );
@@ -908,7 +909,9 @@ class SpiritConversationService
         string $conversationId,
         string $assistantMessageId,
         array $toolCalls,
-        string $lang = 'English'
+        string $lang = 'English',
+        int $maxOutput = 500,
+        float $temperature = 0.7
     ): array {
         $db = $this->getUserDb();
         
@@ -952,8 +955,8 @@ class SpiritConversationService
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
             $aiServiceModel->getId(),
             $messages,
-            500,
-            0.5,
+            $maxOutput,
+            $temperature,
             null,
             $tools
         );

@@ -107,6 +107,26 @@ class SpiritConversationMessageService
             ]
         );
     }
+
+    public function updateMessageContent(SpiritConversationMessage $message): void
+    {
+        $db = $this->getUserDb();
+        
+        $this->logger->debug('Updating spirit conversation message content', [
+            'message_id' => $message->getId(),
+            //'content' => $message->getContent()
+        ]);
+        
+        $db->executeStatement(
+            'UPDATE spirit_conversation_message 
+            SET content = ? 
+            WHERE id = ?',
+            [
+                json_encode($message->getContent()),
+                $message->getId()
+            ]
+        );
+    }
     
     /**
      * Get all messages for a conversation

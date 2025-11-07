@@ -301,8 +301,27 @@ class CQAIGateway implements AiGatewayInterface
                 }
             }
 
+            unset($filteredMessage['frontendData']);
+
             $filteredMessages[] = $filteredMessage;
         }
+
+        // moved to CQ AI Gateway
+        /*
+        foreach ($filteredMessages as $key => $message) {
+            if ($message['role'] == 'assistant') {
+                if (is_array($message['content'])) {
+                    if (isset($message['content'][0]['text']) && trim($message['content'][0]['text']) == '') {
+                        $filteredMessages[$key]['content'][0]['text'] = '<empty-content />';
+                    } else {
+                        $filteredMessages[$key]['content'] = '<empty-content />';
+                    }
+                } elseif (is_string($message['content']) && (trim($message['content']) == '' || $message['content'] == '[]')) {
+                    $filteredMessages[$key]['content'] = '<empty-content />';
+                }
+            }
+        }
+        */
 
         return $filteredMessages;
     }

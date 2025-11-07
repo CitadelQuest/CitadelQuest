@@ -142,6 +142,11 @@ class SpiritConversationMessage implements \JsonSerializable
         $this->aiServiceResponseId = $id; 
     }
 
+    public function setContent(array $content): void 
+    { 
+        $this->content = $content; 
+    }
+
     /**
      * JSON serialization for API responses
      */

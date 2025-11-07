@@ -167,6 +167,7 @@ spirit:
         no_messages: 'Zatím žádné zprávy. Začněte konverzaci! Pozdravte svého Ducha :)'
         loading_response: 'Duch přemýšlí...'
         response_max_output: 'Maximální délka odpovědi'
+        response_temperature: '"Teplota" odpovědi'
 
 profile:
     title: 'Nastavení profilu'
