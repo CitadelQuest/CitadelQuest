@@ -115,4 +115,15 @@ class AiServiceRequestService
 
         return $result > 0;
     }
+
+    public function updateRequest(AiServiceRequest $request): bool
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeStatement(
+            'UPDATE ai_service_request SET messages = ? WHERE id = ?',
+            [$request->getMessagesRaw(), $request->getId()]
+        );
+
+        return $result > 0;
+    }
 }

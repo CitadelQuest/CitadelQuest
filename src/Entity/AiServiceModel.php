@@ -19,6 +19,7 @@ class AiServiceModel implements JsonSerializable
     private ?float $ppmInput = null;
     private ?float $ppmOutput = null;
     private bool $isActive = true;
+    private ?array $fullConfig = null;
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $updatedAt;
     
@@ -178,6 +179,17 @@ class AiServiceModel implements JsonSerializable
         return $this;
     }
     
+    public function getFullConfig(): ?array
+    {
+        return $this->fullConfig;
+    }
+    
+    public function setFullConfig(?array $fullConfig): self
+    {
+        $this->fullConfig = $fullConfig;
+        return $this;
+    }
+    
     public function getCreatedAt(): \DateTimeInterface
     {
         return $this->createdAt;
@@ -221,6 +233,7 @@ class AiServiceModel implements JsonSerializable
             'ppmInput' => $this->ppmInput,
             'ppmOutput' => $this->ppmOutput,
             'isActive' => $this->isActive,
+            'fullConfig' => $this->fullConfig,
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => $this->updatedAt->format(\DateTimeInterface::ATOM)
         ];
@@ -268,6 +281,14 @@ class AiServiceModel implements JsonSerializable
             $model->setIsActive((bool)$data['is_active']);
         }
         
+        if (isset($data['full_config'])) {
+            $config = $data['full_config'];
+            if (is_string($config)) {
+                $config = json_decode($config, true);
+            }
+            $model->setFullConfig($config);
+        }
+
         if (isset($data['created_at'])) {
             $model->setCreatedAt(new \DateTime($data['created_at']));
         }

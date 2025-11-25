@@ -35,11 +35,16 @@
 
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">                        
                         <div>
-                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
+                            <div class="d-flex justify-content-between align-items-center border-top border-secondary border-1 pt-3 mb-2">
+                                <h5 class="mb-0"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="sync_models_btn" onclick="syncAiModels()">
+                                    <i class="mdi mdi-refresh me-1"></i> Update Models List
+                                </button>
+                            </div>
                             <p class="">Select which AI models to use for different purposes.</p>
                             
                             <div class="row">
-                                <div class="col-md-6_ mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
@@ -51,10 +56,10 @@
                                     <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
                                 </div>
                                 
-                                <div class="col-md-6 mb-3 d-none">
-                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Secondary AI Model</label>
+                                <div class="col-md-6 mb-3">
+                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Image gen/edit AI Model</label>
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
-                                        {% for model in aiModels %}
+                                        {% for model in aiImageModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
                                                 {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
                                             </option>
@@ -149,4 +154,53 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+    function syncAiModels() {
+        const btn = document.getElementById('sync_models_btn');
+        const originalText = btn.innerHTML;
+        const originalClass = btn.className;
+        
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Updating...';
+        
+        fetch('{{ path('app_user_settings_ai_sync_models') }}', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success checkmark briefly before reloading
+                btn.innerHTML = '<i class="mdi mdi-check me-1"></i> Updated!';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // Show error
+                alert('Error updating models: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                btn.className = originalClass;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating models.');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            btn.className = originalClass;
+        });
+    }
+</script>
 {% endblock %}

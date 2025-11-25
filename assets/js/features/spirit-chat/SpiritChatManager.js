@@ -1381,11 +1381,12 @@ export class SpiritChatManager {
             this.updateCreditIndicator();
             
             // Trigger async database vacuum (user is now reading the response)
-            if (window.databaseVacuum) {
+            // disabled - it's blocking async tool use
+            /* if (window.databaseVacuum) {
                 window.databaseVacuum.vacuum().catch(err => {
                     console.error('Background vacuum failed:', err);
                 });
-            }
+            } */
             
         } catch (error) {
             console.error('Error sending message:', error);

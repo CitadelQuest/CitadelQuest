@@ -16,13 +16,15 @@ use App\Service\AiServiceModelService;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\CitadelVersion;
+use Psr\Log\LoggerInterface;
 
 class CQAIGateway implements AiGatewayInterface
 {
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly SettingsService $settingsService,
-        private readonly ServiceLocator $serviceLocator
+        private readonly ServiceLocator $serviceLocator, 
+        private readonly LoggerInterface $logger
     ) {
     }
     
@@ -57,10 +59,17 @@ class CQAIGateway implements AiGatewayInterface
         // filter injected system data from messages
         $filteredMessages = $this->filterInjectedSystemData($request->getMessages());
 
-        // Filter out image_url type content from messages // TODO tutu
-        if ( strpos($aiServiceModel->getModelSlug(), 'deepseek-chat-v3.1') !== false || strpos($aiServiceModel->getModelSlug(), 'grok-3') !== false ) {
-            $filteredMessages = $this->filterImageUrlContent($filteredMessages);
+        // Filter out image_url type content from messages
+        // for models that do not have image input modality
+        $modelFullConfig = $aiServiceModel->getFullConfig();
+        $inputModalities = $modelFullConfig['architecture']['input_modalities'] ?? [];
+        if ( !in_array('image', $inputModalities) ) {
+            $this->filterImageUrlContent($filteredMessages);
         }
+
+        // save filtered messages to request
+        $request->setMessages($filteredMessages);
+        $aiServiceRequestService->updateRequest($request);
         
         // Prepare request data
         $requestData = [
@@ -167,11 +176,14 @@ class CQAIGateway implements AiGatewayInterface
             // Filter injected system data from messages, so we do not send it to AI + database
             $messages = $this->filterInjectedSystemData($messages);
 
-            // Filter out image_url type content from messages // TODO tutu
-            /* $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
-            if ( strpos($aiServiceModel->getModelSlug(), 'deepseek-chat-v3.1') !== false ) {
-                $messages = $this->filterImageUrlContent($messages);
-            } */
+            // Filter out image_url type content from messages
+            // for models that do not have image input modality
+            $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
+            $modelFullConfig = $aiServiceModel->getFullConfig();
+            $inputModalities = $modelFullConfig['architecture']['input_modalities'] ?? [];
+            if ( !in_array('image', $inputModalities) ) {
+                $this->filterImageUrlContent($messages);
+            }
 
             // Add current assistant message, including tool_calls
             $messages[] = $response->getFullResponse()['choices'][0]['message'];
@@ -329,24 +341,28 @@ class CQAIGateway implements AiGatewayInterface
     /**
      * Filter out image_url type content from messages
      */
-    public function filterImageUrlContent(array $messages): array
+    public function filterImageUrlContent(array &$messages): void
     {
-        $filteredMessages = [];
-        foreach ($messages as $message) {
-            $filteredMessage = $message;
+        foreach ($messages as $key => &$message) {
             if (isset($message['content']) && is_array($message['content'])) {
-                $filteredContent = [];
+                $filtered = [];
+                $skipNext = false;
                 foreach ($message['content'] as $content) {
-                    if (isset($content['type']) && $content['type'] == 'image_url') {
+                    if (isset($content['type']) && $content['type'] === 'image_url') {
+                        $skipNext = true;
                         continue;
                     }
-                    $filteredContent[] = $content;
+                    if ($skipNext) {
+                        // skipping the text description that follows the image
+                        $skipNext = false;
+                        continue;
+                    }
+                    $filtered[] = $content;
                 }
-                $filteredMessage['content'] = $filteredContent;
+                $message['content'] = $filtered;
             }
-            $filteredMessages[] = $filteredMessage;
         }
-        return $filteredMessages;
+        unset($message);
     }
 
     /**

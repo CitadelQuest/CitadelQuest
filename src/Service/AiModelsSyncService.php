@@ -339,7 +339,8 @@ class AiModelsSyncService
                             'maxOutput' => $maxOutputTokens,
                             'ppmInput' => $pricingInput,
                             'ppmOutput' => $pricingOutput,
-                            'isActive' => true
+                            'isActive' => true,
+                            'fullConfig' => $model
                         ]
                     );
                     $processedModels[] = $updatedModel;

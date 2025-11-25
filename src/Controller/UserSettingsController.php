@@ -371,9 +371,13 @@ class UserSettingsController extends AbstractController
         // Get all available AI models
         $aiModels = $this->aiServiceModelService->findByGateway($gateway->getId(), true);
         
+        // Get image capable models
+        $aiImageModels = $this->aiServiceModelService->findImageOutputModelsByGateway($gateway->getId(), true);
+        
             return $this->render('user_settings/ai.html.twig', [
                 'settings' => $settings,
                 'aiModels' => $aiModels,
+                'aiImageModels' => $aiImageModels,
                 'api_key_state' => $apiKeyState,
                 'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
                 'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername
@@ -395,6 +399,7 @@ class UserSettingsController extends AbstractController
             return $this->render('user_settings/ai.html.twig', [
                 'settings' => [],
                 'aiModels' => [],
+                'aiImageModels' => [],
                 'api_key_state' => 'unknown',
                 'CQ_AI_GatewayCredits' => '-',
                 'CQ_AI_GatewayUsername' => null

@@ -19,6 +19,7 @@ class AIToolImageService
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiServiceResponseService $aiServiceResponseService,
         private readonly AiServiceModelService $aiServiceModelService,
+        private readonly SettingsService $settingsService,
         private readonly ParameterBagInterface $params
     ) {
     }
@@ -31,13 +32,20 @@ class AIToolImageService
         $this->validateArguments($arguments, ['projectId', 'textPrompt']);
         
         try {
-            // Get special AI model for image editing (CQ AI Gateway)
-            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/gemini-2.5-flash-image-preview', $gateway->getId());
+            // Get AI model for image editing (settings: ai.secondary_ai_service_model_id)
+            $secondaryModelId = $this->settingsService->getSettingValue('ai.secondary_ai_service_model_id');
+            $aiServiceModel = null;
+            if ($secondaryModelId) {
+                $aiServiceModel = $this->aiServiceModelService->findById($secondaryModelId);
+            } else {
+                // Get default AI model for image editing (CQ AI Gateway)
+                $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/gemini-2.5-flash-image-preview', $gateway->getId());
+            }
             if (!$aiServiceModel) {
                 return [
                     'success' => false,
-                    'error' => 'No AI service model configured'
+                    'error' => 'No Image Editor AI service model configured'
                 ];
             }
 

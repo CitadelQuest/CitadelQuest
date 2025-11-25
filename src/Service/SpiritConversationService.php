@@ -295,7 +295,7 @@ class SpiritConversationService
         $db->commit();
 
         // Vacuum the database
-        $db->executeStatement('VACUUM;');
+        //$db->executeStatement('VACUUM;');
     }
 
     public function getConversationsCount(): int

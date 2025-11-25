@@ -39,12 +39,17 @@ class AiServiceModelService
         ?int $maxOutput = null,
         ?float $ppmInput = null,
         ?float $ppmOutput = null,
-        ?bool $isActive = true
+        ?bool $isActive = true,
+        ?array $fullConfig = null
     ): AiServiceModel {
         $model = new AiServiceModel($aiGatewayId, $modelName, $modelSlug);
         
         if ($virtualKey !== null) {
             $model->setVirtualKey($virtualKey);
+        }
+        
+        if ($fullConfig !== null) {
+            $model->setFullConfig($fullConfig);
         }
         
         if ($contextWindow !== null) {
@@ -81,8 +86,8 @@ class AiServiceModelService
             'INSERT INTO ai_service_model (
                 id, ai_gateway_id, virtual_key, model_name, model_slug, 
                 context_window, max_input, max_input_image_size, max_output, 
-                ppm_input, ppm_output, is_active, created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                ppm_input, ppm_output, is_active, full_config, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $model->getId(),
                 $model->getAiGatewayId(),
@@ -96,6 +101,7 @@ class AiServiceModelService
                 $model->getPpmInput(),
                 $model->getPpmOutput(),
                 $model->isActive() ? 1 : 0,
+                $model->getFullConfig() ? json_encode($model->getFullConfig()) : null,
                 $model->getCreatedAt()->format('Y-m-d H:i:s'),
                 $model->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -176,6 +182,25 @@ class AiServiceModelService
         return array_map(fn($data) => AiServiceModel::fromArray($data), $results);
     }
 
+    public function findImageOutputModelsByGateway(string $gatewayId, bool $activeOnly = true): array
+    {
+        $allModels = $this->findByGateway($gatewayId, $activeOnly);
+        $imageModels = [];
+
+        foreach ($allModels as $model) {
+            $config = $model->getFullConfig();
+            if ($config && 
+                isset($config['architecture']['output_modalities']) && 
+                is_array($config['architecture']['output_modalities']) && 
+                in_array('image', $config['architecture']['output_modalities'])
+            ) {
+                $imageModels[] = $model;
+            }
+        }
+
+        return $imageModels;
+    }
+
     public function updateModel(
         string $id,
         array $data
@@ -229,6 +254,10 @@ class AiServiceModelService
             $model->setIsActive($data['isActive']);
         }
 
+        if (isset($data['fullConfig'])) {
+            $model->setFullConfig($data['fullConfig']);
+        }
+
         $model->updateUpdatedAt();
 
         $userDb = $this->getUserDb();
@@ -245,6 +274,7 @@ class AiServiceModelService
              ppm_input = ?, 
              ppm_output = ?, 
              is_active = ?, 
+             full_config = ?,
              updated_at = ? 
              WHERE id = ?',
             [
@@ -259,6 +289,7 @@ class AiServiceModelService
                 $model->getPpmInput(),
                 $model->getPpmOutput(),
                 $model->isActive() ? 1 : 0,
+                $model->getFullConfig() ? json_encode($model->getFullConfig()) : null,
                 $model->getUpdatedAt()->format('Y-m-d H:i:s'),
                 $model->getId()
             ]
