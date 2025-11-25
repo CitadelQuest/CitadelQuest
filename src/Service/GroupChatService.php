@@ -28,7 +28,7 @@ class GroupChatService
     /**
      * Get a fresh database connection for the current user
      */
-    private function getUserDb()
+    public function getUserDb()
     {
         if (!$this->user) {
             throw new \Exception('User not found');

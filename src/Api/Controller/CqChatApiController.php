@@ -185,6 +185,15 @@ class CqChatApiController extends AbstractController
                     }
                     return $memberData;
                 }, $members);
+                
+                // If user is not the host, include host contact info
+                $hostContactId = $chat->getGroupHostContactId();
+                if ($hostContactId) {
+                    $hostContact = $this->cqContactService->findById($hostContactId);
+                    if ($hostContact) {
+                        $chatData['hostContact'] = $hostContact->jsonSerialize();
+                    }
+                }
             }
             
             return $this->json($chatData);
@@ -599,6 +608,20 @@ class CqChatApiController extends AbstractController
         $chat = $this->cqChatService->findById($groupChatId);
         $groupName = $chat ? $chat->getTitle() : 'Group Chat';
         
+        // Build member list to send to all members (so they can display the full list)
+        $memberList = [];
+        foreach ($members as $member) {
+            $contact = $this->cqContactService->findById($member->getCqContactId());
+            if ($contact) {
+                $memberList[] = [
+                    'contact_id' => $contact->getId(),
+                    'username' => $contact->getCqContactUsername(),
+                    'domain' => $contact->getCqContactDomain(),
+                    'role' => $member->getRole()
+                ];
+            }
+        }
+        
         foreach ($members as $member) {
             try {
                 $contact = $this->cqContactService->findById($member->getCqContactId());
@@ -620,7 +643,8 @@ class CqChatApiController extends AbstractController
                         'original_sender' => $senderAddress,
                         'message_id' => $message->getId(),
                         'content' => $message->getContent(),
-                        'timestamp' => $message->getCreatedAt()->format('c')
+                        'timestamp' => $message->getCreatedAt()->format('c'),
+                        'members' => $memberList
                     ]
                 ]);
                 

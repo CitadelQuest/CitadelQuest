@@ -209,8 +209,8 @@ export class CqChatModalManager {
                 const groupIcon = '<i class="mdi mdi-account-multiple text-light me-2"></i>';
                 this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
                 
-                // Render members list
-                this.renderMembers(chat.members || []);
+                // Render members list (include host contact for non-host users)
+                this.renderMembers(chat.members || [], chat.hostContact || null);
             } else {
                 const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
                 const contactDomain = chat.contact?.cqContactDomain || '';
@@ -610,8 +610,10 @@ export class CqChatModalManager {
     
     /**
      * Render members list for group chats
+     * @param {Array} members - Array of member objects with contact info
+     * @param {Object|null} hostContact - Host contact info (for non-host users)
      */
-    renderMembers(members) {
+    renderMembers(members, hostContact = null) {
         if (!this.membersContainer) return;
         
         // Get current username
@@ -619,6 +621,13 @@ export class CqChatModalManager {
         
         // Build members HTML - current user first (as "You"), then others
         let html = `<span class="badge bg-cyber text-dark"><i class="mdi mdi-account me-1"></i>${currentUsername || 'You'}</span>`;
+        
+        // If we have a host contact (meaning current user is NOT the host), show the host first
+        if (hostContact) {
+            const hostUsername = hostContact.cqContactUsername || 'Host';
+            const hostDomain = hostContact.cqContactDomain || '';
+            html += `<span class="badge bg-secondary" title="${hostUsername}@${hostDomain}"><i class="mdi mdi-account me-1"></i>${hostUsername}</span>`;
+        }
         
         members.forEach(member => {
             const contact = member.contact;

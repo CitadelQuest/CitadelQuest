@@ -191,6 +191,7 @@ class FederationGroupChatController extends AbstractController
             
             // Check if group chat exists, if not create it
             $chat = $this->cqChatService->findById($groupChatId);
+            $isNewChat = false;
             if (!$chat) {
                 // Create the group chat with the provided ID
                 // Extract group name from data or use default
@@ -208,8 +209,15 @@ class FederationGroupChatController extends AbstractController
                     $contact->getId(), // group_host_contact_id (the sender is the host)
                     $groupChatId // specific ID
                 );
+                $isNewChat = true;
             } elseif (!$chat->isGroupChat()) {
                 return $this->json(['error' => 'Chat exists but is not a group chat'], Response::HTTP_BAD_REQUEST);
+            }
+            
+            // Sync member list if provided (for new chats or updates)
+            $members = $data['members'] ?? [];
+            if (!empty($members)) {
+                $this->syncGroupMembers($groupChatId, $members);
             }
 
             // Update chat (updated_at)
@@ -401,5 +409,70 @@ class FederationGroupChatController extends AbstractController
             // Log error but don't fail the request
             error_log('Failed to send delivery status to host: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Sync group members from host's member list
+     * This stores the member list in the local user's database so they can see all members
+     */
+    private function syncGroupMembers(string $groupChatId, array $members): void
+    {
+        foreach ($members as $memberData) {
+            try {
+                $username = $memberData['username'] ?? null;
+                $domain = $memberData['domain'] ?? null;
+                $role = $memberData['role'] ?? 'member';
+                
+                if (!$username || !$domain) {
+                    continue;
+                }
+                
+                // Find or skip if contact doesn't exist locally
+                $contactUrl = 'https://' . $domain . '/' . $username;
+                $contact = $this->cqContactService->findByUrl($contactUrl);
+                
+                if (!$contact) {
+                    // Contact doesn't exist in local database, skip
+                    // (they would need to be added as a contact first)
+                    continue;
+                }
+                
+                // Check if member already exists
+                if ($this->groupChatService->isMember($groupChatId, $contact->getId())) {
+                    continue;
+                }
+                
+                // Add member to local database (bypassing host check since this is federation sync)
+                $this->addMemberWithoutHostCheck($groupChatId, $contact->getId(), $role);
+                
+            } catch (\Exception $e) {
+                // Log error but continue with other members
+                error_log('Failed to sync group member: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Add a member to a group chat without host check (for federation sync)
+     */
+    private function addMemberWithoutHostCheck(string $chatId, string $contactId, string $role = 'member'): void
+    {
+        $userDb = $this->groupChatService->getUserDb();
+        
+        $member = new \App\Entity\CqChatGroupMember($chatId, $contactId, $role);
+        
+        $userDb->executeStatement(
+            'INSERT INTO cq_chat_group_members (
+                id, cq_chat_id, cq_contact_id, role, joined_at, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?)',
+            [
+                $member->getId(),
+                $member->getCqChatId(),
+                $member->getCqContactId(),
+                $member->getRole(),
+                $member->getJoinedAt()->format('Y-m-d H:i:s'),
+                $member->getCreatedAt()->format('Y-m-d H:i:s')
+            ]
+        );
     }
 }
