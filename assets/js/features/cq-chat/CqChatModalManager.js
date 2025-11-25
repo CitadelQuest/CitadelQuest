@@ -20,6 +20,7 @@ export class CqChatModalManager {
         // DOM elements
         this.modal = document.getElementById('cqChatModal');
         this.modalTitle = document.getElementById('cqChatModalTitle');
+        this.membersContainer = document.getElementById('cqChatMembers');
         this.messagesContainer = document.getElementById('cqChatMessages');
         this.messageForm = document.getElementById('cqChatForm');
         this.messageInput = document.getElementById('cqChatMessageInput');
@@ -207,10 +208,16 @@ export class CqChatModalManager {
             if (isGroup) {
                 const groupIcon = '<i class="mdi mdi-account-multiple text-light me-2"></i>';
                 this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
+                
+                // Render members list
+                this.renderMembers(chat.members || []);
             } else {
                 const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
                 const contactDomain = chat.contact?.cqContactDomain || '';
                 this.modalTitle.innerHTML = contactDomain ? `<span class="fw-bold">${contactName}</span><span class="opacity-50">@${contactDomain}</span>` : contactName;
+                
+                // Hide members for direct chats
+                this.hideMembersContainer();
             }
             
             // Load messages
@@ -598,6 +605,41 @@ export class CqChatModalManager {
         // Re-render dropdown if it's visible
         if (this.dropdownList) {
             this.renderDropdownList(chats);
+        }
+    }
+    
+    /**
+     * Render members list for group chats
+     */
+    renderMembers(members) {
+        if (!this.membersContainer) return;
+        
+        // Get current username
+        const currentUsername = document.querySelector('.js-user')?.dataset?.username;
+        
+        // Build members HTML - current user first (as "You"), then others
+        let html = `<span class="badge bg-cyber text-dark"><i class="mdi mdi-account me-1"></i>${currentUsername || 'You'}</span>`;
+        
+        members.forEach(member => {
+            const contact = member.contact;
+            if (contact) {
+                const username = contact.cqContactUsername || 'Unknown';
+                const domain = contact.cqContactDomain || '';
+                html += `<span class="badge bg-secondary" title="${username}@${domain}"><i class="mdi mdi-account me-1"></i>${username}</span>`;
+            }
+        });
+        
+        this.membersContainer.innerHTML = html;
+        this.membersContainer.classList.remove('d-none');
+    }
+    
+    /**
+     * Hide members container (for direct chats)
+     */
+    hideMembersContainer() {
+        if (this.membersContainer) {
+            this.membersContainer.classList.add('d-none');
+            this.membersContainer.innerHTML = '';
         }
     }
     

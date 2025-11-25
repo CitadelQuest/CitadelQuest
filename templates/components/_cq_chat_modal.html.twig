@@ -2,14 +2,15 @@
 <div class="modal fade" id="cqChatModal" tabindex="-1" aria-labelledby="cqChatModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
         <div class="modal-content glass-panel_" style="background-color: var(--bs-gray-800) !important;">
-            <div class="modal-header bg-cyber-g border-success py-2">
-                <div class="d-flex align-items-center flex-grow-1">
+            <div class="modal-header bg-cyber-g border-success py-2 flex-column align-items-stretch">
+                <div class="d-flex align-items-center w-100">
                     <i class="mdi mdi-forum text-cyber fs-5 me-2"></i>
-                    <span class="modal-title" id="cqChatModalLabel">
+                    <span class="modal-title flex-grow-1" id="cqChatModalLabel">
                         <span id="cqChatModalTitle" class="text-light"></span>
                     </span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+                <div id="cqChatMembers" class="d-none mt-2 d-flex flex-wrap gap-1"></div>
             </div>
             <div class="modal-body pt-0 d-flex flex-column mx-0 px-0 pb-0" style="height: calc(100vh - 200px);">
                 <div id="cqChatMessages" class="flex-grow-1 overflow-auto px-2 pt-3">

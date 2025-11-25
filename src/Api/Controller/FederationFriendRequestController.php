@@ -25,11 +25,14 @@ class FederationFriendRequestController extends AbstractController
     #[Route('/{username}/api/federation/friend-request', name: 'api_federation_friend_request', methods: ['POST'])]
     public function friendRequest(Request $request, string $username): Response
     {
+        // Prioritize Cloudflare-Connecting-IP if present, otherwise fallback to standard client IP
+        $ip = $request->headers->get('CF-Connecting-IP') ?? ($request->headers->get('X-Forwarded-For') ?? $request->getClientIp());
+        
         $this->logger->info('FederationFriendRequestController::friendRequest - Starting friend request processing', [
             'username' => $username,
             'method' => $request->getMethod(),
             'request_uri' => $request->getRequestUri(),
-            'client_ip' => $request->getClientIp(),
+            'client_ip' => $ip,
             'user_agent' => $request->headers->get('User-Agent'),
             'content_type' => $request->headers->get('Content-Type'),
             'content_length' => $request->headers->get('Content-Length')

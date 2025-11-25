@@ -166,12 +166,25 @@ class CqChatApiController extends AbstractController
             
             $chatData = $chat->jsonSerialize();
             
-            // Load contact data
+            // Load contact data for direct chats
             if ($chat->getCqContactId()) {
                 $contact = $this->cqContactService->findById($chat->getCqContactId());
                 if ($contact) {
                     $chatData['contact'] = $contact->jsonSerialize();
                 }
+            }
+            
+            // Load members for group chats
+            if ($chat->isGroupChat()) {
+                $members = $this->groupChatService->getGroupMembers($id);
+                $chatData['members'] = array_map(function($member) {
+                    $memberData = $member->jsonSerialize();
+                    $contact = $this->cqContactService->findById($member->getCqContactId());
+                    if ($contact) {
+                        $memberData['contact'] = $contact->jsonSerialize();
+                    }
+                    return $memberData;
+                }, $members);
             }
             
             return $this->json($chatData);
