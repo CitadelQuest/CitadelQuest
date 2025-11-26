@@ -253,6 +253,25 @@ class UpdatesService
             [$chatId, $since]
         )->fetchAllAssociative();
 
+        // Check if this is a group chat
+        $chat = $this->cqChatService->findById($chatId);
+        $isGroupChat = $chat && $chat->isGroupChat();
+        
+        // Enrich messages with contact information (for group chats)
+        if ($isGroupChat) {
+            $results = array_map(function($message) {
+                $contactId = $message['cq_contact_id'] ?? null;
+                if ($contactId) {
+                    $contact = $this->cqContactService->findById($contactId);
+                    if ($contact) {
+                        $message['contactUsername'] = $contact->getCqContactUsername();
+                        $message['contactDomain'] = $contact->getCqContactDomain();
+                    }
+                }
+                return $message;
+            }, $results);
+        }
+
         return $results;
     }
 

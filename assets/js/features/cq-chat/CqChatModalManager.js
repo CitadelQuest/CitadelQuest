@@ -410,8 +410,12 @@ export class CqChatModalManager {
             }
         }
         
-        // Format time
-        const createdAt = message.createdAt || message.created_at;
+        // Format time - ensure UTC interpretation for database timestamps
+        let createdAt = message.createdAt || message.created_at;
+        // If timestamp doesn't have timezone info (e.g., "2025-11-25 23:06:00"), treat as UTC
+        if (createdAt && !createdAt.includes('T') && !createdAt.includes('Z') && !createdAt.includes('+')) {
+            createdAt = createdAt.replace(' ', 'T') + 'Z';
+        }
         const messageTime = new Date(createdAt).toLocaleTimeString('sk-SK', { 
             hour: '2-digit', 
             minute: '2-digit', 
