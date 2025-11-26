@@ -26,6 +26,13 @@ export class CqChatModalManager {
         this.messageInput = document.getElementById('cqChatMessageInput');
         this.sendBtn = document.getElementById('cqChatSendBtn');
         
+        // Image upload elements
+        this.imageUploadBtn = document.getElementById('cqChatImageUploadBtn');
+        this.imageUploadInput = document.getElementById('cqChatImageUpload');
+        this.imagePreviewContainer = document.getElementById('cqChatImagePreview');
+        this.pendingImages = []; // Array of {filename, data} objects
+        this.maxFileSize = 5 * 1024 * 1024; // 5MB
+        
         // Dropdown elements
         this.dropdownList = document.getElementById('cqChatDropdownList');
         this.newChatBtn = document.getElementById('cqChatNewChatBtn');
@@ -70,6 +77,8 @@ export class CqChatModalManager {
         this.modal.addEventListener('hidden.bs.modal', () => {
             // Clear current chat ID so updates don't fetch detailed messages
             this.currentChatId = null;
+            // Clear pending images
+            this.clearImagePreview();
         });
 
         this.messageInput.addEventListener('keydown', (e) => {
@@ -77,6 +86,15 @@ export class CqChatModalManager {
                 e.preventDefault();
                 this.messageForm.dispatchEvent(new Event('submit'));
             }
+        });
+        
+        // Image upload event listeners
+        this.imageUploadBtn?.addEventListener('click', () => {
+            this.imageUploadInput?.click();
+        });
+        
+        this.imageUploadInput?.addEventListener('change', (e) => {
+            this.handleImageUpload(e.target.files);
         });
         
         // Register listener for updates (polling starts in entry point)
@@ -441,17 +459,49 @@ export class CqChatModalManager {
             ? `<div class="text-end"><small class="text-cyber">${userName}</small></div>` 
             : `<div><small class="text-cyber">${contactName}</small><small class="opacity-25 ms-1">${contactDomain}</small></div>`;
         
+        // Render attachments (images)
+        const attachmentsHtml = this.renderAttachments(message.attachments);
+        
+        // Render content (may be empty if only images)
+        const contentHtml = message.content ? `<div class="chat-content">${this.escapeHtml(message.content)}</div>` : '';
+        
         div.className = `chat-message ${messageClass}`;
         div.dataset.messageId = message.id;
         div.innerHTML = `
             <div class="chat-bubble">
                 ${nameDisplay}
-                <div class="chat-content">${this.escapeHtml(message.content)}</div>
+                ${attachmentsHtml}
+                ${contentHtml}
                 <div class="chat-timestamp">${messageTime}${statusIcon}</div>
             </div>
         `;
         
         return div;
+    }
+    
+    /**
+     * Render attachments (images) for a message
+     */
+    renderAttachments(attachments) {
+        if (!attachments) return '';
+        
+        try {
+            // Parse if string
+            const parsed = typeof attachments === 'string' ? JSON.parse(attachments) : attachments;
+            if (!Array.isArray(parsed) || parsed.length === 0) return '';
+            
+            const images = parsed.map(att => {
+                if (att.type === 'image' && att.data) {
+                    return `<img src="${att.data}" alt="${this.escapeHtml(att.filename || 'image')}" title="${this.escapeHtml(att.filename || 'image')}" onclick="window.open(this.src, '_blank')">`;
+                }
+                return '';
+            }).join('');
+            
+            return images ? `<div class="chat-attachments">${images}</div>` : '';
+        } catch (e) {
+            console.error('Error parsing attachments:', e);
+            return '';
+        }
     }
     
     /**
@@ -461,10 +511,16 @@ export class CqChatModalManager {
         e.preventDefault();
         
         const content = this.messageInput.value.trim();
-        if (!content || !this.currentChatId) return;
+        const hasImages = this.pendingImages.length > 0;
+        
+        // Need either content or images
+        if ((!content && !hasImages) || !this.currentChatId) return;
         
         try {
             this.sendBtn.disabled = true;
+            
+            // Prepare attachments if any
+            const attachments = hasImages ? JSON.stringify(this.pendingImages) : null;
             
             // Check if this is a group chat
             const isGroup = this.currentChat?.isGroupChat || false;
@@ -476,7 +532,7 @@ export class CqChatModalManager {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ content })
+                    body: JSON.stringify({ content, attachments })
                 });
                 
                 if (!response.ok) {
@@ -484,10 +540,11 @@ export class CqChatModalManager {
                 }
             } else {
                 // Send direct message
-                await this.apiService.sendMessage(this.currentChatId, content);
+                await this.apiService.sendMessage(this.currentChatId, content, attachments);
             }
             
             this.messageInput.value = '';
+            this.clearImagePreview();
             // Reset UpdatesService timestamp to force immediate update
             this.updatesService.resetTimestamp();
             
@@ -809,6 +866,143 @@ export class CqChatModalManager {
         } finally {
             this.newGroupConfirmBtn.disabled = false;
             this.newGroupConfirmBtn.innerHTML = '<i class="mdi mdi-check me-2"></i>Create Group';
+        }
+    }
+    
+    // ==================== Image Upload Methods ====================
+    
+    /**
+     * Handle image file upload
+     */
+    async handleImageUpload(files) {
+        if (!files || files.length === 0) return;
+        
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                window.toast?.warning(`"${file.name}" is not an image`);
+                continue;
+            }
+            
+            try {
+                const processedData = await this.processImage(file);
+                this.pendingImages.push({
+                    type: 'image',
+                    filename: file.name,
+                    mime: file.type,
+                    data: processedData
+                });
+                this.addImageToPreview(processedData, file.name);
+            } catch (error) {
+                console.error('Error processing image:', error);
+                window.toast?.error(`Failed to process "${file.name}"`);
+            }
+        }
+        
+        // Clear input for re-upload of same file
+        if (this.imageUploadInput) {
+            this.imageUploadInput.value = '';
+        }
+    }
+    
+    /**
+     * Process image - resize if over 5MB
+     */
+    processImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                
+                // If under 5MB, use as-is
+                if (file.size <= this.maxFileSize) {
+                    resolve(dataUrl);
+                    return;
+                }
+                
+                // Resize to 75% dimensions
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Calculate 75% dimensions
+                    const scale = 0.75;
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+                    
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert to JPEG with 85% quality
+                    const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    
+                    // Check if still too large, resize more if needed
+                    if (resizedDataUrl.length > this.maxFileSize * 1.37) { // base64 is ~37% larger
+                        canvas.width = Math.round(img.width * 0.5);
+                        canvas.height = Math.round(img.height * 0.5);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.80));
+                    } else {
+                        resolve(resizedDataUrl);
+                    }
+                };
+                img.onerror = reject;
+                img.src = dataUrl;
+            };
+            
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    /**
+     * Add image to preview container
+     */
+    addImageToPreview(dataUrl, filename) {
+        if (!this.imagePreviewContainer) return;
+        
+        const index = this.pendingImages.length - 1;
+        
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item';
+        previewItem.dataset.index = index;
+        
+        previewItem.innerHTML = `
+            <img src="${dataUrl}" alt="${this.escapeHtml(filename)}" title="${this.escapeHtml(filename)}">
+            <span class="remove-btn badge bg-danger rounded-circle">
+                <i class="mdi mdi-close"></i>
+            </span>
+        `;
+        
+        // Remove button handler
+        previewItem.querySelector('.remove-btn').addEventListener('click', () => {
+            const idx = parseInt(previewItem.dataset.index);
+            this.pendingImages.splice(idx, 1);
+            previewItem.remove();
+            
+            // Update indices of remaining items
+            this.imagePreviewContainer.querySelectorAll('.preview-item').forEach((item, i) => {
+                item.dataset.index = i;
+            });
+            
+            // Hide container if empty
+            if (this.pendingImages.length === 0) {
+                this.imagePreviewContainer.classList.add('d-none');
+            }
+        });
+        
+        this.imagePreviewContainer.appendChild(previewItem);
+        this.imagePreviewContainer.classList.remove('d-none');
+    }
+    
+    /**
+     * Clear all pending images
+     */
+    clearImagePreview() {
+        this.pendingImages = [];
+        if (this.imagePreviewContainer) {
+            this.imagePreviewContainer.innerHTML = '';
+            this.imagePreviewContainer.classList.add('d-none');
         }
     }
 }

@@ -553,9 +553,11 @@ class CqChatApiController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true);
             $content = $data['content'] ?? null;
+            $attachments = $data['attachments'] ?? null;
             
-            if (!$content) {
-                return $this->json(['error' => 'Message content is required'], Response::HTTP_BAD_REQUEST);
+            // Need either content or attachments
+            if (!$content && !$attachments) {
+                return $this->json(['error' => 'Message content or attachments required'], Response::HTTP_BAD_REQUEST);
             }
             
             $chat = $this->cqChatService->findById($id);
@@ -564,11 +566,12 @@ class CqChatApiController extends AbstractController
             }
             
             // Create the message
-            $message = $this->cqChatMsgService->sendGroupMessage($id, $content);
+            $message = $this->cqChatMsgService->sendGroupMessage($id, $content, $attachments);
             
             // If user is host, forward to all members
             if ($this->groupChatService->isUserHost($id)) {
                 $members = $this->groupChatService->getGroupMembers($id);
+                
                 $this->deliveryService->createDeliveryRecords(
                     $message->getId(),
                     array_map(fn($m) => $m->getCqContactId(), $members)
@@ -643,6 +646,7 @@ class CqChatApiController extends AbstractController
                         'original_sender' => $senderAddress,
                         'message_id' => $message->getId(),
                         'content' => $message->getContent(),
+                        'attachments' => $message->getAttachments(),
                         'timestamp' => $message->getCreatedAt()->format('c'),
                         'members' => $memberList
                     ]
@@ -677,6 +681,7 @@ class CqChatApiController extends AbstractController
                     'group_chat_id' => $groupChatId,
                     'message_id' => $message->getId(),
                     'content' => $message->getContent(),
+                    'attachments' => $message->getAttachments(),
                     'timestamp' => $message->getCreatedAt()->format('c')
                 ]
             ]);

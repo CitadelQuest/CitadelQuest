@@ -21,8 +21,19 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-secondary border-opacity-50">
-                <form id="cqChatForm" class="d-flex w-100 gap-2">
+            <div class="modal-footer border-secondary border-opacity-50 flex-column p-2">
+                {# Image preview area #}
+                <div id="cqChatImagePreview" class="w-100 d-none d-flex flex-wrap gap-2 mb-2 p-2 border border-secondary border-opacity-25 rounded"></div>
+                
+                <form id="cqChatForm" class="d-flex w-100 gap-2 align-items-end">
+                    {# Hidden file input #}
+                    <input type="file" id="cqChatImageUpload" accept="image/*" class="d-none" multiple>
+                    
+                    {# Upload button #}
+                    <button type="button" id="cqChatImageUploadBtn" class="btn btn-outline-secondary" title="{{ 'file_browser.upload'|trans }}">
+                        <i class="mdi mdi-image-plus"></i>
+                    </button>
+                    
                     <textarea id="cqChatMessageInput" class="form-control" rows="2" placeholder="{{ 'cq_chat.type_message'|trans }}" autocomplete="off"></textarea>
                     <button type="submit" id="cqChatSendBtn" class="btn btn-cyber">
                         <i class="mdi mdi-send"></i>
@@ -142,6 +153,48 @@
     opacity: 0.7;
     text-align: right;
     margin-top: 0.25rem;
+}
+
+/* Image preview in input area */
+#cqChatImagePreview .preview-item {
+    position: relative;
+    display: inline-block;
+}
+
+#cqChatImagePreview .preview-item img {
+    max-height: 80px;
+    max-width: 120px;
+    border-radius: 0.5rem;
+    object-fit: cover;
+}
+
+#cqChatImagePreview .preview-item .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.35rem;
+}
+
+/* Images in chat messages */
+.chat-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.chat-attachments img {
+    max-width: 250px;
+    max-height: 200px;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.chat-attachments img:hover {
+    transform: scale(1.02);
 }
 </style>
 {% endif %}

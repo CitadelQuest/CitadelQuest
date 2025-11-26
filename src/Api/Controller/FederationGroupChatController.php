@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Psr\Log\LoggerInterface;
 
 class FederationGroupChatController extends AbstractController
 {
@@ -27,7 +28,8 @@ class FederationGroupChatController extends AbstractController
         private readonly GroupMessageDeliveryService $deliveryService,
         private readonly EntityManagerInterface $entityManager,
         private readonly SettingsService $settingsService,
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger
     ) {
     }
 
@@ -79,8 +81,9 @@ class FederationGroupChatController extends AbstractController
             $groupChatId = $data['group_chat_id'] ?? null;
             $messageId = $data['message_id'] ?? null;
             $content = $data['content'] ?? null;
+            $attachments = $data['attachments'] ?? null;
             
-            if (!$groupChatId || !$messageId || !$content) {
+            if (!$groupChatId || !$messageId || (!$content && !$attachments)) {
                 return $this->json(['error' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
             }
             
@@ -104,7 +107,8 @@ class FederationGroupChatController extends AbstractController
                 $groupChatId,
                 $contact->getId(),
                 $content,
-                $messageId
+                $messageId,
+                $attachments
             );
             
             // Create delivery records for all members (except sender)
@@ -117,7 +121,7 @@ class FederationGroupChatController extends AbstractController
             $this->deliveryService->createDeliveryRecords($messageId, $recipientIds);
             
             // Forward message to all other members
-            $this->forwardMessageToMembers($groupChatId, $messageId, $content, $contact, $recipientIds);
+            $this->forwardMessageToMembers($groupChatId, $messageId, $content, $attachments, $contact, $recipientIds);
 
             // Update chat (updated_at)
             $this->cqChatService->updateChat($chat);
@@ -184,8 +188,10 @@ class FederationGroupChatController extends AbstractController
             $originalSender = $data['original_sender'] ?? null;
             $messageId = $data['message_id'] ?? null;
             $content = $data['content'] ?? null;
+            $attachments = $data['attachments'] ?? null;
             
-            if (!$groupChatId || !$originalSender || !$messageId || !$content) {
+            // Need groupChatId, originalSender, messageId, and either content or attachments
+            if (!$groupChatId || !$originalSender || !$messageId || (!$content && !$attachments)) {
                 return $this->json(['error' => 'Missing required fields'], Response::HTTP_BAD_REQUEST);
             }
             
@@ -242,7 +248,8 @@ class FederationGroupChatController extends AbstractController
                 $groupChatId,
                 $senderContactId,
                 $content,
-                $messageId
+                $messageId,
+                $attachments
             );
             
             // Send delivery status back to host
@@ -346,7 +353,8 @@ class FederationGroupChatController extends AbstractController
     private function forwardMessageToMembers(
         string $groupChatId,
         string $messageId,
-        string $content,
+        ?string $content,
+        ?string $attachments,
         $senderContact,
         array $recipientContactIds
     ): void {
@@ -372,6 +380,7 @@ class FederationGroupChatController extends AbstractController
                         'original_sender' => $senderAddress,
                         'message_id' => $messageId,
                         'content' => $content,
+                        'attachments' => $attachments,
                         'timestamp' => date('c')
                     ]
                 ]);

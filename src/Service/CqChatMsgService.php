@@ -394,17 +394,18 @@ class CqChatMsgService
      * Send a group message (stores locally and returns for federation forwarding)
      * 
      * @param string $chatId
-     * @param string $content
+     * @param string|null $content
+     * @param string|null $attachments
      * @return CqChatMsg
      */
-    public function sendGroupMessage(string $chatId, string $content): CqChatMsg
+    public function sendGroupMessage(string $chatId, ?string $content, ?string $attachments = null): CqChatMsg
     {
         // Create message with NULL cq_contact_id (sent by local user)
         return $this->createMessage(
             $chatId,
             null, // NULL = sent by local user
             $content,
-            null,
+            $attachments,
             'SENT'
         );
     }
@@ -413,22 +414,24 @@ class CqChatMsgService
      * Store a forwarded group message from host
      * 
      * @param string $chatId
-     * @param string $senderContactId
-     * @param string $content
+     * @param string|null $senderContactId
+     * @param string|null $content
      * @param string $messageId
+     * @param string|null $attachments
      * @return CqChatMsg
      */
     public function storeForwardedGroupMessage(
         string $chatId,
-        string $senderContactId,
-        string $content,
-        string $messageId
+        ?string $senderContactId,
+        ?string $content,
+        string $messageId,
+        ?string $attachments = null
     ): CqChatMsg {
         return $this->createMessage(
             $chatId,
             $senderContactId,
             $content,
-            null,
+            $attachments,
             'RECEIVED',
             $messageId
         );
