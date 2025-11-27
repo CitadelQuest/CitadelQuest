@@ -3,6 +3,7 @@ import * as bootstrap from 'bootstrap';
 //import { marked } from 'marked';
 import MarkdownIt from 'markdown-it';
 import * as animation from '../../shared/animation';
+import { ImageShowcase } from '../../shared/image-showcase';
 
 /**
  * Spirit Chat Manager
@@ -65,6 +66,9 @@ export class SpiritChatManager {
         this.chatInfoIcon = document.getElementById('chatInfoIcon');
         this.chatInfo = document.getElementById('chatInfo');
         this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        
+        // Image showcase for fullscreen viewing (uses existing modal)
+        this.imageShowcase = new ImageShowcase('contentShowcaseModal');
     }
     
     /**
@@ -1682,37 +1686,7 @@ export class SpiritChatManager {
 
     // add content showcase icon event listener
     showContentShowcase(element) {
-        element.querySelectorAll('.content-showcase-icon').forEach(el => {
-            let showcase = el.parentElement;
-            el.addEventListener('click', (e) => {
-                if (this.contentShowcaseModal) {    
-                    e.stopPropagation();
-                    e.preventDefault();
-
-                    // update modal content
-                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
-
-                    // remove icon
-                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
-
-                    // update modal embed height
-                    let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
-                    if (embedContainer) {
-                        embedContainer.querySelector('embed')?.setAttribute('height', '100%');
-                        embedContainer.classList.remove('d-none');
-                        embedContainer.classList.add('h-100');
-                        this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
-                    }
-
-                    // update `chat-image-preview` class
-                    this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
-                    
-                    // show modal
-                    const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
-                    newContentShowcaseModal.show();                    
-                }
-            });
-        });
+        this.imageShowcase.init(element);
     }
 
     /**

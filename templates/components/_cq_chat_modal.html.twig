@@ -185,7 +185,11 @@
     margin-bottom: 0.5rem;
 }
 
-.chat-attachments img {
+.chat-attachments .content-showcase {
+    position: relative;
+}
+
+.chat-attachments .chat-attachment-img {
     max-width: 250px;
     max-height: 200px;
     border-radius: 0.5rem;
@@ -193,8 +197,12 @@
     transition: transform 0.2s;
 }
 
-.chat-attachments img:hover {
+.chat-attachments .chat-attachment-img:hover {
     transform: scale(1.02);
+}
+
+.chat-attachments .content-showcase-icon {
+    opacity: 1;
 }
 </style>
 {% endif %}

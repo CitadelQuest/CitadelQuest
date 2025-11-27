@@ -1,5 +1,6 @@
 import { CqChatApiService } from './CqChatApiService.js';
 import { updatesService } from '../../services/UpdatesService.js';
+import { ImageShowcase } from '../../shared/image-showcase.js';
 import * as bootstrap from 'bootstrap';
 
 /**
@@ -32,6 +33,9 @@ export class CqChatModalManager {
         this.imagePreviewContainer = document.getElementById('cqChatImagePreview');
         this.pendingImages = []; // Array of {filename, data} objects
         this.maxFileSize = 5 * 1024 * 1024; // 5MB
+        
+        // Image showcase for fullscreen viewing
+        this.imageShowcase = new ImageShowcase('cqChatShowcaseModal');
         
         // Dropdown elements
         this.dropdownList = document.getElementById('cqChatDropdownList');
@@ -161,19 +165,29 @@ export class CqChatModalManager {
         chats.forEach(chat => {
             const item = document.createElement('a');
             item.href = '#';
-            item.className = 'list-group-item list-group-item-action bg-transparent text-light border-0 py-2';
+            item.className = 'list-group-item list-group-item-action bg-transparent text-light border-bottom border-secondary border-opacity-25 py-2';
             item.dataset.chatId = chat.id;
             
             const isGroup = chat.isGroupChat || false;
             const contactName = isGroup ? chat.title : (chat.contact?.cqContactUsername || chat.contact?.name || chat.contact?.citadelAddress || 'Unknown');
             const contactDomain = isGroup ? '' : `@${chat.contact?.cqContactDomain || ''}`;
-            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-light me-1"></i>' : '';
+            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-light me-2 opacity-75"></i>' : '';
             const lastMessage = chat.lastMessage?.content || '';
             const hasUnread = chat.unreadCount > 0;
+            
+            // Format last message timestamp
+            let lastMessageTime = '';
+            if (chat.lastMessage?.createdAt) {
+                const date = new Date(chat.lastMessage.createdAt);
+                const datePart = date.toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague' });
+                const timePart = date.toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
+                lastMessageTime = `${datePart} <span class="text-cyber opacity-75">/</span> ${timePart}`;
+            }
             
             item.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
+                        ${lastMessageTime ? `<small class="text-muted opacity-75">${lastMessageTime}</small>` : ''}
                         <div class="d-flex align-items-center">
                             ${groupIcon}
                             <strong class="${hasUnread ? 'text-cyber' : ''}">${contactName}</strong><span class="opacity-50 small">${contactDomain}</span>
@@ -318,6 +332,9 @@ export class CqChatModalManager {
             this.messagesContainer.appendChild(messageEl);
         });
         
+        // Initialize image showcase for fullscreen viewing
+        this.imageShowcase.init(this.messagesContainer);
+        
         // Scroll to bottom
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
@@ -377,6 +394,9 @@ export class CqChatModalManager {
             if (!existingMessage) {
                 const messageEl = this.createMessageElement(message);
                 this.messagesContainer.appendChild(messageEl);
+                
+                // Initialize image showcase for this new message
+                this.imageShowcase.init(messageEl);
                 
                 // Check if this is an incoming message (from contact)
                 const isIncoming = message.cqContactId || message.cq_contact_id;
@@ -492,7 +512,7 @@ export class CqChatModalManager {
             
             const images = parsed.map(att => {
                 if (att.type === 'image' && att.data) {
-                    return `<img src="${att.data}" alt="${this.escapeHtml(att.filename || 'image')}" title="${this.escapeHtml(att.filename || 'image')}" onclick="window.open(this.src, '_blank')">`;
+                    return ImageShowcase.wrapImage(att.data, att.filename || 'image', 'chat-attachment-img');
                 }
                 return '';
             }).join('');

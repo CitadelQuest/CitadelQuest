@@ -4,6 +4,7 @@ import { FileTreeView } from './FileTreeView';
 import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
+import { ImageShowcase } from '../../../shared/image-showcase';
 
 /**
  * File Browser component for CitadelQuest
@@ -41,6 +42,9 @@ export class FileBrowser {
         
         // Initialize FileTreeView
         this.fileTreeView = null;
+        
+        // Image showcase for fullscreen viewing
+        this.imageShowcase = new ImageShowcase('contentShowcaseModal');
         
         // Initialize the component
         this.init();
@@ -588,50 +592,21 @@ export class FileBrowser {
         
         this.filePreviewElement.innerHTML = previewHtml;
 
-        // set content showcase modal
-        this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
-        let contentShowcaseModalHeader = this.contentShowcaseModal.querySelector('.modal-header');
-        if (contentShowcaseModalHeader) {
-            contentShowcaseModalHeader.classList.remove('d-none');
-            // set title
-            let contentShowcaseModalTitle = this.contentShowcaseModal.querySelector('#contentShowcaseModalTitle');
-            contentShowcaseModalTitle.innerHTML = file.name;
-            // set icon
-            let contentShowcaseModalHeaderIcon = this.contentShowcaseModal.querySelector('#contentShowcaseModalHeaderIcon');
-            contentShowcaseModalHeaderIcon.className = this.getFileIcon(file.name) + ' me-2';
+        // Set up content showcase modal header with file info
+        const contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        if (contentShowcaseModal) {
+            const modalHeader = contentShowcaseModal.querySelector('.modal-header');
+            if (modalHeader) {
+                modalHeader.classList.remove('d-none');
+                const titleEl = contentShowcaseModal.querySelector('#contentShowcaseModalTitle');
+                if (titleEl) titleEl.innerHTML = file.name;
+                const iconEl = contentShowcaseModal.querySelector('#contentShowcaseModalHeaderIcon');
+                if (iconEl) iconEl.className = this.getFileIcon(file.name) + ' me-2';
+            }
         }
-        // add content showcase icon event listener
-        this.filePreviewElement.querySelectorAll('.content-showcase-icon').forEach(el => {
-            let showcase = el.parentElement;
-            el.addEventListener('click', (e) => {
-                if (this.contentShowcaseModal) {    
-                    e.stopPropagation();
-                    e.preventDefault();
-
-                    // update modal content
-                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').innerHTML = showcase.innerHTML;
-
-                    // remove icon
-                    this.contentShowcaseModal.querySelector('.contentShowcaseModal-content').querySelector('.content-showcase-icon').remove();
-
-                    // update modal embed height
-                    let embedContainer = this.contentShowcaseModal.querySelector('.embed-container');
-                    if (embedContainer) {
-                        embedContainer.querySelector('embed')?.setAttribute('height', '100%');
-                        embedContainer.classList.remove('d-none');
-                        embedContainer.classList.add('h-100');
-                        this.contentShowcaseModal.querySelector('.chat-file-preview-title')?.remove();
-                    }
-
-                    // update `chat-image-preview` class
-                    this.contentShowcaseModal.querySelector('.chat-image-preview')?.classList.remove('ms-2');
-                    
-                    // show modal
-                    const newContentShowcaseModal = new bootstrap.Modal(this.contentShowcaseModal);
-                    newContentShowcaseModal.show();                    
-                }
-            });
-        });
+        
+        // Initialize image showcase for fullscreen viewing
+        this.imageShowcase.init(this.filePreviewElement);
 
         // animate preview
         //animation.fade(this.filePreviewElement, 'in', 1000);
