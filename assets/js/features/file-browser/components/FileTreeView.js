@@ -26,6 +26,10 @@ export class FileTreeView {
         this.container = null;
         this.treeElement = null;
         
+        // Multi-select support
+        this.selectedNodes = new Set();
+        this.onContextMenu = options.onContextMenu || (() => {});
+        
         this.init();
     }
     
@@ -86,6 +90,12 @@ export class FileTreeView {
             .file-tree-node.selected {
                 background-color: rgba(var(--bs-primary-rgb), 0.2);
                 border-radius: 4px;
+            }
+            
+            .file-tree-node.multi-selected {
+                background-color: rgba(var(--bs-primary-rgb), 0.3);
+                border-radius: 4px;
+                outline: 1px solid rgba(var(--bs-primary-rgb), 0.5);
             }
             
             .file-tree-toggle {
@@ -289,9 +299,19 @@ export class FileTreeView {
             
             // Add click handler for directory name/icon - same behavior as toggle
             nodeElement.addEventListener('click', (e) => {
-                this.selectNode(nodeElement);
+                this.selectNode(nodeElement, e.ctrlKey || e.metaKey);
                 toggleDirectory(e);
                 this.onDirectorySelect(node);
+            });
+            
+            // Add context menu handler for directories
+            nodeElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!this.selectedNodes.has(nodeElement)) {
+                    this.selectNode(nodeElement, false);
+                }
+                this.onContextMenu(e, this.getSelectedItems());
             });
             
             return wrapperElement;
@@ -305,9 +325,20 @@ export class FileTreeView {
             }
             
             // Add click handler for file
-            nodeElement.addEventListener('click', () => {
-                this.selectNode(nodeElement);
+            nodeElement.addEventListener('click', (e) => {
+                this.selectNode(nodeElement, e.ctrlKey || e.metaKey);
                 this.onFileSelect(node);
+            });
+            
+            // Add context menu handler
+            nodeElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // If right-clicking on unselected node, select it first
+                if (!this.selectedNodes.has(nodeElement)) {
+                    this.selectNode(nodeElement, false);
+                }
+                this.onContextMenu(e, this.getSelectedItems());
             });
             
             return nodeElement;
@@ -315,16 +346,67 @@ export class FileTreeView {
     }
     
     /**
-     * Select a node and deselect others
+     * Select a node, with optional multi-select support
      * @param {HTMLElement} nodeElement - The node element to select
+     * @param {boolean} multiSelect - Whether to add to selection (Ctrl+click)
      */
-    selectNode(nodeElement) {
-        // Remove selection from all nodes
-        const selectedNodes = this.treeElement.querySelectorAll('.file-tree-node.selected');
-        selectedNodes.forEach(node => node.classList.remove('selected'));
-        
-        // Add selection to the clicked node
-        nodeElement.classList.add('selected');
+    selectNode(nodeElement, multiSelect = false) {
+        if (multiSelect) {
+            // Toggle selection for this node
+            if (this.selectedNodes.has(nodeElement)) {
+                this.selectedNodes.delete(nodeElement);
+                nodeElement.classList.remove('selected', 'multi-selected');
+            } else {
+                this.selectedNodes.add(nodeElement);
+                nodeElement.classList.add('multi-selected');
+            }
+            // Update visual state based on selection count
+            this.updateSelectionVisuals();
+        } else {
+            // Single select - clear all and select this one
+            this.clearSelection();
+            this.selectedNodes.add(nodeElement);
+            nodeElement.classList.add('selected');
+        }
+    }
+    
+    /**
+     * Clear all selections
+     */
+    clearSelection() {
+        this.selectedNodes.forEach(node => {
+            node.classList.remove('selected', 'multi-selected');
+        });
+        this.selectedNodes.clear();
+    }
+    
+    /**
+     * Update visual state based on selection count
+     */
+    updateSelectionVisuals() {
+        const count = this.selectedNodes.size;
+        this.selectedNodes.forEach(node => {
+            if (count > 1) {
+                node.classList.remove('selected');
+                node.classList.add('multi-selected');
+            } else {
+                node.classList.remove('multi-selected');
+                node.classList.add('selected');
+            }
+        });
+    }
+    
+    /**
+     * Get array of selected items with their data
+     * @returns {Array} Array of { path, name, type, id } objects
+     */
+    getSelectedItems() {
+        return Array.from(this.selectedNodes).map(node => ({
+            path: node.dataset.path,
+            name: node.dataset.name,
+            type: node.dataset.type,
+            id: node.dataset.id
+        }));
     }
     
     /**

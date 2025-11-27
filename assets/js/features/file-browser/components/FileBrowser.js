@@ -1,6 +1,8 @@
 import { FileBrowserApiService } from './FileBrowserApiService';
 import { FileUploader } from './FileUploader';
 import { FileTreeView } from './FileTreeView';
+import { FileContextMenu } from './FileContextMenu';
+import { FileOperationModal } from './FileOperationModal';
 import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
@@ -45,6 +47,20 @@ export class FileBrowser {
         
         // Image showcase for fullscreen viewing
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
+        
+        // Context menu for file operations
+        this.contextMenu = new FileContextMenu({
+            translations: this.translations,
+            onCopy: (items) => this.handleCopyItems(items),
+            onMove: (items) => this.handleMoveItems(items),
+            onRename: (item) => this.handleRenameItem(item),
+            onDelete: (items) => this.handleDeleteItems(items)
+        });
+        
+        // Operation modal for copy/move/rename
+        this.operationModal = new FileOperationModal({
+            translations: this.translations
+        });
         
         // Initialize the component
         this.init();
@@ -713,6 +729,158 @@ export class FileBrowser {
     }
     
     /**
+     * Handle copy items from context menu
+     * @param {Array} items - Items to copy
+     */
+    handleCopyItems(items) {
+        this.operationModal.showCopy(items, async ({ destination, newName }) => {
+            try {
+                for (const item of items) {
+                    // For files: item.path is parent directory
+                    // For directories: item.path includes the directory name, need to get parent
+                    const sourcePath = this.getSourcePath(item);
+                    const destName = (items.length === 1 && newName) ? newName : item.name;
+                    
+                    await this.apiService.copyFile(this.projectId, 
+                        { path: sourcePath, name: item.name },
+                        { path: destination, name: destName }
+                    );
+                }
+                
+                await this.refreshAfterOperation();
+                window.toast.success(items.length > 1 
+                    ? `${items.length} ${this.translations.items_copied || 'items copied'}`
+                    : (this.translations.file_copied || 'File copied successfully'));
+            } catch (error) {
+                console.error('Error copying files:', error);
+                window.toast.error(error.message);
+            }
+        });
+    }
+    
+    /**
+     * Handle move items from context menu
+     * @param {Array} items - Items to move
+     */
+    handleMoveItems(items) {
+        this.operationModal.showMove(items, async ({ destination, newName }) => {
+            try {
+                for (const item of items) {
+                    const sourcePath = this.getSourcePath(item);
+                    const destName = (items.length === 1 && newName) ? newName : item.name;
+                    
+                    await this.apiService.moveFile(this.projectId,
+                        { path: sourcePath, name: item.name },
+                        { path: destination, name: destName }
+                    );
+                }
+                
+                await this.refreshAfterOperation();
+                window.toast.success(items.length > 1
+                    ? `${items.length} ${this.translations.items_moved || 'items moved'}`
+                    : (this.translations.file_moved || 'File moved successfully'));
+            } catch (error) {
+                console.error('Error moving files:', error);
+                window.toast.error(error.message);
+            }
+        });
+    }
+    
+    /**
+     * Handle rename item from context menu
+     * @param {Object} item - Item to rename
+     */
+    handleRenameItem(item) {
+        this.operationModal.showRename(item, async ({ newName }) => {
+            try {
+                const sourcePath = this.getSourcePath(item);
+                
+                await this.apiService.renameFile(this.projectId, sourcePath, item.name, newName);
+                
+                await this.refreshAfterOperation();
+                window.toast.success(this.translations.file_renamed || 'File renamed successfully');
+            } catch (error) {
+                console.error('Error renaming file:', error);
+                window.toast.error(error.message);
+            }
+        });
+    }
+    
+    /**
+     * Handle delete items from context menu
+     * @param {Array} items - Items to delete
+     */
+    async handleDeleteItems(items) {
+        const confirmMsg = items.length > 1
+            ? `${this.translations.confirm_delete_multiple || 'Delete'} ${items.length} ${this.translations.items || 'items'}?`
+            : `${this.translations.confirm_delete || 'Delete'} "${items[0].name}"?`;
+        
+        if (!confirm(confirmMsg)) return;
+        
+        try {
+            for (const item of items) {
+                await this.apiService.deleteFile(item.id);
+            }
+            
+            await this.refreshAfterOperation();
+            window.toast.success(items.length > 1
+                ? `${items.length} ${this.translations.items_deleted || 'items deleted'}`
+                : (this.translations.file_deleted || 'File deleted successfully'));
+        } catch (error) {
+            console.error('Error deleting files:', error);
+            window.toast.error(error.message);
+        }
+    }
+    
+    /**
+     * Get source path for file operations
+     * For files: item.path is already the parent directory
+     * For directories: item.path includes the directory name, need to extract parent
+     * @param {Object} item - Item with path, name, type
+     * @returns {string} Parent path where the item resides
+     */
+    getSourcePath(item) {
+        if (item.type === 'directory') {
+            // For directories, path is like "/parent/dirname", need to get "/parent"
+            const fullPath = item.path;
+            if (!fullPath || fullPath === '/' || fullPath === `/${item.name}`) return '/';
+            const parts = fullPath.split('/').filter(p => p);
+            parts.pop(); // Remove the directory name
+            return '/' + parts.join('/') || '/';
+        } else {
+            // For files, path is already the parent directory
+            return item.path || '/';
+        }
+    }
+    
+    /**
+     * Get parent path from a full path
+     * @param {string} fullPath - Full path like "/folder/subfolder/file.txt"
+     * @returns {string} Parent path like "/folder/subfolder"
+     */
+    getParentPath(fullPath) {
+        if (!fullPath || fullPath === '/') return '/';
+        const parts = fullPath.split('/').filter(p => p);
+        parts.pop(); // Remove the last part (filename)
+        return '/' + parts.join('/') || '/';
+    }
+    
+    /**
+     * Refresh tree view and project size after file operation
+     */
+    async refreshAfterOperation() {
+        // Clear selection in tree view
+        if (this.fileTreeView) {
+            this.fileTreeView.clearSelection();
+            this.fileTreeView.setInitialExpandPath(this.currentPath);
+            await this.fileTreeView.refresh();
+        }
+        
+        // Refresh project size
+        await this.loadProjectSize();
+    }
+    
+    /**
      * Toggle the uploader visibility
      */
     toggleUploader() {
@@ -828,6 +996,14 @@ export class FileBrowser {
                     
                     // Save current path to localStorage
                     localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                },
+                onContextMenu: (e, items) => {
+                    // Update operation modal with tree data for folder autocomplete
+                    if (this.fileTreeView && this.fileTreeView.treeData) {
+                        this.operationModal.setTreeData(this.fileTreeView.treeData);
+                    }
+                    // Show context menu
+                    this.contextMenu.show(e.clientX, e.clientY, items);
                 }
             });
         } else {

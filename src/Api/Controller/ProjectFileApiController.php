@@ -384,4 +384,82 @@ class ProjectFileApiController extends AbstractController
             ], 400);
         }
     }
+
+    /**
+     * Manage files: copy, move/rename, delete
+     * 
+     * Request body:
+     * {
+     *   "operation": "copy" | "rename_move" | "delete",
+     *   "source": { "path": "/folder", "name": "file.txt" },
+     *   "destination": { "path": "/other", "name": "newname.txt" }  // not needed for delete
+     * }
+     */
+    #[Route('/{projectId}/manage', name: 'app_api_project_file_manage', methods: ['POST'])]
+    public function manageFile(string $projectId, Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            
+            if (!isset($data['operation'])) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Missing operation parameter'
+                ], 400);
+            }
+
+            $operation = $data['operation'];
+            $validOperations = ['copy', 'rename_move', 'delete'];
+            
+            if (!in_array($operation, $validOperations)) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid operation. Supported: ' . implode(', ', $validOperations)
+                ], 400);
+            }
+
+            // Build params for ProjectFileService::manageFile
+            $params = [];
+
+            // Source required for copy, rename_move, delete
+            if (in_array($operation, ['copy', 'rename_move', 'delete'])) {
+                if (!isset($data['source']['path']) || !isset($data['source']['name'])) {
+                    return $this->json([
+                        'success' => false,
+                        'error' => 'Source path and name are required'
+                    ], 400);
+                }
+                $params['source'] = $data['source'];
+            }
+
+            // Destination required for copy, rename_move
+            if (in_array($operation, ['copy', 'rename_move'])) {
+                if (!isset($data['destination']['path']) || !isset($data['destination']['name'])) {
+                    return $this->json([
+                        'success' => false,
+                        'error' => 'Destination path and name are required'
+                    ], 400);
+                }
+                $params['destination'] = $data['destination'];
+            }
+
+            $result = $this->projectFileService->manageFile($projectId, $operation, $params);
+
+            return $this->json([
+                'success' => true,
+                'operation' => $operation,
+                'result' => $result
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('manageFile: Error managing file', [
+                'projectId' => $projectId,
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
 }

@@ -205,4 +205,68 @@ export class FileBrowserApiService {
         
         return await response.json();
     }
+
+    /**
+     * Manage file operations: copy, move/rename, delete
+     * @param {string} projectId - The project ID
+     * @param {string} operation - Operation type: 'copy', 'rename_move', 'delete'
+     * @param {Object} source - Source file { path, name }
+     * @param {Object|null} destination - Destination { path, name } (not needed for delete)
+     * @returns {Promise<Object>} - JSON response with operation result
+     */
+    async manageFile(projectId, operation, source, destination = null) {
+        const body = { operation, source };
+        if (destination) {
+            body.destination = destination;
+        }
+
+        const response = await fetch(`${this.baseUrl}/${projectId}/manage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || this.translations.failed_operation || 'Operation failed');
+        }
+        
+        return await response.json();
+    }
+
+    /**
+     * Copy file or directory
+     * @param {string} projectId - The project ID
+     * @param {Object} source - Source { path, name }
+     * @param {Object} destination - Destination { path, name }
+     */
+    async copyFile(projectId, source, destination) {
+        return this.manageFile(projectId, 'copy', source, destination);
+    }
+
+    /**
+     * Move or rename file/directory
+     * @param {string} projectId - The project ID
+     * @param {Object} source - Source { path, name }
+     * @param {Object} destination - Destination { path, name }
+     */
+    async moveFile(projectId, source, destination) {
+        return this.manageFile(projectId, 'rename_move', source, destination);
+    }
+
+    /**
+     * Rename file/directory (convenience method - same path, different name)
+     * @param {string} projectId - The project ID
+     * @param {string} path - File path
+     * @param {string} oldName - Current name
+     * @param {string} newName - New name
+     */
+    async renameFile(projectId, path, oldName, newName) {
+        return this.manageFile(projectId, 'rename_move', 
+            { path, name: oldName }, 
+            { path, name: newName }
+        );
+    }
 }
