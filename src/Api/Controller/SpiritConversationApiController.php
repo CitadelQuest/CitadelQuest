@@ -80,8 +80,17 @@ class SpiritConversationApiController extends AbstractController
     {
         try {
             $gateway = $aiGatewayService->findByName('CQ AI Gateway');
-            if ($gateway) {
-                $responseProfile = $httpClient->request(
+            if (!$gateway) {
+                throw new \Exception('CQ AI Gateway not found');
+            }
+            
+            // Check if API key is configured
+            $apiKey = $gateway->getApiKey();
+            if (empty($apiKey)) {
+                throw new \Exception('CQ AI Gateway API key not configured');
+            }
+            
+            $responseProfile = $httpClient->request(
                     'GET',
                     $gateway->getApiEndpointUrl() . '/payment/balance', 
                     [
@@ -112,9 +121,6 @@ class SpiritConversationApiController extends AbstractController
                 } else {
                     throw new \Exception('Failed to fetch credit balance');
                 }
-            } else {
-                throw new \Exception('CQ AI Gateway not found');
-            }
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }

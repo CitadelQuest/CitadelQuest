@@ -304,29 +304,30 @@ class UserSettingsController extends AbstractController
         $apiKeyState = 'not_set';
         $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
         if ($gateway) {            
-            if ($gateway->getApiKey() !== '') {
+            $apiKey = $gateway->getApiKey();
+            if (!empty($apiKey)) {
                 $apiKeyState = 'not_validated';
-            }
-            // Validate key
-            //  request CQ AI Gateway via http client
-            $responseProfile = $this->httpClient->request(
-                'GET',
-                $gateway->getApiEndpointUrl() . '/payment/balance', 
-                [
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $gateway->getApiKey(),
-                        'Content-Type' => 'application/json',
-                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                
+                // Validate key by requesting balance from CQ AI Gateway
+                $responseProfile = $this->httpClient->request(
+                    'GET',
+                    $gateway->getApiEndpointUrl() . '/payment/balance', 
+                    [
+                        'headers' => [
+                            'Authorization' => 'Bearer ' . $apiKey,
+                            'Content-Type' => 'application/json',
+                            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                        ]
                     ]
-                ]
-            );
-            //  check response status
-            $responseStatus = $responseProfile->getStatusCode(false);
-            if ($responseStatus !== Response::HTTP_OK) {
-                $apiKeyState = 'not_valid';
-            } else {
-                $apiKeyState = 'set_and_valid';
-                $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
+                );
+                //  check response status
+                $responseStatus = $responseProfile->getStatusCode(false);
+                if ($responseStatus !== Response::HTTP_OK) {
+                    $apiKeyState = 'not_valid';
+                } else {
+                    $apiKeyState = 'set_and_valid';
+                    $CQ_AI_GatewayCredits = $responseProfile->toArray()['balance'];
+                }
             }
 
             $CQ_AI_GatewayUsername = $this->settingsService->getSettingValue('cqaigateway.username');
