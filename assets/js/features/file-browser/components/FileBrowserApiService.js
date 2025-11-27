@@ -144,7 +144,7 @@ export class FileBrowserApiService {
      * @returns {Promise<Object>} - JSON response with updated file
      */
     async updateFile(fileId, content) {
-        const response = await fetch(`${this.baseUrl}/${fileId}`, {
+        const response = await fetch(`${this.baseUrl}/${fileId}/content`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',

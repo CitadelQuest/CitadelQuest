@@ -232,6 +232,13 @@ export class FileBrowser {
                         await this.confirmAndDeleteFile(deleteFileId);
                     }
                     break;
+                    
+                case 'edit':
+                    const editFileId = actionButton.dataset.fileId;
+                    if (editFileId) {
+                        await this.showEditModal(editFileId);
+                    }
+                    break;
             }
         });
         
@@ -321,6 +328,124 @@ export class FileBrowser {
         };
         
         return (iconMap[extension] || 'mdi mdi-file') + ' text-cyber';
+    }
+    
+    /**
+     * Check if file is a text file that can be edited
+     * @param {string} extension - File extension
+     * @returns {boolean}
+     */
+    isTextFile(extension) {
+        const textExtensions = ['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql', 'sh', 'yml', 'yaml', 'ini', 'conf', 'env', 'htaccess', 'gitignore'];
+        return textExtensions.includes(extension.toLowerCase());
+    }
+    
+    /**
+     * Show edit modal for text file
+     * @param {string} fileId - File ID to edit
+     */
+    async showEditModal(fileId) {
+        try {
+            // Get file metadata and content
+            const metaResponse = await this.apiService.getFileMetadata(fileId);
+            const file = metaResponse.file;
+            const contentResponse = await this.apiService.getFileContent(fileId);
+            const content = contentResponse.content;
+            
+            // Create or get edit modal
+            let modal = document.getElementById('fileEditModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'fileEditModal';
+                modal.className = 'modal fade';
+                modal.tabIndex = -1;
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-fullscreen">
+                        <div class="modal-content bg-dark text-light">
+                            <div class="modal-header border-secondary">
+                                <h5 class="modal-title">
+                                    <i class="mdi mdi-pencil me-2"></i>
+                                    <span id="fileEditModalTitle"></span>
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body p-0">
+                                <textarea id="fileEditTextarea" class="form-control bg-dark text-light border-0 h-100 rounded-0" 
+                                    style="resize: none; font-family: monospace; font-size: 14px;"></textarea>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="mdi mdi-close me-1"></i>${this.translations.cancel || 'Cancel'}
+                                </button>
+                                <button type="button" class="btn btn-cyber" id="fileEditSaveBtn">
+                                    <i class="mdi mdi-content-save me-1"></i>${this.translations.save || 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Set modal content
+            modal.querySelector('#fileEditModalTitle').textContent = file.name;
+            modal.querySelector('#fileEditTextarea').value = content;
+            
+            // Store file info for save
+            modal.dataset.fileId = fileId;
+            modal.dataset.filePath = file.path;
+            modal.dataset.fileName = file.name;
+            
+            // Setup save button handler
+            const saveBtn = modal.querySelector('#fileEditSaveBtn');
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+            
+            newSaveBtn.addEventListener('click', async () => {
+                await this.saveEditedFile(modal);
+            });
+            
+            // Show modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+            
+            // Focus textarea
+            modal.addEventListener('shown.bs.modal', () => {
+                modal.querySelector('#fileEditTextarea').focus();
+            }, { once: true });
+            
+        } catch (error) {
+            console.error('Error opening edit modal:', error);
+            window.toast.error(error.message);
+        }
+    }
+    
+    /**
+     * Save edited file content
+     * @param {HTMLElement} modal - The edit modal element
+     */
+    async saveEditedFile(modal) {
+        const fileId = modal.dataset.fileId;
+        const content = modal.querySelector('#fileEditTextarea').value;
+        
+        try {
+            await this.apiService.updateFile(fileId, content);
+            
+            // Close modal
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+            
+            // Refresh file preview
+            await this.selectFile(fileId);
+            
+            // Refresh project size
+            await this.loadProjectSize();
+            
+            window.toast.success(this.translations.file_saved || 'File saved successfully');
+        } catch (error) {
+            console.error('Error saving file:', error);
+            window.toast.error(error.message);
+        }
     }
     
     /**
@@ -520,6 +645,11 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
                     </button>
+                    ${this.isTextFile(extension) ? `
+                    <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small">${this.translations.edit || 'Edit'}</span>
+                    </button>` : ''}
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
@@ -560,10 +690,10 @@ export class FileBrowser {
                     // Markdown to HTML
                     html = md.render(content);
                 }
-                previewHtml += `<pre class="code-preview vh-50" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${html}</pre>`;
+                previewHtml += `<pre class="code-preview h-100 m-0" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${html}</pre>`;
             } else {
                 // HTML
-                previewHtml += `<pre class="code-preview vh-50" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${this.escapeHtml(content)}</pre>`;
+                previewHtml += `<pre class="code-preview h-100 m-0" style="white-space: pre-wrap; word-wrap: break-word; text-wrap: wrap;">${this.escapeHtml(content)}</pre>`;
             }
             previewHtml += showcaseIcon;
         }
