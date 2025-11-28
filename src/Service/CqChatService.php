@@ -205,7 +205,7 @@ class CqChatService
         );
 
         // Vacuum the database
-        $userDb->executeStatement('VACUUM;');
+        //$userDb->executeStatement('VACUUM;');
 
         return $result > 0;
     }
