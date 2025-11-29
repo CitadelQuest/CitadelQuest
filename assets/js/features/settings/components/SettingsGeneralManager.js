@@ -7,12 +7,83 @@ export class SettingsGeneralManager {
         this.translations = container ? JSON.parse(container.dataset.translations) : {};
         this.emailForm = document.getElementById('email-form');
         this.passwordForm = document.getElementById('password-form');
+        this.databaseSizeElement = document.getElementById('database-size');
+        this.databaseOptimizeBtn = document.getElementById('database-optimize');
         this.initializeEventListeners();
+        this.loadDatabaseStats();
     }
 
     initializeEventListeners() {
         this.emailForm.addEventListener('submit', this.handleEmailUpdate.bind(this));
         this.passwordForm.addEventListener('submit', this.handlePasswordUpdate.bind(this));
+        
+        if (this.databaseOptimizeBtn) {
+            this.databaseOptimizeBtn.addEventListener('click', this.handleDatabaseOptimize.bind(this));
+        }
+    }
+    
+    async loadDatabaseStats() {
+        if (!this.databaseSizeElement) return;
+        
+        try {
+            // Use global databaseVacuum utility if available
+            if (window.databaseVacuum) {
+                const stats = await window.databaseVacuum.getStats();
+                if (stats) {
+                    this.databaseSizeElement.textContent = stats.file_size;
+                    return;
+                }
+            }
+            this.databaseSizeElement.textContent = 'N/A';
+        } catch (error) {
+            console.error('Failed to load database stats:', error);
+            this.databaseSizeElement.textContent = 'N/A';
+        }
+    }
+    
+    async handleDatabaseOptimize() {
+        if (!this.databaseOptimizeBtn) return;
+        
+        const spinner = this.databaseOptimizeBtn.querySelector('.spinner-border');
+        const icon = this.databaseOptimizeBtn.querySelector('.mdi');
+        
+        try {
+            // Show loading state
+            this.databaseOptimizeBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            icon.classList.add('d-none');
+            
+            // Use global databaseVacuum utility (force=true to bypass interval check)
+            if (!window.databaseVacuum) {
+                throw new Error('Database vacuum utility not available');
+            }
+            
+            const result = await window.databaseVacuum.vacuum(true);
+            
+            if (result && result.success) {
+                // Update displayed size
+                if (result.stats && result.stats.size_after) {
+                    this.databaseSizeElement.textContent = result.stats.size_after;
+                }
+                
+                // Show success with space saved info
+                let message = this.translations.database_optimized;
+                if (result.stats && result.stats.space_saved_bytes > 0) {
+                    message += ` (${result.stats.space_saved} saved)`;
+                }
+                this.showToast('success', message);
+            } else {
+                this.showToast('error', this.translations.database_error);
+            }
+        } catch (error) {
+            console.error('Database optimize error:', error);
+            this.showToast('error', this.translations.database_error);
+        } finally {
+            // Reset loading state
+            this.databaseOptimizeBtn.disabled = false;
+            spinner.classList.add('d-none');
+            icon.classList.remove('d-none');
+        }
     }
 
     async handleEmailUpdate(event) {

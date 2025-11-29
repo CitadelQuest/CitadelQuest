@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}AI Services Settings{% endblock %}
+{% block title %}{{ 'settings.ai.page_title'|trans|default('AI Services Settings') }}{% endblock %}
 
 {% block body %}
 <div class="container mt-4">
@@ -12,7 +12,7 @@
                 </div>
                 <div class="list-group list-group-flush">
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
-                        <i class="mdi mdi-robot me-2"></i> AI Services
+                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>
                 </div>
             </div>
@@ -21,7 +21,7 @@
         <div class="col-md-9">
             <div class="glass-panel">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
-                    <h4 class="mb-0"><i class="mdi mdi-robot me-3"></i>AI Services</h4>
+                    <h4 class="mb-0"><i class="mdi mdi-robot me-3"></i>{{ 'settings.nav.ai_services'|trans|default('AI Services') }}</h4>
                 </div>
                 <div class="p-4">
                     {% for message in app.flashes('success') %}
@@ -31,21 +31,21 @@
                         </div>
                     {% endfor %}
                     
-                    <p class="mb-0">Configure your AI service settings to power your Spirit and other AI features.</p>
+                    <p class="mb-0">{{ 'settings.ai.description'|trans|default('Configure your AI service settings to power your Spirit and other AI features.') }}</p>
 
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">                        
                         <div>
                             <div class="d-flex justify-content-between align-items-center border-top border-secondary border-1 pt-3 mb-2">
-                                <h5 class="mb-0"><i class="mdi mdi-robot me-3"></i>AI Models</h5>
+                                <h5 class="mb-0"><i class="mdi mdi-robot me-3"></i>{{ 'settings.ai.models.title'|trans|default('AI Models') }}</h5>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="sync_models_btn" onclick="syncAiModels()">
-                                    <i class="mdi mdi-refresh me-1"></i> Update Models List
+                                    <i class="mdi mdi-refresh me-1"></i> {{ 'settings.ai.models.update'|trans|default('Update Models List') }}
                                 </button>
                             </div>
-                            <p class="">Select which AI models to use for different purposes.</p>
+                            <p class="">{{ 'settings.ai.models.description'|trans|default('Select which AI models to use for different purposes.') }}</p>
                             
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>Primary AI Model</label>
+                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}</label>
                                     <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
@@ -53,11 +53,11 @@
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
+                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>Image gen/edit AI Model</label>
+                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiImageModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
@@ -65,7 +65,7 @@
                                             </option>
                                         {% endfor %}
                                     </select>
-                                    <div class="form-text text-muted ms-2">model name [context window] (input price / output price) in Credits per million tokens</div>
+                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
                                 </div>
                             </div>
                         </div>
@@ -80,9 +80,9 @@
                     <form method="post" action="{{ path('app_user_settings_ai') }}" class="pt-3">
                         
                         <div class="mb-2">
-                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-server-network me-3"></i>AI Gateway</h5>
+                            <h5 class="border-top border-secondary border-1 pt-3"><i class="mdi mdi-server-network me-3"></i>{{ 'settings.ai.gateway.title'|trans|default('AI Gateway') }}</h5>
                             <p class="">
-                                You can <a href="https://cqaigateway.com/login?username={{ CQ_AI_GatewayUsername }}" target="_blank" class="text-cyber">Login to your CQ AI Gateway Account</a><i class="mdi mdi-open-in-new ms-1"></i> with same username and password as here in CitadelQuest. There you can see requests and transactions history, add credits, and manage your account.
+                                {{ 'settings.ai.gateway.description_pre'|trans|default('You can') }} <a href="https://cqaigateway.com/login?username={{ CQ_AI_GatewayUsername }}" target="_blank" class="text-cyber">{{ 'settings.ai.gateway.login_link'|trans|default('Login to your CQ AI Gateway Account') }}</a><i class="mdi mdi-open-in-new ms-1"></i> {{ 'settings.ai.gateway.description_post'|trans|default('with same username and password as here in CitadelQuest. There you can see requests and transactions history, add credits, and manage your account.') }}
                             </p>
                             
                             <div class="row">
@@ -91,7 +91,7 @@
                                         
                                         {# d-flex, but with items as rows #}
                                         <div class="d-flex flex-column align-items-start gap-2 w-50">
-                                            <span class="d-flex _w-50">Your API key is:</span>
+                                            <span class="d-flex _w-50">{{ 'settings.ai.gateway.api_key_label'|trans|default('Your API key is:') }}</span>
                                             <div class="d-flex">
                                                 <span class="badge bg-secondary opacity-50 rounded-end-0 cursor-pointer" onclick="
                                                     document.getElementById('cq_ai_gateway_api_key_container').classList.toggle('col-md-6');
@@ -103,17 +103,17 @@
                                                         document.getElementById('cq_ai_gateway_api_key_update_container').classList.add('d-none'); 
                                                     }
                                                     ">
-                                                    <i class="mdi mdi-key" title="Update CQ AI Gateway API key"></i>
+                                                    <i class="mdi mdi-key" title="{{ 'settings.ai.gateway.update_api_key'|trans|default('Update CQ AI Gateway API key') }}"></i>
                                                 </span>
 
                                                 {% if api_key_state == 'not_set' %}
-                                                    <span class="badge bg-danger rounded-start-0" title="Your API key is not set">Not Set <i class="mdi mdi-close ms-1"></i></span>
+                                                    <span class="badge bg-danger rounded-start-0" title="{{ 'settings.ai.gateway.api_key_not_set'|trans|default('Your API key is not set') }}">{{ 'settings.ai.gateway.not_set'|trans|default('Not Set') }} <i class="mdi mdi-close ms-1"></i></span>
                                                 {% elseif api_key_state == 'not_validated' %}
-                                                    <span class="badge bg-warning rounded-start-0" title="Your API key is not validated">Not Validated <i class="mdi mdi-help-circle ms-1"></i></span>
+                                                    <span class="badge bg-warning rounded-start-0" title="{{ 'settings.ai.gateway.api_key_not_validated'|trans|default('Your API key is not validated') }}">{{ 'settings.ai.gateway.not_validated'|trans|default('Not Validated') }} <i class="mdi mdi-help-circle ms-1"></i></span>
                                                 {% elseif api_key_state == 'not_valid' %}
-                                                    <span class="badge bg-warning rounded-start-0" title="Your API key is not valid">Not Valid <i class="mdi mdi-cancel ms-1"></i></span>
+                                                    <span class="badge bg-warning rounded-start-0" title="{{ 'settings.ai.gateway.api_key_not_valid'|trans|default('Your API key is not valid') }}">{{ 'settings.ai.gateway.not_valid'|trans|default('Not Valid') }} <i class="mdi mdi-cancel ms-1"></i></span>
                                                 {% elseif api_key_state == 'set_and_valid' %}
-                                                    <span class="badge bg-success rounded-start-0" title="Your API key is set and valid">Set and Valid <i class="mdi mdi-check ms-1"></i></span>
+                                                    <span class="badge bg-success rounded-start-0" title="{{ 'settings.ai.gateway.api_key_valid'|trans|default('Your API key is set and valid') }}">{{ 'settings.ai.gateway.valid'|trans|default('Set and Valid') }} <i class="mdi mdi-check ms-1"></i></span>
                                                 {% endif %}
                                             </div>
 
@@ -125,22 +125,22 @@
                                                 title="{{ CQ_AI_GatewayCredits }} Credits"></i>
                                             <div class="mt-1 me-3">
                                                 <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
-                                                <span class="small mt-1 me-2">Credits</span>
+                                                <span class="small mt-1 me-2">{{ 'settings.ai.gateway.credits'|trans|default('Credits') }}</span>
                                             </div>
                                             <a href="https://cqaigateway.com/dashboard/add-credits" target="_blank" 
-                                                class="btn btn-cyber btn-sm me-2" title="Add Credits">
-                                                <i class="mdi mdi-plus me-2"></i>Add Credits
+                                                class="btn btn-cyber btn-sm me-2" title="{{ 'settings.ai.gateway.add_credits'|trans|default('Add Credits') }}">
+                                                <i class="mdi mdi-plus me-2"></i>{{ 'settings.ai.gateway.add_credits'|trans|default('Add Credits') }}
                                             </a>
                                             <div class="clearfix"></div>
                                         </div>
                                     {% endif %}
                                 </div>
                                 <div class="col-12 col-md-6 pt-3 {% if api_key_state == 'set_and_valid' %}d-none{% endif %}" id="cq_ai_gateway_api_key_update_container">
-                                    <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value="" placeholder="Leave blank to keep your current API key"
+                                    <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value="" placeholder="{{ 'settings.ai.gateway.api_key_placeholder'|trans|default('Leave blank to keep your current API key') }}"
                                         oninput="let akuBtn = document.getElementById('update_api_key'); if (this.value !== '') { akuBtn.disabled = false;} else { akuBtn.disabled = true; }">
 
                                     <button type="submit" class="btn btn-sm btn-cyber mb-3 mt-3 float-end" id="update_api_key" disabled>
-                                        <i class="mdi mdi-key me-2"></i> Update API Key
+                                        <i class="mdi mdi-key me-2"></i> {{ 'settings.ai.gateway.update_api_key'|trans|default('Update API Key') }}
                                     </button>    
                                 </div>
                             </div>
@@ -166,7 +166,7 @@
         
         // Disable button and show loading state
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Updating...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> {{ 'settings.ai.models.updating'|trans|default('Updating...') }}';
         
         fetch('{{ path('app_user_settings_ai_sync_models') }}', {
             method: 'POST',
@@ -179,7 +179,7 @@
         .then(data => {
             if (data.success) {
                 // Show success checkmark briefly before reloading
-                btn.innerHTML = '<i class="mdi mdi-check me-1"></i> Updated!';
+                btn.innerHTML = '<i class="mdi mdi-check me-1"></i> {{ 'settings.ai.models.updated'|trans|default('Updated!') }}';
                 btn.classList.remove('btn-outline-secondary');
                 btn.classList.add('btn-success');
                 
@@ -188,7 +188,7 @@
                 }, 500);
             } else {
                 // Show error
-                alert('Error updating models: ' + data.message);
+                alert('{{ 'settings.ai.models.error'|trans|default('Error updating models:') }} ' + data.message);
                 btn.disabled = false;
                 btn.innerHTML = originalText;
                 btn.className = originalClass;
@@ -196,7 +196,7 @@
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while updating models.');
+            alert('{{ 'settings.ai.models.error_generic'|trans|default('An error occurred while updating models.') }}');
             btn.disabled = false;
             btn.innerHTML = originalText;
             btn.className = originalClass;

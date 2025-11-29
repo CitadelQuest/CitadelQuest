@@ -40,7 +40,7 @@ class AIToolImageService
             } else {
                 // Get default AI model for image editing (CQ AI Gateway)
                 $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/gemini-2.5-flash-image-preview', $gateway->getId());
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/gemini-2.5-flash-image', $gateway->getId());
             }
             if (!$aiServiceModel) {
                 return [

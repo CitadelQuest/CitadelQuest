@@ -41,7 +41,8 @@ class DatabaseApiController extends AbstractController
             $db->executeStatement('VACUUM;');
             $duration = round((microtime(true) - $startTime) * 1000, 2); // ms
             
-            // Get database size after vacuum
+            // Get database size after vacuum (clear stat cache first)
+            clearstatcache(true, $dbPath);
             $sizeAfter = file_exists($dbPath) ? filesize($dbPath) : 0;
             $spaceSaved = $sizeBefore - $sizeAfter;
             

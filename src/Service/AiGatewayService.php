@@ -257,6 +257,13 @@ class AiGatewayService
         }
     }
 
+    public function setPrimaryAiServiceModel(string $id): ?AiServiceModel
+    {
+        $settingsService = $this->serviceLocator->get(SettingsService::class);
+        $settingsService->setSetting('ai.primary_ai_service_model_id', $id);
+        return $this->getPrimaryAiServiceModel();
+    }
+
     public function getSecondaryAiServiceModel(): ?AiServiceModel
     {
         $settingsService = $this->serviceLocator->get(SettingsService::class);
@@ -268,6 +275,13 @@ class AiGatewayService
         } else {
             return null;
         }
+    }
+
+    public function setSecondaryAiServiceModel(string $id): ?AiServiceModel
+    {
+        $settingsService = $this->serviceLocator->get(SettingsService::class);
+        $settingsService->setSetting('ai.secondary_ai_service_model_id', $id);
+        return $this->getSecondaryAiServiceModel();
     }
     
     /**

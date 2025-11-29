@@ -212,6 +212,14 @@ dashboard:
     admin_description: 'Správa Citadely'
 
 settings:
+    page_title: 'Nastavení'
+    nav:
+        ai_services: 'AI Služby'
+        ai_gateways: 'AI Brány'
+        ai_models: 'AI Modely'
+    general:
+        title: 'Obecná nastavení'
+        login_info: 'Přihlašovací údaje'
     theme:
         title: 'Téma'
         background: 'Téma pozadí'
@@ -224,6 +232,45 @@ settings:
         database: 'Databáze'
         data: 'Uživatelská data'
         backups: 'Zálohy'
+    database:
+        title: 'Databáze'
+        size: 'Velikost databáze'
+        optimize: 'Optimalizovat databázi'
+        optimize_title: 'Optimalizovat databázi pro uvolnění nevyužitého místa'
+        optimized: 'Databáze byla úspěšně optimalizována'
+        error: 'Nepodařilo se optimalizovat databázi'
+    ai:
+        page_title: 'Nastavení AI služeb'
+        description: 'Nakonfigurujte nastavení AI služeb pro vašeho Ducha a další AI funkce.'
+        models:
+            title: 'AI Modely'
+            description: 'Vyberte, které AI modely použít pro různé účely.'
+            primary: 'Primární AI Model'
+            secondary: 'AI Model pro generování/úpravu obrázků'
+            price_hint: 'název modelu [kontextové okno] (cena vstupu / cena výstupu) v Kreditech za milion tokenů'
+            update: 'Aktualizovat seznam modelů'
+            updating: 'Aktualizuji...'
+            updated: 'Aktualizováno!'
+            error: 'Chyba při aktualizaci modelů:'
+            error_generic: 'Při aktualizaci modelů nastala chyba.'
+        gateway:
+            title: 'AI Brána'
+            description_pre: 'Můžete se'
+            login_link: 'Přihlásit do vašeho CQ AI Gateway účtu'
+            description_post: 'stejným jménem a heslem jako zde v CitadelQuest. Tam můžete vidět historii požadavků a transakcí, přidat kredity a spravovat váš účet.'
+            api_key_label: 'Váš API klíč je:'
+            update_api_key: 'Aktualizovat API klíč'
+            api_key_placeholder: 'Nechte prázdné pro zachování aktuálního API klíče'
+            api_key_not_set: 'Váš API klíč není nastaven'
+            api_key_not_validated: 'Váš API klíč není ověřen'
+            api_key_not_valid: 'Váš API klíč není platný'
+            api_key_valid: 'Váš API klíč je nastaven a platný'
+            not_set: 'Nenastaven'
+            not_validated: 'Neověřen'
+            not_valid: 'Neplatný'
+            valid: 'Nastaven a platný'
+            credits: 'Kredity'
+            add_credits: 'Přidat kredity'
 
 backup:
     title: 'Správa záloh'

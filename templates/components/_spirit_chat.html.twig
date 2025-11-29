@@ -96,9 +96,15 @@
                                     <input class="form-range-input" type="range" id="responseTemperatureSlider" min="0" max="1" value="0.7" step="0.1">
                                 </div>
 
-                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatInfo">
-                                    <i class="mdi mdi-brain text-cyber_"></i>
-                                    <span id="chatInfoPrimaryAiModel" class="small" title="AI Model">-</span>
+                                <div class="form-range d-flex flex-column_ justify-content-between gap-1 collapse" id="chatInfo">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="mdi mdi-brain text-cyber"></i>
+                                        <span id="chatInfoPrimaryAiModel" class="small" title="{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}">-</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="mdi mdi-head-snowflake-outline text-cyber"></i>
+                                        <span id="chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -125,7 +131,7 @@
 </div>
 
 <div class="modal fade" id="newConversationModal" tabindex="-1" aria-labelledby="newConversationModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="newConversationModalLabel"><i class="mdi mdi-message-badge me-2"></i> {{ 'spirit.chat.new_conversation'|trans }}</h5>
@@ -137,6 +143,27 @@
                         <label for="conversationTitle" class="form-label">{{ 'spirit.chat.conversation_title'|trans }}</label>
                         <input type="text" class="form-control" id="conversationTitle" required focus>
                     </div>
+                    
+                    {# AI Model Selection #}
+                    <div class="row mb-3" id="aiModelSelectionContainer">
+                        <div class="col-md-6 mb-2 mb-md-0">
+                            <label for="newConvPrimaryModel" class="form-label small">
+                                <i class="mdi mdi-brain me-1 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}
+                            </label>
+                            <select class="form-select form-select-sm" id="newConvPrimaryModel" name="primary_model">
+                                <option value="">{{ 'ui.loading'|trans|default('Loading...') }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="newConvSecondaryModel" class="form-label small">
+                                <i class="mdi mdi-head-snowflake-outline me-1 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}
+                            </label>
+                            <select class="form-select form-select-sm" id="newConvSecondaryModel" name="secondary_model">
+                                <option value="">{{ 'ui.loading'|trans|default('Loading...') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
                         <button type="submit" class="btn btn-cyber"><i class="mdi mdi-check me-2"></i>{{ 'ui.create'|trans }}</button>

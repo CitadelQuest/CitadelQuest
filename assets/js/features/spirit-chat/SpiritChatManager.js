@@ -63,9 +63,14 @@ export class SpiritChatManager {
         this.imageUpload = document.getElementById('imageUpload');
         this.imageUploadPreview = document.getElementById('imageUploadPreview');
         this.chatInfoPrimaryAiModel = document.getElementById('chatInfoPrimaryAiModel');
+        this.chatInfoSecondaryAiModel = document.getElementById('chatInfoSecondaryAiModel');
         this.chatInfoIcon = document.getElementById('chatInfoIcon');
         this.chatInfo = document.getElementById('chatInfo');
         this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        
+        // New conversation AI model selectors
+        this.newConvPrimaryModel = document.getElementById('newConvPrimaryModel');
+        this.newConvSecondaryModel = document.getElementById('newConvSecondaryModel');
         
         // Image showcase for fullscreen viewing (uses existing modal)
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
@@ -202,7 +207,8 @@ export class SpiritChatManager {
                 const newConversationModal = new bootstrap.Modal(this.newConversationModal);
                 this.newConversationModal.addEventListener('shown.bs.modal', () => {
                     this.conversationTitle.focus();
-                });
+                    this.loadAiModelsForNewConversation();
+                }, { once: true });
                 newConversationModal.show();
             });
         }
@@ -399,9 +405,9 @@ export class SpiritChatManager {
                 this.spiritLevel.textContent = `${levelText}: ${spirit.level}`;
             }
 
-            // set response max output
+            // set response max output and load AI model info
             if (this.responseMaxOutputSlider) {
-                let maxOutput = '4096';//localStorage.getItem('config.chat.settings.responseMaxOutput.max') || '4096';
+                let maxOutput = '4096';
                 try {
                     let response = await fetch('/api/ai/gateway/primary-model', {
                         method: 'GET'
@@ -409,12 +415,7 @@ export class SpiritChatManager {
                     let data = await response.json();
                     if (data.maxOutput) {
                         maxOutput = data.maxOutput;
-                    
-                        //localStorage.setItem('config.chat.settings.responseMaxOutput.max', maxOutput);
-
-                        this.chatInfoPrimaryAiModel.innerHTML = 
-                            '<span class="me-1 fw-bold">' + data.modelName + '</span> '+
-                            '[<span class="d-none d-md-inline">context window: </span><span class="fw-bold">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span> tokens]';
+                        this.updatePrimaryModelInfo(data);
                     }
                 } catch (error) {
                     console.error('Error fetching primary model:', error);
@@ -426,6 +427,9 @@ export class SpiritChatManager {
 
                 this.responseMaxOutputValue.textContent = this.responseMaxOutputSlider.value;
             }
+            
+            // Load secondary AI model info
+            await this.loadSecondaryModelInfo();
 
             // set response temperature
             if (this.responseTemperatureSlider) {
@@ -1402,6 +1406,62 @@ export class SpiritChatManager {
     }
     
     /**
+     * Load AI models for new conversation modal
+     */
+    async loadAiModelsForNewConversation() {
+        if (!this.newConvPrimaryModel || !this.newConvSecondaryModel) return;
+        
+        try {
+            // Fetch all active models
+            const response = await fetch('/api/ai/model?active=true');
+            const data = await response.json();
+            
+            if (!data.models || data.models.length === 0) {
+                this.newConvPrimaryModel.innerHTML = '<option value="">No models available</option>';
+                this.newConvSecondaryModel.innerHTML = '<option value="">No models available</option>';
+                return;
+            }
+            
+            // Get current primary model to know which is selected
+            const primaryResponse = await fetch('/api/ai/gateway/primary-model');
+            const primaryData = await primaryResponse.json();
+            const currentPrimaryId = primaryData.id || null;
+            
+            // Get current secondary model from settings
+            const settingsResponse = await fetch('/api/settings/ai.secondary_ai_service_model_id');
+            let currentSecondaryId = null;
+            try {
+                const settingsData = await settingsResponse.json();
+                currentSecondaryId = settingsData.value || null;
+            } catch (e) { /* ignore */ }
+            
+            // Populate primary model dropdown (all models)
+            this.newConvPrimaryModel.innerHTML = data.models.map(model => {
+                const selected = model.id === currentPrimaryId ? 'selected' : '';
+                const contextWindow = Number(model.contextWindow).toLocaleString('en-US');
+                return `<option value="${model.id}" ${selected}>${model.modelName} [${contextWindow}]</option>`;
+            }).join('');
+            
+            // Populate secondary model dropdown (filter for image models if possible, or use all)
+            const imageModels = data.models.filter(m => 
+                m.modelName.toLowerCase().includes('image')
+            );
+            const modelsForSecondary = imageModels.length > 0 ? imageModels : data.models;
+            
+            this.newConvSecondaryModel.innerHTML = modelsForSecondary.map(model => {
+                const selected = model.id === currentSecondaryId ? 'selected' : '';
+                const contextWindow = Number(model.contextWindow).toLocaleString('en-US');
+                return `<option value="${model.id}" ${selected}>${model.modelName} [${contextWindow}]</option>`;
+            }).join('');
+            
+        } catch (error) {
+            console.error('Error loading AI models:', error);
+            this.newConvPrimaryModel.innerHTML = '<option value="">Error loading models</option>';
+            this.newConvSecondaryModel.innerHTML = '<option value="">Error loading models</option>';
+        }
+    }
+    
+    /**
      * Create a new conversation
      */
     async createNewConversation() {
@@ -1410,6 +1470,23 @@ export class SpiritChatManager {
         const title = this.conversationTitle.value.trim();
         
         try {
+            // Save selected AI models if changed
+            if (this.newConvPrimaryModel && this.newConvPrimaryModel.value) {
+                await fetch('/api/ai/gateway/primary-model', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: this.newConvPrimaryModel.value })
+                });
+            }
+            
+            if (this.newConvSecondaryModel && this.newConvSecondaryModel.value) {
+                await fetch('/api/settings/ai.secondary_ai_service_model_id', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: this.newConvSecondaryModel.value })
+                });
+            }
+            
             // Create conversation
             const conversation = await this.apiService.createConversation(this.currentSpiritId, title);
             
@@ -1431,6 +1508,20 @@ export class SpiritChatManager {
             // toggle tools and conversations panel
             this.toggleToolsAndConversationsPanel();
             
+            // Update AI model info display from dropdown selections (no extra API calls)
+            if (this.newConvPrimaryModel) {
+                const selectedOption = this.newConvPrimaryModel.options[this.newConvPrimaryModel.selectedIndex];
+                if (selectedOption && this.chatInfoPrimaryAiModel) {
+                    this.chatInfoPrimaryAiModel.innerHTML = '<span class="me-1 fw-bold">' + selectedOption.text + '</span>';
+                }
+            }
+            if (this.newConvSecondaryModel) {
+                const selectedOption = this.newConvSecondaryModel.options[this.newConvSecondaryModel.selectedIndex];
+                if (selectedOption && this.chatInfoSecondaryAiModel) {
+                    this.chatInfoSecondaryAiModel.innerHTML = '<span class="me-1 fw-bold">' + selectedOption.text + '</span>';
+                }
+            }
+            
             // Show success message
             window.toast.success(window.translations && window.translations['spirit.chat.conversation_created'] ? window.translations['spirit.chat.conversation_created'] : 'Conversation created');
             
@@ -1444,6 +1535,56 @@ export class SpiritChatManager {
     // ASYNC CONVERSATION HELPER METHODS
     // ========================================================================
 
+    /**
+     * Update primary AI model info display
+     */
+    updatePrimaryModelInfo(data) {
+        if (!this.chatInfoPrimaryAiModel) return;
+        this.chatInfoPrimaryAiModel.innerHTML = 
+            '<span class="me-1 fw-bold">' + data.modelName + '</span> ' +
+            '[<span class="d-md-inline_ d-none">context window: </span><span class="fw-bold_">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span>]';
+    }
+    
+    /**
+     * Load and display secondary AI model info
+     */
+    async loadSecondaryModelInfo() {
+        if (!this.chatInfoSecondaryAiModel) return;
+        
+        try {
+            const response = await fetch('/api/settings/ai.secondary_ai_service_model_id');
+            if (!response.ok) {
+                this.chatInfoSecondaryAiModel.innerHTML = '<span class="text-muted">-</span>';
+                return;
+            }
+            
+            const settingsData = await response.json();
+            const modelId = settingsData.value;
+            
+            if (!modelId) {
+                this.chatInfoSecondaryAiModel.innerHTML = '<span class="text-muted">-</span>';
+                return;
+            }
+            
+            // Fetch model details
+            const modelResponse = await fetch(`/api/ai/model/${modelId}`);
+            if (!modelResponse.ok) {
+                this.chatInfoSecondaryAiModel.innerHTML = '<span class="text-muted">-</span>';
+                return;
+            }
+            
+            const modelData = await modelResponse.json();
+            if (modelData.model) {
+                this.chatInfoSecondaryAiModel.innerHTML = 
+                    '<span class="me-1 fw-bold">' + modelData.model.modelName + '</span> ' +
+                    '[<span class="d-md-inline_ d-none">context window: </span><span class="fw-bold_">' + Number(modelData.model.contextWindow).toLocaleString('sk-SK') + '</span>]';
+            }
+        } catch (error) {
+            console.error('Error fetching secondary model:', error);
+            this.chatInfoSecondaryAiModel.innerHTML = '<span class="text-muted">-</span>';
+        }
+    }
+    
     /**
      * Get max output from slider
      */

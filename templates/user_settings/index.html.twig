@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}User Settings{% endblock %}
+{% block title %}{{ 'settings.page_title'|trans|default('User Settings') }}{% endblock %}
 
 {% block body %}
 <div data-translations="{{ {
@@ -8,7 +8,9 @@
         'email_error': 'profile.email.error'|trans,
         'password_updated': 'profile.password.updated.title'|trans,
         'password_error': 'profile.password.error'|trans,
-        'connection_error': 'profile.error.connection'|trans
+        'connection_error': 'profile.error.connection'|trans,
+        'database_optimized': 'settings.database.optimized'|trans({}, 'messages', app.request.locale)|default('Database optimized successfully'),
+        'database_error': 'settings.database.error'|trans({}, 'messages', app.request.locale)|default('Failed to optimize database')
     }|json_encode|e('html_attr') }}">
 
 <div class="container mt-4">
@@ -23,13 +25,13 @@
                         <i class="mdi mdi-account me-2"></i> {{ 'navigation.user_menu.profile'|trans }}
                     </a> #}
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
-                        <i class="mdi mdi-robot me-2"></i> AI Services
+                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>
                     <a href="{{ path('app_user_settings_ai_gateways') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4 d-none">
-                        <i class="mdi mdi-server-network me-2"></i> AI Gateways
+                        <i class="mdi mdi-server-network me-2"></i> {{ 'settings.nav.ai_gateways'|trans|default('AI Gateways') }}
                     </a>
                     <a href="{{ path('app_user_settings_ai_models') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0 ps-4 d-none">
-                        <i class="mdi mdi-brain me-2"></i> AI Models
+                        <i class="mdi mdi-brain me-2"></i> {{ 'settings.nav.ai_models'|trans|default('AI Models') }}
                     </a>
                     <!-- Add more settings categories here as needed -->
                 </div>
@@ -39,13 +41,13 @@
         <div class="col-md-9">
             <div class="glass-panel">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
-                    <h4 class="mb-0"><i class="mdi mdi-tune-variant me-3"></i>General Settings</h4>
+                    <h4 class="mb-0"><i class="mdi mdi-tune-variant me-3"></i>{{ 'settings.general.title'|trans|default('General Settings') }}</h4>
                 </div>
                 <div class="p-4">
                     <!-- User login information -->
                     <div class="row">
                         <div class="col-12 mb-3">
-                            <h6><i class="mdi mdi-account-lock me-3"></i>Login information</h6>
+                            <h6><i class="mdi mdi-account-lock me-3"></i>{{ 'settings.general.login_info'|trans|default('Login information') }}</h6>
                         </div>
                         <div class="col-12 col-md-6 mb-3">
                             <p class="mb-3">
@@ -84,6 +86,29 @@
                                 </div>
                                 <button id="theme-toggle" class="btn btn-cyber" title="{{ 'settings.theme.toggle'|trans({}, 'messages', app.request.locale)|default('Toggle theme') }}">
                                     <i class="mdi mdi-image me-2"></i>{{ 'settings.theme.change'|trans({}, 'messages', app.request.locale)|default('Change Theme') }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Database Settings -->
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <h6><i class="mdi mdi-database me-3"></i>{{ 'settings.database.title'|trans({}, 'messages', app.request.locale)|default('Database') }}</h6>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ 'settings.database.size'|trans({}, 'messages', app.request.locale)|default('Database Size') }}</strong>
+                                    <p class="text-muted small mb-0">
+                                        <span id="database-size">{{ 'ui.loading'|trans|default('Loading...') }}</span>
+                                    </p>
+                                </div>
+                                <button id="database-optimize" class="btn btn-sm btn-cyber" title="{{ 'settings.database.optimize_title'|trans({}, 'messages', app.request.locale)|default('Optimize database to reclaim unused space') }}">
+                                    <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
+                                    <i class="mdi mdi-database-sync me-2"></i>{{ 'settings.database.optimize'|trans({}, 'messages', app.request.locale)|default('Optimize Database') }}
                                 </button>
                             </div>
                         </div>

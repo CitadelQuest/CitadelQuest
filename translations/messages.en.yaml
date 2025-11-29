@@ -212,6 +212,14 @@ dashboard:
     admin_description: 'Citadel administration'
 
 settings:
+    page_title: 'User Settings'
+    nav:
+        ai_services: 'AI Services'
+        ai_gateways: 'AI Gateways'
+        ai_models: 'AI Models'
+    general:
+        title: 'General Settings'
+        login_info: 'Login information'
     theme:
         title: 'Theme'
         background: 'Background Theme'
@@ -224,6 +232,45 @@ settings:
         database: 'Database'
         data: 'User Data'
         backups: 'Backups'
+    database:
+        title: 'Database'
+        size: 'Database Size'
+        optimize: 'Optimize Database'
+        optimize_title: 'Optimize database to reclaim unused space'
+        optimized: 'Database optimized successfully'
+        error: 'Failed to optimize database'
+    ai:
+        page_title: 'AI Services Settings'
+        description: 'Configure your AI service settings to power your Spirit and other AI features.'
+        models:
+            title: 'AI Models'
+            description: 'Select which AI models to use for different purposes.'
+            primary: 'Primary AI Model'
+            secondary: 'Image gen/edit AI Model'
+            price_hint: 'model name [context window] (input price / output price) in Credits per million tokens'
+            update: 'Update Models List'
+            updating: 'Updating...'
+            updated: 'Updated!'
+            error: 'Error updating models:'
+            error_generic: 'An error occurred while updating models.'
+        gateway:
+            title: 'AI Gateway'
+            description_pre: 'You can'
+            login_link: 'Login to your CQ AI Gateway Account'
+            description_post: 'with same username and password as here in CitadelQuest. There you can see requests and transactions history, add credits, and manage your account.'
+            api_key_label: 'Your API key is:'
+            update_api_key: 'Update API Key'
+            api_key_placeholder: 'Leave blank to keep your current API key'
+            api_key_not_set: 'Your API key is not set'
+            api_key_not_validated: 'Your API key is not validated'
+            api_key_not_valid: 'Your API key is not valid'
+            api_key_valid: 'Your API key is set and valid'
+            not_set: 'Not Set'
+            not_validated: 'Not Validated'
+            not_valid: 'Not Valid'
+            valid: 'Set and Valid'
+            credits: 'Credits'
+            add_credits: 'Add Credits'
 
 backup:
     title: 'Backup Management'
