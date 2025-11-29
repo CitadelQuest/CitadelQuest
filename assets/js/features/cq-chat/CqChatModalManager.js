@@ -536,14 +536,27 @@ export class CqChatModalManager {
         // Need either content or images
         if ((!content && !hasImages) || !this.currentChatId) return;
         
+        // Get sending overlay element
+        const sendingOverlay = document.getElementById('cqChatSendingOverlay');
+        
         try {
             this.sendBtn.disabled = true;
+            // Show sending overlay
+            sendingOverlay?.classList.remove('d-none');
             
             // Prepare attachments if any
             const attachments = hasImages ? JSON.stringify(this.pendingImages) : null;
+            const pendingImagesCopy = [...this.pendingImages]; // Copy for optimistic UI
+            
+            // Clear input immediately for better UX
+            const messageContent = content;
+            this.messageInput.value = '';
+            this.clearImagePreview();
             
             // Check if this is a group chat
             const isGroup = this.currentChat?.isGroupChat || false;
+            
+            let sentMessage = null;
             
             if (isGroup) {
                 // Send group message
@@ -552,27 +565,40 @@ export class CqChatModalManager {
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ content, attachments })
+                    body: JSON.stringify({ content: messageContent, attachments })
                 });
                 
                 if (!response.ok) {
                     throw new Error('Failed to send message');
                 }
+                
+                const result = await response.json();
+                // Group chat API returns {success, message: <CqChatMsg>}
+                sentMessage = result.message;
             } else {
-                // Send direct message
-                await this.apiService.sendMessage(this.currentChatId, content, attachments);
+                // Send direct message - API returns {success, message, data, chat}
+                const result = await this.apiService.sendMessage(this.currentChatId, messageContent, attachments);
+                sentMessage = result.data; // Extract message from response
             }
             
-            this.messageInput.value = '';
-            this.clearImagePreview();
-            // Reset UpdatesService timestamp to force immediate update
+            // Immediately append the sent message to UI (optimistic update)
+            if (sentMessage) {
+                // Ensure message has proper format for rendering
+                if (!sentMessage.attachments && pendingImagesCopy.length > 0) {
+                    sentMessage.attachments = pendingImagesCopy;
+                }
+                this.appendMessages([sentMessage]);
+            }
+
+            // Reset UpdatesService timestamp to force immediate update for any server-side changes
             this.updatesService.resetTimestamp();
-            
         } catch (error) {
             console.error('Error sending message:', error);
             window.toast?.error('Failed to send message');
         } finally {
             this.sendBtn.disabled = false;
+            // Hide sending overlay
+            sendingOverlay?.classList.add('d-none');
             this.messageInput.focus();
         }
     }

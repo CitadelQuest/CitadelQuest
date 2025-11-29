@@ -21,7 +21,14 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-secondary border-opacity-50 flex-column p-2">
+            <div class="modal-footer border-secondary border-opacity-50 flex-column p-2 position-relative">
+                {# Sending overlay #}
+                <div id="cqChatSendingOverlay" class="d-none position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50" style="z-index: 10; border-radius: inherit;">
+                    <div class="spinner-border text-cyber" role="status">
+                        <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>
+                    </div>
+                </div>
+                
                 {# Image preview area #}
                 <div id="cqChatImagePreview" class="w-100 d-none d-flex flex-wrap gap-2 mb-2 p-2 border border-secondary border-opacity-25 rounded"></div>
                 
