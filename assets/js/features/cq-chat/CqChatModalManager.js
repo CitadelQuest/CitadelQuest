@@ -316,7 +316,7 @@ export class CqChatModalManager {
         
         if (messages.length === 0) {
             this.messagesContainer.innerHTML = `
-                <div class="text-center text-muted p-4">
+                <div class="text-center text-muted p-4" id="welcomeMessage">
                     <i class="mdi mdi-message-outline fs-1"></i>
                     <p>${window.translations?.['cq_chat.no_messages'] || 'No messages yet'}</p>
                 </div>
@@ -414,6 +414,12 @@ export class CqChatModalManager {
         // Only auto-scroll if user was near bottom
         if (isNearBottom) {
             this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }
+
+        // Clear welcome message if present (first message)
+        const welcomeMessage = this.messagesContainer.querySelector('#welcomeMessage');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
         }
     }
     

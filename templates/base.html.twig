@@ -23,6 +23,20 @@
                 {{ encore_entry_script_tags('database-vacuum') }}
             {% endif %}
         {% endblock %}
+        
+        {# Global translations for JavaScript #}
+        <script>
+            window.translations = {
+                'loading': '{{ 'ui.loading'|trans|e('js') }}',
+                'spirit.level': '{{ 'spirit.level'|trans|e('js') }}',
+                'spirit.chat.no_messages': '{{ 'spirit.chat.no_messages'|trans|e('js') }}',
+                'spirit.chat.no_conversations': '{{ 'spirit.chat.no_conversations'|trans|e('js') }}',
+                'spirit.chat.conversation_deleted': '{{ 'spirit.chat.conversation_deleted'|trans|e('js') }}',
+                'spirit.chat.conversation_created': '{{ 'spirit.chat.conversation_created'|trans|e('js') }}',
+                'cq_chat.no_chats': '{{ 'cq_chat.no_chats'|trans|e('js') }}',
+                'cq_chat.no_messages': '{{ 'cq_chat.no_messages'|trans|e('js') }}'
+            };
+        </script>
     </head>
     <body class="position-relative min-vh-100 citadel-background">
 
