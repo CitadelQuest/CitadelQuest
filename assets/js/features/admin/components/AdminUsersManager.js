@@ -93,7 +93,7 @@ export class AdminUsersManager {
      */
     async showUserInfo(userId) {
         try {
-            const response = await fetch(`/admin/user/${userId}/info`, {
+            const response = await fetch(`/administration/user/${userId}/info`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
@@ -168,7 +168,7 @@ export class AdminUsersManager {
         }
         
         try {
-            const response = await fetch(`/admin/user/${userId}/toggle-admin`, {
+            const response = await fetch(`/administration/user/${userId}/toggle-admin`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ export class AdminUsersManager {
         }
         
         try {
-            const response = await fetch(`/admin/user/${userId}/delete`, {
+            const response = await fetch(`/administration/user/${userId}/delete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -309,7 +309,7 @@ export class AdminUsersManager {
             confirmBtn.disabled = true;
             confirmBtn.innerHTML = '<i class="mdi mdi-loading mdi-spin me-2"></i>Resetting...';
 
-            const response = await fetch(`/admin/user/${this.currentResetUserId}/reset-password`, {
+            const response = await fetch(`/administration/user/${this.currentResetUserId}/reset-password`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

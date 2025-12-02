@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Psr\Log\LoggerInterface;
 
-#[Route('/admin/logs')]
+#[Route('/administration/logs')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminLogsController extends AbstractController
 {

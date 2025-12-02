@@ -121,9 +121,9 @@ class SpiritService
         $db = $this->getUserDb();
         
         // Check if user already has a spirit
-        if ($this->getUserSpirit() !== null) {
+        /* if ($this->getUserSpirit() !== null) {
             throw new \RuntimeException('User already has a spirit');
-        }
+        } */
         
         $spirit = new Spirit($name);
         

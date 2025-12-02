@@ -330,10 +330,14 @@ class AiGatewayService
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
 
         // Save annotations to file
-        $aiServiceResponseService->saveAnnotationsToFile($response, $projectId/*, ai_request_id > conversation_request.ai_service_request_id > conversation.project_id */);
+        $annotationsSaved = $aiServiceResponseService->saveAnnotationsToFile($response, $projectId/*, ai_request_id > conversation_request.ai_service_request_id > conversation.project_id */);
 
         // Save images from response
-        $aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
+        // only if annotations exists - will not save any other images, bug maybe
+        // TODO: TEST more
+        if ($annotationsSaved) {
+            $imagesSaved = $aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
+        }
         
         // Handle tool calls by gateway implementation (only if handleToolCalls is true)
         // In async mode (handleToolCalls = false), we return immediately and let the frontend handle tool execution

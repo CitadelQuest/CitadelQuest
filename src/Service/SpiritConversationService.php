@@ -354,7 +354,14 @@ class SpiritConversationService
 
                     $this->logger->info('saveFilesFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
                 } catch (\Exception $e) {
-                    $this->logger->error('saveFilesFromMessage(): Error creating file: ' . $e->getMessage());
+                    // catch existing file 
+                    if (strpos($e->getMessage(), 'File already exists') !== false) {
+                        $this->logger->info('saveFilesFromMessage(): File already exists: ' . $content['file']['filename']);
+                        $newFile = $this->projectFileService->findByPathAndName($projectId, $filePath, $content['file']['filename']);
+                        $newFiles[] = $newFile;
+                    } else {
+                        $this->logger->error('saveFilesFromMessage(): Error creating file: ' . $e->getMessage());
+                    }
                 }
             }
         }

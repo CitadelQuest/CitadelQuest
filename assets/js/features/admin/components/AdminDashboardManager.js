@@ -42,7 +42,7 @@ export class AdminDashboardManager {
      */
     async refreshStats() {
         try {
-            const response = await fetch('/admin/stats', {
+            const response = await fetch('/administration/stats', {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ export class AdminDashboardManager {
             this.iframe.classList.remove('d-none');
             this.iframe.setAttribute('height', '460px');
             
-            fetch('/admin/update/check/' + step, {
+            fetch('/administration/update/check/' + step, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

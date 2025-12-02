@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
 
-#[Route('/admin')]
+#[Route('/administration')]
 #[IsGranted('ROLE_ADMIN')]
 class AdminController extends AbstractController
 {

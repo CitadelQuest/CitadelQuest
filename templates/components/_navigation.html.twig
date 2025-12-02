@@ -69,7 +69,7 @@
                     {% if is_granted('ROLE_ADMIN') %}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_admin_dashboard') }}">
-                            <i class="mdi mdi-account-cowboy-hat me-3{% if app.request.pathInfo starts with '/admin' %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-account-cowboy-hat me-3{% if app.request.pathInfo starts with '/administration' %} text-cyber{% endif %}"></i>
                             {{ 'navigation.user_menu.admin'|trans }}
                         </a>
                     </li>

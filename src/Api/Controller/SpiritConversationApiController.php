@@ -53,7 +53,7 @@ class SpiritConversationApiController extends AbstractController
             }
             
             // Get the user's spirit
-            $spirit = $this->spiritService->getUserSpirit();
+            /* $spirit = $this->spiritService->getUserSpirit();
             if (!$spirit) {
                 return $this->json(['error' => 'Spirit not found'], 404);
             }
@@ -61,7 +61,7 @@ class SpiritConversationApiController extends AbstractController
             // Verify it's the requested spirit
             if ($spirit->getId() !== $data['spiritId']) {
                 return $this->json(['error' => 'Spirit not found'], 404);
-            }
+            } */
             
             // Create conversation
             $conversation = $this->conversationService->createConversation(
@@ -233,7 +233,8 @@ class SpiritConversationApiController extends AbstractController
         string $id, 
         Request $request, 
         TranslatorInterface $translator,
-        \App\Service\SpiritConversationMessageService $messageService
+        \App\Service\SpiritConversationMessageService $messageService,
+        \App\Service\ProjectFileService $projectFileService
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
@@ -269,6 +270,72 @@ class SpiritConversationApiController extends AbstractController
             if (count($newFilesInfo) > 0) {
                 $userMessageArray['content'] = array_merge($userMessageArray['content'], $newFilesInfo);
             }
+            // if PDF and annotations exist, include it instead of PDF base64 data
+            /*
+            current:
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "What are the main points in this document?"
+                    },
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": "document.pdf",
+                            "file_data": data_url
+                        }
+                    },
+                ]
+            -------
+            updated:
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "What are the main points in this document?"
+                    },
+                    {
+                        "type": "text",
+                        "text": "<file name=\"x402-whitepaper.pdf\">"
+                    },
+                    {
+                        "type": "text",
+                        "text": "# x402: An open standard for internet-native payments \n\nAn HTTP based protocol for agents, context retrieval, APIs, and more\n\n## DEVELOPER PLATFORM\n\n## By:\n\nErik Reppel Ronnie Caspers Kevin Leffew Danny Organ\n\nDan Kim Nemil Dalal\n\nCoinbase Developer Platform / x402\n\nMay 6, 2025"
+                    },
+                    ...
+                    {
+                        "type": "text",
+                        "text": "</file>"
+                    }
+                ]
+            ---------
+            .anno sample data:
+            {
+            "type": "file",
+            "file": {
+                "hash": "48436fad667624d330694e696369125adf9e39a6b50b00ceb72420f38a86b961",
+                "name": "x402-whitepaper.pdf",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "<file name=\"x402-whitepaper.pdf\">"
+                    },
+                    {
+                        "type": "text",
+                        "text": "# x402: An open standard for internet-native payments \n\nAn HTTP based protocol for agents, context retrieval, APIs, and more\n\n## DEVELOPER PLATFORM\n\n## By:\n\nErik Reppel Ronnie Caspers Kevin Leffew Danny Organ\n\nDan Kim Nemil Dalal\n\nCoinbase Developer Platform / x402\n\nMay 6, 2025"
+                    },
+                    ...
+                    {
+                        "type": "text",
+                        "text": "</file>"
+                    }
+                ]
+            }
+            // check if annotations exist in: /annotations/pdf/{slug-filename}/{filename}.anno
+            // get json from file
+            // get content from pdfAnnotations
+
+            */
+            
             // save images from message
             $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
                 new AiServiceResponse('', $userMessageArray, []),

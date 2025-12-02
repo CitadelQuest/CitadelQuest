@@ -262,40 +262,42 @@ class AiServiceResponseService
             $messages = array_merge($messages, $message['images']);
         }
 
-        foreach ($messages as $image) {
-            if (is_array($image) && 
-                isset($image['image_url']) && 
-                is_array($image['image_url']) && 
-                isset($image['image_url']['url'])) {
-                
-                $filePath = $path;
-                try {
-                    // index
-                    $index = isset($image['index']) && is_int($image['index']) && $image['index'] > 0 ? '-' . $image['index'] : '';
-                    // generate new filename, second part of mimetype is extension
-                    $mimeType = mime_content_type($image['image_url']['url']);
-                    $newFilename = '';
-                    if ($filename === '') {
-                        $newFilename = uniqid() . $index . '.' . explode('/', $mimeType)[1];
-                    } else {
-                        $filenameparts = pathinfo($filename);
-                        $newFilename = $filenameparts['filename'] . $index . '.' . $filenameparts['extension'];
+        if (isset($messages) && is_array($messages)) {
+            foreach ($messages as $image) {
+                if (is_array($image) && 
+                    isset($image['image_url']) && 
+                    is_array($image['image_url']) && 
+                    isset($image['image_url']['url'])) {
+                    
+                    $filePath = $path;
+                    try {
+                        // index
+                        $index = isset($image['index']) && is_int($image['index']) && $image['index'] > 0 ? '-' . $image['index'] : '';
+                        // generate new filename, second part of mimetype is extension
+                        $mimeType = mime_content_type($image['image_url']['url']);
+                        $newFilename = '';
+                        if ($filename === '') {
+                            $newFilename = uniqid() . $index . '.' . (explode('/', $mimeType)[1] ?? pathinfo($image['image_url']['url'], PATHINFO_EXTENSION));
+                        } else {
+                            $filenameparts = pathinfo($filename);
+                            $newFilename = $filenameparts['filename'] . $index . '.' . $filenameparts['extension'];
+                        }
+
+                        $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $image['image_url']['url']);
+                        $newFiles[] = [
+                            'id' => $newFile->getId(),
+                            'name' => $newFile->getName(),
+                            'path' => $newFile->getPath(),
+                            'projectId' => $projectId,
+                            'fullPath' => $newFile->getFullPath(),
+                            'size' => $newFile->getSize(),
+                            'base64data' => $image['image_url']['url']
+                        ];
+
+                        $this->logger->info('saveImageFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
+                    } catch (\Exception $e) {
+                        $this->logger->error('saveImageFromMessage(): Error creating file: ' . $e->getMessage());
                     }
-
-                    $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $image['image_url']['url']);
-                    $newFiles[] = [
-                        'id' => $newFile->getId(),
-                        'name' => $newFile->getName(),
-                        'path' => $newFile->getPath(),
-                        'projectId' => $projectId,
-                        'fullPath' => $newFile->getFullPath(),
-                        'size' => $newFile->getSize(),
-                        'base64data' => $image['image_url']['url']
-                    ];
-
-                    $this->logger->info('saveImageFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
-                } catch (\Exception $e) {
-                    $this->logger->error('saveImageFromMessage(): Error creating file: ' . $e->getMessage());
                 }
             }
         }

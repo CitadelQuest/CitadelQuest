@@ -13,6 +13,8 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
+use Psr\Log\LoggerInterface;
 
 #[Route('/api/cq-contact')]
 #[IsGranted('ROLE_USER')]
@@ -20,7 +22,8 @@ class CqContactApiController extends AbstractController
 {
     public function __construct(
         private readonly CqContactService $cqContactService,
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger
     ) {
     }
     
@@ -220,34 +223,58 @@ class CqContactApiController extends AbstractController
      */
     private function sendFriendRequestToContact(CqContact $contact, string $friendRequestStatus, string $currentDomain): array
     {
+        $user = $this->getUser();
+        $targetUrl = $contact->getCqContactUrl() . '/api/federation/friend-request';
+        
+        $this->logger->info('CqContactApiController::sendFriendRequestToContact - Starting federation request', [
+            'target_url' => $targetUrl,
+            'friend_request_status' => $friendRequestStatus,
+            'current_domain' => $currentDomain,
+            'contact_username' => $contact->getCqContactUsername()
+        ]);
+        
         try {
-            $user = $this->getUser();
+            $requestData = [
+                'cq_contact_url' => 'https://' . $currentDomain . '/' . $user->getUsername(),
+                'cq_contact_domain' => $currentDomain,
+                'cq_contact_username' => $user->getUsername(),
+                'cq_contact_id' => $user->getId(),
+                'friend_request_status' => $friendRequestStatus,
+            ];
+            
+            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Sending request', [
+                'request_data' => $requestData
+            ]);
 
             $response = $this->httpClient->request(
                 'POST',
-                $contact->getCqContactUrl() . '/api/federation/friend-request',
+                $targetUrl,
                 [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
                         'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
                         'Content-Type' => 'application/json',
                     ],
-                    'json' => [
-                        'cq_contact_url' => 'https://' . $currentDomain . '/' . $user->getUsername(),
-                        'cq_contact_domain' => $currentDomain,
-                        'cq_contact_username' => $user->getUsername(),
-                        'cq_contact_id' => $user->getId(),
-                        'friend_request_status' => $friendRequestStatus,
-                    ]
+                    'json' => $requestData,
+                    'timeout' => 30,
                 ]
             );
             
-            if ($response->getStatusCode(false) !== Response::HTTP_OK) {
-                $content = $response->getContent();
+            $statusCode = $response->getStatusCode(false);
+            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Response received', [
+                'status_code' => $statusCode
+            ]);
+            
+            if ($statusCode !== Response::HTTP_OK) {
+                $content = $response->getContent(false);
                 $data = json_decode($content, true);
+                $this->logger->warning('CqContactApiController::sendFriendRequestToContact - Request failed', [
+                    'status_code' => $statusCode,
+                    'response' => $data
+                ]);
                 return [
                     'success' => false,
-                    'message' => 'Failed to send friend request. ' . $data['message']
+                    'message' => 'Failed to send friend request. ' . ($data['message'] ?? 'Unknown error')
                 ];
             }
             
@@ -261,15 +288,42 @@ class CqContactApiController extends AbstractController
             $contact->setFriendRequestStatus($friendRequestStatus);
             $this->cqContactService->updateContact($contact);
             
+            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Request successful', [
+                'new_status' => $friendRequestStatus
+            ]);
+            
             return [
                 'success' => true,
                 'message' => 'Friend request sent successfully'
             ];
 
+        } catch (TransportExceptionInterface $e) {
+            $this->logger->error('CqContactApiController::sendFriendRequestToContact - Transport error (timeout/connection)', [
+                'exception' => $e->getMessage(),
+                'target_url' => $targetUrl
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Connection failed: ' . $e->getMessage() . '. The target server may be unreachable or slow to respond.'
+            ];
         } catch (ClientExceptionInterface $e) {
+            $this->logger->error('CqContactApiController::sendFriendRequestToContact - Client error', [
+                'exception' => $e->getMessage(),
+                'target_url' => $targetUrl
+            ]);
             return [
                 'success' => false,
                 'message' => 'Failed to send friend request. ' . $e->getMessage()
+            ];
+        } catch (\Exception $e) {
+            $this->logger->error('CqContactApiController::sendFriendRequestToContact - Unexpected error', [
+                'exception' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'target_url' => $targetUrl
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Unexpected error: ' . $e->getMessage()
             ];
         }
     }
