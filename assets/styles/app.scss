@@ -598,3 +598,10 @@ input[type="range"].form-range-input,
 #cqChatMessages {
     @include mix.cyber-scrollbar;
 }
+
+
+div[data-type="tool_calls_frontend_data"] pre
+{
+    max-height: 50vh;
+    @include mix.cyber-scrollbar;
+}

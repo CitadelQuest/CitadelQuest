@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
 /**
  * Service for AI Tool file operations
@@ -12,7 +13,8 @@ class AIToolFileService
 {
     public function __construct(
         private readonly ProjectFileService $projectFileService,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly SluggerInterface $slugger
     ) {
     }
     
@@ -43,6 +45,7 @@ class AIToolFileService
     
     /**
      * Get file content
+     * For PDF files, returns cached annotations if available (saves AI processing costs)
      */
     public function getFileContent(array $arguments): array
     {
@@ -74,13 +77,64 @@ class AIToolFileService
             }
             
             $withLineNumbers = $arguments['withLineNumbers'] ?? false;
+            $projectId = $arguments['projectId'];
+            $filename = $file->getName();
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
             
-            $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
+            // For PDF files, try to use cached annotations instead of raw binary
+            $usedAnnotations = false;
+            if ($extension === 'pdf') {
+                $annotationPath = '/annotations/pdf/' . $this->slugger->slug($filename);
+                $annotationFilename = $filename . '.anno';
+                
+                try {
+                    $annotationFile = $this->projectFileService->findByPathAndName(
+                        $projectId,
+                        $annotationPath,
+                        $annotationFilename
+                    );
+                    
+                    if ($annotationFile) {
+                        $annotationContent = json_decode(
+                            $this->projectFileService->getFileContent($annotationFile->getId()),
+                            true
+                        );
+                        
+                        // Verify annotation matches the file and extract text content
+                        if (isset($annotationContent['file']['name']) && 
+                            $annotationContent['file']['name'] === $filename &&
+                            isset($annotationContent['file']['content'])) {
+                            
+                            // Build readable text from annotation content array
+                            $textParts = [];
+                            $annoContent = $annotationContent['file']['content'];
+                            
+                            if (is_array($annoContent)) {
+                                foreach ($annoContent as $item) {
+                                    if (isset($item['text'])) {
+                                        $textParts[] = $item['text'];
+                                    }
+                                }
+                            }
+                            
+                            $content = implode("\n", $textParts);
+                            $usedAnnotations = true;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Annotation not found or error - fall back to raw content
+                }
+            }
+            
+            // If no annotations used, get raw content
+            if (!$usedAnnotations) {
+                $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
+            }
             
             // return HTML code for frontend display
             $contentFrontendData = "";
             // default: text
-            $contentFrontendData = '<pre>' . $content . '</pre>';
+            $contentFrontendData = '<pre>' . htmlspecialchars($content) . '</pre>';
             // image data, based on mime type
             if (strpos($file->getMimeType(), 'image/') === 0) {
                 $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
@@ -93,9 +147,13 @@ class AIToolFileService
             if (strpos($file->getMimeType(), 'audio/') === 0) {
                 $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="width: 100%;" class="rounded shadow"></audio>';                
             }
+            // PDF with annotations - show annotation info
+            if ($usedAnnotations) {
+                $contentFrontendData = '<div class="alert alert-success mb-2 p-1 px-2 d-inline-block opacity-75"><i class="mdi mdi-file-document-check"></i> Using cached PDF annotations</div><pre>' . htmlspecialchars($content) . '</pre>';
+            }
 
-            // binary data, not displayed
-            if  (strpos($content, 'data:') === 0) {
+            // binary data, not displayed (only if not using annotations)
+            if (!$usedAnnotations && strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
                 // image/video/audio data, displayed
                 if (strpos($file->getMimeType(), 'image/') === 0 || 
@@ -110,6 +168,7 @@ class AIToolFileService
                 'content' => $content,
                 'file' => $file->jsonSerialize(),
                 'with_line_numbers' => $withLineNumbers,
+                //'used_annotations' => $usedAnnotations,
                 '_frontendData' => $contentFrontendData
             ];
         } catch (\Exception $e) {

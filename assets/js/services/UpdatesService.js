@@ -80,10 +80,10 @@ export class UpdatesService {
         };
         
         // Execute immediately
-        //pollFunction();
+        pollFunction();
         
         // Then set up interval for subsequent polls
-        //this.pollingInterval = setInterval(pollFunction, interval);
+        this.pollingInterval = setInterval(pollFunction, interval);
     }
 
     /**

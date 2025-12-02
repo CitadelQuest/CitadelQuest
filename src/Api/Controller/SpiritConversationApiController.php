@@ -169,39 +169,6 @@ class SpiritConversationApiController extends AbstractController
         }
     }
     
-    #[Route('/{id}/send', name: 'api_spirit_conversation_send', methods: ['POST'])]
-    public function sendMessage(string $id, Request $request, TranslatorInterface $translator): JsonResponse
-    {
-        try {
-            $data = json_decode($request->getContent(), true);
-            if (!isset($data['message'])) {
-                return $this->json(['error' => 'Missing message parameter'], 400);
-            }
-            
-            // Extract max_output parameter with default value
-            $maxOutput = isset($data['max_output']) ? (int)$data['max_output'] : 500;
-            
-            $locale = $request->getSession()->get('_locale');
-            if (!$locale) {
-                $locale = $request->getSession()->get('citadel_locale');
-            }
-            if (!$locale) {
-                $locale = 'en';
-            }
-            // Send message with max_output parameter
-            $messages = $this->conversationService->sendMessage(
-                $id,
-                $data['message'],
-                $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')',
-                $maxOutput
-            );
-            
-            return $this->json(['messages' => $messages]);
-        } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()/*, 'line' => $e->getLine(), 'file' => $e->getFile()*/], 500);
-        }
-    }
-    
     #[Route('/{id}', name: 'api_spirit_conversation_delete', methods: ['DELETE'])]
     public function deleteConversation(string $id): JsonResponse
     {
@@ -221,12 +188,8 @@ class SpiritConversationApiController extends AbstractController
         }
     }
     
-    // ========================================================================
-    // ASYNC SPIRIT CONVERSATION ENDPOINTS
-    // ========================================================================
-    
     /**
-     * Send message asynchronously (returns immediately without executing tools)
+     * Send message (returns immediately without executing tools)
      */
     #[Route('/{id}/send-async', name: 'api_spirit_conversation_send_async', methods: ['POST'])]
     public function sendMessageAsync(
@@ -270,72 +233,10 @@ class SpiritConversationApiController extends AbstractController
             if (count($newFilesInfo) > 0) {
                 $userMessageArray['content'] = array_merge($userMessageArray['content'], $newFilesInfo);
             }
-            // if PDF and annotations exist, include it instead of PDF base64 data
-            /*
-            current:
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "What are the main points in this document?"
-                    },
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "document.pdf",
-                            "file_data": data_url
-                        }
-                    },
-                ]
-            -------
-            updated:
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "What are the main points in this document?"
-                    },
-                    {
-                        "type": "text",
-                        "text": "<file name=\"x402-whitepaper.pdf\">"
-                    },
-                    {
-                        "type": "text",
-                        "text": "# x402: An open standard for internet-native payments \n\nAn HTTP based protocol for agents, context retrieval, APIs, and more\n\n## DEVELOPER PLATFORM\n\n## By:\n\nErik Reppel Ronnie Caspers Kevin Leffew Danny Organ\n\nDan Kim Nemil Dalal\n\nCoinbase Developer Platform / x402\n\nMay 6, 2025"
-                    },
-                    ...
-                    {
-                        "type": "text",
-                        "text": "</file>"
-                    }
-                ]
-            ---------
-            .anno sample data:
-            {
-            "type": "file",
-            "file": {
-                "hash": "48436fad667624d330694e696369125adf9e39a6b50b00ceb72420f38a86b961",
-                "name": "x402-whitepaper.pdf",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "<file name=\"x402-whitepaper.pdf\">"
-                    },
-                    {
-                        "type": "text",
-                        "text": "# x402: An open standard for internet-native payments \n\nAn HTTP based protocol for agents, context retrieval, APIs, and more\n\n## DEVELOPER PLATFORM\n\n## By:\n\nErik Reppel Ronnie Caspers Kevin Leffew Danny Organ\n\nDan Kim Nemil Dalal\n\nCoinbase Developer Platform / x402\n\nMay 6, 2025"
-                    },
-                    ...
-                    {
-                        "type": "text",
-                        "text": "</file>"
-                    }
-                ]
-            }
-            // check if annotations exist in: /annotations/pdf/{slug-filename}/{filename}.anno
-            // get json from file
-            // get content from pdfAnnotations
-
-            */
             
+            // Replace PDF base64 data with annotations if available
+            $userMessageArray = $this->conversationService->updatePDFannotationsInMessage($userMessageArray);
+
             // save images from message
             $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
                 new AiServiceResponse('', $userMessageArray, []),
