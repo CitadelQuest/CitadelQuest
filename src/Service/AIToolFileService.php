@@ -149,7 +149,21 @@ class AIToolFileService
             }
             // PDF with annotations - show annotation info
             if ($usedAnnotations) {
-                $contentFrontendData = '<div class="alert alert-success mb-2 p-1 px-2 d-inline-block opacity-75"><i class="mdi mdi-file-document-check"></i> Using cached PDF annotations</div><pre>' . htmlspecialchars($content) . '</pre>';
+                //$contentFrontendData = '<div class="alert alert-success mb-2 p-1 px-2 d-inline-block opacity-75"><i class="mdi mdi-file-document-check"></i> Using cached PDF annotations</div><pre>' . htmlspecialchars($content) . '</pre>';
+                $contentFrontendData = '<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                                onclick="this.querySelector(\'.embed-container\').classList.toggle(\'d-none\');">
+                            <div class="d-flex align-items-center px-1">
+                                <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                <span class="text-cyber">' . htmlspecialchars($file->getName()) . '</span>
+                            </div>
+                            <div class="p-2 pt-0 d-none embed-container">
+                                <embed src="/api/project-file/' . $file->getId() . '/download" loading="lazy"
+                                    width="100%" height="420"
+                                    class="rounded"
+                                    type="application/pdf"
+                                    title="' . htmlspecialchars($file->getName()) . '" />
+                            </div>
+                        </div>';
             }
 
             // binary data, not displayed (only if not using annotations)

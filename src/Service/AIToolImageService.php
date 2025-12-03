@@ -196,7 +196,7 @@ class AIToolImageService
                                                     '<i class="mdi mdi-fullscreen"></i>' .
                                                 '</div>';
                     $contentFrontendData .=     '<div class="small float-end text-end">Image file: `' . $savedFile['fullPath'] . '`<br>projectId: `' . $savedFile['projectId'] . '`</div><div style="clear: both;"></div>';
-                    $contentFrontendData .=     '<a class="btn btn-cyber btn-sm mt-2 float-end me-2 mb-3" href="/api/project-file/' . $savedFile['id'] . '/download"><i class="mdi mdi-download me-2"></i> Download</a>';
+                    $contentFrontendData .=     '<a class="btn btn-cyber btn-sm mt-2 float-end me-2 mb-3" href="/api/project-file/' . $savedFile['id'] . '/download?download=1"><i class="mdi mdi-download me-2"></i> Download</a>';
                     $contentFrontendData .= '</div>';
                     $contentFrontendData .= '<div style="clear:both;"></div>';
 

@@ -134,7 +134,7 @@ class ProjectFileApiController extends AbstractController
      * Download file
      */
     #[Route('/{fileId}/download', name: 'app_api_project_file_download', methods: ['GET'])]
-    public function download(string $fileId, ParameterBagInterface $params): BinaryFileResponse
+    public function download(string $fileId, ParameterBagInterface $params, Request $request): BinaryFileResponse
     {
         try {
             $file = $this->projectFileService->findById($fileId);
@@ -154,10 +154,21 @@ class ProjectFileApiController extends AbstractController
             $filePath .= '/' . $file->getName();
             
             $response = new BinaryFileResponse($filePath);
-            $response->setContentDisposition(
-                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-                $file->getName()
-            );
+            
+            // Use inline disposition for embeddable content (PDF, images, audio, video)
+            // unless explicitly requested as attachment via ?download=1
+            $forceDownload = $request->query->getBoolean('download', false);
+            $mimeType = $file->getMimeType();
+            $isEmbeddable = str_starts_with($mimeType, 'image/') 
+                || str_starts_with($mimeType, 'audio/') 
+                || str_starts_with($mimeType, 'video/') 
+                || $mimeType === 'application/pdf';
+            
+            $disposition = ($forceDownload || !$isEmbeddable) 
+                ? ResponseHeaderBag::DISPOSITION_ATTACHMENT 
+                : ResponseHeaderBag::DISPOSITION_INLINE;
+            
+            $response->setContentDisposition($disposition, $file->getName());
             
             return $response;
         } catch (\Exception $e) {

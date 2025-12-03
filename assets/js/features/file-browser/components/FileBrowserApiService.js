@@ -63,7 +63,7 @@ export class FileBrowserApiService {
      * @param {string} fileId - The file ID
      */
     downloadFile(fileId) {
-        window.location.href = `${this.baseUrl}/${fileId}/download`;
+        window.location.href = `${this.baseUrl}/${fileId}/download?download=1`;
     }
 
     /**
