@@ -113,6 +113,31 @@ class RegistrationController extends AbstractController
                 $citadelQuestURL = $request->getScheme() . '://' . $request->getHost();
                 
                 try {
+                    // Pre-check if email is available on CQ AI Gateway
+                    $verifyResponse = $httpClient->request(
+                        'POST',
+                        'https://cqaigateway.com/api/user/verify-email',
+                        [
+                            'headers' => [
+                                'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                                'Content-Type' => 'application/json',
+                            ],
+                            'json' => [
+                                'email' => $user->getEmail()
+                            ]
+                        ]
+                    );
+                    
+                    $verifyData = json_decode($verifyResponse->getContent(), true);
+                    
+                    // If email already exists on CQ AI Gateway, skip registration but continue with local flow
+                    if (isset($verifyData['exists']) && $verifyData['exists'] === true) {
+                        $this->logger->info('CQAIGateway: Email already registered, skipping auto-create for user ' . $user->getEmail());
+                        $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_email_exists'));
+                        return $this->redirectToRoute('app_welcome_onboarding');
+                    }
+
+                    // Email is available, proceed with registration
                     $response = $httpClient->request(
                         'POST',
                         'https://cqaigateway.com/api/user/register',
@@ -131,9 +156,25 @@ class RegistrationController extends AbstractController
                     );
                     
                     $statusCode = $response->getStatusCode();
-                    $content = $response->getContent();
+                    $content = $response->getContent(false); // Don't throw on error status
                     
                     $data = json_decode($content, true);
+                    
+                    // Handle specific error codes gracefully
+                    if ($statusCode === Response::HTTP_CONFLICT) {
+                        $errorCode = $data['error_code'] ?? '';
+                        if ($errorCode === 'EMAIL_EXISTS') {
+                            $this->logger->info('CQAIGateway: Email already registered (race condition), skipping for user ' . $user->getEmail());
+                            $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_email_exists'));
+                        } elseif ($errorCode === 'USERNAME_EXISTS') {
+                            $this->logger->info('CQAIGateway: Username already registered, skipping for user ' . $user->getEmail());
+                            $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_username_exists'));
+                        } else {
+                            $this->logger->warning('CQAIGateway: Registration conflict for user ' . $user->getEmail() . ': ' . ($data['error'] ?? 'Unknown'));
+                            $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_account_exists'));
+                        }
+                        return $this->redirectToRoute('app_welcome_onboarding');
+                    }
                     
                     if ($statusCode !== Response::HTTP_CREATED && $statusCode !== Response::HTTP_OK) {
                         $this->logger->error('CQAIGateway registration for user ' . $user->getEmail() . ' failed with status code ' . $statusCode . ': ' . $content);
@@ -174,7 +215,8 @@ class RegistrationController extends AbstractController
                     
                 } catch (\Exception $e) {
                     $this->logger->error('CQAIGateway registration failed for user ' . $user->getEmail() . ': ' . $e->getMessage());
-                    $this->addFlash('error', $this->translator->trans('auth.register.error') . ' (' . $e->getMessage() . ')');
+                    // Don't show error to user, just continue with onboarding - they can link account later
+                    $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_connection_failed'));
                     return $this->redirectToRoute('app_welcome_onboarding');
                 }
             }

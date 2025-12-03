@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const apiKeyInput = document.getElementById('apiKey');
     const validateApiKeyBtn = document.getElementById('validateApiKey');
+    const skipOnboardingBtn = document.getElementById('skipOnboarding');
     const spiritNameInput = document.getElementById('spiritName');
     const createSpiritBtn = document.getElementById('createSpirit');
     const backToStep1Btn = document.getElementById('backToStep1');
@@ -136,6 +137,41 @@ document.addEventListener('DOMContentLoaded', function() {
     apiKeyInput.addEventListener('input', function() {
         validateApiKeyBtn.disabled = !this.value.trim();
     });
+
+    // Skip onboarding button handler
+    if (skipOnboardingBtn) {
+        skipOnboardingBtn.addEventListener('click', function() {
+            skipOnboardingBtn.disabled = true;
+            skipOnboardingBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            
+            fetch('/welcome/skip', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear onboarding state
+                    localStorage.removeItem('currentStep');
+                    // Redirect to home
+                    window.location.href = data.redirect || '/';
+                } else {
+                    showError(data.message || 'Failed to skip onboarding');
+                    skipOnboardingBtn.disabled = false;
+                    skipOnboardingBtn.textContent = 'Skip';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('An error occurred');
+                skipOnboardingBtn.disabled = false;
+                skipOnboardingBtn.textContent = 'Skip';
+            });
+        });
+    }
     
     // Enable/disable create spirit button based on spirit name input
     spiritNameInput.addEventListener('input', function() {

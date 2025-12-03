@@ -57,6 +57,10 @@ auth:
         have_account: 'Už máte účet?'
         login_link: 'Prihlásiť sa'
         success: 'Registrácia úspešná!'
+        cqaigateway_email_exists: 'Tento email je už registrovaný na CQ AI Gateway. Svoj existujúci účet môžete prepojiť v Nastaveniach.'
+        cqaigateway_username_exists: 'Toto používateľské meno je už registrované na CQ AI Gateway. Svoj existujúci účet môžete prepojiť v Nastaveniach.'
+        cqaigateway_account_exists: 'Účet s týmito údajmi už existuje na CQ AI Gateway. Svoj existujúci účet môžete prepojiť v Nastaveniach.'
+        cqaigateway_connection_failed: 'Nepodarilo sa pripojiť k CQ AI Gateway. Účet môžete prepojiť neskôr v Nastaveniach.'
         createAlsoCQAIGatewayAccount: 'Automaticky vytvoriť účet <a href="https://cqaigateway.com/" target="_blank" class="text-cyber" title="Najjednoduchší prístup k najlepším službám umelej inteligencie pre váš CitadelQuest">CQ AI Gateway</a>'
         createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>S bezplatnými kreditmi</li><li>Kreditná karta nie je potrebná</li><li>Osobné údaje nie sú potrebné</li></div><div class="col"><li>Žiadny zber údajov</li><li>Žiadne sledovanie</li><li>Žiadne reklamy</li></div></ul>'
         createAlsoCQAIGatewayAccountConfirm: 'Už máte účet a API kľúč CQ AI Gateway? :)' 
@@ -381,6 +385,7 @@ welcome:
             description: "Váš Duch bol vytvorený a je pripravený vám pomáhať."
             start_journey: "Začnite svoju cestu"
         completed: "Úvodné nastavenie bolo úspešne dokončené!"
+        skip: "Preskočiť"
 
 admin:
     dashboard:

@@ -114,6 +114,20 @@ class WelcomeController extends AbstractController
         }
     }
     
+    #[Route('/skip', name: 'app_welcome_skip', methods: ['POST'])]
+    public function skip(): JsonResponse
+    {
+        // Mark onboarding as skipped (completed without full setup)
+        $this->settingsService->setSetting('onboarding.completed', '1');
+        $this->settingsService->setSetting('onboarding.skipped', '1');
+        
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Onboarding skipped',
+            'redirect' => $this->generateUrl('app_home')
+        ], Response::HTTP_OK);
+    }
+
     #[Route('/create-spirit', name: 'app_welcome_create_spirit', methods: ['POST'])]
     public function createSpirit(Request $request): JsonResponse
     {

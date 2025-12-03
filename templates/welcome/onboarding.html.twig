@@ -52,16 +52,11 @@
                             <i class="mdi mdi-check"></i>
                             {{ 'welcome.onboarding.step1.validate'|trans|default('Validate & Continue') }}
                         </button>
-                        {# {% if apiKey is defined and apiKey is not empty %}
-                            <!-- Auto validate API key if it is not empty -->
-                            <script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    setTimeout(function() {
-                                        document.getElementById('validateApiKey').dispatchEvent(new Event('click'));
-                                    }, 1000);
-                                });
-                            </script>
-                        {% endif %} #}
+                    </div>
+                    <div class="w-100 mt-3">
+                        <button id="skipOnboarding" class="btn btn-outline-secondary w-100">
+                            {{ 'welcome.onboarding.skip'|trans|default('Skip') }}
+                        </button>
                     </div>
                 </div>
                 <div class="col-md-6 text-center py-5">

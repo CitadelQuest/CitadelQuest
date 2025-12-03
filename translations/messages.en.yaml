@@ -57,6 +57,10 @@ auth:
         have_account: 'Already have an account?'
         login_link: 'Log in'
         success: 'Account created successfully!'
+        cqaigateway_email_exists: 'This email is already registered on CQ AI Gateway. You can link your existing account in Settings.'
+        cqaigateway_username_exists: 'This username is already registered on CQ AI Gateway. You can link your existing account in Settings.'
+        cqaigateway_account_exists: 'An account with these details already exists on CQ AI Gateway. You can link your existing account in Settings.'
+        cqaigateway_connection_failed: 'Could not connect to CQ AI Gateway. You can link your account later in Settings.'
         createAlsoCQAIGatewayAccount: 'Auto-create also <a href="https://cqaigateway.com/" target="_blank" class="text-cyber" title="Simplest Access to Top AI Services for your CitadelQuest">CQ AI Gateway</a> account'
         createAlsoCQAIGatewayAccountHelp: '<ul class="row row-cols-2 mt-1 opacity-75"><div class="col"><li>With free credits</li><li>No credit card required</li><li>No personal data required</li></div><div class="col"><li>No data collection</li><li>No tracking</li><li>No ads</li></div></ul>'
         createAlsoCQAIGatewayAccountConfirm: 'Do you already have CQ AI Gateway account and API key? :)' 
@@ -388,6 +392,7 @@ welcome:
             description: "Your Spirit has been created and is ready to assist you."
             start_journey: "Start Your Journey"
         completed: "Onboarding completed successfully!"
+        skip: "Skip"
 
 admin:
     dashboard:
