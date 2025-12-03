@@ -973,7 +973,10 @@ export class SpiritChatManager {
         try {
             const optimizedDataUrl = await this.resizeImage(file, this.maxImageSize);
             this.addImageToPreview(optimizedDataUrl, file.name);
-            this.imgPreviewData.push(optimizedDataUrl);
+            this.imgPreviewData.push({
+                'filename': file.name,
+                'url': optimizedDataUrl
+            });
         } catch (error) {
             console.error('Error processing image:', error);
             window.toast?.error(`Failed to process image "${file.name}"`);
@@ -1107,8 +1110,11 @@ export class SpiritChatManager {
             const fileName = this.extractFileNameFromUrl(url);
             await this.addImageToPreview(url, fileName);
             
-            // Store URL directly - it will be used in image_url.url field just like base64 data
-            this.imgPreviewData.push(url);
+            // Store URL with filename - will be used in image_url structure
+            this.imgPreviewData.push({
+                'filename': fileName,
+                'url': url
+            });
             
             window.toast?.success(`Image URL added: ${fileName}`);
         } catch (error) {
@@ -1326,7 +1332,8 @@ export class SpiritChatManager {
                     return {
                         'type': 'image_url',
                         'image_url': {
-                            'url': imageData
+                            'url': imageData.url,
+                            'filename': imageData.filename
                         }
                     };
                 }),

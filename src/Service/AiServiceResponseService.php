@@ -276,11 +276,22 @@ class AiServiceResponseService
                         // generate new filename, second part of mimetype is extension
                         $mimeType = mime_content_type($image['image_url']['url']);
                         $newFilename = '';
-                        if ($filename === '') {
-                            $newFilename = uniqid() . $index . '.' . (explode('/', $mimeType)[1] ?? pathinfo($image['image_url']['url'], PATHINFO_EXTENSION));
-                        } else {
+                        
+                        // Priority: 1) filename from image_url (user upload), 2) method parameter, 3) generate unique
+                        if (isset($image['image_url']['filename']) && !empty($image['image_url']['filename'])) {
+                            // Use original filename from user upload
+                            $originalFilename = $image['image_url']['filename'];
+                            $filenameparts = pathinfo($originalFilename);
+                            // Ensure we have a valid extension, fallback to mime type
+                            $extension = !empty($filenameparts['extension']) 
+                                ? $filenameparts['extension'] 
+                                : (explode('/', $mimeType)[1] ?? 'jpg');
+                            $newFilename = $this->slugger->slug($filenameparts['filename']) . $index . '.' . $extension;
+                        } elseif ($filename !== '') {
                             $filenameparts = pathinfo($filename);
                             $newFilename = $filenameparts['filename'] . $index . '.' . $filenameparts['extension'];
+                        } else {
+                            $newFilename = uniqid() . $index . '.' . (explode('/', $mimeType)[1] ?? pathinfo($image['image_url']['url'], PATHINFO_EXTENSION));
                         }
 
                         $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $image['image_url']['url']);

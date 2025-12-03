@@ -855,14 +855,44 @@ class SpiritConversationService
                 $aiMessages[] = $content;
             } else {
                 // Regular user and assistant messages
+                // Sanitize content to remove filename from image_url (not needed by AI services)
+                $sanitizedContent = $this->sanitizeContentForAi($content);
                 $aiMessages[] = [
                     'role' => $role,
-                    'content' => $content
+                    'content' => $sanitizedContent
                 ];
             }
         }
         
         return $aiMessages;
+    }
+    
+    /**
+     * Sanitize message content before sending to AI
+     * Removes fields that are only needed for backend processing (e.g., filename in image_url)
+     */
+    private function sanitizeContentForAi(mixed $content): mixed
+    {
+        if (!is_array($content)) {
+            return $content;
+        }
+        
+        // Check if it's an array of content parts
+        $sanitized = [];
+        foreach ($content as $key => $part) {
+            if (is_array($part) && isset($part['type']) && $part['type'] === 'image_url') {
+                // Remove filename from image_url - AI services don't need it
+                $sanitizedPart = $part;
+                if (isset($sanitizedPart['image_url']['filename'])) {
+                    unset($sanitizedPart['image_url']['filename']);
+                }
+                $sanitized[$key] = $sanitizedPart;
+            } else {
+                $sanitized[$key] = $part;
+            }
+        }
+        
+        return $sanitized;
     }
     
     /**
