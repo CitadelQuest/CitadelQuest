@@ -93,6 +93,83 @@ class UserSettingsController extends AbstractController
         ]);
     }
 
+    /**
+     * Generate a single-use login URL for CQ AI Gateway web interface
+     * This allows seamless login from CitadelQuest without password re-entry
+     */
+    #[Route('/ai/gateway-login', name: 'app_user_settings_ai_gateway_login', methods: ['POST'])]
+    public function gatewayLogin(Request $request): JsonResponse
+    {
+        $this->logger->info('UserSettingsController::gatewayLogin - Gateway login requested');
+        
+        try {
+            // Get the API key from settings
+            $apiKey = $this->settingsService->getSettingValue('cqaigateway.api_key');
+            
+            if (!$apiKey) {
+                // get API Key from AI Gateway Entity
+                $apiKey = $this->aiGatewayService->findByName('CQ AI Gateway')?->getApiKey();
+                if (!$apiKey) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'message' => 'CQ AI Gateway API key not configured'
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+            }
+
+            // Get redirect destination from request
+            $data = json_decode($request->getContent(), true) ?? [];
+            $redirect = $data['redirect'] ?? 'dashboard';
+
+            // Request a single-use login token from CQ AI Gateway
+            $response = $this->httpClient->request(
+                'POST',
+                'https://cqaigateway.com/api/user/web-login',
+                [
+                    'headers' => [
+                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                        'Content-Type' => 'application/json',
+                        'Authorization' => 'Bearer ' . $apiKey,
+                    ],
+                    'json' => [
+                        'redirect' => $redirect
+                    ]
+                ]
+            );
+
+            $statusCode = $response->getStatusCode();
+            $content = json_decode($response->getContent(false), true);
+
+            if ($statusCode === 200 && isset($content['login_url'])) {
+                $this->logger->info('UserSettingsController::gatewayLogin - Login URL generated successfully');
+                
+                return new JsonResponse([
+                    'success' => true,
+                    'login_url' => $content['login_url']
+                ]);
+            } else {
+                $this->logger->warning('UserSettingsController::gatewayLogin - Failed to get login URL', [
+                    'status_code' => $statusCode,
+                    'error' => $content['error'] ?? 'Unknown error'
+                ]);
+                
+                return new JsonResponse([
+                    'success' => false,
+                    'message' => $content['error'] ?? 'Failed to generate login URL'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::gatewayLogin - Exception', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Error connecting to CQ AI Gateway: ' . $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/ai/sync-models', name: 'app_user_settings_ai_sync_models', methods: ['POST'])]
     public function syncAiModels(): JsonResponse
     {

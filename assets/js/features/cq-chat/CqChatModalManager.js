@@ -2,6 +2,7 @@ import { CqChatApiService } from './CqChatApiService.js';
 import { updatesService } from '../../services/UpdatesService.js';
 import { ImageShowcase } from '../../shared/image-showcase.js';
 import * as bootstrap from 'bootstrap';
+import MarkdownIt from 'markdown-it';
 
 /**
  * CQ Chat Modal Manager
@@ -489,7 +490,7 @@ export class CqChatModalManager {
         const attachmentsHtml = this.renderAttachments(message.attachments);
         
         // Render content (may be empty if only images)
-        const contentHtml = message.content ? `<div class="chat-content">${this.escapeHtml(message.content)}</div>` : '';
+        const contentHtml = message.content ? `<div class="chat-content">${this.renderMarkdown(message.content)}</div>` : '';
         
         div.className = `chat-message ${messageClass}`;
         div.dataset.messageId = message.id;
@@ -766,12 +767,19 @@ export class CqChatModalManager {
     }
     
     /**
-     * Utility: Escape HTML
+     * Utility: Render markdown to HTML
      */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    renderMarkdown(content) {
+        if (!content) return '';
+        
+        const md = new MarkdownIt({
+            html: false,       // Disable HTML tags in source (security)
+            linkify: true,     // Convert URLs to links
+            typographer: true, // Smart quotes, dashes
+            breaks: true       // Convert \n to <br>
+        });
+        
+        return md.render(content);
     }
     
     /**

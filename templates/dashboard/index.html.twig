@@ -5,6 +5,51 @@
 {% block javascripts %}
     {{ parent() }}
     {{ encore_entry_script_tags('dashboard-badges') }}
+    <script>
+    /**
+     * Open CQ AI Gateway with seamless login (no password required)
+     * @param {string} redirect - Where to redirect after login: 'dashboard', 'add-credits', 'transactions'
+     */
+    function openGatewayLogin(redirect = 'dashboard') {
+        // Show loading state on the clicked element
+        const btn = event.target.closest('button, a');
+        const originalContent = btn ? btn.innerHTML : null;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        }
+
+        fetch('{{ path('app_user_settings_ai_gateway_login') }}', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ redirect: redirect })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.login_url) {
+                // Open the login URL in a new window
+                window.open(data.login_url, '_blank');
+            } else {
+                // Show error
+                window.toast.error(data.message || 'Failed to connect to CQ AI Gateway');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            window.toast.error('Failed to connect to CQ AI Gateway');
+        })
+        .finally(() => {
+            // Restore button state
+            if (btn && originalContent) {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        });
+    }
+    </script>
 {% endblock %}
 
 {% block body %}
@@ -147,18 +192,13 @@
                     </div>
                 </div>
                 <div class="p-4 rounded-bottom">
-                    <div class="row g-2 small">
-                        <div class="col-12">
-                            {{ "auth.login.username"|trans }}: <span class="text-cyber">{{ CQ_AI_GatewayUsername }}</span>
-                        </div>
-                        <div class="col-12">
-                            {{ "auth.login.password"|trans }}: <span class="text-muted">same as CitadelQuest password</span>
-                        </div>
-                        <div class="col-12 text-end mt-3">
-                            <a href="https://cqaigateway.com/login?username={{ CQ_AI_GatewayUsername }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                <i class="mdi mdi-login me-2"></i> CQ AI Gateway - {{ 'navigation.menu.login'|trans }}
-                            </a>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="button" onclick="openGatewayLogin('dashboard')" class="btn btn-sm btn-outline-secondary" id="gatewayLoginBtn">
+                            <i class="mdi mdi-login me-2"></i> CQ AI Gateway - Dashboard
+                        </button>
+                        <button type="button" onclick="openGatewayLogin('add-credits')" class="btn btn-sm btn-cyber" id="addCreditsBtn">
+                            <i class="mdi mdi-plus me-2"></i> {{ 'settings.ai.gateway.add_credits'|trans|default('Add Credits') }}
+                        </button>
                     </div>
                 </div>
             </div>
