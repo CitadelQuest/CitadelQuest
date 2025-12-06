@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  citadelquest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - APP_ENV=prod
+      - APP_DEBUG=0
+      # APP_SECRET is auto-generated on first run if not provided
+      - APP_SECRET=${APP_SECRET:-}
+      - DATABASE_URL=sqlite:///%kernel.project_dir%/var/main.db
+      # Trust Coolify/Traefik proxy
+      - TRUSTED_PROXIES=127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      - TRUSTED_HOSTS=${TRUSTED_HOSTS:-^.*$$}
+    volumes:
+      # Optionally persist the whole app for updates without rebuild
+      - citadelquest_app:/var/www/html
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "-o", "/dev/null", "-w", "%{http_code}", "http://localhost/" ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    expose:
+      - "80"
+
+volumes:
+  citadelquest_app:

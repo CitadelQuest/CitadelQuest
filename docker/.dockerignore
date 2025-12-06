@@ -1,0 +1,17 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Local development
+.env.local
+.env.dev
