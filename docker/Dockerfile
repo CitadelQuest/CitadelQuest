@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     sqlite3 \
+    wget \
     libsqlite3-dev \
     libpng-dev \
     libonig-dev \
