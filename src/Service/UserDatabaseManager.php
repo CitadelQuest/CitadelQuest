@@ -4,6 +4,8 @@ namespace App\Service;
 
 use App\Entity\User;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
+use Doctrine\DBAL\Configuration;
 use PDO;
 use RuntimeException;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -51,14 +53,17 @@ class UserDatabaseManager
             chmod($dbFullPath, 0666);
             
             // Create connection with SQLite-specific options
+            $configuration = new Configuration();
+            $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+
             $connection = DriverManager::getConnection([
                 'driver' => 'pdo_sqlite',
                 'path' => $dbFullPath,
                 'driverOptions' => [
                     PDO::SQLITE_ATTR_OPEN_FLAGS => PDO::SQLITE_OPEN_READWRITE | PDO::SQLITE_OPEN_CREATE,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-                ]
-            ]);
+                ],
+            ], $configuration);
 
             // Force SQLite to create the database file
             $connection->executeQuery('PRAGMA journal_mode=WAL');
@@ -185,10 +190,13 @@ class UserDatabaseManager
             throw new \RuntimeException('User database file not found');
         }
 
+        $configuration = new Configuration();
+        $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+
         return DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
             'path' => $dbFullPath,
-        ]);
+        ], $configuration);
     }
 
     public function deleteUserDatabase(User $user): void

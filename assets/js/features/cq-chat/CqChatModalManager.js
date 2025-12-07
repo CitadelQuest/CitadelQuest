@@ -1065,5 +1065,16 @@ export class CqChatModalManager {
             this.imagePreviewContainer.classList.add('d-none');
         }
     }
+    
+    /**
+     * Escape HTML special characters to prevent XSS
+     * @param {string} html - The HTML to escape
+     * @returns {string} - Escaped HTML
+     */
+    escapeHtml(html) {
+        const div = document.createElement('div');
+        div.textContent = html;
+        return div.innerHTML;
+    }
 }
 

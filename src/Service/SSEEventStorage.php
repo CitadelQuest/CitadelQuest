@@ -5,6 +5,8 @@ namespace App\Service;
 use App\SSE\Event;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
+use Doctrine\DBAL\Configuration;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use App\Entity\User;
@@ -32,10 +34,13 @@ class SSEEventStorage
 
         $this->ensureDatabase();
         
+        $configuration = new Configuration();
+        $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+
         $this->connection = DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
-            'path' => $this->dbPath
-        ]);
+            'path' => $this->dbPath,
+        ], $configuration);
     }
     
     /**
@@ -231,10 +236,13 @@ class SSEEventStorage
             // reinitialize
             $this->ensureDatabase();
             
+            $configuration = new Configuration();
+            $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+            
             $this->connection = DriverManager::getConnection([
                 'driver' => 'pdo_sqlite',
-                'path' => $this->dbPath
-            ]);
+                'path' => $this->dbPath,
+            ], $configuration);
         } catch (\Exception $e) {
             // ignore
         }
