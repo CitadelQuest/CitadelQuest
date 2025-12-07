@@ -417,4 +417,15 @@ class AiGatewayService
         }
         return $implementation->filterInjectedSystemData($messages);
     }
+
+    public function getDefaultCqAiGatewayApiKey(): ?string
+    {
+        // Get API Key from AI Gateway Entity
+        $gateway = $this->findByName('CQ AI Gateway');
+        if (!$gateway) {
+            return null;
+        }
+        
+        return $gateway->getApiKey();
+    }
 }

@@ -57,14 +57,6 @@ class SpiritConversationMessageService
             $parentMessageId
         );
         
-        $this->logger->info('Creating spirit conversation message', [
-            'message_id' => $message->getId(),
-            'conversation_id' => $conversationId,
-            'role' => $role,
-            'type' => $type,
-            'parent_message_id' => $parentMessageId
-        ]);
-        
         $db->executeStatement(
             'INSERT INTO spirit_conversation_message 
             (id, conversation_id, role, type, content, parent_message_id, created_at) 
@@ -90,12 +82,6 @@ class SpiritConversationMessageService
     {
         $db = $this->getUserDb();
         
-        $this->logger->debug('Updating spirit conversation message', [
-            'message_id' => $message->getId(),
-            'ai_service_request_id' => $message->getAiServiceRequestId(),
-            'ai_service_response_id' => $message->getAiServiceResponseId()
-        ]);
-        
         $db->executeStatement(
             'UPDATE spirit_conversation_message 
             SET ai_service_request_id = ?, ai_service_response_id = ? 
@@ -111,11 +97,6 @@ class SpiritConversationMessageService
     public function updateMessageContent(SpiritConversationMessage $message): void
     {
         $db = $this->getUserDb();
-        
-        $this->logger->debug('Updating spirit conversation message content', [
-            'message_id' => $message->getId(),
-            //'content' => $message->getContent()
-        ]);
         
         $db->executeStatement(
             'UPDATE spirit_conversation_message 
@@ -148,11 +129,6 @@ class SpiritConversationMessageService
         foreach ($result->fetchAllAssociative() as $data) {
             $messages[] = SpiritConversationMessage::fromArray($data);
         }
-        
-        $this->logger->debug('Loaded messages for conversation', [
-            'conversation_id' => $conversationId,
-            'message_count' => count($messages)
-        ]);
         
         return $messages;
     }

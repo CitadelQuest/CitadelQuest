@@ -373,7 +373,7 @@ welcome:
             validate: "Overiť a pokračovať"
         step2:
             title: "Vytvorte si svojho Ducha"
-            description: "Váš Duch je váš osobný AI sprievodca a spoločník. <br/> Dajte mu meno a vyberte AI model pre jeho dušu."
+            description: "Váš Duch je váš osobný AI sprievodca a spoločník. <br/> Dajte mu meno a vyberte farbu."
             name_label: "Meno Ducha"
             name_placeholder: "Zadajte meno pre vášho Ducha"
             model_label: "Vyberte AI model Ducha"

@@ -17,6 +17,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use App\CitadelVersion;
+use Psr\Log\LoggerInterface;
 
 #[Route('/welcome')]
 #[IsGranted('ROLE_USER')]
@@ -28,7 +29,8 @@ class WelcomeController extends AbstractController
         private readonly AiModelsSyncService $aiModelsSyncService,
         private readonly SettingsService $settingsService,
         private readonly SpiritService $spiritService,
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger
     ) {}
     
     #[Route('', name: 'app_welcome_onboarding')]
@@ -44,7 +46,7 @@ class WelcomeController extends AbstractController
             return $this->redirectToRoute('app_home');
         }
 
-        $apiKey = $this->settingsService->getSettingValue('cqaigateway.api_key');
+        $apiKey = $this->aiGatewayService->getDefaultCqAiGatewayApiKey();
 
         $step = 1;
         if ($apiKey && $apiKey !== '') {
@@ -54,7 +56,6 @@ class WelcomeController extends AbstractController
         $session->set('currentStep', $step);
         
         return $this->render('welcome/onboarding.html.twig', [
-            //'apiKey' => $apiKey,
             '_locale' => $session->get('_locale'),
             'step' => $step
         ]);
@@ -81,9 +82,27 @@ class WelcomeController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        // create 'CQ AI Gateway'
+        $cqAiGatewayApiUrl = 'https://cqaigateway.com/api';
+        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+        if ($gateway) {
+            $this->aiGatewayService->updateGateway($gateway->getId(), [
+                'apiKey' => $apiKey,
+                'apiEndpointUrl' => $cqAiGatewayApiUrl,
+                'type' => 'cq_ai_gateway'
+            ]);
+        } else {
+            $gateway = $this->aiGatewayService->createGateway(
+                'CQ AI Gateway',
+                $apiKey,
+                $cqAiGatewayApiUrl,
+                'cq_ai_gateway'
+            );
+        }
+
         try {
             // Use the new centralized sync service
-            $result = $this->aiModelsSyncService->syncModels($apiKey, $session);
+            $result = $this->aiModelsSyncService->syncModels();
             
             if (!$result['success']) {
                 // Map error codes to appropriate HTTP status codes
@@ -101,15 +120,13 @@ class WelcomeController extends AbstractController
 
             return new JsonResponse([
                 'success' => true,
-                'message' => $result['message'],
-                'gateway' => $result['gateway'],
-                'models' => $result['models']
+                'message' => $result['message']
             ], Response::HTTP_OK);
             
         } catch (\Exception $e) {
             return new JsonResponse([
                 'success' => false,
-                'message' => 'Error adding gateway: ' . $e->getMessage()
+                'message' => 'Error syncing models: ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -141,49 +158,33 @@ class WelcomeController extends AbstractController
         }
 
         $name = $request->request->get('name');
-        $modelId = $request->request->get('modelId');
         $color = $request->request->get('color', '#6c5ce7');
         
         // Log the request data
-        error_log('Create Spirit Request - Name: ' . $name . ', ModelId: ' . $modelId . ', Color: ' . $color);
+        $this->logger->info('Create Spirit Request - Name: ' . $name . ', Color: ' . $color);
         
-        if (!$name || !$modelId) {
-            error_log('Create Spirit Error: Name or model ID missing');
+        if (!$name) {
+            $this->logger->error('Create Spirit Error: Name is required');
             return new JsonResponse([
                 'success' => false,
-                'message' => 'Name and model are required'
+                'message' => 'Name is required'
             ], Response::HTTP_BAD_REQUEST);
         }
         
         try {
-            // Check if model exists
-            $model = $this->aiServiceModelService->findById($modelId);
+            // Get default model
+            $model = $this->aiServiceModelService->getDefaultPrimaryAiModelByGateway($this->aiGatewayService->findByName('CQ AI Gateway')->getId());
             if (!$model) {
-                error_log('Create Spirit Error: Model not found with ID: ' . $modelId);
-                
-                // Try to find a default model
-                $models = $this->aiServiceModelService->findAll(true);
-                if (count($models) > 0) {
-                    $model = $models[0];
-                    $modelId = $model->getId();
-                    error_log('Using default model instead: ' . $modelId);
-                } else {
-                    throw new \RuntimeException('No AI models available');
-                }
+                $this->logger->error('Create Spirit Error: Default AI model not found');
             }
             
             // Create spirit
-            error_log('Creating spirit with name: ' . $name . ' and color: ' . $color);
+            $this->logger->info('Creating spirit with name: ' . $name . ' and color: ' . $color);
             $spirit = $this->spiritService->createSpirit($name, $color);
-            error_log('Spirit created with ID: ' . $spirit->getId());
+            $this->logger->info('Spirit created with ID: ' . $spirit->getId());
             
             // Set model for spirit
-            error_log('Setting spirit model to: ' . $modelId);
-            $this->spiritService->updateSpiritModel($spirit->getId(), $modelId);
-
-            // Set spirit as primary ai service model
-            $this->settingsService->setSetting('ai.primary_ai_service_model_id', $modelId);
-            $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $modelId);
+            $this->spiritService->updateSpiritModel($spirit->getId(), $model->getId());
             
             // Mark onboarding as completed
             $this->settingsService->setSetting('onboarding.completed', true);
@@ -194,11 +195,11 @@ class WelcomeController extends AbstractController
                 'spirit' => [
                     'id' => $spirit->getId(),
                     'name' => $spirit->getName(),
-                    'model' => $modelId
+                    'model' => $model->getId()
                 ]
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
-            error_log('Create Spirit Exception: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
+            $this->logger->error('Create Spirit Exception: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
             return new JsonResponse([
                 'success' => false,
                 'message' => 'Error creating spirit: ' . $e->getMessage()

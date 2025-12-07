@@ -380,7 +380,7 @@ welcome:
             validate: "Validate & Continue"
         step2:
             title: "Create Your Spirit"
-            description: "Your Spirit is your personal AI assistant. <br/> Give it a name and choose AI model for it's soul."
+            description: "Your Spirit is your personal AI assistant. <br/> Give it a name and choose color."
             name_label: "Spirit Name"
             name_placeholder: "Enter a name for your Spirit"
             model_label: "Select AI Spirit model"

@@ -10,6 +10,7 @@ use App\Service\UserKeyManager;
 use App\Service\SettingsService;
 use App\Service\AiModelsSyncService;
 use App\Service\SystemSettingsService;
+use App\Service\AiGatewayService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +30,8 @@ class RegistrationController extends AbstractController
     public function __construct(
         private TranslatorInterface $translator,
         private LoggerInterface $logger,
-        private AiModelsSyncService $aiModelsSyncService
+        private AiModelsSyncService $aiModelsSyncService,
+        private AiGatewayService $aiGatewayService
     ) {}
     #[Route('/register', name: 'app_register')]
     public function register(
@@ -109,14 +111,14 @@ class RegistrationController extends AbstractController
 
             // Create `CQ AI Gateway` user account(while we have the raw password) via API, to get the CQ AI API key
             if ($form->get('createAlsoCQAIGatewayAccount')->getData()) {
-            
+                $cqAiGatewayApiUrl = 'https://cqaigateway.com/api';
                 $citadelQuestURL = $request->getScheme() . '://' . $request->getHost();
                 
                 try {
                     // Pre-check if email is available on CQ AI Gateway
                     $verifyResponse = $httpClient->request(
                         'POST',
-                        'https://cqaigateway.com/api/user/verify-email',
+                        $cqAiGatewayApiUrl . '/user/verify-email',
                         [
                             'headers' => [
                                 'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
@@ -140,7 +142,7 @@ class RegistrationController extends AbstractController
                     // Email is available, proceed with registration
                     $response = $httpClient->request(
                         'POST',
-                        'https://cqaigateway.com/api/user/register',
+                        $cqAiGatewayApiUrl . '/user/register',
                         [
                             'headers' => [
                                 'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
@@ -155,7 +157,7 @@ class RegistrationController extends AbstractController
                         ]
                     );
                     
-                    $statusCode = $response->getStatusCode();
+                    $statusCode = $response->getStatusCode(false);
                     $content = $response->getContent(false); // Don't throw on error status
                     
                     $data = json_decode($content, true);
@@ -183,16 +185,29 @@ class RegistrationController extends AbstractController
                     
                     $apiKey = $data['user_api_key'];
 
-                    // save API key to user settings - it will be used in onboarding, pre-filled in the form
-                    $settingsService->setSetting('cqaigateway.api_key', $apiKey);
-                    // save username, email for CQ AI Gateway
-                    $settingsService->setSetting('cqaigateway.username', $data['username']);
+                    // create 'CQ AI Gateway'
+                    $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+                    if ($gateway) {
+                        $this->aiGatewayService->updateGateway($gateway->getId(), [
+                            'apiKey' => $apiKey,
+                            'apiEndpointUrl' => $cqAiGatewayApiUrl,
+                            'type' => 'cq_ai_gateway'
+                        ]);
+                    } else {
+                        $gateway = $this->aiGatewayService->createGateway(
+                            'CQ AI Gateway',
+                            $apiKey,
+                            $cqAiGatewayApiUrl,
+                            'cq_ai_gateway'
+                        );
+                    }
+                    // save email for CQ AI Gateway
                     $settingsService->setSetting('cqaigateway.email', $data['email']);
 
                     // update AI models list from CQ AI Gateway
                     try {
                         // Attempt to sync models in background
-                        $syncModelsResult = $this->aiModelsSyncService->syncModels($apiKey, $session, $user);
+                        $syncModelsResult = $this->aiModelsSyncService->syncModels($session, $user);
                         
                         if ($syncModelsResult['success']) {
 

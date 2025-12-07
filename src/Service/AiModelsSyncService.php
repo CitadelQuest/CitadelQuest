@@ -65,22 +65,19 @@ class AiModelsSyncService
     /**
      * Synchronize AI models from CQ AI Gateway
      * 
-     * @param string|null $apiKey Optional API key to use (for validation during onboarding)
      * @return array Result with success status, message, and data
      */
-    public function syncModels(?string $apiKey = null, ?SessionInterface $session = null, ?User $user = null): array
+    public function syncModels(?User $user = null): array
     {
-        $this->logger->info('AiModelsSyncService: Starting models synchronization', [
-            'has_provided_api_key' => !empty($apiKey)
-        ]);
+        $this->logger->info('AiModelsSyncService: Starting models synchronization');
 
         if ($user) {
             $this->settingsService->setUser($user);
         }
         
         try {
-            // Get or validate gateway
-            $gateway = $this->getOrCreateGateway($apiKey);
+            // Get 'CQ AI Gateway' gateway
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
             if (!$gateway) {
                 return [
                     'success' => false,
@@ -103,16 +100,29 @@ class AiModelsSyncService
                 $this->settingsService->setSetting(self::SETTINGS_KEY_LAST_UPDATE, (new \DateTime())->format('Y-m-d H:i:s'));
                 $this->settingsService->setSetting(self::SETTINGS_KEY_MODELS_COUNT, count($result['models']));
                 
+                // Set primary AI Model, if not set
+                $primaryAiServiceModelId = $this->settingsService->getSettingValue('ai.primary_ai_service_model_id');
+                if (!$primaryAiServiceModelId) {
+                    $defaultPrimaryAiModel = $this->aiServiceModelService->getDefaultPrimaryAiModelByGateway($gateway->getId());
+                    if ($defaultPrimaryAiModel) {
+                        $this->settingsService->setSetting('ai.primary_ai_service_model_id', $defaultPrimaryAiModel->getId());
+                    }
+                }
+
+                // Set secondary AI Model, if not set
+                $secondaryAiServiceModelId = $this->settingsService->getSettingValue('ai.secondary_ai_service_model_id');
+                if (!$secondaryAiServiceModelId) {
+                    $defaultSecondaryAiModel = $this->aiServiceModelService->getDefaultSecondaryAiModelByGateway($gateway->getId());
+                    if ($defaultSecondaryAiModel) {
+                        $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $defaultSecondaryAiModel->getId());
+                    }
+                }
+
                 $this->logger->info('AiModelsSyncService: Models synchronization completed successfully', [
                     'models_count' => count($result['models'])
                 ]);
             }
-            
-            // Store models in session for compatibility
-            if ($session) {
-                $session->set('models', json_encode($result['models']));
-            }
-            
+                        
             return $result;
             
         } catch (\Exception $e) {
@@ -127,70 +137,6 @@ class AiModelsSyncService
                 'error_code' => 'SYNC_EXCEPTION'
             ];
         }
-    }
-    
-    /**
-     * Get existing gateway or create new one with provided API key
-     */
-    private function getOrCreateGateway(?string $apiKey): ?AiGateway
-    {
-        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-        
-        if (!$gateway && $apiKey) {
-            $this->logger->info('AiModelsSyncService: Creating new CQ AI Gateway');
-            $gateway = $this->aiGatewayService->createGateway(
-                'CQ AI Gateway',
-                $apiKey,
-                'https://cqaigateway.com/api',
-                'cq_ai_gateway'
-            );
-
-            $currentApiKey = $this->settingsService->getSettingValue('cqaigateway.api_key');
-            if (!$currentApiKey) {
-                $this->settingsService->setSetting('cqaigateway.api_key', $apiKey);
-            }
-
-            $currentUsername = $this->settingsService->getSettingValue('cqaigateway.username');
-            $currentEmail = $this->settingsService->getSettingValue('cqaigateway.email');
-            if (!$currentUsername || !$currentEmail) {
-                try {
-                    // get `/user/profile` to obtain username, email
-                    $responseProfile = $this->httpClient->request(
-                        'GET',
-                        $gateway->getApiEndpointUrl() . '/user/profile', 
-                        [
-                            'headers' => [
-                                'Authorization' => 'Bearer ' . $apiKey,
-                                'Content-Type' => 'application/json',
-                                'Accept' => 'application/json',
-                                'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
-                            ]
-                        ]
-                    );
-                    //  check response status
-                    $responseStatus = $responseProfile->getStatusCode(false);
-                    if ($responseStatus === Response::HTTP_OK) {
-                        // get json response
-                        $responseProfileJson = $responseProfile->toArray();
-                        // save username, email for CQ AI Gateway
-                        if (isset($responseProfileJson['username']) && isset($responseProfileJson['email'])) {
-                            $this->settingsService->setSetting('cqaigateway.username', $responseProfileJson['username']);
-                            $this->settingsService->setSetting('cqaigateway.email', $responseProfileJson['email']);
-                        }
-                    }
-                } catch (\Exception $e) {
-                    $this->logger->error('AiModelsSyncService: Exception during CQ AI Gateway profile fetch', [
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
-            }
-        } elseif ($gateway && $apiKey && $gateway->getApiKey() !== $apiKey) {
-            $this->logger->info('AiModelsSyncService: Updating gateway API key');
-            $gateway = $this->aiGatewayService->updateGateway($gateway->getId(), ['apiKey' => $apiKey]);
-        }
-        
-        return $gateway;
     }
     
     /**
@@ -361,7 +307,8 @@ class AiModelsSyncService
                         $maxOutputTokens,
                         $pricingInput,
                         $pricingOutput,
-                        true // is active
+                        true,// is active
+                        $model // fullConfig
                     );
                     $processedModels[] = $newModel;
                     $this->logger->debug('AiModelsSyncService: Created new model', [
@@ -375,17 +322,7 @@ class AiModelsSyncService
                     $firstModelId = $processedModels[0]->getId();
                 }
             }
-        }
-        
-        // Set first model as primary if no primary model is set
-        $primaryModelId = $this->settingsService->getSettingValue('ai.primary_ai_service_model_id');
-        if (!$primaryModelId && $firstModelId) {
-            $this->settingsService->setSetting('ai.primary_ai_service_model_id', $firstModelId);
-            $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $firstModelId);
-            $this->logger->info('AiModelsSyncService: Set primary and secondary models', [
-                'model_id' => $firstModelId
-            ]);
-        }
+        }        
         
         return [
             'success' => true,

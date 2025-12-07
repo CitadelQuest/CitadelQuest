@@ -198,6 +198,12 @@ class UserDatabaseManager
             if (file_exists($dbFullPath)) {
                 unlink($dbFullPath);
             }
+
+            // sse-
+            $sseFullPath = 'sse-' . $dbFullPath;
+            if (file_exists($sseFullPath)) {
+                unlink($sseFullPath);
+            }
         }
     }
 

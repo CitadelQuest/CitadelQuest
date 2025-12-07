@@ -201,6 +201,40 @@ class AiServiceModelService
         return $imageModels;
     }
 
+    public function getDefaultPrimaryAiModelByGateway(string $gatewayId): ?AiServiceModel
+    {
+        $allModels = $this->findByGateway($gatewayId, true);
+
+        foreach ($allModels as $model) {
+            $config = $model->getFullConfig();
+            if ($config && 
+                isset($config['defaultPrimaryAiModel']) && 
+                $config['defaultPrimaryAiModel'] == 1
+            ) {
+                return $model;
+            }
+        }
+
+        return null;
+    }
+
+    public function getDefaultSecondaryAiModelByGateway(string $gatewayId): ?AiServiceModel
+    {
+        $allModels = $this->findByGateway($gatewayId, true);
+
+        foreach ($allModels as $model) {
+            $config = $model->getFullConfig();
+            if ($config && 
+                isset($config['defaultSecondaryAiModel']) && 
+                $config['defaultSecondaryAiModel'] == 1
+            ) {
+                return $model;
+            }
+        }
+
+        return null;
+    }
+
     public function updateModel(
         string $id,
         array $data

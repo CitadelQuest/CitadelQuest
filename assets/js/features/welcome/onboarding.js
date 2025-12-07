@@ -209,9 +209,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 spiritImage?.classList?.remove('spirit-inactive');
                 spiritImage?.classList?.add('spirit-active');
                 
-                // Populate model selection with actual models
-                updateModelSelection(data.models);
-                
                 // Move to step 2                
                 goToStep(2);
             } else {
@@ -237,15 +234,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Get selected model ID based on radio button value
-        const selectedModelId = document.querySelector('input[name="aiModel"]:checked').value;
-        console.log('Selected modelId value:', selectedModelId);
-        
-        if (!selectedModelId) {
-            showError('Please select an AI model');
-            return;
-        }
-        
         // Disable button and show loading state
         createSpiritBtn.disabled = true;
         createSpiritBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ...';
@@ -253,7 +241,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Call the API to create the spirit
         console.log('Creating spirit with:', {
             name: spiritName,
-            modelId: selectedModelId,
             color: selectedColor
         });
         
@@ -265,7 +252,6 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: new URLSearchParams({
                 name: spiritName,
-                modelId: selectedModelId,
                 color: selectedColor
             })
         })
@@ -374,87 +360,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function showError(message) {
         window.toast.error(message);
     }
-    
-    // Helper function to update model selection based on available models
-    function updateModelSelection(models) {
-        // We have data from the server in the `models` parameter
-        console.log('Updating model selection with models:', models);
-        
-        // Clear existing models
-        const modelSelection = document.getElementById('modelSelection');
-        modelSelection.classList.add('d-none');
-        modelSelection.classList.remove('d-flex');
-        modelSelection.innerHTML = '';
-        
-        // Add new models
-        models.forEach(model => {
-            const modelId = model.id;
-            const modelName = model.modelName;
-            const modelSlug = model.modelSlug;
-            const modelSlugProvider = modelSlug.split('/')[0];
-            
-            if (modelSlugProvider === 'citadelquest' && (modelSlug.indexOf('-') === -1)) {
-                // (modelSlug.indexOf('-') === -1) means it's one of MAIN CQ AI Gateway models
-                // we want to show only MAIN CQ AI Gateway models
-                // so we skip models that have '-' in their slug
-            } else {
-                return;
-            }
-
-            // Create the label element
-            const modelLabel = document.createElement('label');
-            modelLabel.className = 'form-check-label form-check form-control';
-            modelLabel.htmlFor = 'model-' + modelId;
-
-            // Create the radio input element
-            const modelRadio = document.createElement('input');
-            modelRadio.className = 'form-check-input ms-1 me-3';
-            modelRadio.type = 'radio';
-            modelRadio.name = 'aiModel';
-            modelRadio.id = 'model-' + modelId;
-            modelRadio.value = modelId;
-
-            // Set the first radio button as checked
-            if (modelSelection.children.length === 0) {
-                modelRadio.checked = true;
-            }
-
-            // Append the radio input to the label
-            modelLabel.appendChild(modelRadio);
-
-            // Append the model name to the label
-            modelLabel.appendChild(document.createTextNode(modelName));
-
-            // Append the label to the model selection container
-            modelSelection.appendChild(modelLabel);
-        });
-
-        // show model selection
-        modelSelection.classList.remove('d-none');
-        modelSelection.classList.add('d-flex');
-    }
 
     if (currentStep > 1) {
         console.log('Going to step:', currentStep);
-
-        if (currentStep === 2) {
-            // get models from session
-            const modelsFromSession = JSON.parse(sessionStorage.getItem('models'));
-            if (modelsFromSession) {
-                updateModelSelection(modelsFromSession);   
-            } else {
-                // get models from API
-                fetch('/api/ai/model')
-                    .then(response => response.json())
-                    .then(data => {
-                        updateModelSelection(data.models);
-                    })
-                    .catch(error => {
-                        console.error('Error fetching models:', error);
-                    });
-            }
-        }
-
         goToStep(currentStep);
     }    
 });
