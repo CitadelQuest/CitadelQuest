@@ -4,11 +4,16 @@ This directory contains everything needed to deploy CitadelQuest using Docker, o
 
 ## Quick Start (Coolify)
 
-1. **Create New Resource** in Coolify
-2. Select **"Dockerfile"** under Docker Based
-3. Point to this `docker/` directory
-4. Configure environment variables (see below)
-5. Deploy!
+1. **Create New Resource** in Coolify → Select destination (same network as other apps)
+2. Select **"Public Repository"** → Enter `https://github.com/CitadelQuest/CitadelQuest`
+3. Set **Branch**: `main`, **Build Pack**: `Dockerfile`, **Base Directory**: `/docker`
+4. Set **Port**: `80`
+5. Configure **Domain** with `https://` prefix (e.g., `https://your-domain.com`)
+6. **⚠️ IMPORTANT**: Go to **Persistent Storage** → Add volume:
+   - Volume Name: *(auto-generated is fine)*
+   - Destination Path: `/var/www/html`
+7. Configure **Healthcheck** (see below)
+8. Deploy!
 
 ## Files
 
@@ -47,9 +52,17 @@ APP_SECRET=your-32-character-secret
 APP_DEBUG=0
 ```
 
-## Persistent Data
+## Persistent Storage (CRITICAL!)
 
-The `citadelquest_app` volume persists the entire `/var/www/html/` directory:
+**⚠️ You MUST configure this in Coolify BEFORE first deploy, or data will be lost on redeploy!**
+
+Go to **Persistent Storage** in Coolify and add:
+
+| Volume Name | Source Path     | Destination Path |
+|-------------|-----------------|------------------|
+| *(auto)*    | *(leave empty)* | `/var/www/html`  |
+
+This persists the entire application directory:
 - Complete application code (for in-app updates)
 - `/var/main.db` - Main application database
 - `/var/user_databases/` - Per-user SQLite databases
@@ -57,10 +70,26 @@ The `citadelquest_app` volume persists the entire `/var/www/html/` directory:
 - `/var/cache/` - Symfony cache
 - `/var/log/` - Application logs
 
-**Important**: This volume must persist across container restarts!
+> **Note**: Each Coolify application runs in its own isolated container. Coolify/Traefik handles routing by domain, so no port conflicts with other applications.
 
-> **Note**: Each Coolify application runs in its own isolated container with its own `/var/www/html/`. 
-> Coolify/Traefik handles routing by domain, so no port conflicts with other applications.
+## Healthcheck Configuration
+
+In Coolify → **Healthcheck** settings:
+
+| Setting         | Value       | Notes 
+|-----------------|-------------|-------
+| Method          | `GET`       |
+| Scheme          | `http`      | Internal check, not HTTPS
+| Host            | `localhost` |
+| Port            | `80`        |
+| Path            | `/`         |
+| **Return Code** | `301`       | ⚠️ Not 200! (redirects to /login)
+| Interval        | `60`        | seconds
+| Timeout         | `5`         | seconds
+| Retries         | `10`        |
+| Start Period    | `12`        | seconds (allow time for first install)
+
+> **Why 301?** CitadelQuest redirects `/` → `/login` for unauthenticated users, returning 301.
 
 ## Updating CitadelQuest
 
@@ -88,7 +117,13 @@ docker-compose up --build
 ### HTTPS not working
 - Coolify/Traefik handles SSL termination
 - Ensure `TRUSTED_PROXIES` includes your proxy IPs
-- Check Cloudflare SSL mode is set to "Full"
+- Check Cloudflare SSL mode is set to **"Full"** (not "Flexible"!)
+- Domain in Coolify must include `https://` prefix
+
+### Data lost after redeploy
+- **Persistent Storage was not configured!**
+- Always add volume `/var/www/html` BEFORE first deploy
+- Without it, each redeploy creates fresh container with no data
 
 ### Database errors
 - Verify `/var/www/html/var` is writable
@@ -98,28 +133,28 @@ docker-compose up --build
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    Cloudflare                        │
-│                  (SSL + CDN)                         │
+│                  Cloudflare                         │
+│                  (SSL + CDN)                        │
 └─────────────────────┬───────────────────────────────┘
                       │ HTTPS
 ┌─────────────────────▼───────────────────────────────┐
-│                 Coolify/Traefik                      │
-│              (Reverse Proxy + SSL)                   │
+│                 Coolify/Traefik                     │
+│              (Reverse Proxy + SSL)                  │
 └─────────────────────┬───────────────────────────────┘
                       │ HTTP
 ┌─────────────────────▼───────────────────────────────┐
-│              Docker Container                        │
+│               Docker Container                      │
 │  ┌─────────────────────────────────────────────┐    │
-│  │              Apache + PHP 8.2                │    │
+│  │              Apache + PHP 8.2               │    │
 │  │  ┌─────────────────────────────────────┐    │    │
 │  │  │         CitadelQuest App            │    │    │
-│  │  │  (Symfony 7.2 + SQLite)             │    │    │
+│  │  │      (Symfony 7.3 + SQLite)         │    │    │
 │  │  └─────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────┘    │
-│                       │                              │
+│  └────────────────────┬────────────────────────┘    │
+│                       │                             │
 │  ┌────────────────────▼────────────────────────┐    │
-│  │           Persistent Volume                  │    │
-│  │  /var/www/html/var (databases, logs, etc)   │    │
+│  │           Persistent Volume                 │    │
+│  │            (/var/www/html)                  │    │
 │  └─────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────┘
 ```
