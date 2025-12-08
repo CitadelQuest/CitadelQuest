@@ -1,0 +1,226 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'admin.migrations.title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('admin-migrations') }}
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="text-cyber">
+                    <i class="mdi mdi-account-arrow-right me-2"></i>
+                    {{ 'admin.migrations.title'|trans }}
+                </h1>
+                <a href="{{ path('app_admin_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="mdi mdi-arrow-left me-1"></i>
+                    {{ 'common.back'|trans }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Migration Requests -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card glass-panel border-cyber">
+                <div class="card-header bg-cyber-g pt-3 border-0">
+                    <h5 class="text-cyber mb-0">
+                        <i class="mdi mdi-clock-outline me-2"></i>
+                        {{ 'admin.migrations.pending_requests'|trans }}
+                        {% if pending_requests|length > 0 %}
+                            <span class="badge bg-warning ms-2">{{ pending_requests|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_requests|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.migrations.username'|trans }}</th>
+                                        <th>{{ 'admin.migrations.source_domain'|trans }}</th>
+                                        <th>{{ 'admin.migrations.backup_size'|trans }}</th>
+                                        <th>{{ 'admin.migrations.requested_at'|trans }}</th>
+                                        <th>{{ 'admin.migrations.actions'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pending-requests-body">
+                                    {% for request in pending_requests %}
+                                        <tr data-request-id="{{ request.id }}">
+                                            <td>
+                                                <i class="mdi mdi-account me-1"></i>
+                                                {{ request.username }}
+                                                {% if request.email %}
+                                                    <br><small class="text-muted">{{ request.email }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <i class="mdi mdi-server me-1"></i>
+                                                {{ request.sourceDomain }}
+                                            </td>
+                                            <td>
+                                                {% if request.backupSize %}
+                                                    {{ (request.backupSize / 1024 / 1024)|number_format(2) }} MB
+                                                {% else %}
+                                                    <span class="text-muted">{{ 'common.unknown'|trans }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {{ request.createdAt|date('Y-m-d H:i') }}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-success me-1 btn-accept-migration" 
+                                                        data-request-id="{{ request.id }}"
+                                                        title="{{ 'admin.migrations.accept'|trans }}">
+                                                    <i class="mdi mdi-check"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger btn-reject-migration" 
+                                                        data-request-id="{{ request.id }}"
+                                                        title="{{ 'admin.migrations.reject'|trans }}">
+                                                    <i class="mdi mdi-close"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="mdi mdi-inbox-outline mdi-48px mb-2"></i>
+                            <p>{{ 'admin.migrations.no_pending_requests'|trans }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Migration Requests History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card glass-panel border-cyber">
+                <div class="card-header bg-cyber-g pt-3 border-0">
+                    <h5 class="text-cyber mb-0">
+                        <i class="mdi mdi-history me-2"></i>
+                        {{ 'admin.migrations.history'|trans }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if all_requests|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'admin.migrations.username'|trans }}</th>
+                                        <th>{{ 'admin.migrations.source_domain'|trans }}</th>
+                                        <th>{{ 'admin.migrations.status'|trans }}</th>
+                                        <th>{{ 'admin.migrations.requested_at'|trans }}</th>
+                                        <th>{{ 'admin.migrations.completed_at'|trans }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for request in all_requests %}
+                                        <tr>
+                                            <td>
+                                                <i class="mdi mdi-account me-1"></i>
+                                                {{ request.username }}
+                                            </td>
+                                            <td>{{ request.sourceDomain }}</td>
+                                            <td>
+                                                {% if request.status == 'pending' %}
+                                                    <span class="badge bg-warning">{{ 'admin.migrations.status_pending'|trans }}</span>
+                                                {% elseif request.status == 'accepted' %}
+                                                    <span class="badge bg-info">{{ 'admin.migrations.status_accepted'|trans }}</span>
+                                                {% elseif request.status == 'transferring' %}
+                                                    <span class="badge bg-primary">{{ 'admin.migrations.status_transferring'|trans }}</span>
+                                                {% elseif request.status == 'completed' %}
+                                                    <span class="badge bg-success">{{ 'admin.migrations.status_completed'|trans }}</span>
+                                                {% elseif request.status == 'rejected' %}
+                                                    <span class="badge bg-danger">{{ 'admin.migrations.status_rejected'|trans }}</span>
+                                                {% elseif request.status == 'failed' %}
+                                                    <span class="badge bg-danger">{{ 'admin.migrations.status_failed'|trans }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ request.createdAt|date('Y-m-d H:i') }}</td>
+                                            <td>
+                                                {% if request.completedAt %}
+                                                    {{ request.completedAt|date('Y-m-d H:i') }}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="mdi mdi-history mdi-48px mb-2"></i>
+                            <p>{{ 'admin.migrations.no_history'|trans }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-cyber">
+                <h5 class="modal-title text-cyber">{{ 'admin.migrations.reject_title'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rejectReason" class="form-label">{{ 'admin.migrations.reject_reason'|trans }}</label>
+                    <textarea class="form-control bg-dark text-light" id="rejectReason" rows="3" 
+                              placeholder="{{ 'admin.migrations.reject_reason_placeholder'|trans }}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-cyber">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'common.cancel'|trans }}</button>
+                <button type="button" class="btn btn-danger" id="confirmReject">{{ 'admin.migrations.reject'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Progress Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-cyber">
+                <h5 class="modal-title text-cyber">{{ 'admin.migrations.transfer_title'|trans }}</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div class="spinner-border text-cyber mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p id="transferStatus">{{ 'admin.migrations.transfer_in_progress'|trans }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.migrationTranslations = {
+        accept_confirm: "{{ 'admin.migrations.accept_confirm'|trans }}",
+        accept_success: "{{ 'admin.migrations.accept_success'|trans }}",
+        reject_success: "{{ 'admin.migrations.reject_success'|trans }}",
+        transfer_success: "{{ 'admin.migrations.transfer_success'|trans }}",
+        transfer_failed: "{{ 'admin.migrations.transfer_failed'|trans }}",
+        error: "{{ 'common.error'|trans }}"
+    };
+</script>
+{% endblock %}

@@ -171,6 +171,34 @@ class CqContactService
         return array_map(fn($data) => CqContact::fromArray($data), $results);
     }
 
+    public function findByDomainAndApiKey(string $domain, string $apiKey): ?CqContact
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM cq_contact WHERE cq_contact_domain = ? AND cq_contact_api_key = ?',
+            [$domain, $apiKey]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return CqContact::fromArray($result);
+    }
+
+    /**
+     * Get all active contacts (for migration target selection)
+     */
+    public function getActiveContacts(): array
+    {
+        $userDb = $this->getUserDb();
+        $results = $userDb->executeQuery(
+            "SELECT * FROM cq_contact WHERE is_active = 1 AND friend_request_status = 'ACCEPTED' ORDER BY cq_contact_username ASC"
+        )->fetchAllAssociative();
+
+        return array_map(fn($data) => CqContact::fromArray($data), $results);
+    }
+
     public function findAll(bool $activeOnly = true): array
     {
         $userDb = $this->getUserDb();

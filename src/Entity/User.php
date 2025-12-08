@@ -37,6 +37,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $requirePasswordChange = false;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $migratedTo = null;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $migratedAt = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $migrationStatus = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -123,5 +132,48 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
         // If you store any temporary, sensitive data on the user, clear it here
+    }
+
+    public function getMigratedTo(): ?string
+    {
+        return $this->migratedTo;
+    }
+
+    public function setMigratedTo(?string $migratedTo): static
+    {
+        $this->migratedTo = $migratedTo;
+        return $this;
+    }
+
+    public function getMigratedAt(): ?\DateTimeInterface
+    {
+        return $this->migratedAt;
+    }
+
+    public function setMigratedAt(?\DateTimeInterface $migratedAt): static
+    {
+        $this->migratedAt = $migratedAt;
+        return $this;
+    }
+
+    public function getMigrationStatus(): ?string
+    {
+        return $this->migrationStatus;
+    }
+
+    public function setMigrationStatus(?string $migrationStatus): static
+    {
+        $this->migrationStatus = $migrationStatus;
+        return $this;
+    }
+
+    public function isMigrated(): bool
+    {
+        return $this->migrationStatus === 'migrated';
+    }
+
+    public function hasAdminRole(): bool
+    {
+        return in_array('ROLE_ADMIN', $this->getRoles());
     }
 }

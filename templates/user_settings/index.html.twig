@@ -114,6 +114,82 @@
                         </div>
                     </div>
 
+                    <hr>
+
+                    <!-- Account Migration -->
+                    <div class="row" id="migration-section">
+                        <div class="col-12 mb-3">
+                            <h6><i class="mdi mdi-account-arrow-right me-3"></i>{{ 'settings.migration.title'|trans|default('Account Migration') }}</h6>
+                        </div>
+                        <div class="col-12">
+                            <div id="migration-content">
+                                <!-- Loading state -->
+                                <div id="migration-loading" class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                                    <span class="ms-2">{{ 'ui.loading'|trans|default('Loading...') }}</span>
+                                </div>
+
+                                <!-- Already migrated state -->
+                                <div id="migration-migrated" class="d-none">
+                                    <div class="alert alert-info">
+                                        <i class="mdi mdi-information me-2"></i>
+                                        <strong>{{ 'settings.migration.already_migrated'|trans|default('This account has been migrated') }}</strong>
+                                        <p class="mb-0 mt-2">
+                                            {{ 'settings.migration.migrated_to'|trans|default('Migrated to') }}: <code id="migrated-to-domain"></code><br>
+                                            {{ 'settings.migration.migrated_at'|trans|default('Migrated on') }}: <span id="migrated-at-date"></span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Pending migration state -->
+                                <div id="migration-pending" class="d-none">
+                                    <div class="alert alert-warning">
+                                        <i class="mdi mdi-clock-outline me-2"></i>
+                                        <strong id="migration-status-text">{{ 'settings.migration.status_pending'|trans|default('Migration request pending...') }}</strong>
+                                        <p class="mb-0 mt-2">
+                                            {{ 'settings.migration.select_destination'|trans|default('Destination') }}: <code id="pending-target-domain"></code>
+                                        </p>
+                                    </div>
+                                    <button id="cancel-migration-btn" class="btn btn-outline-danger">
+                                        <i class="mdi mdi-close me-2"></i>{{ 'settings.migration.cancel'|trans|default('Cancel Migration') }}
+                                    </button>
+                                </div>
+
+                                <!-- Migration form -->
+                                <div id="migration-form" class="d-none">
+                                    <p class="text-muted small mb-3">{{ 'settings.migration.description'|trans|default('Migrate your account to another CitadelQuest server.') }}</p>
+                                    
+                                    <div class="alert alert-warning mb-3">
+                                        <i class="mdi mdi-alert me-2"></i>
+                                        <strong>{{ 'settings.migration.warning_title'|trans|default('Important') }}</strong>
+                                        <p class="mb-0 small">{{ 'settings.migration.warning_text'|trans|default('After migration, your account on this server will be disabled.') }}</p>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="migration-contact" class="form-label">{{ 'settings.migration.select_destination'|trans|default('Select Destination Server') }}</label>
+                                        <select id="migration-contact" class="form-select bg-dark_text-light">
+                                            <option value="">{{ 'settings.migration.select_contact'|trans|default('Select a CQ Contact (admin) on the destination server') }}</option>
+                                        </select>
+                                        <div class="form-text text-muted" id="no-contacts-message" style="display: none;">
+                                            {{ 'settings.migration.no_contacts'|trans|default('No active CQ Contacts available.') }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="migration-password" class="form-label">{{ 'settings.migration.password_confirm'|trans|default('Confirm with your password') }}</label>
+                                        <input type="password" id="migration-password" class="form-control bg-dark_text-light" 
+                                               placeholder="{{ 'settings.migration.password_placeholder'|trans|default('Enter your current password') }}">
+                                    </div>
+
+                                    <button id="initiate-migration-btn" class="btn btn-cyber" disabled>
+                                        <span class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                                        <i class="mdi mdi-account-arrow-right me-2"></i>{{ 'settings.migration.initiate'|trans|default('Initiate Migration') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
