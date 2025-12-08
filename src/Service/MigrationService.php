@@ -388,7 +388,10 @@ class MigrationService
     {
         // This will be called by the destination server to notify the source
         // Implementation will use Federation API
-        $url = 'https://' . $request->getSourceDomain() . '/api/federation/migration-accept';
+        // Use username from the migration request for the federation route
+        $url = 'https://' . $request->getSourceDomain() 
+            . '/' . $request->getUsername() 
+            . '/api/federation/migration-accept';
 
         try {
             $this->httpClient->request('POST', $url, [
@@ -412,7 +415,9 @@ class MigrationService
      */
     private function notifySourceServerRejected(MigrationRequest $request, ?string $reason): void
     {
-        $url = 'https://' . $request->getSourceDomain() . '/api/federation/migration-reject';
+        $url = 'https://' . $request->getSourceDomain() 
+            . '/' . $request->getUsername() 
+            . '/api/federation/migration-reject';
 
         try {
             $this->httpClient->request('POST', $url, [

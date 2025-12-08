@@ -207,7 +207,9 @@ class MigrationAdminController extends AbstractController
 
         try {
             // Download backup from source server
+            // Use username from migration request for federation route
             $backupUrl = 'https://' . $migrationRequest->getSourceDomain() 
+                . '/' . $migrationRequest->getUsername()
                 . '/api/federation/migration-backup?token=' . $migrationRequest->getMigrationToken();
 
             $this->logger->info('Starting backup download for migration', [
@@ -333,7 +335,9 @@ class MigrationAdminController extends AbstractController
      */
     private function notifySourceServerComplete(MigrationRequest $request): void
     {
-        $url = 'https://' . $request->getSourceDomain() . '/api/federation/migration-complete';
+        $url = 'https://' . $request->getSourceDomain() 
+            . '/' . $request->getUsername()
+            . '/api/federation/migration-complete';
 
         try {
             $ch = curl_init($url);
