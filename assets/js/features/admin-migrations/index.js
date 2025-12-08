@@ -1,3 +1,5 @@
+import { Modal } from 'bootstrap';
+
 /**
  * Admin Migrations Manager
  * 
@@ -20,10 +22,10 @@ class AdminMigrationsManager {
         const transferModalEl = document.getElementById('transferModal');
         
         if (rejectModalEl) {
-            this.rejectModal = new bootstrap.Modal(rejectModalEl);
+            this.rejectModal = new Modal(rejectModalEl);
         }
         if (transferModalEl) {
-            this.transferModal = new bootstrap.Modal(transferModalEl);
+            this.transferModal = new Modal(transferModalEl);
         }
 
         // Bind event handlers
