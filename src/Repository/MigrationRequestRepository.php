@@ -40,6 +40,20 @@ class MigrationRequestRepository extends ServiceEntityRepository
      */
     public function findPendingOutgoingForUser(Uuid $userId): ?MigrationRequest
     {
+        // First try to find ANY migration for this user to debug
+        $allForUser = $this->createQueryBuilder('m')
+            ->where('m.userId = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getResult();
+        
+        // DEBUG: Log to file that we can check
+        $debugInfo = 'findPendingOutgoingForUser - userId: ' . (string)$userId . ', found: ' . count($allForUser) . ' records';
+        foreach ($allForUser as $mr) {
+            $debugInfo .= ' | id: ' . $mr->getId() . ', dir: ' . $mr->getDirection() . ', status: ' . $mr->getStatus();
+        }
+        file_put_contents('/tmp/migration_debug.log', date('Y-m-d H:i:s') . ' ' . $debugInfo . "\n", FILE_APPEND);
+        
         return $this->createQueryBuilder('m')
             ->where('m.userId = :userId')
             ->andWhere('m.direction = :direction')
