@@ -43,18 +43,23 @@ class MigrationRequestRepository extends ServiceEntityRepository
      */
     public function findPendingOutgoingForUser(Uuid $userId): ?MigrationRequest
     {
-        // First try to find ANY migration for this user to debug
+        // DEBUG: Log the userId we're searching for
+        $this->logger->error('MigrationRequestRepository::findPendingOutgoingForUser', [
+            'userId' => (string)$userId,
+            'userId_binary' => bin2hex($userId->toBinary()),
+        ]);
+        
+        // Try with toBinary() for SQLite BLOB comparison
         $allForUser = $this->createQueryBuilder('m')
             ->where('m.userId = :userId')
-            ->setParameter('userId', $userId)
+            ->setParameter('userId', $userId->toBinary(), 'binary')
             ->getQuery()
             ->getResult();
         
-        // DEBUG: Log to prod.log
-        $this->logger->error('MigrationRequestRepository::findPendingOutgoingForUser', [
-            'userId' => (string)$userId,
+        $this->logger->error('MigrationRequestRepository - query result', [
             'found_count' => count($allForUser),
         ]);
+        
         foreach ($allForUser as $mr) {
             $this->logger->error('MigrationRequestRepository - found record', [
                 'id' => (string)$mr->getId(),
@@ -63,11 +68,27 @@ class MigrationRequestRepository extends ServiceEntityRepository
             ]);
         }
         
+        if (count($allForUser) === 0) {
+            // Fallback: try all records and log their user_ids
+            $allRecords = $this->createQueryBuilder('m')
+                ->setMaxResults(5)
+                ->getQuery()
+                ->getResult();
+            
+            foreach ($allRecords as $mr) {
+                $this->logger->error('MigrationRequestRepository - DB record userId', [
+                    'id' => (string)$mr->getId(),
+                    'db_userId' => (string)$mr->getUserId(),
+                    'db_userId_binary' => bin2hex($mr->getUserId()->toBinary()),
+                ]);
+            }
+        }
+        
         return $this->createQueryBuilder('m')
             ->where('m.userId = :userId')
             ->andWhere('m.direction = :direction')
             ->andWhere('m.status NOT IN (:completedStatuses)')
-            ->setParameter('userId', $userId)
+            ->setParameter('userId', $userId->toBinary(), 'binary')
             ->setParameter('direction', MigrationRequest::DIRECTION_OUTGOING)
             ->setParameter('completedStatuses', [
                 MigrationRequest::STATUS_COMPLETED,
