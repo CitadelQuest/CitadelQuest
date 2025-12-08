@@ -207,7 +207,7 @@ class RegistrationController extends AbstractController
                     // update AI models list from CQ AI Gateway
                     try {
                         // Attempt to sync models in background
-                        $syncModelsResult = $this->aiModelsSyncService->syncModels($session, $user);
+                        $syncModelsResult = $this->aiModelsSyncService->syncModels($user);
                         
                         if ($syncModelsResult['success']) {
 

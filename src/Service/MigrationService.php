@@ -46,7 +46,7 @@ class MigrationService
      */
     public function getCurrentDomain(): string
     {
-        return $this->params->get('app.domain') ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return $_SERVER['HTTP_HOST'] ?? 'localhost';
     }
 
     /**
