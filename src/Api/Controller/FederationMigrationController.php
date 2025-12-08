@@ -148,8 +148,8 @@ class FederationMigrationController extends AbstractController
      * 
      * Called by destination server when admin accepts the migration
      */
-    #[Route('/api/federation/migration-accept', name: 'api_federation_migration_accept_incoming', methods: ['POST'])]
-    public function migrationAcceptIncoming(Request $request): Response
+    #[Route('/{username}/api/federation/migration-accept', name: 'api_federation_migration_accept_incoming', methods: ['POST'])]
+    public function migrationAcceptIncoming(Request $request, string $username): Response
     {
         $this->logger->info('FederationMigrationController::migrationAcceptIncoming - Received acceptance notification');
 
@@ -228,8 +228,8 @@ class FederationMigrationController extends AbstractController
     /**
      * Receive migration rejection notification from destination server
      */
-    #[Route('/api/federation/migration-reject', name: 'api_federation_migration_reject_incoming', methods: ['POST'])]
-    public function migrationRejectIncoming(Request $request): Response
+    #[Route('/{username}/api/federation/migration-reject', name: 'api_federation_migration_reject_incoming', methods: ['POST'])]
+    public function migrationRejectIncoming(Request $request, string $username): Response
     {
         $this->logger->info('FederationMigrationController::migrationRejectIncoming - Received rejection notification');
 
@@ -294,8 +294,8 @@ class FederationMigrationController extends AbstractController
      * 
      * Called by destination server to download the user's backup
      */
-    #[Route('/api/federation/migration-backup', name: 'api_federation_migration_backup', methods: ['GET'])]
-    public function migrationBackup(Request $request): Response
+    #[Route('/{username}/api/federation/migration-backup', name: 'api_federation_migration_backup', methods: ['GET'])]
+    public function migrationBackup(Request $request, string $username): Response
     {
         $this->logger->info('FederationMigrationController::migrationBackup - Backup download requested');
 
@@ -499,8 +499,8 @@ class FederationMigrationController extends AbstractController
      * 
      * Called by destination server when migration is fully complete
      */
-    #[Route('/api/federation/migration-complete', name: 'api_federation_migration_complete', methods: ['POST'])]
-    public function migrationComplete(Request $request): Response
+    #[Route('/{username}/api/federation/migration-complete', name: 'api_federation_migration_complete', methods: ['POST'])]
+    public function migrationComplete(Request $request, string $username): Response
     {
         $this->logger->info('FederationMigrationController::migrationComplete - Migration complete notification');
 
