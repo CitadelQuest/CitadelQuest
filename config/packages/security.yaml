@@ -36,6 +36,12 @@ security:
         - { path: ^/.*/api/federation/group-message, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/group-message-forward, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/group-message-status, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-request, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-accept, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-reject, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-status, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-backup, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/migration-complete, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:
