@@ -151,11 +151,15 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-accept', name: 'api_federation_migration_accept_incoming', methods: ['POST'])]
     public function migrationAcceptIncoming(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::migrationAcceptIncoming - Received acceptance notification');
+        $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Received acceptance notification, username:'.$username);
 
         try {
             $data = json_decode($request->getContent(), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
+                $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Invalid JSON', [
+                    'error' => json_last_error_msg()
+                ]);
+
                 return $this->json([
                     'success' => false,
                     'error' => 'Invalid JSON'
@@ -165,6 +169,10 @@ class FederationMigrationController extends AbstractController
             $requiredFields = ['user_id', 'migration_token', 'expires_at'];
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field])) {
+                    $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Missing required field', [
+                        'field' => $field
+                    ]);
+
                     return $this->json([
                         'success' => false,
                         'error' => 'Missing required field: ' . $field
@@ -175,6 +183,10 @@ class FederationMigrationController extends AbstractController
             // Find the user and their outgoing migration request
             $user = $this->entityManager->getRepository(User::class)->find($data['user_id']);
             if (!$user) {
+                $this->logger->error('FederationMigrationController::migrationAcceptIncoming - User not found', [
+                    'user_id' => $data['user_id']
+                ]);
+
                 return $this->json([
                     'success' => false,
                     'error' => 'User not found'
@@ -184,6 +196,10 @@ class FederationMigrationController extends AbstractController
             // Update the migration request with the token
             $migrationRequest = $this->migrationService->findMigrationRequestByUserId($user->getId());
             if (!$migrationRequest || !$migrationRequest->isOutgoing()) {
+                $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Migration request not found', [
+                    'user_id' => $user->getId()
+                ]);
+                
                 return $this->json([
                     'success' => false,
                     'error' => 'Migration request not found'
@@ -204,7 +220,7 @@ class FederationMigrationController extends AbstractController
                 'success'
             );
 
-            $this->logger->info('FederationMigrationController::migrationAcceptIncoming - Migration accepted', [
+            $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Migration accepted', [
                 'user_id' => (string) $user->getId()
             ]);
 
