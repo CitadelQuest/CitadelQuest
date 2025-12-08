@@ -123,4 +123,29 @@ class BackupController extends AbstractController
             return new JsonResponse(['error' => $e->getMessage()], 400);
         }
     }
+
+    #[Route('/backup/upload', name: 'app_backup_upload', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function upload(Request $request): JsonResponse
+    {
+        try {
+            $uploadedFile = $request->files->get('backup');
+            
+            if (!$uploadedFile) {
+                return new JsonResponse(['error' => 'No file uploaded'], 400);
+            }
+
+            $result = $this->backupManager->uploadBackup($uploadedFile);
+            
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Backup uploaded successfully!',
+                'backup' => $result
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 400);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Upload failed: ' . $e->getMessage()], 500);
+        }
+    }
 }

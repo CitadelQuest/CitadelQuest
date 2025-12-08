@@ -1,4 +1,5 @@
 // Using global window.toast service
+import { BackupUploader } from './BackupUploader';
 
 function getTranslations() {
     const container = document.querySelector('[data-translations]');
@@ -162,4 +163,17 @@ export function initBackup() {
     document.querySelectorAll('.restore-backup').forEach(button => {
         button.addEventListener('click', handleRestoreBackup);
     });
+    
+    // Initialize backup uploader
+    const uploaderContainer = document.getElementById('backupUploaderContainer');
+    if (uploaderContainer) {
+        const translations = getTranslations();
+        new BackupUploader({
+            containerId: 'backupUploaderContainer',
+            translations: translations,
+            onUploadSuccess: (response) => {
+                window.toast.success(translations.upload_success || 'Backup uploaded successfully!');
+            }
+        });
+    }
 }

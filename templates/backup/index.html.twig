@@ -14,7 +14,17 @@
     'failed_delete': 'backup.messages.failed_delete'|trans,
     'failed_restore': 'backup.messages.failed_restore'|trans,
     'creating': 'backup.messages.creating'|trans,
-    'failed_create': 'backup.messages.failed_create'|trans
+    'failed_create': 'backup.messages.failed_create'|trans,
+    'drag_backup': 'backup.upload.drag_backup'|trans,
+    'or': 'backup.upload.or'|trans,
+    'browse_backup': 'backup.upload.browse_backup'|trans,
+    'accepted_format': 'backup.upload.accepted_format'|trans,
+    'uploading': 'backup.upload.uploading'|trans,
+    'upload_success': 'backup.upload.success'|trans,
+    'upload_failed': 'backup.upload.failed'|trans,
+    'invalid_format': 'backup.upload.invalid_format'|trans,
+    'file_too_large': 'backup.upload.file_too_large'|trans,
+    'network_error': 'backup.upload.network_error'|trans
 } %}
 
 <div class="container" data-translations="{{ translations|json_encode|e('html_attr') }}">
@@ -43,6 +53,14 @@
                         </button>
                     </div>
                 </form>
+
+                <!-- Upload Backup Section -->
+                <div class="mt-4 pt-4 border-top border-secondary">
+                    <h5 class="text-center mb-3">
+                        <i class="mdi mdi-cloud-upload"></i> {{ 'backup.upload.title'|trans }}
+                    </h5>
+                    <div id="backupUploaderContainer"></div>
+                </div>
             </div>
         </div>
         

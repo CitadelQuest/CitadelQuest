@@ -11,13 +11,13 @@
     Header set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# PHP Settings for file uploads
+# PHP Settings for file uploads (1GB backup support)
 <IfModule mod_php.c>
-    php_value upload_max_filesize 200M
-    php_value post_max_size 32M
-    php_value memory_limit 256M
-    php_value max_execution_time 300
-    php_value max_input_time 300
+    php_value upload_max_filesize 1024M
+    php_value post_max_size 1100M
+    php_value memory_limit 512M
+    php_value max_execution_time 600
+    php_value max_input_time 600
 </IfModule>
 
 # Basic Security Settings

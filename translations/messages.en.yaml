@@ -305,6 +305,18 @@ backup:
         failed_restore: 'Failed to restore backup'
         creating: 'Creating backup...'
         failed_create: 'Backup failed'
+    upload:
+        title: 'Upload Backup'
+        drag_backup: 'Drag backup file here'
+        or: 'or'
+        browse_backup: 'Browse Files'
+        accepted_format: 'Accepted format: .citadel'
+        uploading: 'Uploading...'
+        success: 'Backup uploaded successfully!'
+        failed: 'Upload failed'
+        invalid_format: 'Invalid file format. Only .citadel files are accepted.'
+        file_too_large: 'File is too large. Maximum size is'
+        network_error: 'Network error occurred'
 
 diary:
     title: 'Diary'

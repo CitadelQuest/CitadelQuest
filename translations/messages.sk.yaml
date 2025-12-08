@@ -305,6 +305,18 @@ backup:
         failed_restore: 'Obnovenie zálohy zlyhalo'
         creating: 'Vytváram zálohu...'
         failed_create: 'Vytvorenie zálohy zlyhalo'
+    upload:
+        title: 'Nahrať zálohu'
+        drag_backup: 'Pretiahnite súbor zálohy sem'
+        or: 'alebo'
+        browse_backup: 'Prehliadať súbory'
+        accepted_format: 'Povolený formát: .citadel'
+        uploading: 'Nahrávam...'
+        success: 'Záloha bola úspešne nahraná!'
+        failed: 'Nahrávanie zlyhalo'
+        invalid_format: 'Neplatný formát súboru. Sú povolené iba súbory .citadel.'
+        file_too_large: 'Súbor je príliš veľký. Maximálna veľkosť je'
+        network_error: 'Nastala chyba siete'
 
 diary:
     title: 'Denník'

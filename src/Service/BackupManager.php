@@ -203,6 +203,87 @@ class BackupManager
     }
 
     /**
+     * Upload and save a backup file
+     * 
+     * @param \Symfony\Component\HttpFoundation\File\UploadedFile $uploadedFile
+     * @return array Information about the uploaded backup
+     */
+    public function uploadBackup(\Symfony\Component\HttpFoundation\File\UploadedFile $uploadedFile): array
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in to upload a backup');
+        }
+
+        // Validate file extension
+        $originalName = $uploadedFile->getClientOriginalName();
+        if (!str_ends_with(strtolower($originalName), self::BACKUP_EXTENSION)) {
+            throw new \InvalidArgumentException('Invalid file format. Only .citadel files are accepted.');
+        }
+
+        // Validate file size (1000MB max)
+        $maxSize = 1048576000; // 1000MB
+        if ($uploadedFile->getSize() > $maxSize) {
+            throw new \InvalidArgumentException('File is too large. Maximum size is 1000MB.');
+        }
+
+        // Ensure backup directory exists
+        $backupDir = $this->params->get('app.backup_dir') . '/' . $user->getId();
+        $this->ensureDirectoryExists($backupDir);
+
+        // Generate unique filename to avoid conflicts
+        $filename = $this->generateUniqueFilename($backupDir, $originalName);
+        $targetPath = $backupDir . '/' . $filename;
+
+        try {
+            // Move uploaded file to backup directory
+            $uploadedFile->move($backupDir, $filename);
+
+            // Verify the backup is valid
+            if (!$this->verifyBackup($targetPath)) {
+                // Remove invalid backup
+                if (file_exists($targetPath)) {
+                    unlink($targetPath);
+                }
+                throw new \RuntimeException('Invalid backup file: user.db not found in archive');
+            }
+
+            $this->logger->info("Backup uploaded: {$targetPath}");
+
+            return [
+                'filename' => $filename,
+                'size' => filesize($targetPath),
+                'timestamp' => filemtime($targetPath)
+            ];
+
+        } catch (\Exception $e) {
+            // Clean up on error
+            if (isset($targetPath) && file_exists($targetPath)) {
+                unlink($targetPath);
+            }
+            throw new \RuntimeException('Backup upload failed: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Generate unique filename for uploaded backup
+     */
+    private function generateUniqueFilename(string $directory, string $originalName): string
+    {
+        $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+        $extension = self::BACKUP_EXTENSION;
+        
+        // If file doesn't exist, use original name
+        if (!file_exists($directory . '/' . $originalName)) {
+            return $originalName;
+        }
+        
+        // Otherwise, add timestamp to make it unique
+        $timestamp = date('Y-m-d_His');
+        return $baseName . '_' . $timestamp . $extension;
+    }
+
+    /**
      * Delete a backup file
      */
     public function deleteBackup(string $filename): void
