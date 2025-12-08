@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\MigrationRequest;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -12,8 +13,10 @@ use Symfony\Component\Uid\Uuid;
  */
 class MigrationRequestRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private LoggerInterface $logger
+    ) {
         parent::__construct($registry, MigrationRequest::class);
     }
 
@@ -47,12 +50,18 @@ class MigrationRequestRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
         
-        // DEBUG: Log to file that we can check
-        $debugInfo = 'findPendingOutgoingForUser - userId: ' . (string)$userId . ', found: ' . count($allForUser) . ' records';
+        // DEBUG: Log to prod.log
+        $this->logger->error('MigrationRequestRepository::findPendingOutgoingForUser', [
+            'userId' => (string)$userId,
+            'found_count' => count($allForUser),
+        ]);
         foreach ($allForUser as $mr) {
-            $debugInfo .= ' | id: ' . $mr->getId() . ', dir: ' . $mr->getDirection() . ', status: ' . $mr->getStatus();
+            $this->logger->error('MigrationRequestRepository - found record', [
+                'id' => (string)$mr->getId(),
+                'direction' => $mr->getDirection(),
+                'status' => $mr->getStatus(),
+            ]);
         }
-        file_put_contents('/tmp/migration_debug.log', date('Y-m-d H:i:s') . ' ' . $debugInfo . "\n", FILE_APPEND);
         
         return $this->createQueryBuilder('m')
             ->where('m.userId = :userId')
