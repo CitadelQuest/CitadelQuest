@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\MigrationRequest;
 use App\Service\MigrationService;
 use App\Service\BackupManager;
+use App\Service\ContactUpdateService;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +29,7 @@ class MigrationAdminController extends AbstractController
     public function __construct(
         private MigrationService $migrationService,
         private BackupManager $backupManager,
+        private ContactUpdateService $contactUpdateService,
         private UserRepository $userRepository,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger,
@@ -258,10 +260,19 @@ class MigrationAdminController extends AbstractController
 
             // Notify source server that migration is complete
             $this->notifySourceServerComplete($migrationRequest);
+            
+            // Notify all contacts about the domain change
+            $newDomain = $_SERVER['HTTP_HOST'] ?? 'unknown';
+            $contactResults = $this->contactUpdateService->notifyAllContacts(
+                $restoredUser,
+                $migrationRequest->getSourceDomain(),
+                $newDomain
+            );
 
             $this->logger->info('Migration transfer completed', [
                 'request_id' => $id,
                 'new_user_id' => (string) $restoredUser->getId(),
+                'contact_notifications' => $contactResults,
             ]);
 
             return $this->json([
@@ -292,6 +303,9 @@ class MigrationAdminController extends AbstractController
      */
     private function restoreMigratedUser(MigrationRequest $request, string $backupPath): User
     {
+        // Extract password hash from backup before restoring
+        $passwordHash = $this->extractPasswordFromBackup($backupPath);
+        
         // Create new user with the same UUID
         $user = new User();
         
@@ -307,9 +321,15 @@ class MigrationAdminController extends AbstractController
         // SECURITY: Reset roles to ROLE_USER only
         $user->setRoles(['ROLE_USER']);
         
-        // Set a random password - user must reset it
-        $user->setPassword(bin2hex(random_bytes(32)));
-        $user->setRequirePasswordChange(true);
+        // Use original password hash from backup if available
+        if ($passwordHash) {
+            $user->setPassword($passwordHash);
+            $user->setRequirePasswordChange(false);
+        } else {
+            // Fallback: Set a random password - user must reset it
+            $user->setPassword(bin2hex(random_bytes(32)));
+            $user->setRequirePasswordChange(true);
+        }
 
         // Generate database path
         $databasePath = md5((string) $user->getId()) . '.db';
@@ -328,6 +348,41 @@ class MigrationAdminController extends AbstractController
         ]);
 
         return $user;
+    }
+    
+    /**
+     * Extract password hash from backup's migration_metadata.json
+     */
+    private function extractPasswordFromBackup(string $backupPath): ?string
+    {
+        try {
+            $zip = new \ZipArchive();
+            if ($zip->open($backupPath) !== true) {
+                return null;
+            }
+            
+            // Read migration metadata
+            $metadataJson = $zip->getFromName('migration_metadata.json');
+            $zip->close();
+            
+            if (!$metadataJson) {
+                $this->logger->warning('No migration_metadata.json found in backup');
+                return null;
+            }
+            
+            $metadata = json_decode($metadataJson, true);
+            if (!$metadata || !isset($metadata['password_hash'])) {
+                $this->logger->warning('No password_hash in migration metadata');
+                return null;
+            }
+            
+            return $metadata['password_hash'];
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to extract password from backup', [
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 
     /**

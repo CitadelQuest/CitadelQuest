@@ -42,6 +42,7 @@ security:
         - { path: ^/.*/api/federation/migration-status, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/migration-backup, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/migration-complete, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/contact-update, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:

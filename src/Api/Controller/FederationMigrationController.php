@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Service\MigrationService;
 use App\Service\CqContactService;
 use App\Service\NotificationService;
+use App\Service\BackupManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,7 @@ class FederationMigrationController extends AbstractController
         private NotificationService $notificationService,
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger,
+        private BackupManager $backupManager,
     ) {}
 
     /**
@@ -363,8 +365,7 @@ class FederationMigrationController extends AbstractController
             $this->entityManager->flush();
 
             // Create backup and stream it
-            $backupManager = $this->container->get('App\Service\BackupManager');
-            $backupPath = $backupManager->createBackup($user);
+            $backupPath = $this->backupManager->createBackup($user);
 
             if (!file_exists($backupPath)) {
                 return $this->json([

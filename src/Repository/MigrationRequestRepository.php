@@ -45,58 +45,55 @@ class MigrationRequestRepository extends ServiceEntityRepository
     {
         // DEBUG: Log the userId we're searching for
         $this->logger->error('MigrationRequestRepository::findPendingOutgoingForUser', [
-            'userId' => (string)$userId,
-            'userId_binary' => bin2hex($userId->toBinary()),
+            'userId_string' => (string)$userId,
         ]);
         
-        // Try with toBinary() for SQLite BLOB comparison
-        $allForUser = $this->createQueryBuilder('m')
-            ->where('m.userId = :userId')
-            ->setParameter('userId', $userId->toBinary(), 'binary')
-            ->getQuery()
-            ->getResult();
+        // Try using Doctrine's findBy which handles UUID type automatically
+        $allForUser = $this->findBy(['userId' => $userId]);
         
-        $this->logger->error('MigrationRequestRepository - query result', [
+        $this->logger->error('MigrationRequestRepository - findBy result', [
             'found_count' => count($allForUser),
         ]);
         
         foreach ($allForUser as $mr) {
             $this->logger->error('MigrationRequestRepository - found record', [
                 'id' => (string)$mr->getId(),
+                'userId' => (string)$mr->getUserId(),
                 'direction' => $mr->getDirection(),
                 'status' => $mr->getStatus(),
             ]);
         }
         
         if (count($allForUser) === 0) {
-            // Fallback: try all records and log their user_ids
-            $allRecords = $this->createQueryBuilder('m')
-                ->setMaxResults(5)
-                ->getQuery()
-                ->getResult();
+            // Fallback: fetch all records to compare UUIDs
+            $allRecords = $this->findAll();
+            $this->logger->error('MigrationRequestRepository - total records in table', [
+                'count' => count($allRecords),
+            ]);
             
-            foreach ($allRecords as $mr) {
-                $this->logger->error('MigrationRequestRepository - DB record userId', [
+            foreach (array_slice($allRecords, 0, 5) as $mr) {
+                $this->logger->error('MigrationRequestRepository - DB record', [
                     'id' => (string)$mr->getId(),
                     'db_userId' => (string)$mr->getUserId(),
-                    'db_userId_binary' => bin2hex($mr->getUserId()->toBinary()),
+                    'username' => $mr->getUsername(),
+                    'direction' => $mr->getDirection(),
                 ]);
             }
         }
         
-        return $this->createQueryBuilder('m')
-            ->where('m.userId = :userId')
-            ->andWhere('m.direction = :direction')
-            ->andWhere('m.status NOT IN (:completedStatuses)')
-            ->setParameter('userId', $userId->toBinary(), 'binary')
-            ->setParameter('direction', MigrationRequest::DIRECTION_OUTGOING)
-            ->setParameter('completedStatuses', [
-                MigrationRequest::STATUS_COMPLETED,
-                MigrationRequest::STATUS_FAILED,
-                MigrationRequest::STATUS_REJECTED
-            ])
-            ->getQuery()
-            ->getOneOrNullResult();
+        // Filter from the results we already have
+        foreach ($allForUser as $mr) {
+            if ($mr->getDirection() === MigrationRequest::DIRECTION_OUTGOING &&
+                !in_array($mr->getStatus(), [
+                    MigrationRequest::STATUS_COMPLETED,
+                    MigrationRequest::STATUS_FAILED,
+                    MigrationRequest::STATUS_REJECTED
+                ])) {
+                return $mr;
+            }
+        }
+        
+        return null;
     }
 
     /**

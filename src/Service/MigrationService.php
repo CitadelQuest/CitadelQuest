@@ -311,13 +311,22 @@ class MigrationService
     }
 
     /**
-     * Cancel a pending migration request
+     * Cancel a migration request (pending, accepted, or transferring)
      */
     public function cancelMigration(User $user): bool
     {
         $migration = $this->migrationRequestRepository->findPendingOutgoingForUser($user->getId());
         
-        if (!$migration || !$migration->isPending()) {
+        if (!$migration) {
+            return false;
+        }
+        
+        // Can only cancel if not already completed/failed/rejected
+        if (in_array($migration->getStatus(), [
+            MigrationRequest::STATUS_COMPLETED,
+            MigrationRequest::STATUS_FAILED,
+            MigrationRequest::STATUS_REJECTED
+        ])) {
             return false;
         }
 

@@ -35,11 +35,13 @@ class BackupManager
     /**
      * Create a backup for the current user
      */
-    public function createBackup(): string
+    public function createBackup(?User $user = null): string
     {
-        $user = $this->security->getUser();
-        if (!$user instanceof User) {
-            throw new \RuntimeException('User must be logged in to create a backup');
+        if (!$user) {
+            $user = $this->security->getUser();
+            if (!$user instanceof User) {
+                throw new \RuntimeException('User must be logged in to create a backup');
+            }
         }
 
         $projectDir = $this->params->get('kernel.project_dir');
@@ -74,6 +76,16 @@ class BackupManager
             if (is_dir($userDataDir)) {
                 $this->addDirectoryToZip($zip, $userDataDir, 'user_data');
             }
+            
+            // Add migration metadata (includes password hash for cross-instance migration)
+            $metadata = [
+                'version' => '1.0',
+                'created_at' => date('c'),
+                'username' => $user->getUserIdentifier(),
+                'email' => $user->getEmail(),
+                'password_hash' => $user->getPassword(),
+            ];
+            $zip->addFromString('migration_metadata.json', json_encode($metadata, JSON_PRETTY_PRINT));
 
             $zip->close();
 
@@ -94,29 +106,36 @@ class BackupManager
 
     /**
      * Restore a backup file
+     * 
+     * @param User|string $userOrFilename - User object (for migration) or filename string (for regular restore)
+     * @param string|null $backupPath - Absolute path to backup file (only when $userOrFilename is User)
      */
-    public function restoreBackup(string $filename): void
+    public function restoreBackup(User|string $userOrFilename, ?string $backupPath = null): void
     {
-        $user = $this->security->getUser();
-        if (!$user instanceof User) {
-            throw new \RuntimeException('User must be logged in to restore a backup');
-        }
-
-        $backupDir = $this->params->get('app.backup_dir') . '/' . $user->getId();
-        $backupPath = $backupDir . '/' . $filename;
-
-        if (!file_exists($backupPath)) {
-            throw new \RuntimeException('Backup file not found');
+        // Handle migration case: User object + absolute backup path
+        if ($userOrFilename instanceof User) {
+            $user = $userOrFilename;
+            if (!$backupPath || !file_exists($backupPath)) {
+                throw new \RuntimeException('Backup file not found: ' . ($backupPath ?? 'null'));
+            }
+        } else {
+            // Handle regular case: filename string, get user from session
+            $user = $this->security->getUser();
+            if (!$user instanceof User) {
+                throw new \RuntimeException('User must be logged in to restore a backup');
+            }
+            $backupDir = $this->params->get('app.backup_dir') . '/' . $user->getId();
+            $backupPath = $backupDir . '/' . $userOrFilename;
+            
+            if (!file_exists($backupPath)) {
+                throw new \RuntimeException('Backup file not found');
+            }
         }
 
         $projectDir = $this->params->get('kernel.project_dir');
         $varDir = $projectDir . '/var';
 
         try {
-            // Create auto-backup before restore
-            //$autoBackupPath = $this->createAutoBackup();
-            //$this->logger->info("Created auto-backup before restore: {$autoBackupPath}");
-
             $zip = new \ZipArchive();
             if ($zip->open($backupPath) !== true) {
                 throw new \RuntimeException('Failed to open backup archive');
