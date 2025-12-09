@@ -177,7 +177,8 @@ npm install
 5. Initialize the database:
 ```bash
 php bin/console doctrine:database:create
-php bin/console doctrine:migrations:migrate
+chmod 666 var/main.db
+php bin/console app:run-main-db-migrations
 php bin/console app:update-user-databases
 ```
 
