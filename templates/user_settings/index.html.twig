@@ -176,6 +176,16 @@
                                     </div>
 
                                     <div class="mb-3">
+                                        <label for="migration-backup" class="form-label">{{ 'settings.migration.select_backup'|trans|default('Select Backup for Migration') }}</label>
+                                        <select id="migration-backup" class="form-select bg-dark_text-light">
+                                            <option value="">{{ 'settings.migration.create_new_backup'|trans|default('Create new backup (current data)') }}</option>
+                                        </select>
+                                        <div class="form-text text-muted">
+                                            {{ 'settings.migration.backup_hint'|trans|default('Use a pre-created backup for faster migration of large accounts.') }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
                                         <label for="migration-password" class="form-label">{{ 'settings.migration.password_confirm'|trans|default('Confirm with your password') }}</label>
                                         <input type="password" id="migration-password" class="form-control bg-dark_text-light" 
                                                placeholder="{{ 'settings.migration.password_placeholder'|trans|default('Enter your current password') }}">

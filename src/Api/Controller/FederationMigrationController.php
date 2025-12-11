@@ -364,8 +364,23 @@ class FederationMigrationController extends AbstractController
             $migrationRequest->setStatus('transferring');
             $this->entityManager->flush();
 
-            // Create backup and stream it
-            $backupPath = $this->backupManager->createBackup($user);
+            // Use pre-staged backup if available, otherwise create new one
+            $prestagedBackup = $migrationRequest->getBackupFilename();
+            $deleteAfterTransfer = true;
+            
+            if ($prestagedBackup) {
+                $backupDir = $this->getParameter('app.backup_dir') . '/' . $user->getId();
+                $backupPath = $backupDir . '/' . $prestagedBackup;
+                $deleteAfterTransfer = false; // Don't delete pre-staged backups
+                
+                $this->logger->info('FederationMigrationController::migrationBackup - Using pre-staged backup', [
+                    'backup_filename' => $prestagedBackup
+                ]);
+            } else {
+                $backupPath = $this->backupManager->createBackup($user);
+                
+                $this->logger->info('FederationMigrationController::migrationBackup - Created new backup');
+            }
 
             if (!file_exists($backupPath)) {
                 return $this->json([
@@ -374,27 +389,34 @@ class FederationMigrationController extends AbstractController
                 ], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
 
+            $fileSize = filesize($backupPath);
             $this->logger->info('FederationMigrationController::migrationBackup - Streaming backup', [
                 'user_id' => (string) $user->getId(),
-                'backup_size' => filesize($backupPath)
+                'backup_size' => $fileSize,
+                'prestaged' => $prestagedBackup ? true : false
             ]);
 
-            // Stream the backup file
-            $response = new StreamedResponse(function() use ($backupPath) {
+            // Stream the backup file with chunked transfer for progress tracking
+            $response = new StreamedResponse(function() use ($backupPath, $deleteAfterTransfer) {
                 $handle = fopen($backupPath, 'rb');
+                $chunkSize = 65536; // 64KB chunks for better progress granularity
+                
                 while (!feof($handle)) {
-                    echo fread($handle, 8192);
+                    echo fread($handle, $chunkSize);
                     flush();
                 }
                 fclose($handle);
                 
-                // Clean up the temporary backup file
-                @unlink($backupPath);
+                // Clean up the backup file only if it was created for this transfer
+                if ($deleteAfterTransfer) {
+                    @unlink($backupPath);
+                }
             });
 
             $response->headers->set('Content-Type', 'application/octet-stream');
-            $response->headers->set('Content-Length', filesize($backupPath));
+            $response->headers->set('Content-Length', $fileSize);
             $response->headers->set('Content-Disposition', 'attachment; filename="migration_backup.citadel"');
+            $response->headers->set('X-Backup-Size', $fileSize); // For progress tracking
 
             return $response;
 

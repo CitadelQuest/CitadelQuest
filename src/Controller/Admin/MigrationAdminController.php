@@ -217,6 +217,7 @@ class MigrationAdminController extends AbstractController
             $this->logger->info('Starting backup download for migration', [
                 'request_id' => $id,
                 'source_domain' => $migrationRequest->getSourceDomain(),
+                'expected_size' => $migrationRequest->getBackupSize(),
             ]);
 
             // Update status
@@ -228,18 +229,21 @@ class MigrationAdminController extends AbstractController
             
             $ch = curl_init($backupUrl);
             $fp = fopen($tempFile, 'wb');
+            
             curl_setopt($ch, CURLOPT_FILE, $fp);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 3600); // 1 hour timeout for large files
+            curl_setopt($ch, CURLOPT_TIMEOUT, 7200); // 2 hour timeout for very large files
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For dev environments
+            
             $success = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
             curl_close($ch);
             fclose($fp);
 
             if (!$success || $httpCode !== 200) {
                 @unlink($tempFile);
-                throw new \RuntimeException('Failed to download backup from source server');
+                throw new \RuntimeException('Failed to download backup from source server: ' . ($curlError ?: 'HTTP ' . $httpCode));
             }
 
             $this->logger->info('Backup downloaded successfully', [

@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Service\MigrationService;
 use App\Service\CqContactService;
+use App\Service\BackupManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,6 +24,7 @@ class MigrationController extends AbstractController
     public function __construct(
         private MigrationService $migrationService,
         private CqContactService $cqContactService,
+        private BackupManager $backupManager,
     ) {}
 
     /**
@@ -57,11 +59,22 @@ class MigrationController extends AbstractController
             'domain' => $contact->getCqContactDomain(),
         ], $contacts);
 
+        // Get available backups for pre-staged migration
+        $backups = $this->backupManager->getUserBackups();
+        $backupsData = array_map(fn($backup) => [
+            'filename' => $backup['filename'],
+            'size' => $backup['size'],
+            'size_formatted' => $this->formatBytes($backup['size']),
+            'timestamp' => $backup['timestamp'],
+            'date' => date('Y-m-d H:i', $backup['timestamp']),
+        ], $backups);
+
         return $this->json([
             'success' => true,
             'status' => $migrationStatus ? $migrationStatus['status'] : null,
             'migration' => $migrationStatus,
             'available_contacts' => $contactsData,
+            'available_backups' => $backupsData,
         ]);
     }
 
@@ -111,10 +124,14 @@ class MigrationController extends AbstractController
         }
 
         try {
+            // Optional: use pre-staged backup
+            $backupFilename = $data['backup_filename'] ?? null;
+            
             $migrationRequest = $this->migrationService->initiateMigration(
                 $user,
                 $targetContact,
-                $data['password']
+                $data['password'],
+                $backupFilename
             );
 
             return $this->json([
@@ -165,5 +182,19 @@ class MigrationController extends AbstractController
             'success' => false,
             'error' => 'No pending migration request to cancel',
         ], Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * Format bytes to human readable format
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $i = 0;
+        while ($bytes >= 1024 && $i < count($units) - 1) {
+            $bytes /= 1024;
+            $i++;
+        }
+        return round($bytes, 2) . ' ' . $units[$i];
     }
 }

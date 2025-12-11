@@ -83,6 +83,12 @@ class MigrationRequest
     #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $tokenExpiresAt = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $backupFilename = null;
+
+    #[ORM\Column(type: 'bigint', nullable: true)]
+    private ?int $transferredBytes = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -285,6 +291,28 @@ class MigrationRequest
         return $this;
     }
 
+    public function getBackupFilename(): ?string
+    {
+        return $this->backupFilename;
+    }
+
+    public function setBackupFilename(?string $backupFilename): self
+    {
+        $this->backupFilename = $backupFilename;
+        return $this;
+    }
+
+    public function getTransferredBytes(): ?int
+    {
+        return $this->transferredBytes;
+    }
+
+    public function setTransferredBytes(?int $transferredBytes): self
+    {
+        $this->transferredBytes = $transferredBytes;
+        return $this;
+    }
+
     // Helper methods
 
     public function isOutgoing(): bool
@@ -349,6 +377,8 @@ class MigrationRequest
             'updated_at' => $this->updatedAt->format(\DateTimeInterface::ATOM),
             'accepted_at' => $this->acceptedAt?->format(\DateTimeInterface::ATOM),
             'completed_at' => $this->completedAt?->format(\DateTimeInterface::ATOM),
+            'backup_filename' => $this->backupFilename,
+            'transferred_bytes' => $this->transferredBytes,
         ];
     }
 }

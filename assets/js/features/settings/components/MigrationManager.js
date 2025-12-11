@@ -11,6 +11,7 @@ export class MigrationManager {
         this.formEl = document.getElementById('migration-form');
         
         this.contactSelect = document.getElementById('migration-contact');
+        this.backupSelect = document.getElementById('migration-backup');
         this.passwordInput = document.getElementById('migration-password');
         this.initiateBtn = document.getElementById('initiate-migration-btn');
         this.cancelBtn = document.getElementById('cancel-migration-btn');
@@ -73,6 +74,7 @@ export class MigrationManager {
             } else {
                 // Show migration form
                 this.populateContacts(data.available_contacts || []);
+                this.populateBackups(data.available_backups || []);
                 this.formEl.classList.remove('d-none');
             }
 
@@ -117,6 +119,26 @@ export class MigrationManager {
         });
     }
 
+    populateBackups(backups) {
+        if (!this.backupSelect) return;
+
+        // Clear existing options except the first one (create new backup)
+        while (this.backupSelect.options.length > 1) {
+            this.backupSelect.remove(1);
+        }
+
+        if (backups.length === 0) {
+            return;
+        }
+
+        backups.forEach(backup => {
+            const option = document.createElement('option');
+            option.value = backup.filename;
+            option.textContent = `${backup.filename} (${backup.size_formatted}) - ${backup.date}`;
+            this.backupSelect.appendChild(option);
+        });
+    }
+
     validateForm() {
         const contactSelected = this.contactSelect?.value;
         const passwordEntered = this.passwordInput?.value?.length >= 1;
@@ -128,6 +150,7 @@ export class MigrationManager {
 
     async handleInitiate() {
         const contactId = this.contactSelect?.value;
+        const backupFilename = this.backupSelect?.value || null;
         const password = this.passwordInput?.value;
 
         if (!contactId || !password) return;
@@ -146,6 +169,7 @@ export class MigrationManager {
                 body: JSON.stringify({
                     contact_id: contactId,
                     password: password,
+                    backup_filename: backupFilename,
                 }),
             });
 

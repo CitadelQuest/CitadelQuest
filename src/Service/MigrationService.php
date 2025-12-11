@@ -55,10 +55,11 @@ class MigrationService
      * @param User $user The user initiating migration
      * @param CqContact $targetContact The admin contact on the destination server
      * @param string $password User's password for confirmation
+     * @param string|null $backupFilename Optional pre-staged backup filename
      * @return MigrationRequest The created migration request
      * @throws \Exception If validation fails
      */
-    public function initiateMigration(User $user, CqContact $targetContact, string $password): MigrationRequest
+    public function initiateMigration(User $user, CqContact $targetContact, string $password, ?string $backupFilename = null): MigrationRequest
     {
         // Verify password
         if (!$this->passwordHasher->isPasswordValid($user, $password)) {
@@ -76,8 +77,16 @@ class MigrationService
             throw new \RuntimeException('This account has already been migrated');
         }
 
-        // Get backup size estimate
-        $backupSize = $this->estimateBackupSize($user);
+        // Get backup size - use pre-staged backup if provided, otherwise estimate
+        if ($backupFilename) {
+            $backupPath = $this->getBackupPath($user, $backupFilename);
+            if (!file_exists($backupPath)) {
+                throw new \InvalidArgumentException('Selected backup file not found');
+            }
+            $backupSize = filesize($backupPath);
+        } else {
+            $backupSize = $this->estimateBackupSize($user);
+        }
 
         // Create migration request (outgoing)
         $migrationRequest = new MigrationRequest();
@@ -87,6 +96,7 @@ class MigrationService
         $migrationRequest->setSourceDomain($this->getCurrentDomain());
         $migrationRequest->setTargetDomain($targetContact->getCqContactDomain());
         $migrationRequest->setBackupSize($backupSize);
+        $migrationRequest->setBackupFilename($backupFilename);
         $migrationRequest->setDirection(MigrationRequest::DIRECTION_OUTGOING);
         $migrationRequest->setStatus(MigrationRequest::STATUS_PENDING);
 
@@ -482,5 +492,14 @@ class MigrationService
     public function findMigrationRequestByUserId(Uuid $userId): ?MigrationRequest
     {
         return $this->migrationRequestRepository->findPendingOutgoingForUser($userId);
+    }
+
+    /**
+     * Get the full path to a user's backup file
+     */
+    public function getBackupPath(User $user, string $filename): string
+    {
+        $backupDir = $this->params->get('app.backup_dir') . '/' . $user->getId();
+        return $backupDir . '/' . $filename;
     }
 }
