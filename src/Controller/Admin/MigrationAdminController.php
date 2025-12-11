@@ -214,46 +214,143 @@ class MigrationAdminController extends AbstractController
                 . '/' . $migrationRequest->getUsername()
                 . '/api/federation/migration-backup?token=' . $migrationRequest->getMigrationToken();
 
+            $expectedSize = $migrationRequest->getBackupSize();
+            
             $this->logger->info('Starting backup download for migration', [
                 'request_id' => $id,
                 'source_domain' => $migrationRequest->getSourceDomain(),
-                'expected_size' => $migrationRequest->getBackupSize(),
+                'expected_size' => $expectedSize,
             ]);
 
             // Update status
             $migrationRequest->setStatus(MigrationRequest::STATUS_TRANSFERRING);
             $this->entityManager->flush();
 
-            // Download the backup file
+            // Download the backup file with resumable download support
             $tempFile = sys_get_temp_dir() . '/migration_' . $migrationRequest->getId() . '.citadel';
             
-            $ch = curl_init($backupUrl);
-            $fp = fopen($tempFile, 'wb');
+            // Resumable download with retry logic
+            $maxRetries = 10;
+            $retryCount = 0;
+            $chunkSize = 50 * 1024 * 1024; // 50MB chunks per request
             
-            curl_setopt($ch, CURLOPT_FILE, $fp);
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // No timeout - let it run as long as needed
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 60); // 60 second connection timeout
-            curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024); // Minimum 1KB/s
-            curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 300); // Allow 5 minutes of slow transfer before timeout
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For dev environments
-            curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); // Force HTTP/1.1 to avoid HTTP/2 stream errors on long downloads
-            curl_setopt($ch, CURLOPT_BUFFERSIZE, 65536); // 64KB buffer to match streaming chunk size
+            // Check if we have a partial download from previous attempt
+            $downloadedBytes = file_exists($tempFile) ? filesize($tempFile) : 0;
             
-            $success = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
-            fclose($fp);
-
-            if (!$success || $httpCode !== 200) {
+            while ($retryCount < $maxRetries) {
+                $this->logger->info('Download attempt', [
+                    'retry' => $retryCount,
+                    'downloaded_bytes' => $downloadedBytes,
+                    'expected_size' => $expectedSize,
+                ]);
+                
+                // Open file in append mode if resuming, otherwise create new
+                $fp = fopen($tempFile, $downloadedBytes > 0 ? 'ab' : 'wb');
+                if (!$fp) {
+                    throw new \RuntimeException('Failed to open temp file for writing');
+                }
+                
+                $ch = curl_init($backupUrl);
+                curl_setopt($ch, CURLOPT_FILE, $fp);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 600); // 10 minute timeout per chunk
+                curl_setopt($ch, CURLOPT_BUFFERSIZE, 65536); // 64KB buffer
+                
+                // Request specific byte range if resuming
+                if ($downloadedBytes > 0) {
+                    $rangeEnd = $downloadedBytes + $chunkSize - 1;
+                    curl_setopt($ch, CURLOPT_RANGE, "{$downloadedBytes}-{$rangeEnd}");
+                    $this->logger->info('Resuming download from byte', [
+                        'start' => $downloadedBytes,
+                        'range_end' => $rangeEnd,
+                    ]);
+                } else {
+                    // First request - get first chunk
+                    $rangeEnd = $chunkSize - 1;
+                    curl_setopt($ch, CURLOPT_RANGE, "0-{$rangeEnd}");
+                }
+                
+                $success = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                $bytesDownloaded = curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
+                curl_close($ch);
+                fclose($fp);
+                
+                // Check response
+                if (!$success) {
+                    $this->logger->warning('Download chunk failed', [
+                        'error' => $curlError,
+                        'http_code' => $httpCode,
+                        'retry' => $retryCount,
+                    ]);
+                    $retryCount++;
+                    sleep(2); // Wait before retry
+                    continue;
+                }
+                
+                // HTTP 200 = full file, HTTP 206 = partial content (range request)
+                if ($httpCode !== 200 && $httpCode !== 206) {
+                    $this->logger->warning('Unexpected HTTP code', [
+                        'http_code' => $httpCode,
+                        'retry' => $retryCount,
+                    ]);
+                    $retryCount++;
+                    sleep(2);
+                    continue;
+                }
+                
+                // Update downloaded bytes count
+                $downloadedBytes = filesize($tempFile);
+                
+                $this->logger->info('Chunk downloaded', [
+                    'bytes_this_chunk' => $bytesDownloaded,
+                    'total_downloaded' => $downloadedBytes,
+                    'expected_size' => $expectedSize,
+                ]);
+                
+                // Check if download is complete
+                // HTTP 200 means server sent full file (no range support or complete)
+                // Or if we've downloaded at least the expected size
+                if ($httpCode === 200 || ($expectedSize > 0 && $downloadedBytes >= $expectedSize)) {
+                    $this->logger->info('Download complete', [
+                        'total_size' => $downloadedBytes,
+                    ]);
+                    break;
+                }
+                
+                // If we got less than requested, we might be at the end
+                if ($bytesDownloaded < $chunkSize) {
+                    $this->logger->info('Download appears complete (received less than chunk size)', [
+                        'total_size' => $downloadedBytes,
+                    ]);
+                    break;
+                }
+                
+                // Reset retry count on successful chunk
+                $retryCount = 0;
+            }
+            
+            if ($retryCount >= $maxRetries) {
                 @unlink($tempFile);
-                throw new \RuntimeException('Failed to download backup from source server: ' . ($curlError ?: 'HTTP ' . $httpCode));
+                throw new \RuntimeException('Failed to download backup after ' . $maxRetries . ' retries');
+            }
+            
+            // Verify file size if we know expected size
+            $finalSize = filesize($tempFile);
+            if ($expectedSize > 0 && $finalSize < $expectedSize) {
+                $this->logger->error('Downloaded file size mismatch', [
+                    'expected' => $expectedSize,
+                    'actual' => $finalSize,
+                ]);
+                @unlink($tempFile);
+                throw new \RuntimeException("Downloaded file incomplete: got {$finalSize} bytes, expected {$expectedSize}");
             }
 
             $this->logger->info('Backup downloaded successfully', [
                 'request_id' => $id,
-                'file_size' => filesize($tempFile),
+                'file_size' => $finalSize,
             ]);
 
             // Restore the backup (creates new user with same UUID)

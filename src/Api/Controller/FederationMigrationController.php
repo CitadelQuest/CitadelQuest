@@ -390,14 +390,44 @@ class FederationMigrationController extends AbstractController
             }
 
             $fileSize = filesize($backupPath);
+            
+            // Handle Range requests for resumable downloads
+            $rangeHeader = $request->headers->get('Range');
+            $start = 0;
+            $end = $fileSize - 1;
+            $statusCode = Response::HTTP_OK;
+            
+            if ($rangeHeader && preg_match('/bytes=(\d+)-(\d*)/', $rangeHeader, $matches)) {
+                $start = (int) $matches[1];
+                $end = !empty($matches[2]) ? (int) $matches[2] : $fileSize - 1;
+                
+                // Validate range
+                if ($start > $end || $start >= $fileSize) {
+                    return new Response('Requested Range Not Satisfiable', Response::HTTP_REQUESTED_RANGE_NOT_SATISFIABLE, [
+                        'Content-Range' => "bytes */$fileSize"
+                    ]);
+                }
+                
+                $statusCode = Response::HTTP_PARTIAL_CONTENT;
+                $this->logger->info('FederationMigrationController::migrationBackup - Resuming from byte', [
+                    'start' => $start,
+                    'end' => $end,
+                    'total' => $fileSize
+                ]);
+            }
+            
+            $length = $end - $start + 1;
+            
             $this->logger->info('FederationMigrationController::migrationBackup - Streaming backup', [
                 'user_id' => (string) $user->getId(),
                 'backup_size' => $fileSize,
+                'range_start' => $start,
+                'range_length' => $length,
                 'prestaged' => $prestagedBackup ? true : false
             ]);
 
-            // Stream the backup file with chunked transfer for progress tracking
-            $response = new StreamedResponse(function() use ($backupPath, $deleteAfterTransfer) {
+            // Stream the backup file with Range support for resumable downloads
+            $response = new StreamedResponse(function() use ($backupPath, $start, $length, $deleteAfterTransfer) {
                 // Disable time limit for large file transfers
                 set_time_limit(0);
                 
@@ -407,11 +437,24 @@ class FederationMigrationController extends AbstractController
                 }
                 
                 $handle = fopen($backupPath, 'rb');
-                $chunkSize = 65536; // 64KB chunks for better progress granularity
                 
-                while (!feof($handle)) {
-                    echo fread($handle, $chunkSize);
+                // Seek to start position for Range requests
+                if ($start > 0) {
+                    fseek($handle, $start);
+                }
+                
+                $chunkSize = 65536; // 64KB chunks
+                $bytesRemaining = $length;
+                
+                while ($bytesRemaining > 0 && !feof($handle)) {
+                    $readSize = min($chunkSize, $bytesRemaining);
+                    $data = fread($handle, $readSize);
+                    if ($data === false) {
+                        break;
+                    }
+                    echo $data;
                     flush();
+                    $bytesRemaining -= strlen($data);
                     
                     // Check if connection is still alive
                     if (connection_aborted()) {
@@ -420,16 +463,23 @@ class FederationMigrationController extends AbstractController
                 }
                 fclose($handle);
                 
-                // Clean up the backup file only if it was created for this transfer
-                if ($deleteAfterTransfer) {
+                // Only delete backup after FULL transfer (not partial)
+                // We check if this was a full transfer by seeing if we started from 0
+                // and transferred the whole file
+                if ($deleteAfterTransfer && $start === 0 && $bytesRemaining === 0) {
                     @unlink($backupPath);
                 }
-            });
+            }, $statusCode);
 
             $response->headers->set('Content-Type', 'application/octet-stream');
-            $response->headers->set('Content-Length', $fileSize);
+            $response->headers->set('Content-Length', $length);
             $response->headers->set('Content-Disposition', 'attachment; filename="migration_backup.citadel"');
-            $response->headers->set('X-Backup-Size', $fileSize); // For progress tracking
+            $response->headers->set('Accept-Ranges', 'bytes');
+            $response->headers->set('X-Backup-Size', $fileSize); // Total file size for progress tracking
+            
+            if ($statusCode === Response::HTTP_PARTIAL_CONTENT) {
+                $response->headers->set('Content-Range', "bytes $start-$end/$fileSize");
+            }
 
             return $response;
 
