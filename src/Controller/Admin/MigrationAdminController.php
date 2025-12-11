@@ -208,149 +208,181 @@ class MigrationAdminController extends AbstractController
         }
 
         try {
-            // Download backup from source server
-            // Use username from migration request for federation route
-            $backupUrl = 'https://' . $migrationRequest->getSourceDomain() 
-                . '/' . $migrationRequest->getUsername()
-                . '/api/federation/migration-backup?token=' . $migrationRequest->getMigrationToken();
+            // Download backup from source server using chunked transfer
+            $baseUrl = 'https://' . $migrationRequest->getSourceDomain() 
+                . '/' . $migrationRequest->getUsername();
+            $token = $migrationRequest->getMigrationToken();
 
-            $expectedSize = $migrationRequest->getBackupSize();
-            
-            $this->logger->info('Starting backup download for migration', [
+            $this->logger->info('Starting chunked backup download for migration', [
                 'request_id' => $id,
                 'source_domain' => $migrationRequest->getSourceDomain(),
-                'expected_size' => $expectedSize,
+                'expected_size' => $migrationRequest->getBackupSize(),
             ]);
 
             // Update status
             $migrationRequest->setStatus(MigrationRequest::STATUS_TRANSFERRING);
             $this->entityManager->flush();
 
-            // Download the backup file with resumable download support
+            // Step 1: Request the source server to prepare chunks
+            $prepareUrl = $baseUrl . '/api/federation/migration-backup-prepare';
+            
+            $ch = curl_init($prepareUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['token' => $token]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 300); // 5 min timeout for preparation
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+            
+            $prepareResponse = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if (!$prepareResponse || $httpCode !== 200) {
+                throw new \RuntimeException('Failed to prepare backup chunks: ' . ($curlError ?: 'HTTP ' . $httpCode));
+            }
+            
+            $manifest = json_decode($prepareResponse, true);
+            if (!$manifest || !$manifest['success']) {
+                throw new \RuntimeException('Failed to prepare backup: ' . ($manifest['error'] ?? 'Unknown error'));
+            }
+            
+            $this->logger->info('Backup chunks prepared', [
+                'total_size' => $manifest['manifest']['total_size'],
+                'total_chunks' => $manifest['manifest']['total_chunks'],
+            ]);
+            
+            // Step 2: Download each chunk
             $tempFile = sys_get_temp_dir() . '/migration_' . $migrationRequest->getId() . '.citadel';
+            $fp = fopen($tempFile, 'wb');
+            if (!$fp) {
+                throw new \RuntimeException('Failed to create temp file');
+            }
             
-            // Resumable download with retry logic
-            $maxRetries = 10;
-            $retryCount = 0;
-            $chunkSize = 50 * 1024 * 1024; // 50MB chunks per request
+            $totalChunks = $manifest['manifest']['total_chunks'];
+            $maxRetries = 3;
             
-            // Check if we have a partial download from previous attempt
-            $downloadedBytes = file_exists($tempFile) ? filesize($tempFile) : 0;
-            
-            while ($retryCount < $maxRetries) {
-                $this->logger->info('Download attempt', [
-                    'retry' => $retryCount,
-                    'downloaded_bytes' => $downloadedBytes,
-                    'expected_size' => $expectedSize,
-                ]);
+            for ($chunkIndex = 0; $chunkIndex < $totalChunks; $chunkIndex++) {
+                $expectedChunk = $manifest['manifest']['chunks'][$chunkIndex];
+                $chunkUrl = $baseUrl . '/api/federation/migration-backup-chunk/' . $chunkIndex . '?token=' . urlencode($token);
                 
-                // Open file in append mode if resuming, otherwise create new
-                $fp = fopen($tempFile, $downloadedBytes > 0 ? 'ab' : 'wb');
-                if (!$fp) {
-                    throw new \RuntimeException('Failed to open temp file for writing');
-                }
-                
-                $ch = curl_init($backupUrl);
-                curl_setopt($ch, CURLOPT_FILE, $fp);
-                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 600); // 10 minute timeout per chunk
-                curl_setopt($ch, CURLOPT_BUFFERSIZE, 65536); // 64KB buffer
-                
-                // Request specific byte range if resuming
-                if ($downloadedBytes > 0) {
-                    $rangeEnd = $downloadedBytes + $chunkSize - 1;
-                    curl_setopt($ch, CURLOPT_RANGE, "{$downloadedBytes}-{$rangeEnd}");
-                    $this->logger->info('Resuming download from byte', [
-                        'start' => $downloadedBytes,
-                        'range_end' => $rangeEnd,
-                    ]);
-                } else {
-                    // First request - get first chunk
-                    $rangeEnd = $chunkSize - 1;
-                    curl_setopt($ch, CURLOPT_RANGE, "0-{$rangeEnd}");
-                }
-                
-                $success = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curlError = curl_error($ch);
-                $bytesDownloaded = curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
-                curl_close($ch);
-                fclose($fp);
-                
-                // Check response
-                if (!$success) {
-                    $this->logger->warning('Download chunk failed', [
-                        'error' => $curlError,
-                        'http_code' => $httpCode,
-                        'retry' => $retryCount,
-                    ]);
-                    $retryCount++;
-                    sleep(2); // Wait before retry
-                    continue;
-                }
-                
-                // HTTP 200 = full file, HTTP 206 = partial content (range request)
-                if ($httpCode !== 200 && $httpCode !== 206) {
-                    $this->logger->warning('Unexpected HTTP code', [
-                        'http_code' => $httpCode,
-                        'retry' => $retryCount,
-                    ]);
-                    $retryCount++;
-                    sleep(2);
-                    continue;
-                }
-                
-                // Update downloaded bytes count
-                $downloadedBytes = filesize($tempFile);
-                
-                $this->logger->info('Chunk downloaded', [
-                    'bytes_this_chunk' => $bytesDownloaded,
-                    'total_downloaded' => $downloadedBytes,
-                    'expected_size' => $expectedSize,
-                ]);
-                
-                // Check if download is complete
-                // HTTP 200 means server sent full file (no range support or complete)
-                // Or if we've downloaded at least the expected size
-                if ($httpCode === 200 || ($expectedSize > 0 && $downloadedBytes >= $expectedSize)) {
-                    $this->logger->info('Download complete', [
-                        'total_size' => $downloadedBytes,
-                    ]);
-                    break;
-                }
-                
-                // If we got less than requested, we might be at the end
-                if ($bytesDownloaded < $chunkSize) {
-                    $this->logger->info('Download appears complete (received less than chunk size)', [
-                        'total_size' => $downloadedBytes,
-                    ]);
-                    break;
-                }
-                
-                // Reset retry count on successful chunk
                 $retryCount = 0;
+                $chunkSuccess = false;
+                
+                while ($retryCount < $maxRetries && !$chunkSuccess) {
+                    $this->logger->info('Downloading chunk', [
+                        'chunk' => $chunkIndex,
+                        'total' => $totalChunks,
+                        'retry' => $retryCount,
+                        'expected_size' => $expectedChunk['size'],
+                    ]);
+                    
+                    // Download chunk to temp buffer
+                    $chunkTempFile = sys_get_temp_dir() . '/migration_chunk_' . $migrationRequest->getId() . '_' . $chunkIndex . '.tmp';
+                    $chunkFp = fopen($chunkTempFile, 'wb');
+                    
+                    $ch = curl_init($chunkUrl);
+                    curl_setopt($ch, CURLOPT_FILE, $chunkFp);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 300); // 5 min per chunk
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+                    
+                    $success = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $curlError = curl_error($ch);
+                    curl_close($ch);
+                    fclose($chunkFp);
+                    
+                    if (!$success || $httpCode !== 200) {
+                        $this->logger->warning('Chunk download failed', [
+                            'chunk' => $chunkIndex,
+                            'error' => $curlError,
+                            'http_code' => $httpCode,
+                        ]);
+                        @unlink($chunkTempFile);
+                        $retryCount++;
+                        sleep(2);
+                        continue;
+                    }
+                    
+                    // Verify chunk size and hash
+                    $downloadedSize = filesize($chunkTempFile);
+                    $downloadedHash = md5_file($chunkTempFile);
+                    
+                    if ($downloadedSize !== $expectedChunk['size']) {
+                        $this->logger->warning('Chunk size mismatch', [
+                            'chunk' => $chunkIndex,
+                            'expected' => $expectedChunk['size'],
+                            'actual' => $downloadedSize,
+                        ]);
+                        @unlink($chunkTempFile);
+                        $retryCount++;
+                        sleep(2);
+                        continue;
+                    }
+                    
+                    if ($downloadedHash !== $expectedChunk['hash']) {
+                        $this->logger->warning('Chunk hash mismatch', [
+                            'chunk' => $chunkIndex,
+                            'expected' => $expectedChunk['hash'],
+                            'actual' => $downloadedHash,
+                        ]);
+                        @unlink($chunkTempFile);
+                        $retryCount++;
+                        sleep(2);
+                        continue;
+                    }
+                    
+                    // Append chunk to final file
+                    $chunkData = file_get_contents($chunkTempFile);
+                    fwrite($fp, $chunkData);
+                    @unlink($chunkTempFile);
+                    
+                    $chunkSuccess = true;
+                    $this->logger->info('Chunk downloaded and verified', [
+                        'chunk' => $chunkIndex,
+                        'size' => $downloadedSize,
+                    ]);
+                }
+                
+                if (!$chunkSuccess) {
+                    fclose($fp);
+                    @unlink($tempFile);
+                    throw new \RuntimeException("Failed to download chunk {$chunkIndex} after {$maxRetries} retries");
+                }
             }
             
-            if ($retryCount >= $maxRetries) {
-                @unlink($tempFile);
-                throw new \RuntimeException('Failed to download backup after ' . $maxRetries . ' retries');
-            }
+            fclose($fp);
             
-            // Verify file size if we know expected size
+            // Step 3: Verify final file size
             $finalSize = filesize($tempFile);
-            if ($expectedSize > 0 && $finalSize < $expectedSize) {
-                $this->logger->error('Downloaded file size mismatch', [
+            $expectedSize = $manifest['manifest']['total_size'];
+            
+            if ($finalSize !== $expectedSize) {
+                $this->logger->error('Final file size mismatch', [
                     'expected' => $expectedSize,
                     'actual' => $finalSize,
                 ]);
                 @unlink($tempFile);
-                throw new \RuntimeException("Downloaded file incomplete: got {$finalSize} bytes, expected {$expectedSize}");
+                throw new \RuntimeException("Downloaded file size mismatch: got {$finalSize} bytes, expected {$expectedSize}");
             }
+            
+            // Step 4: Cleanup chunks on source server
+            $cleanupUrl = $baseUrl . '/api/federation/migration-backup-cleanup';
+            $ch = curl_init($cleanupUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['token' => $token]));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_exec($ch);
+            curl_close($ch);
 
-            $this->logger->info('Backup downloaded successfully', [
+            $this->logger->info('Backup downloaded successfully via chunked transfer', [
                 'request_id' => $id,
                 'file_size' => $finalSize,
+                'chunks' => $totalChunks,
             ]);
 
             // Restore the backup (creates new user with same UUID)

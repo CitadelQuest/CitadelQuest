@@ -496,6 +496,277 @@ class FederationMigrationController extends AbstractController
     }
 
     /**
+     * Prepare backup chunks for migration transfer
+     * 
+     * Splits the backup into smaller chunks and returns a manifest
+     */
+    #[Route('/{username}/api/federation/migration-backup-prepare', name: 'api_federation_migration_backup_prepare', methods: ['POST'])]
+    public function migrationBackupPrepare(Request $request, string $username): Response
+    {
+        $this->logger->info('FederationMigrationController::migrationBackupPrepare - Preparing backup chunks');
+
+        try {
+            $data = json_decode($request->getContent(), true);
+            $token = $data['token'] ?? null;
+            
+            if (!$token) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Migration token required'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Find migration request by token
+            $migrationRequest = $this->migrationService->findMigrationRequestByToken($token);
+            if (!$migrationRequest) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid migration token'
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Verify token is still valid
+            if (!$migrationRequest->isTokenValid()) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Migration token expired'
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Get the user
+            $user = $this->entityManager->getRepository(User::class)->find($migrationRequest->getUserId());
+            if (!$user) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'User not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            // Use pre-staged backup if available, otherwise create new one
+            $prestagedBackup = $migrationRequest->getBackupFilename();
+            
+            if ($prestagedBackup) {
+                $backupDir = $this->getParameter('app.backup_dir') . '/' . $user->getId();
+                $backupPath = $backupDir . '/' . $prestagedBackup;
+                
+                $this->logger->info('Using pre-staged backup', ['backup_filename' => $prestagedBackup]);
+            } else {
+                $backupPath = $this->backupManager->createBackup($user);
+                $this->logger->info('Created new backup');
+            }
+
+            if (!file_exists($backupPath)) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Failed to create backup'
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $fileSize = filesize($backupPath);
+            $chunkSize = 25 * 1024 * 1024; // 25MB chunks
+            $totalChunks = (int) ceil($fileSize / $chunkSize);
+            
+            // Create chunks directory
+            $chunksDir = sys_get_temp_dir() . '/migration_chunks_' . $migrationRequest->getId();
+            if (!is_dir($chunksDir)) {
+                mkdir($chunksDir, 0755, true);
+            }
+            
+            // Split the backup into chunks
+            $handle = fopen($backupPath, 'rb');
+            $chunks = [];
+            
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $chunkPath = $chunksDir . '/chunk_' . $i . '.bin';
+                $chunkHandle = fopen($chunkPath, 'wb');
+                
+                $bytesToRead = min($chunkSize, $fileSize - ($i * $chunkSize));
+                $data = fread($handle, $bytesToRead);
+                fwrite($chunkHandle, $data);
+                fclose($chunkHandle);
+                
+                $chunks[] = [
+                    'index' => $i,
+                    'size' => filesize($chunkPath),
+                    'hash' => md5_file($chunkPath),
+                ];
+            }
+            
+            fclose($handle);
+            
+            // Update status to transferring
+            $migrationRequest->setStatus('transferring');
+            $this->entityManager->flush();
+            
+            $this->logger->info('Backup split into chunks', [
+                'total_size' => $fileSize,
+                'chunk_count' => $totalChunks,
+                'chunk_size' => $chunkSize,
+            ]);
+
+            return $this->json([
+                'success' => true,
+                'manifest' => [
+                    'total_size' => $fileSize,
+                    'chunk_size' => $chunkSize,
+                    'total_chunks' => $totalChunks,
+                    'chunks' => $chunks,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('migrationBackupPrepare - Exception', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Internal server error: ' . $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Serve a specific backup chunk
+     */
+    #[Route('/{username}/api/federation/migration-backup-chunk/{chunkIndex}', name: 'api_federation_migration_backup_chunk', methods: ['GET'])]
+    public function migrationBackupChunk(Request $request, string $username, int $chunkIndex): Response
+    {
+        $this->logger->info('migrationBackupChunk - Chunk requested', ['chunk' => $chunkIndex]);
+
+        try {
+            $token = $request->query->get('token');
+            if (!$token) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Migration token required'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Find migration request by token
+            $migrationRequest = $this->migrationService->findMigrationRequestByToken($token);
+            if (!$migrationRequest) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid migration token'
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Verify token is still valid
+            if (!$migrationRequest->isTokenValid()) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Migration token expired'
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Find the chunk file
+            $chunksDir = sys_get_temp_dir() . '/migration_chunks_' . $migrationRequest->getId();
+            $chunkPath = $chunksDir . '/chunk_' . $chunkIndex . '.bin';
+            
+            if (!file_exists($chunkPath)) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Chunk not found. Call prepare endpoint first.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $chunkSize = filesize($chunkPath);
+            $chunkHash = md5_file($chunkPath);
+            
+            $this->logger->info('Serving chunk', [
+                'chunk' => $chunkIndex,
+                'size' => $chunkSize,
+                'hash' => $chunkHash,
+            ]);
+
+            // Stream the chunk
+            $response = new StreamedResponse(function() use ($chunkPath) {
+                set_time_limit(0);
+                if (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
+                readfile($chunkPath);
+            });
+
+            $response->headers->set('Content-Type', 'application/octet-stream');
+            $response->headers->set('Content-Length', $chunkSize);
+            $response->headers->set('X-Chunk-Index', $chunkIndex);
+            $response->headers->set('X-Chunk-Hash', $chunkHash);
+
+            return $response;
+
+        } catch (\Exception $e) {
+            $this->logger->error('migrationBackupChunk - Exception', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Internal server error'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Cleanup backup chunks after successful transfer
+     */
+    #[Route('/{username}/api/federation/migration-backup-cleanup', name: 'api_federation_migration_backup_cleanup', methods: ['POST'])]
+    public function migrationBackupCleanup(Request $request, string $username): Response
+    {
+        $this->logger->info('migrationBackupCleanup - Cleanup requested');
+
+        try {
+            $data = json_decode($request->getContent(), true);
+            $token = $data['token'] ?? null;
+            
+            if (!$token) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Migration token required'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Find migration request by token
+            $migrationRequest = $this->migrationService->findMigrationRequestByToken($token);
+            if (!$migrationRequest) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Invalid migration token'
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Clean up chunks directory
+            $chunksDir = sys_get_temp_dir() . '/migration_chunks_' . $migrationRequest->getId();
+            if (is_dir($chunksDir)) {
+                $files = glob($chunksDir . '/*');
+                foreach ($files as $file) {
+                    @unlink($file);
+                }
+                @rmdir($chunksDir);
+                
+                $this->logger->info('Chunks cleaned up', ['dir' => $chunksDir]);
+            }
+
+            return $this->json([
+                'success' => true,
+                'message' => 'Chunks cleaned up'
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('migrationBackupCleanup - Exception', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Internal server error'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Receive contact domain update notification
      * 
      * Called by destination server to notify contacts about user's new domain
