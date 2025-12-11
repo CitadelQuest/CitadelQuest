@@ -234,6 +234,7 @@ class MigrationAdminController extends AbstractController
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 7200); // 2 hour timeout for very large files
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For dev environments
+            curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); // Force HTTP/1.1 to avoid HTTP/2 stream errors on long downloads
             
             $success = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
