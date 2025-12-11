@@ -398,12 +398,25 @@ class FederationMigrationController extends AbstractController
 
             // Stream the backup file with chunked transfer for progress tracking
             $response = new StreamedResponse(function() use ($backupPath, $deleteAfterTransfer) {
+                // Disable time limit for large file transfers
+                set_time_limit(0);
+                
+                // Disable output buffering for immediate streaming
+                if (ob_get_level()) {
+                    ob_end_clean();
+                }
+                
                 $handle = fopen($backupPath, 'rb');
                 $chunkSize = 65536; // 64KB chunks for better progress granularity
                 
                 while (!feof($handle)) {
                     echo fread($handle, $chunkSize);
                     flush();
+                    
+                    // Check if connection is still alive
+                    if (connection_aborted()) {
+                        break;
+                    }
                 }
                 fclose($handle);
                 

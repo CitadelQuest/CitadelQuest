@@ -232,9 +232,13 @@ class MigrationAdminController extends AbstractController
             
             curl_setopt($ch, CURLOPT_FILE, $fp);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 7200); // 2 hour timeout for very large files
+            curl_setopt($ch, CURLOPT_TIMEOUT, 0); // No timeout - let it run as long as needed
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 60); // 60 second connection timeout
+            curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024); // Minimum 1KB/s
+            curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 300); // Allow 5 minutes of slow transfer before timeout
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For dev environments
             curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); // Force HTTP/1.1 to avoid HTTP/2 stream errors on long downloads
+            curl_setopt($ch, CURLOPT_BUFFERSIZE, 65536); // 64KB buffer to match streaming chunk size
             
             $success = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
