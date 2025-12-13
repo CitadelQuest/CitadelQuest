@@ -30,7 +30,7 @@ class BackupController extends AbstractController
 
     #[Route('/backup/create', name: 'app_backup_create', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function create(Request $request): Response
+    public function create(Request $request): JsonResponse
     {
         $session = $request->getSession();
         $lockKey = 'backup_in_progress_' . $this->getUser()->getId();
@@ -48,16 +48,22 @@ class BackupController extends AbstractController
             
             $backupPath = $this->backupManager->createBackup();
             
-            $response = new BinaryFileResponse($backupPath);
-            $response->setContentDisposition(
-                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-                'citadel_backup_' . date('Y-m-d_His') . '.citadel'
-            );
+            // Get backup file info
+            $filename = basename($backupPath);
+            $size = filesize($backupPath);
             
             // Remove backup lock
             $session->remove($lockKey);
             
-            return $response;
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Backup created successfully!',
+                'backup' => [
+                    'filename' => $filename,
+                    'size' => $size,
+                    'created_at' => date('Y-m-d H:i:s')
+                ]
+            ]);
         } catch (\Exception $e) {
             // Remove backup lock on error
             $session->remove($lockKey);

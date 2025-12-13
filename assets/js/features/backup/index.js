@@ -112,42 +112,26 @@ export function initBackup() {
         try {
             // Create backup
             const response = await fetch(form.action, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
             
-            if (!response.ok) throw new Error(translations.failed_create || 'Backup failed');
+            const data = await response.json();
             
-            // Get the filename from Content-Disposition header
-            const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = 'citadel_backup.citadel';
-            if (contentDisposition) {
-                const matches = /filename[^;=\n]*=((['"]).*(\2)|[^;\n]*)/.exec(contentDisposition);
-                if (matches && matches[1]) {
-                    filename = matches[1].replace(/['"]*/g, '');
-                }
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || translations.failed_create || 'Backup failed');
             }
             
-            // Get the blob and create download URL
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            
-            // Create download link and trigger download
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
             // Show success toast
-            window.toast.success(translations.backup_created || 'Backup created successfully!');
+            window.toast.success(data.message || translations.backup_created || 'Backup created successfully!');
             
-            // Reload page after showing message
-            setTimeout(() => window.location.reload(), 2500);
+            // Reload page after showing message to display new backup in list
+            setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
             console.error('Backup failed:', error);
-            window.toast.error(translations.failed_create || 'Failed to create backup');
+            window.toast.error(error.message || translations.failed_create || 'Failed to create backup');
             btn.innerHTML = originalBtnText;
             btn.disabled = false;
             isProcessing = false;

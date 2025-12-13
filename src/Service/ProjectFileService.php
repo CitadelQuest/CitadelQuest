@@ -1217,10 +1217,14 @@ class ProjectFileService
             // Normalize path
             $destination['path'] = $this->normalizePath($destination['path']);
             
-            $oldPath = $sourceDir->getPath() . $sourceDir->getName();
-            $newPath = ($destination['path'] == "/" ? '' : $destination['path']) . '/' . $destination['name'];
+            // Build old and new full paths for the directory
+            // oldPath: the full path of the source directory (e.g., /mf-test/subfolder-1)
+            $oldPath = ($sourceDir->getPath() === '/' ? '' : $sourceDir->getPath()) . '/' . $sourceDir->getName();
+            // newPath: the full path of the destination directory (e.g., /subfolder-1)
+            $newPath = ($destination['path'] === '/' ? '' : $destination['path']) . '/' . $destination['name'];
 
-            $this->ensureParentDirectoriesExist($projectId, $newPath);
+            // Ensure parent directories exist (destination['path'] is the parent, not the full new path)
+            $this->ensureParentDirectoriesExist($projectId, $destination['path']);
             
             // Update directory itself using existing patterns
             $userDb->executeStatement(

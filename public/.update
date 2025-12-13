@@ -887,16 +887,18 @@ class CitadelQuestUpdater
             $this->log("Error: " . $e->getMessage(), 'error');
             
             // Restore from backup
-            $this->log("Restoring from backup...", 'warning');
-            try {
-                $this->restoreFromBackup();
-                $this->log("✓ System restored from backup successfully", 'success');
-            } catch (Exception $restoreError) {
-                $this->log("Error restoring from backup: " . $restoreError->getMessage(), 'error');
-                $this->log("IMPORTANT: Your system may be in an inconsistent state. Please restore manually from backup at: " . $this->backupDir, 'error');
+            if (CITADEL_UPDATE_STEP == 3) {
+                $this->log("Restoring from backup...", 'warning');
+                try {
+                    $this->restoreFromBackup();
+                    $this->log("✓ System restored from backup successfully", 'success');
+                } catch (Exception $restoreError) {
+                    $this->log("Error restoring from backup: " . $restoreError->getMessage(), 'error');
+                    $this->log("IMPORTANT: Your system may be in an inconsistent state. Please restore manually from backup at: " . $this->backupDir, 'error');
+                }
+                
+                $this->log("Update failed. System has been restored to previous state.", 'error');
             }
-            
-            $this->log("Update failed. System has been restored to previous state.", 'error');
         }
 
         echo "                </div>\n";
