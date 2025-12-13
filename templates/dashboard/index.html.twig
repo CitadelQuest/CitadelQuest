@@ -72,6 +72,18 @@
     <div class="row">
 
         <div class="col-12 col-sm-7 col-md-8">
+            {% if migrationInfo %}
+            <!-- Migration Info Block -->
+            <div class="alert alert-info mb-4">
+                <i class="mdi mdi-information me-2"></i>
+                <strong>{{ 'settings.migration.already_migrated'|trans|default('This account has been migrated') }}</strong>
+                <p class="mb-0 mt-2">
+                    {{ 'settings.migration.migrated_to'|trans|default('Migrated to') }}: <code>{{ migrationInfo.migrated_to }}</code><br>
+                    {{ 'settings.migration.migrated_at'|trans|default('Migrated on') }}: {{ migrationInfo.migrated_at|date('d/m/Y') }}
+                </p>
+            </div>
+            {% endif %}
+
             <!-- Quick Actions Section -->
             <div class="glass-panel mb-4">
                 <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">

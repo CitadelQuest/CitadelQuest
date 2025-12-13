@@ -38,13 +38,23 @@ class DashboardController extends AbstractController
         }
 
         // CQ AI Gateway Credits
-        $credits = $this->settingsService->getSettingValue('cqaigateway.credits', 0);        
+        $credits = $this->settingsService->getSettingValue('cqaigateway.credits', 0);
+        
+        // Migration status
+        $migrationInfo = null;
+        if ($user->isMigrated()) {
+            $migrationInfo = [
+                'migrated_to' => $user->getMigratedTo(),
+                'migrated_at' => $user->getMigratedAt(),
+            ];
+        }
         
         return $this->render('dashboard/index.html.twig', [
             'user' => $user,
             'storageInfo' => $storageInfo,
             'CQ_AI_GatewayUsername' => $CQ_AI_GatewayUsername,
             'CQ_AI_GatewayCredits' => $credits,
+            'migrationInfo' => $migrationInfo,
         ]);
     }
     
