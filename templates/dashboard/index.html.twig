@@ -204,7 +204,7 @@
                     </div>
                 </div>
                 <div class="p-4 rounded-bottom">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center gap-1">
                         <button type="button" onclick="openGatewayLogin('dashboard')" class="btn btn-sm btn-outline-secondary" id="gatewayLoginBtn">
                             <i class="mdi mdi-login me-2"></i> CQ AI Gateway - Dashboard
                         </button>
@@ -246,7 +246,7 @@
                         
                         <!-- User Data -->
                         <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
-                            <i class="mdi mdi-folder-multiple-outline fs-2 text-warning"></i>
+                            <a href="{{ path('app_file_browser') }}"><i class="mdi mdi-folder-multiple-outline fs-2 text-warning"></i></a>
                             <div class="d-flex flex-column align-items-start ms-3">
                                 <h5 class="mb-1">{{ storageInfo.data.formatted }}</h5>
                                 <small class="text-muted">{{ 'settings.storage.data'|trans }}</small>
@@ -255,7 +255,7 @@
                         
                         <!-- Backups -->
                         <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
-                            <i class="mdi mdi-backup-restore fs-2 text-success"></i>
+                            <a href="{{ path('app_backup_index') }}"><i class="mdi mdi-backup-restore fs-2 text-success"></i></a>
                             <div class="d-flex flex-column align-items-start ms-3">
                                 <h5 class="mb-1">{{ storageInfo.backups.formatted }}</h5>
                                 <small class="text-muted">{{ 'settings.storage.backups'|trans }}</small>

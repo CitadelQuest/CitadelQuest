@@ -38,7 +38,7 @@ $file-browser-preview-header-height: 4rem;
   box-shadow: 0 0 15px rgba(149, 236, 134, 0.2);
   
   @media (max-width: 768px) {
-    grid-template-rows: auto auto 1fr 1fr;
+    grid-template-rows: auto auto 2fr 3fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       "header"

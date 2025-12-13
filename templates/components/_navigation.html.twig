@@ -100,7 +100,7 @@
                     <li class="px-3 py-2 border-bottom border-secondary border-opacity-25">
                         <div class="d-flex justify-content-between align-items-center">
                             <a href="{{ path('app_cq_chat_index') }}" class="text-decoration-none">
-                                <i class="mdi mdi-forum me-2"></i><span class="text-light d-none d-sm-inline-block">{{ 'cq_chat.page_title'|trans }}</span>
+                                <i class="mdi mdi-forum me-2"></i><span class="text-light d-inline-block">{{ 'cq_chat.page_title'|trans }}</span>
                             </a>
                             {# <div class="btn-group btn-group-sm"> #}
                                 <button id="cqChatNewGroupBtn" class="btn btn-sm btn-cyber" title="{{ 'cq_chat.new_chat'|trans }}">
@@ -110,7 +110,7 @@
                         </div>
                     </li>
                     <li>
-                        <div id="cqChatDropdownList" class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                        <div id="cqChatDropdownList" class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
                             <div class="text-center p-3">
                                 <div class="spinner-border spinner-border-sm text-cyber" role="status">
                                     <span class="visually-hidden">{{ 'auth.key_generation.loading'|trans }}</span>

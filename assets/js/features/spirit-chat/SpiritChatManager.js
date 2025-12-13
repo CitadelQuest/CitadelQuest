@@ -760,8 +760,8 @@ export class SpiritChatManager {
                     const toolNames = message.content.tool_calls.map(tc => tc.function?.name || 'unknown').join(', ');
                     toolExecutionHtml = `
                         <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                            <i class="mdi mdi-check-circle text-success"></i>
-                            <span class="text-muted small">🔧 Executed: ${toolNames}</span>
+                            <!-- <i class="mdi mdi-check-circle text-success"></i> -->
+                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
                         </div>
                     `;
                 }
@@ -1786,8 +1786,8 @@ export class SpiritChatManager {
                 if (toolIndicator) {
                     toolIndicator.innerHTML = `
                         <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                            <i class="mdi mdi-check-circle text-success"></i>
-                            <span class="text-muted small">🔧 Executed: ${toolNames}</span>
+                            <!-- <i class="mdi mdi-check-circle text-success"></i> -->
+                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
                         </div>
                     `;
                 }
@@ -1854,7 +1854,7 @@ export class SpiritChatManager {
         toolEl.innerHTML = `
             <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-25 rounded">
                 <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
-                <span class="text-cyber small">🔧 Executing: ${toolNames}</span>
+                <span class="text-cyber small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executing: ${toolNames}</span>
             </div>
         `;
         
