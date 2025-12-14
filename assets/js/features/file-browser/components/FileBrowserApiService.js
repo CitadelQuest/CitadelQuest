@@ -46,13 +46,33 @@ export class FileBrowserApiService {
     /**
      * Get file content
      * @param {string} fileId - The file ID
+     * @param {boolean} thumbnail - Whether to get thumbnail version (for images)
      * @returns {Promise<Object>} - JSON response with file content
      */
-    async getFileContent(fileId) {
-        const response = await fetch(`${this.baseUrl}/${fileId}/content`);
+    async getFileContent(fileId, thumbnail = false) {
+        const url = thumbnail 
+            ? `${this.baseUrl}/${fileId}/content?thumb=1`
+            : `${this.baseUrl}/${fileId}/content`;
+        const response = await fetch(url);
         
         if (!response.ok) {
             throw new Error(this.translations.failed_load || 'Failed to load file content');
+        }
+        
+        return await response.json();
+    }
+    
+    /**
+     * Get images in a directory
+     * @param {string} projectId - The project ID
+     * @param {string} path - The directory path
+     * @returns {Promise<Object>} - JSON response with images array
+     */
+    async getImagesInDirectory(projectId, path = '/') {
+        const response = await fetch(`${this.baseUrl}/images/${projectId}?path=${encodeURIComponent(path)}`);
+        
+        if (!response.ok) {
+            throw new Error(this.translations.failed_load || 'Failed to load images');
         }
         
         return await response.json();

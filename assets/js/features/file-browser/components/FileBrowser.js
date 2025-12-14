@@ -3,6 +3,7 @@ import { FileUploader } from './FileUploader';
 import { FileTreeView } from './FileTreeView';
 import { FileContextMenu } from './FileContextMenu';
 import { FileOperationModal } from './FileOperationModal';
+import { ImageGallery } from './ImageGallery';
 import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
@@ -237,6 +238,13 @@ export class FileBrowser {
                     const editFileId = actionButton.dataset.fileId;
                     if (editFileId) {
                         await this.showEditModal(editFileId);
+                    }
+                    break;
+                    
+                case 'show-gallery':
+                    const directoryPath = actionButton.dataset.directoryPath;
+                    if (directoryPath) {
+                        await this.showImageGallery(directoryPath);
                     }
                     break;
             }
@@ -571,6 +579,9 @@ export class FileBrowser {
      * @param {Object} directory - The directory object
      */
     renderDirectoryPreview(directory) {
+        // Build directory path for gallery
+        const directoryPath = (directory.path === '/' ? '' : directory.path) + '/' + directory.name;
+        
         let previewHtml = '';
         
         // Directory info header
@@ -589,6 +600,10 @@ export class FileBrowser {
                     </span>
                 </div>
                 <div class="file-preview-actions">
+                    <button class="btn btn-sm btn-outline-primary me-2" data-action="show-gallery" data-directory-path="${directoryPath}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small">${this.translations.show_gallery || 'Image Gallery'}</span>
+                    </button>
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
@@ -597,14 +612,15 @@ export class FileBrowser {
             </div>
         `;
         
-        // Directory content info
+        // Directory content info with gallery container
         previewHtml += `
             <div class="file-preview-content">
-                <div class="text-center p-0 p-md-4">
+                <div class="directory-info text-center p-0 p-md-4">
                     <i class="mdi mdi-folder display-1 d-none d-md-inline text-cyber"></i>
                     <h6 class="mt-3">${this.translations.directory_selected || 'Directory Selected'}</h6>
                     <p class="text-muted small">${this.translations.directory_preview_info || 'Use the tree view to navigate into this directory or use the delete button above to remove it.'}</p>
                 </div>
+                <div class="image-gallery-container" style="display: none;"></div>
             </div>
         `;
         
@@ -613,6 +629,48 @@ export class FileBrowser {
         // animate preview
         this.filePreviewElement.style.display = 'none';
         animation.fade(this.filePreviewElement, 'in', animation.DURATION.NORMAL);
+    }
+    
+    /**
+     * Show image gallery for a directory
+     * @param {string} directoryPath - Path to the directory
+     */
+    async showImageGallery(directoryPath) {
+        const galleryContainer = this.filePreviewElement.querySelector('.image-gallery-container');
+        const directoryInfo = this.filePreviewElement.querySelector('.directory-info');
+        const galleryButton = this.filePreviewElement.querySelector('[data-action="show-gallery"]');
+        
+        if (!galleryContainer) return;
+        
+        // Toggle gallery visibility
+        if (galleryContainer.style.display !== 'none') {
+            galleryContainer.style.display = 'none';
+            directoryInfo.style.display = 'block';
+            galleryButton.innerHTML = `<i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small">${this.translations.show_gallery || 'Image Gallery'}</span>`;
+            
+            // Cleanup gallery
+            if (this.imageGallery) {
+                this.imageGallery.destroy();
+                this.imageGallery = null;
+            }
+            return;
+        }
+        
+        // Show gallery, hide directory info
+        directoryInfo.style.display = 'none';
+        galleryContainer.style.display = 'block';
+        galleryButton.innerHTML = `<i class="mdi mdi-folder"></i> <span class="d-none d-md-inline small">${this.translations.hide_gallery || 'Hide Gallery'}</span>`;
+        
+        // Create and load gallery
+        this.imageGallery = new ImageGallery({
+            container: galleryContainer,
+            apiService: this.apiService,
+            projectId: this.projectId,
+            translations: this.translations,
+            imageShowcase: this.imageShowcase
+        });
+        
+        await this.imageGallery.loadImages(directoryPath);
     }
     
     /**

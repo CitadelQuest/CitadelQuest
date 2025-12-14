@@ -53,6 +53,10 @@ class FileBrowserController extends AbstractController
             'browse_files' => $translator->trans('file_browser.browse_files'),
             'search_placeholder' => $translator->trans('file_browser.search_placeholder'),
             'no_results' => $translator->trans('file_browser.no_results'),
+            'show_gallery' => $translator->trans('file_browser.show_gallery'),
+            'hide_gallery' => $translator->trans('file_browser.hide_gallery'),
+            'loading_images' => $translator->trans('file_browser.loading_images'),
+            'no_images' => $translator->trans('file_browser.no_images'),
         ];
 
         return $this->render('file_browser/index.html.twig', [

@@ -23,7 +23,7 @@ class CitadelQuestInstaller
     private string $prebuiltReleaseUrl;
     private array $requirements = [
         'php' => '8.2.0',
-        'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
+        'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip', 'gd']
     ];
     private array $installFiles = [
         'install.php'

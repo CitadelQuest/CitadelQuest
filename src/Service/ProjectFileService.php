@@ -1506,4 +1506,188 @@ class ProjectFileService
         
         return round($bytes / pow($base, $exponent), $precision) . ' ' . $units[$exponent];
     }
+    
+    /**
+     * Supported image extensions for thumbnail generation
+     */
+    private const THUMBNAIL_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    
+    /**
+     * Thumbnail settings
+     */
+    private const THUMBNAIL_MAX_SIZE = 250;
+    private const THUMBNAIL_QUALITY = 84;
+    private const THUMBNAIL_SUFFIX = '.thumb';
+    
+    /**
+     * Check if file is an image that supports thumbnails
+     */
+    public function isImageFile(string $filename): bool
+    {
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array($extension, self::THUMBNAIL_EXTENSIONS);
+    }
+    
+    /**
+     * Get thumbnail path for a file
+     */
+    private function getThumbnailPath(string $originalPath): string
+    {
+        return $originalPath . self::THUMBNAIL_SUFFIX;
+    }
+    
+    /**
+     * Check if GD library is available
+     */
+    private function isGdAvailable(): bool
+    {
+        return extension_loaded('gd') && function_exists('imagecreatefromjpeg');
+    }
+    
+    /**
+     * Generate thumbnail for an image file
+     * Returns the thumbnail path if successful, null otherwise
+     */
+    public function generateThumbnail(string $fileId): ?string
+    {
+        $file = $this->findById($fileId);
+        if (!$file || $file->isDirectory()) {
+            return null;
+        }
+        
+        if (!$this->isImageFile($file->getName())) {
+            return null;
+        }
+        
+        $originalPath = $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
+        if (!file_exists($originalPath)) {
+            return null;
+        }
+        
+        // If GD is not available, return original path (no thumbnail generation)
+        if (!$this->isGdAvailable()) {
+            $this->logger->warning('GD library not available for thumbnail generation');
+            return $originalPath;
+        }
+        
+        $thumbnailPath = $this->getThumbnailPath($originalPath);
+        
+        // Return existing thumbnail if it's newer than the original
+        if (file_exists($thumbnailPath) && filemtime($thumbnailPath) >= filemtime($originalPath)) {
+            return $thumbnailPath;
+        }
+        
+        // Generate thumbnail using GD
+        try {
+            $imageInfo = getimagesize($originalPath);
+            if ($imageInfo === false) {
+                return $originalPath;
+            }
+            
+            $originalWidth = $imageInfo[0];
+            $originalHeight = $imageInfo[1];
+            $mimeType = $imageInfo['mime'];
+            
+            // Create image resource based on type
+            $sourceImage = match ($mimeType) {
+                'image/jpeg' => imagecreatefromjpeg($originalPath),
+                'image/png' => imagecreatefrompng($originalPath),
+                'image/gif' => imagecreatefromgif($originalPath),
+                'image/webp' => imagecreatefromwebp($originalPath),
+                'image/bmp' => imagecreatefrombmp($originalPath),
+                default => null
+            };
+            
+            if (!$sourceImage) {
+                return $originalPath;
+            }
+            
+            // Calculate new dimensions maintaining aspect ratio
+            $ratio = min(self::THUMBNAIL_MAX_SIZE / $originalWidth, self::THUMBNAIL_MAX_SIZE / $originalHeight);
+            
+            // Only resize if image is larger than thumbnail size
+            if ($ratio >= 1) {
+                // Image is smaller than thumbnail size, just copy it
+                imagedestroy($sourceImage);
+                copy($originalPath, $thumbnailPath);
+                return $thumbnailPath;
+            }
+            
+            $newWidth = (int) round($originalWidth * $ratio);
+            $newHeight = (int) round($originalHeight * $ratio);
+            
+            // Create thumbnail image
+            $thumbnailImage = imagecreatetruecolor($newWidth, $newHeight);
+            
+            // Preserve transparency for PNG and GIF
+            if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
+                imagealphablending($thumbnailImage, false);
+                imagesavealpha($thumbnailImage, true);
+                $transparent = imagecolorallocatealpha($thumbnailImage, 0, 0, 0, 127);
+                imagefill($thumbnailImage, 0, 0, $transparent);
+            }
+            
+            // Resize
+            imagecopyresampled(
+                $thumbnailImage, $sourceImage,
+                0, 0, 0, 0,
+                $newWidth, $newHeight,
+                $originalWidth, $originalHeight
+            );
+            
+            // Save as JPEG for consistent output (smaller file size)
+            imagejpeg($thumbnailImage, $thumbnailPath, self::THUMBNAIL_QUALITY);
+            
+            // Clean up
+            imagedestroy($sourceImage);
+            imagedestroy($thumbnailImage);
+            
+            return $thumbnailPath;
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Thumbnail generation failed: ' . $e->getMessage());
+            return $originalPath;
+        }
+    }
+    
+    /**
+     * Get file content with optional thumbnail support
+     */
+    public function getFileContentWithThumbnail(string $fileId): ?string
+    {
+        $file = $this->findById($fileId);
+        if (!$file || $file->isDirectory()) {
+            return null;
+        }
+        
+        if (!$this->isImageFile($file->getName())) {
+            return null;
+        }
+        
+        $thumbnailPath = $this->generateThumbnail($fileId);
+        if (!$thumbnailPath || !file_exists($thumbnailPath)) {
+            return null;
+        }
+        
+        // Return base64 encoded thumbnail
+        return 'data:image/jpeg;base64,' . base64_encode(file_get_contents($thumbnailPath));
+    }
+    
+    /**
+     * Get images in a directory (for gallery)
+     * Returns array of image files with their IDs
+     */
+    public function getImagesInDirectory(string $projectId, string $path): array
+    {
+        $files = $this->listFiles($projectId, $path);
+        $images = [];
+        
+        foreach ($files as $file) {
+            if (!$file->isDirectory() && $this->isImageFile($file->getName())) {
+                $images[] = $file->jsonSerialize();
+            }
+        }
+        
+        return $images;
+    }
 }

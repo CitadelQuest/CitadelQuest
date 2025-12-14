@@ -654,6 +654,10 @@ file_browser:
     browse_files: 'Browse files'
     search_placeholder: 'Filter files...'
     no_results: 'No matching files'
+    show_gallery: 'Image Gallery'
+    hide_gallery: 'Hide Gallery'
+    loading_images: 'Loading images...'
+    no_images: 'No images in this directory'
 
 cq_contact:
     page_title: 'CQ Contacts'

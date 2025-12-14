@@ -74,6 +74,30 @@ class ProjectFileApiController extends AbstractController
     }
     
     /**
+     * Get images in a directory (for gallery view)
+     */
+    #[Route('/images/{projectId}', name: 'app_api_project_file_images', methods: ['GET'])]
+    public function getImages(string $projectId, Request $request): JsonResponse
+    {
+        $path = $request->query->get('path', '/');
+        
+        try {
+            $images = $this->projectFileService->getImagesInDirectory($projectId, $path);
+            
+            return $this->json([
+                'success' => true,
+                'images' => $images,
+                'count' => count($images)
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    
+    /**
      * Get file details
      */
     #[Route('/{fileId}', name: 'app_api_project_file_get', methods: ['GET'])]
@@ -100,6 +124,7 @@ class ProjectFileApiController extends AbstractController
     
     /**
      * Get file content
+     * Supports ?thumb=1 parameter for image thumbnails
      */
     #[Route('/{fileId}/content', name: 'app_api_project_file_content', methods: ['GET'])]
     public function getContent(string $fileId, Request $request): JsonResponse
@@ -115,6 +140,22 @@ class ProjectFileApiController extends AbstractController
                 throw new BadRequestHttpException('Cannot get content of a directory');
             }
             
+            // Check if thumbnail is requested
+            $wantsThumbnail = $request->query->getBoolean('thumb', false);
+            
+            if ($wantsThumbnail && $this->projectFileService->isImageFile($file->getName())) {
+                $content = $this->projectFileService->getFileContentWithThumbnail($fileId);
+                if ($content) {
+                    return $this->json([
+                        'success' => true,
+                        'content' => $content,
+                        'file' => $file,
+                        'thumbnail' => true
+                    ]);
+                }
+            }
+            
+            // Return full content
             $content = $this->projectFileService->getFileContent($fileId);
             
             return $this->json([

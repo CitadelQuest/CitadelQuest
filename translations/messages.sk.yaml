@@ -647,6 +647,10 @@ file_browser:
     browse_files: 'Prehliadať súbory'
     search_placeholder: 'Filtrovať súbory...'
     no_results: 'Žiadne zodpovedajúce súbory'
+    show_gallery: 'Galéria obrázkov'
+    hide_gallery: 'Skryť galériu'
+    loading_images: 'Načítavam obrázky...'
+    no_images: 'Žiadne obrázky v tomto priečinku'
 
 cq_contact:
     page_title: 'CQ Kontakty'

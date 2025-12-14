@@ -647,6 +647,10 @@ file_browser:
     browse_files: 'Procházet soubory'
     search_placeholder: 'Filtrovat soubory...'
     no_results: 'Žádné odpovídající soubory'
+    show_gallery: 'Galerie obrázků'
+    hide_gallery: 'Skrýt galerii'
+    loading_images: 'Načítám obrázky...'
+    no_images: 'Žádné obrázky v této složce'
 
 cq_contact:
     page_title: 'CQ Kontakty'
