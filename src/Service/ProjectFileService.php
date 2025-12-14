@@ -1106,21 +1106,27 @@ class ProjectFileService
 
         $copiedFiles = [];
         
+        // Build source path with proper separator (handle root path case)
+        $sourcePath = ($sourceDir->getPath() === '/' ? '' : $sourceDir->getPath()) . '/' . $sourceDir->getName();
+        
         // Get all files in source directory using existing method
-        $sourceFiles = $this->getFilesByPath($projectId, $sourceDir->getPath() . $sourceDir->getName());
+        $sourceFiles = $this->listFiles($projectId, $sourcePath);
+        
+        // Build new directory path with proper separator
+        $newDirPath = ($newDir->getPath() === '/' ? '' : $newDir->getPath()) . '/' . $newDir->getName();
         
         foreach ($sourceFiles as $file) {
             if ($file->isDirectory()) {
                 // Recursively copy subdirectory
                 $subResult = $this->copyDirectory($projectId, $file, [
-                    'path' => $newDir->getPath() . $newDir->getName(),
+                    'path' => $newDirPath,
                     'name' => $file->getName()
                 ]);
                 $copiedFiles[] = $subResult;
             } else {
                 // Copy file using existing method
                 $fileResult = $this->copyFile($projectId, $file, [
-                    'path' => $newDir->getPath() . $newDir->getName(),
+                    'path' => $newDirPath,
                     'name' => $file->getName()
                 ]);
                 $copiedFiles[] = $fileResult;
