@@ -645,6 +645,8 @@ file_browser:
     drag_files: 'Pretiahnite súbory sem'
     or: 'alebo'
     browse_files: 'Prehliadať súbory'
+    search_placeholder: 'Filtrovať súbory...'
+    no_results: 'Žiadne zodpovedajúce súbory'
 
 cq_contact:
     page_title: 'CQ Kontakty'

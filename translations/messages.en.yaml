@@ -652,6 +652,8 @@ file_browser:
     drag_files: 'Drag files here'
     or: 'or'
     browse_files: 'Browse files'
+    search_placeholder: 'Filter files...'
+    no_results: 'No matching files'
 
 cq_contact:
     page_title: 'CQ Contacts'

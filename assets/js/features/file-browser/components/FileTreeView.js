@@ -25,6 +25,8 @@ export class FileTreeView {
         this.treeData = null;
         this.container = null;
         this.treeElement = null;
+        this.searchInput = null;
+        this.searchFilter = '';
         
         // Multi-select support
         this.selectedNodes = new Set();
@@ -43,16 +45,73 @@ export class FileTreeView {
             return;
         }
         
+        // Create wrapper for tree and search
+        const wrapper = document.createElement('div');
+        wrapper.className = 'file-tree-wrapper';
+        wrapper.style.cssText = 'display: flex; flex-direction: column; height: 100%;';
+        
         // Create the tree element
         this.treeElement = document.createElement('div');
         this.treeElement.className = 'file-tree-view';
-        this.container.appendChild(this.treeElement);
+        this.treeElement.style.cssText = 'flex: 1; overflow: auto;';
+        wrapper.appendChild(this.treeElement);
+        
+        // Create search input container
+        this.createSearchInput(wrapper);
+        
+        this.container.appendChild(wrapper);
         
         // Add custom styles for the tree view
         this.addTreeStyles();
         
         // Load the tree data
         await this.loadTreeData();
+    }
+    
+    /**
+     * Create search input element
+     * @param {HTMLElement} wrapper - The wrapper element to append to
+     */
+    createSearchInput(wrapper) {
+        const searchContainer = document.createElement('div');
+        searchContainer.className = 'file-tree-search';
+        
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'input-group input-group-sm';
+        
+        const inputIcon = document.createElement('span');
+        inputIcon.className = 'input-group-text bg-transparent border-secondary rounded-top-0 border-opacity-50';
+        inputIcon.innerHTML = '<i class="mdi mdi-magnify text-cyber"></i>';
+        
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.className = 'form-control form-control-sm bg-transparent border-secondary text-light rounded-top-0 border-opacity-50';
+        this.searchInput.placeholder = this.translations.search_placeholder || 'Filter files...';
+        this.searchInput.style.cssText = 'border-left: none;';
+        
+        // Add input event listener with debounce
+        let debounceTimer;
+        this.searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                this.searchFilter = e.target.value.toLowerCase().trim();
+                this.renderTree();
+            }, 150);
+        });
+        
+        // Clear filter on Escape key
+        this.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.searchInput.value = '';
+                this.searchFilter = '';
+                this.renderTree();
+            }
+        });
+        
+        inputGroup.appendChild(inputIcon);
+        inputGroup.appendChild(this.searchInput);
+        searchContainer.appendChild(inputGroup);
+        wrapper.appendChild(searchContainer);
     }
     
     /**
@@ -186,13 +245,25 @@ export class FileTreeView {
         
         // Render the tree starting from root
         if (this.treeData.children && this.treeData.children.length > 0) {
-            this.treeData.children.forEach(child => {
-                const nodeElement = this.createTreeNode(child);
-                this.treeElement.appendChild(nodeElement);
-            });
+            // Filter tree if search filter is active
+            const filteredChildren = this.searchFilter 
+                ? this.filterTreeNodes(this.treeData.children)
+                : this.treeData.children;
+            
+            if (filteredChildren.length > 0) {
+                filteredChildren.forEach(child => {
+                    // When filtering, expand all directories to show matches
+                    const nodeElement = this.createTreeNode(child, !!this.searchFilter);
+                    if (nodeElement) {
+                        this.treeElement.appendChild(nodeElement);
+                    }
+                });
+            } else if (this.searchFilter) {
+                this.treeElement.innerHTML = `<div class="alert alert-info small py-2">${this.translations.no_results || 'No matching files'}</div>`;
+            }
 
-            // After tree is rendered, expand to initial path if provided
-            if (this.initialExpandPath) {
+            // After tree is rendered, expand to initial path if provided (only when not filtering)
+            if (this.initialExpandPath && !this.searchFilter) {
                 this.expandToPath(this.initialExpandPath);
 
                 // Call onInit callback with current directory data for initial preview. Before we: this.initialExpandPath = null
@@ -203,6 +274,38 @@ export class FileTreeView {
         } else {
             this.treeElement.innerHTML = '<div class="alert alert-info">No files found</div>';
         }
+    }
+    
+    /**
+     * Filter tree nodes based on search filter
+     * Returns nodes that match or have children that match
+     * @param {Array} nodes - Array of tree nodes
+     * @returns {Array} - Filtered nodes
+     */
+    filterTreeNodes(nodes) {
+        const result = [];
+        
+        for (const node of nodes) {
+            const nameMatches = node.name.toLowerCase().includes(this.searchFilter);
+            
+            if (node.type === 'directory' && node.children && node.children.length > 0) {
+                // Recursively filter children
+                const filteredChildren = this.filterTreeNodes(node.children);
+                
+                if (nameMatches || filteredChildren.length > 0) {
+                    // Include directory if it matches or has matching children
+                    result.push({
+                        ...node,
+                        children: nameMatches ? node.children : filteredChildren
+                    });
+                }
+            } else if (nameMatches) {
+                // Include file if it matches
+                result.push(node);
+            }
+        }
+        
+        return result;
     }
     
     /**
