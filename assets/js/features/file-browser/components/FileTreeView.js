@@ -89,6 +89,11 @@ export class FileTreeView {
         this.searchInput.placeholder = this.translations.search_placeholder || 'Filter files...';
         this.searchInput.style.cssText = 'border-left: none;';
         
+        // Create count badge (hidden by default)
+        this.searchCountBadge = document.createElement('span');
+        this.searchCountBadge.className = 'input-group-text bg-transparent border-secondary rounded-top-0 border-opacity-50 text-cyber';
+        this.searchCountBadge.style.cssText = 'display: none; border-left: none; font-size: 0.75rem; padding: 0.25rem 0.5rem;';
+        
         // Add input event listener with debounce
         let debounceTimer;
         this.searchInput.addEventListener('input', (e) => {
@@ -110,8 +115,24 @@ export class FileTreeView {
         
         inputGroup.appendChild(inputIcon);
         inputGroup.appendChild(this.searchInput);
+        inputGroup.appendChild(this.searchCountBadge);
         searchContainer.appendChild(inputGroup);
         wrapper.appendChild(searchContainer);
+    }
+    
+    /**
+     * Update the search count badge
+     * @param {number} count - Number of filtered items
+     */
+    updateSearchCountBadge(count) {
+        if (!this.searchCountBadge) return;
+        
+        if (this.searchFilter && count > 0) {
+            this.searchCountBadge.textContent = count;
+            this.searchCountBadge.style.display = 'flex';
+        } else {
+            this.searchCountBadge.style.display = 'none';
+        }
     }
     
     /**
@@ -236,7 +257,8 @@ export class FileTreeView {
      */
     renderTree() {
         if (!this.treeData) {
-            this.treeElement.innerHTML = '<div class="alert alert-info">No data available</div>';
+            this.treeElement.innerHTML = '<div class="alert alert-warning">No data available</div>';
+            this.updateSearchCountBadge(0);
             return;
         }
         
@@ -250,6 +272,12 @@ export class FileTreeView {
                 ? this.filterTreeNodes(this.treeData.children)
                 : this.treeData.children;
             
+            // Count filtered items (files only, not directories)
+            const filteredCount = this.searchFilter 
+                ? this.countFilteredItems(filteredChildren)
+                : 0;
+            this.updateSearchCountBadge(filteredCount);
+            
             if (filteredChildren.length > 0) {
                 filteredChildren.forEach(child => {
                     // When filtering, expand all directories to show matches
@@ -259,7 +287,7 @@ export class FileTreeView {
                     }
                 });
             } else if (this.searchFilter) {
-                this.treeElement.innerHTML = `<div class="alert alert-info small py-2">${this.translations.no_results || 'No matching files'}</div>`;
+                this.treeElement.innerHTML = `<div class="alert alert-warning small py-2">${this.translations.no_results || 'No matching files'}</div>`;
             }
 
             // After tree is rendered, expand to initial path if provided (only when not filtering)
@@ -272,8 +300,25 @@ export class FileTreeView {
                 this.initialExpandPath = null; // Clear after use
             }            
         } else {
-            this.treeElement.innerHTML = '<div class="alert alert-info">No files found</div>';
+            this.treeElement.innerHTML = '<div class="alert alert-warning">No files found</div>';
+            this.updateSearchCountBadge(0);
         }
+    }
+    
+    /**
+     * Count total items in filtered tree (files and directories)
+     * @param {Array} nodes - Array of filtered tree nodes
+     * @returns {number} - Total count of items
+     */
+    countFilteredItems(nodes) {
+        let count = 0;
+        for (const node of nodes) {
+            count++; // Count this node
+            if (node.type === 'directory' && node.children && node.children.length > 0) {
+                count += this.countFilteredItems(node.children);
+            }
+        }
+        return count;
     }
     
     /**
