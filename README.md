@@ -81,7 +81,7 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 ## Technical Stack
 
 ### Backend Requirements
-- PHP 8.2 or higher
+- PHP 8.4 or higher
 - Apache 2.4.63 or higher
 - SQLite 3
 - Composer 2.x

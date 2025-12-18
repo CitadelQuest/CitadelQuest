@@ -1,6 +1,6 @@
 # CitadelQuest Docker Image
-# Minimal base with PHP 8.2 + Apache, uses install.php for setup
-FROM php:8.2-apache
+# Minimal base with PHP 8.4 + Apache, uses install.php for setup
+FROM php:8.4-apache
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \

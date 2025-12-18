@@ -19,7 +19,7 @@ This directory contains everything needed to deploy CitadelQuest using Docker, o
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile` | PHP 8.2 + Apache base image with required extensions |
+| `Dockerfile` | PHP 8.4 + Apache base image with required extensions |
 | `docker-compose.yaml` | Coolify-compatible compose configuration |
 | `apache.conf` | Symfony-optimized Apache virtual host |
 | `entrypoint.sh` | Container startup script with auto-installation |
@@ -145,7 +145,7 @@ docker-compose up --build
 ┌─────────────────────▼───────────────────────────────┐
 │               Docker Container                      │
 │  ┌─────────────────────────────────────────────┐    │
-│  │              Apache + PHP 8.2               │    │
+│  │              Apache + PHP 8.4               │    │
 │  │  ┌─────────────────────────────────────┐    │    │
 │  │  │         CitadelQuest App            │    │    │
 │  │  │      (Symfony 7.3 + SQLite)         │    │    │
