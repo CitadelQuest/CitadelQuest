@@ -40,7 +40,7 @@ class CitadelQuestUpdater
     private string $version;
     private string $backupDir;
     private array $requirements = [
-        'php' => '8.2.0',
+        'php' => '8.4.0',
         'extensions' => ['pdo_sqlite', 'json', 'curl', 'zip']
     ];
 
@@ -310,8 +310,8 @@ class CitadelQuestUpdater
             $zip->close();
 
             // clear /vendor dir
-            if (version_compare(str_replace('v', '', $this->version), '0.4.19', '<')) {
-                //error_log("version: " . $this->version . " is less than 0.4.19 >> removing /vendor");
+            if (version_compare(str_replace('v', '', $this->version), '0.5.31', '<')) {
+                //error_log("version: " . $this->version . " is less than 0.5.31 >> removing /vendor");
                 $this->removeDirectory($this->installDir . '/vendor');
             }
             
