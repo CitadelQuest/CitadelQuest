@@ -11,9 +11,12 @@ RUN apt-get update && apt-get install -y \
     wget \
     libsqlite3-dev \
     libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install pdo pdo_sqlite mbstring exif pcntl bcmath gd zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
