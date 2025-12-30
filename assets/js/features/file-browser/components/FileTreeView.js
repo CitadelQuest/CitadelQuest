@@ -748,4 +748,25 @@ export class FileTreeView {
 
         this.callOnInitCallback();
     }
+    
+    /**
+     * Remove a file from the tree DOM without full refresh
+     * @param {string} fileId - The ID of the file to remove
+     */
+    removeFileFromTree(fileId) {
+        const fileNode = this.treeElement.querySelector(`.file-tree-node[data-id="${fileId}"]`);
+        if (fileNode) {
+            // For files, the node is returned directly (not wrapped)
+            // For directories, the node is inside a wrapper
+            // Check if parent is a wrapper (has both node and children) or the children container
+            const parent = fileNode.parentElement;
+            if (parent && parent.classList.contains('file-tree-children')) {
+                // Parent is the children container, just remove the file node itself
+                fileNode.remove();
+            } else if (parent) {
+                // Parent is a wrapper element, remove the whole wrapper
+                parent.remove();
+            }
+        }
+    }
 }

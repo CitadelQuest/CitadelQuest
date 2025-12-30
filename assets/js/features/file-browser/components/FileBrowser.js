@@ -50,6 +50,9 @@ export class FileBrowser {
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
         this.imageShowcase.setApiService(this.apiService);
         
+        // Flag to prevent preview re-render during gallery operations
+        this.isGalleryDeleteInProgress = false;
+        
         // Context menu for file operations
         this.contextMenu = new FileContextMenu({
             translations: this.translations,
@@ -518,8 +521,9 @@ export class FileBrowser {
     /**
      * Select a file and show its preview
      * @param {string} fileId - The ID of the file to select
+     * @param {boolean} skipIfGalleryOpen - Skip rendering if gallery is open (for delete operations)
      */
-    async selectFile(fileId) {
+    async selectFile(fileId, skipIfGalleryOpen = false) {
         try {
             // First try to find file in current files list (for list view)
             let file = this.files.find(f => f.id === fileId);
@@ -536,6 +540,10 @@ export class FileBrowser {
             
             //await animation.slideUp(this.filePreviewElement, animation.DURATION.INSTANT);
             if (file.isDirectory) {
+                // Skip re-rendering if gallery delete is in progress
+                if (this.isGalleryDeleteInProgress && this.imageGallery) {
+                    return;
+                }
                 // Show directory preview with actions
                 this.renderDirectoryPreview(file);
             } else {
@@ -674,9 +682,14 @@ export class FileBrowser {
             translations: this.translations,
             imageShowcase: this.imageShowcase,
             onDelete: async (fileId, image) => {
+                this.isGalleryDeleteInProgress = true;
                 await this.confirmAndDeleteFile(fileId, () => {
                     this.imageGallery?.removeImage(fileId);
-                });
+                    // Remove from tree DOM without full refresh
+                    this.fileTreeView?.removeFileFromTree(fileId);
+                    this.isGalleryDeleteInProgress = false;
+                }, true); // skipPreviewUpdate = true to keep gallery visible
+                this.isGalleryDeleteInProgress = false; // Also reset if user cancels
             }
         });
         
@@ -862,8 +875,9 @@ export class FileBrowser {
      * Confirm and delete a file or directory
      * @param {string} fileId - The ID of the file to delete
      * @param {Function} onSuccess - Optional callback after successful deletion
+     * @param {boolean} skipPreviewUpdate - Skip updating the preview (for gallery deletions)
      */
-    async confirmAndDeleteFile(fileId, onSuccess = null) {
+    async confirmAndDeleteFile(fileId, onSuccess = null, skipPreviewUpdate = false) {
         // In Tree View, this.files might be empty, so get file info from API or selectedFile
         let file = this.files.find(f => f.id === fileId);
         
@@ -894,8 +908,8 @@ export class FileBrowser {
         try {
             await this.apiService.deleteFile(fileId);
             
-            // Handle post-deletion cleanup
-            if (this.selectedFile && this.selectedFile.id === fileId) {
+            // Handle post-deletion cleanup (skip if deleting from gallery)
+            if (!skipPreviewUpdate && this.selectedFile && this.selectedFile.id === fileId) {
                 this.selectedFile = null;
                 this.filePreviewElement.innerHTML = '';
                 
@@ -913,9 +927,9 @@ export class FileBrowser {
             // Refresh project size
             await this.loadProjectSize();
             
-            // Refresh the tree view
-            if (this.fileTreeView) {
-                // Set current path and refresh the tree
+            // Refresh the tree view (skip if deleting from gallery - handled by removeFileFromTree)
+            if (this.fileTreeView && !skipPreviewUpdate) {
+                // Set current path and refresh the tree (keeps folder expanded)
                 this.fileTreeView.setInitialExpandPath(this.currentPath);
                 await this.fileTreeView.refresh();
             }
