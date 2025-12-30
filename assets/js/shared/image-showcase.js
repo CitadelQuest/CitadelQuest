@@ -78,6 +78,14 @@ export class ImageShowcase {
     }
 
     /**
+     * Set API service for loading full images
+     * @param {Object} apiService - API service with getFileContent method
+     */
+    setApiService(apiService) {
+        this.apiService = apiService;
+    }
+    
+    /**
      * Initialize event listeners for showcase icons within a container
      * @param {HTMLElement} container - Container element to search for showcase icons
      */
@@ -90,12 +98,66 @@ export class ImageShowcase {
             el.dataset.showcaseInit = 'true';
             
             const showcase = el.parentElement;
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                this.show(showcase);
+                
+                // Check if image is a thumbnail and needs full version
+                const img = showcase.querySelector('img[data-is-thumbnail="true"]');
+                if (img && img.dataset.fileId && this.apiService) {
+                    await this.showFullImage(img.dataset.fileId, img.alt);
+                } else {
+                    this.show(showcase);
+                }
             });
         });
+    }
+    
+    /**
+     * Show full image by loading it from API
+     * @param {string} fileId - File ID to load
+     * @param {string} alt - Alt text for the image
+     */
+    async showFullImage(fileId, alt = '') {
+        const modal = this.getModal();
+        const contentContainer = modal.querySelector('.contentShowcaseModal-content');
+        
+        if (!contentContainer) return;
+        
+        // Show loading state
+        contentContainer.innerHTML = `
+            <div class="spinner-border text-cyber" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        `;
+        
+        // Show the modal with loading state
+        if (!this.bsModal) {
+            this.bsModal = new bootstrap.Modal(modal);
+        }
+        this.bsModal.show();
+        
+        try {
+            // Load full image
+            const response = await this.apiService.getFileContent(fileId, false);
+            
+            if (response.success && response.content) {
+                contentContainer.innerHTML = `
+                    <img src="${response.content}" alt="${alt}" 
+                         style="max-width: 100%; max-height: 90vh; object-fit: contain;">
+                `;
+            } else {
+                throw new Error('Failed to load image');
+            }
+        } catch (error) {
+            console.error('Error loading full image:', error);
+            contentContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="mdi mdi-alert me-1"></i>
+                    Failed to load image
+                </div>
+            `;
+        }
     }
 
     /**

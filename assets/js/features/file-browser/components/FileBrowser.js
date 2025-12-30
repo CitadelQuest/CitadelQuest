@@ -48,6 +48,7 @@ export class FileBrowser {
         
         // Image showcase for fullscreen viewing
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
+        this.imageShowcase.setApiService(this.apiService);
         
         // Context menu for file operations
         this.contextMenu = new FileContextMenu({
@@ -547,12 +548,16 @@ export class FileBrowser {
                     </div>
                 `;
                 
-                // Get file content
-                const response = await this.apiService.getFileContent(fileId);
+                // Check if it's an image - use thumbnail for preview
+                const extension = file.name.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension);
+                
+                // Get file content (thumbnail for images, full for others)
+                const response = await this.apiService.getFileContent(fileId, isImage);
                 const content = response.content;
                 
                 // Render preview based on file type
-                this.renderFilePreview(file, content);
+                this.renderFilePreview(file, content, isImage);
             }
             // Show file preview with animation
             //await animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
@@ -667,7 +672,12 @@ export class FileBrowser {
             apiService: this.apiService,
             projectId: this.projectId,
             translations: this.translations,
-            imageShowcase: this.imageShowcase
+            imageShowcase: this.imageShowcase,
+            onDelete: async (fileId, image) => {
+                await this.confirmAndDeleteFile(fileId, () => {
+                    this.imageGallery?.removeImage(fileId);
+                });
+            }
         });
         
         await this.imageGallery.loadImages(directoryPath);
@@ -677,11 +687,12 @@ export class FileBrowser {
      * Render preview for a file based on its type
      * @param {Object} file - The file object
      * @param {string} content - The file content
+     * @param {boolean} isThumbnail - Whether content is a thumbnail (for images)
      */
-    renderFilePreview(file, content) {
+    renderFilePreview(file, content, isThumbnail = false) {
         const extension = file.name.split('.').pop().toLowerCase();
         let previewHtml = '';
-        const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 m-3 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
+        const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
         
         // File info header
         previewHtml += `
@@ -721,8 +732,12 @@ export class FileBrowser {
         
         // Images
         if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
-            previewHtml += `<img src="${content}" alt="${file.name}" class="img-fluid fb rounded">`;
-            previewHtml += showcaseIcon;
+            previewHtml += `
+                <div class="content-showcase position-relative d-inline-block">
+                    <img src="${content}" alt="${file.name}" class="img-fluid fb rounded" data-file-id="${file.id}" data-is-thumbnail="${isThumbnail}">
+                    ${showcaseIcon}
+                </div>
+            `;
         }
         // Text/code files
         else if (['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql'].includes(extension)) {
@@ -846,8 +861,9 @@ export class FileBrowser {
     /**
      * Confirm and delete a file or directory
      * @param {string} fileId - The ID of the file to delete
+     * @param {Function} onSuccess - Optional callback after successful deletion
      */
-    async confirmAndDeleteFile(fileId) {
+    async confirmAndDeleteFile(fileId, onSuccess = null) {
         // In Tree View, this.files might be empty, so get file info from API or selectedFile
         let file = this.files.find(f => f.id === fileId);
         
@@ -902,6 +918,11 @@ export class FileBrowser {
                 // Set current path and refresh the tree
                 this.fileTreeView.setInitialExpandPath(this.currentPath);
                 await this.fileTreeView.refresh();
+            }
+            
+            // Call onSuccess callback if provided
+            if (onSuccess) {
+                onSuccess();
             }
             
             // Show success message

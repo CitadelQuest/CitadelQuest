@@ -18,6 +18,7 @@ export class ImageGallery {
         this.projectId = options.projectId;
         this.translations = options.translations || {};
         this.imageShowcase = options.imageShowcase;
+        this.onDelete = options.onDelete || null; // Callback for delete action
         
         this.images = [];
         this.loadedThumbnails = new Set();
@@ -149,11 +150,26 @@ export class ImageGallery {
                          alt="${image?.name || ''}" 
                          class="image-gallery-img"
                          loading="lazy">
+                    <div class="content-showcase-icon image-gallery-zoom position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer" title="${this.translations.fullscreen || 'Fullscreen'}">
+                        <i class="mdi mdi-fullscreen"></i>
+                    </div>
+                    <div class="image-gallery-delete badge bg-dark bg-opacity-75 text-danger cursor-pointer" title="${this.translations.delete || 'Delete'}">
+                        <i class="mdi mdi-delete"></i>
+                    </div>
                 `;
                 
-                // Add click handler for fullscreen
-                thumbContainer.addEventListener('click', () => {
+                // Add click handler for fullscreen (zoom button)
+                const zoomBtn = thumbContainer.querySelector('.image-gallery-zoom');
+                zoomBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     this.showFullImage(fileId, image);
+                });
+                
+                // Add click handler for delete
+                const deleteBtn = thumbContainer.querySelector('.image-gallery-delete');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.handleDelete(fileId, image);
                 });
                 
                 // Add loaded class for animation
@@ -165,6 +181,40 @@ export class ImageGallery {
             thumbContainer.innerHTML = `
                 <div class="image-gallery-error">
                     <i class="mdi mdi-image-broken text-danger"></i>
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Handle delete action for an image
+     * @param {string} fileId - File ID
+     * @param {Object} image - Image metadata
+     */
+    async handleDelete(fileId, image) {
+        if (this.onDelete) {
+            await this.onDelete(fileId, image);
+        }
+    }
+    
+    /**
+     * Remove an image from the gallery (called after successful delete)
+     * @param {string} fileId - File ID
+     */
+    removeImage(fileId) {
+        const item = this.container.querySelector(`[data-file-id="${fileId}"]`);
+        if (item) {
+            item.remove();
+        }
+        this.images = this.images.filter(img => img.id !== fileId);
+        this.loadedThumbnails.delete(fileId);
+        
+        // Show empty message if no images left
+        if (this.images.length === 0) {
+            this.container.innerHTML = `
+                <div class="alert alert-info small py-2 mb-0">
+                    <i class="mdi mdi-image-off me-1"></i>
+                    ${this.translations.no_images || 'No images in this directory'}
                 </div>
             `;
         }
@@ -238,7 +288,7 @@ export class ImageGallery {
             }
             
             .image-gallery-thumb {
-                width: 100%;
+                width: 125px !important;
                 aspect-ratio: 1;
                 display: flex;
                 align-items: center;
@@ -246,19 +296,25 @@ export class ImageGallery {
                 background: rgba(0, 0, 0, 0.2);
                 border-radius: 8px;
                 overflow: hidden;
-                cursor: pointer;
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
-            }
-            
-            .image-gallery-thumb:hover {
-                transform: scale(1.05);
-                box-shadow: 0 4px 12px rgba(0, 255, 136, 0.2);
+                position: relative;
             }
             
             .image-gallery-img {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
+            }
+            
+            
+            .image-gallery-delete {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                padding: 4px 6px !important;
+            }
+            
+            .image-gallery-delete:hover {
+                background: rgba(255, 107, 107, 0.3) !important;
             }
             
             .image-gallery-placeholder,
