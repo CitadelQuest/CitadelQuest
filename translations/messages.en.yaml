@@ -658,6 +658,8 @@ file_browser:
     hide_gallery: 'Hide Gallery'
     loading_images: 'Loading images...'
     no_images: 'No images in this directory'
+    download_zip: 'Download ZIP'
+    preparing_zip: 'Preparing ZIP download...'
 
 cq_contact:
     page_title: 'CQ Contacts'

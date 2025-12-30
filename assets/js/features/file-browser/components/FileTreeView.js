@@ -61,9 +61,6 @@ export class FileTreeView {
         
         this.container.appendChild(wrapper);
         
-        // Add custom styles for the tree view
-        this.addTreeStyles();
-        
         // Load the tree data
         await this.loadTreeData();
     }
@@ -133,106 +130,6 @@ export class FileTreeView {
         } else {
             this.searchCountBadge.style.display = 'none';
         }
-    }
-    
-    /**
-     * Add custom styles for the tree view
-     */
-    addTreeStyles() {
-        // Check if styles already exist
-        if (document.getElementById('file-tree-view-styles')) {
-            return;
-        }
-        
-        const style = document.createElement('style');
-        style.id = 'file-tree-view-styles';
-        style.textContent = `
-            .file-tree-view {
-                font-family: var(--bs-font-sans-serif);
-                padding: 10px;
-                overflow: auto;
-                height: 100%;
-            }
-            
-            .file-tree-node {
-                padding: 3px 0;
-                cursor: pointer;
-                white-space: nowrap;
-                display: flex;
-                align-items: center;
-            }
-            
-            .file-tree-node:hover {
-                background-color: rgba(var(--bs-primary-rgb), 0.1);
-                border-radius: 4px;
-            }
-            
-            .file-tree-node.selected {
-                background-color: rgba(var(--bs-primary-rgb), 0.2);
-                border-radius: 4px;
-            }
-            
-            .file-tree-node.multi-selected {
-                background-color: rgba(var(--bs-primary-rgb), 0.3);
-                border-radius: 4px;
-                outline: 1px solid rgba(var(--bs-primary-rgb), 0.5);
-            }
-            
-            .file-tree-toggle {
-                display: inline-block;
-                width: 16px;
-                height: 16px;
-                text-align: center;
-                line-height: 16px;
-                margin-right: 5px;
-                cursor: pointer;
-                font-size: 12px;
-            }
-            
-            .file-tree-icon {
-                margin-right: 5px;
-                width: 16px;
-                text-align: center;
-            }
-            
-            .file-tree-label {
-                flex-grow: 1;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            
-            .file-tree-meta {
-                font-size: 0.8em;
-                color: var(--bs-secondary);
-                margin-left: 5px;
-            }
-            
-            .file-tree-children {
-                padding-left: 20px;
-            }
-            
-            /* Cyber-scrollbar style */
-            .file-tree-view::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-            }
-            
-            .file-tree-view::-webkit-scrollbar-track {
-                background: rgba(0, 0, 0, 0.1);
-                border-radius: 4px;
-            }
-            
-            .file-tree-view::-webkit-scrollbar-thumb {
-                background: rgba(var(--bs-primary-rgb), 0.5);
-                border-radius: 4px;
-            }
-            
-            .file-tree-view::-webkit-scrollbar-thumb:hover {
-                background: rgba(var(--bs-primary-rgb), 0.7);
-            }
-        `;
-        
-        document.head.appendChild(style);
     }
     
     /**

@@ -94,7 +94,6 @@ export class ImageGallery {
         `;
         
         this.container.innerHTML = galleryHtml;
-        this.addStyles();
     }
     
     /**
@@ -257,91 +256,6 @@ export class ImageGallery {
         const ext = name.split('.').pop();
         const base = name.slice(0, -(ext.length + 1));
         return base.slice(0, 14) + '...' + '.' + ext;
-    }
-    
-    /**
-     * Add gallery styles
-     */
-    addStyles() {
-        if (document.getElementById('image-gallery-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'image-gallery-styles';
-        style.textContent = `
-            .image-gallery-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 12px;
-                padding: 12px;
-            }
-            
-            .image-gallery-item {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                opacity: 0.6;
-                transition: opacity 0.3s ease;
-            }
-            
-            .image-gallery-item.loaded {
-                opacity: 1;
-            }
-            
-            .image-gallery-thumb {
-                width: 125px !important;
-                aspect-ratio: 1;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background: rgba(0, 0, 0, 0.2);
-                border-radius: 8px;
-                overflow: hidden;
-                position: relative;
-            }
-            
-            .image-gallery-img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-            
-            
-            .image-gallery-delete {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                padding: 4px 6px !important;
-            }
-            
-            .image-gallery-delete:hover {
-                background: rgba(255, 107, 107, 0.3) !important;
-            }
-            
-            .image-gallery-placeholder,
-            .image-gallery-error {
-                font-size: 2rem;
-            }
-            
-            .image-gallery-name {
-                font-size: 0.7rem;
-                color: #aaa;
-                text-align: center;
-                margin-top: 4px;
-                max-width: 100%;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            
-            @media (max-width: 576px) {
-                .image-gallery-grid {
-                    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-                    gap: 8px;
-                    padding: 8px;
-                }
-            }
-        `;
-        document.head.appendChild(style);
     }
     
     /**

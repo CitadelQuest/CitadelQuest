@@ -412,6 +412,144 @@ $file-browser-preview-header-height: 4rem;
   margin-top: 0.25rem;
 }
 
+// File Tree View styles
+.file-tree-view {
+  font-family: var(--bs-font-sans-serif);
+  padding: 10px;
+  overflow: auto;
+  height: 100%;
+
+  @include mixins.cyber-scrollbar;
+}
+
+.file-tree-node {
+  padding: 3px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: 4px;
+  }
+
+  &.selected {
+    background-color: rgba(var(--bs-primary-rgb), 0.2);
+    border-radius: 4px;
+  }
+
+  &.multi-selected {
+    background-color: rgba(var(--bs-primary-rgb), 0.3);
+    border-radius: 4px;
+    outline: 1px solid rgba(var(--bs-primary-rgb), 0.5);
+  }
+}
+
+.file-tree-toggle {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  line-height: 16px;
+  margin-right: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.file-tree-icon {
+  margin-right: 5px;
+  width: 16px;
+  text-align: center;
+}
+
+.file-tree-label {
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-meta {
+  font-size: 0.8em;
+  color: var(--bs-secondary);
+  margin-left: 5px;
+}
+
+.file-tree-children {
+  padding-left: 20px;
+}
+
+// Image Gallery styles
+.image-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  padding: 12px;
+
+  @media (max-width: 576px) {
+    grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+.image-gallery-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+
+  &.loaded {
+    opacity: 1;
+  }
+}
+
+.image-gallery-thumb {
+  width: 125px !important;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.image-gallery-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-gallery-delete {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 4px 6px !important;
+
+  &:hover {
+    background: rgba(255, 107, 107, 0.3) !important;
+  }
+}
+
+.image-gallery-placeholder,
+.image-gallery-error {
+  font-size: 2rem;
+}
+
+.image-gallery-name {
+  font-size: 0.7rem;
+  color: #aaa;
+  text-align: center;
+  margin-top: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 // Context menu
 .file-context-menu {
   position: absolute;

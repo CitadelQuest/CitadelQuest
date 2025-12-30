@@ -81,6 +81,16 @@
         }
     }
 
+    &.btn-outline-cyber  {
+        color: colors.$cyber;
+        border-color: colors.$cyber;
+        
+        &:hover {
+            background: colors.$cyber;
+            color: colors.$dark;
+        }
+    }
+
     // Light variant
     &.btn-light {
         position: relative;

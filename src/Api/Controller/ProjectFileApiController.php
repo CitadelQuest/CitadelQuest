@@ -514,4 +514,95 @@ class ProjectFileApiController extends AbstractController
             ], 400);
         }
     }
+    
+    /**
+     * Download directory as ZIP file
+     */
+    #[Route('/{fileId}/download-zip', name: 'app_api_project_file_download_zip', methods: ['GET'])]
+    public function downloadZip(string $fileId, ParameterBagInterface $params): BinaryFileResponse
+    {
+        try {
+            $file = $this->projectFileService->findById($fileId);
+            
+            if (!$file) {
+                throw new NotFoundHttpException('Directory not found');
+            }
+            
+            if (!$file->isDirectory()) {
+                throw new BadRequestHttpException('This endpoint is only for directories. Use /download for files.');
+            }
+            
+            // Build directory path
+            $userId = $this->security->getUser()->getId();
+            $basePath = $params->get('kernel.project_dir') . '/var/user_data/' . $userId . '/p/' . $file->getProjectId();
+            $dirPath = $basePath;
+            if ($file->getPath() !== '/') {
+                $dirPath .= $file->getPath();
+            }
+            $dirPath .= '/' . $file->getName();
+            
+            if (!is_dir($dirPath)) {
+                throw new NotFoundHttpException('Directory not found on filesystem');
+            }
+            
+            // Create temporary ZIP file
+            $tempDir = $params->get('kernel.project_dir') . '/var/tmp';
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            $zipFileName = $file->getName() . '_' . date('Y-m-d_His') . '.zip';
+            $zipPath = $tempDir . '/' . $zipFileName;
+            
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+                throw new \RuntimeException('Failed to create ZIP archive');
+            }
+            
+            // Add directory contents recursively
+            $this->addDirectoryToZip($zip, $dirPath, $file->getName());
+            $zip->close();
+            
+            // Return ZIP file as download
+            $response = new BinaryFileResponse($zipPath);
+            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $zipFileName);
+            $response->deleteFileAfterSend(true);
+            
+            return $response;
+        } catch (\Exception $e) {
+            $this->logger->error('downloadZip: Error creating ZIP', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+    
+    /**
+     * Add directory recursively to ZIP archive
+     */
+    private function addDirectoryToZip(\ZipArchive $zip, string $dir, string $zipPath): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($files as $file) {
+            if (!$file->isDir()) {
+                $filePath = $file->getRealPath();
+                
+                // Skip thumbnail cache files
+                if (str_ends_with($filePath, '.thumb')) {
+                    continue;
+                }
+                
+                $relativePath = $zipPath . '/' . substr($filePath, strlen($dir) + 1);
+                $zip->addFile($filePath, $relativePath);
+            }
+        }
+    }
 }

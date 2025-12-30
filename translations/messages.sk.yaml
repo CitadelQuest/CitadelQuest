@@ -651,6 +651,8 @@ file_browser:
     hide_gallery: 'Skryť galériu'
     loading_images: 'Načítavam obrázky...'
     no_images: 'Žiadne obrázky v tomto priečinku'
+    download_zip: 'Stiahnuť ZIP'
+    preparing_zip: 'Pripravujem ZIP na stiahnutie...'
 
 cq_contact:
     page_title: 'CQ Kontakty'

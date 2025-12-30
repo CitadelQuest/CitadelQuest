@@ -57,6 +57,8 @@ class FileBrowserController extends AbstractController
             'hide_gallery' => $translator->trans('file_browser.hide_gallery'),
             'loading_images' => $translator->trans('file_browser.loading_images'),
             'no_images' => $translator->trans('file_browser.no_images'),
+            'download_zip' => $translator->trans('file_browser.download_zip'),
+            'preparing_zip' => $translator->trans('file_browser.preparing_zip'),
         ];
 
         return $this->render('file_browser/index.html.twig', [

@@ -251,6 +251,13 @@ export class FileBrowser {
                         await this.showImageGallery(directoryPath);
                     }
                     break;
+                    
+                case 'download-zip':
+                    const zipFileId = actionButton.dataset.fileId;
+                    if (zipFileId) {
+                        this.downloadDirectoryAsZip(zipFileId);
+                    }
+                    break;
             }
         });
         
@@ -617,6 +624,10 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small">${this.translations.show_gallery || 'Image Gallery'}</span>
                     </button>
+                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="download-zip" data-file-id="${directory.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-folder-zip"></i> <span class="d-none d-md-inline small">${this.translations.download_zip || 'Download ZIP'}</span>
+                    </button>
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
@@ -694,6 +705,24 @@ export class FileBrowser {
         });
         
         await this.imageGallery.loadImages(directoryPath);
+    }
+    
+    /**
+     * Download directory as ZIP file
+     * @param {string} fileId - The directory ID
+     */
+    downloadDirectoryAsZip(fileId) {
+        // Show loading toast
+        window.toast.info(this.translations.preparing_zip || 'Preparing ZIP download...');
+        
+        // Trigger download via hidden link
+        const downloadUrl = `/api/project-file/${fileId}/download-zip`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
     
     /**
