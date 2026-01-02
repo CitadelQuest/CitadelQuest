@@ -172,6 +172,8 @@ spirit:
         loading_response: 'Spirit is thinking...'
         response_max_output: 'Max response length'
         response_temperature: 'Response temperature'
+        load_older: 'Load older messages'
+        loading: 'Loading...'
 
 profile:
     title: 'Profile Settings'

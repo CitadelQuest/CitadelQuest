@@ -172,6 +172,8 @@ spirit:
         loading_response: 'Duch přemýšlí...'
         response_max_output: 'Maximální délka odpovědi'
         response_temperature: '"Teplota" odpovědi'
+        load_older: 'Načíst starší zprávy'
+        loading: 'Načítám...'
 
 profile:
     title: 'Nastavení profilu'

@@ -110,20 +110,47 @@ class SpiritConversationMessageService
     }
     
     /**
-     * Get all messages for a conversation
+     * Get messages for a conversation with pagination
+     * Returns newest messages first (for initial load), then older messages can be loaded
      * 
+     * @param string $conversationId
+     * @param int $limit Number of messages to fetch (0 = all)
+     * @param int $offset Offset from the end (newest messages)
      * @return SpiritConversationMessage[]
      */
-    public function getMessagesByConversation(string $conversationId): array
+    public function getMessagesByConversation(string $conversationId, int $limit = 0, int $offset = 0): array
     {
         $db = $this->getUserDb();
         
-        $result = $db->executeQuery(
-            'SELECT * FROM spirit_conversation_message 
-            WHERE conversation_id = ? 
-            ORDER BY created_at ASC',
-            [$conversationId]
-        );
+        if ($limit > 0) {
+            // Get total count first
+            $totalCount = $this->countMessagesByConversation($conversationId);
+            
+            // Calculate the actual offset from the beginning
+            // We want the LAST $limit messages, offset by $offset from the end
+            $startOffset = max(0, $totalCount - $limit - $offset);
+            $actualLimit = min($limit, $totalCount - $offset);
+            
+            if ($actualLimit <= 0) {
+                return [];
+            }
+            
+            $result = $db->executeQuery(
+                'SELECT * FROM spirit_conversation_message 
+                WHERE conversation_id = ? 
+                ORDER BY created_at ASC
+                LIMIT ? OFFSET ?',
+                [$conversationId, $actualLimit, $startOffset]
+            );
+        } else {
+            // No limit - get all messages (legacy behavior)
+            $result = $db->executeQuery(
+                'SELECT * FROM spirit_conversation_message 
+                WHERE conversation_id = ? 
+                ORDER BY created_at ASC',
+                [$conversationId]
+            );
+        }
         
         $messages = [];
         foreach ($result->fetchAllAssociative() as $data) {

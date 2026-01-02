@@ -141,7 +141,7 @@ class SpiritConversationApiController extends AbstractController
     }
     
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
-    public function getConversation(string $id, \App\Service\SpiritConversationMessageService $messageService): JsonResponse
+    public function getConversation(string $id, Request $request, \App\Service\SpiritConversationMessageService $messageService): JsonResponse
     {
         try {
             // Get conversation
@@ -150,8 +150,19 @@ class SpiritConversationApiController extends AbstractController
                 return $this->json(['error' => 'Conversation not found'], 404);
             }
 
-            // Load messages from message table
-            $messages = $messageService->getMessagesByConversation($id);
+            // Pagination parameters
+            $limit = (int) $request->query->get('limit', 5); // Default: last 5 messages
+            $offset = (int) $request->query->get('offset', 0);
+            
+            // Get total message count
+            $totalMessages = $messageService->countMessagesByConversation($id);
+            
+            // Load messages from message table with pagination
+            $messages = $messageService->getMessagesByConversation($id, $limit, $offset);
+            
+            // Calculate if there are more older messages
+            $loadedCount = $limit + $offset;
+            $hasMore = $totalMessages > $loadedCount;
             
             // Convert conversation to array and add messages
             $conversationData = [
@@ -160,7 +171,13 @@ class SpiritConversationApiController extends AbstractController
                 'title' => $conversation->getTitle(),
                 'createdAt' => $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 'lastInteraction' => $conversation->getLastInteraction()->format('Y-m-d H:i:s'),
-                'messages' => array_map(fn($msg) => $msg->jsonSerialize(), $messages)
+                'messages' => array_map(fn($msg) => $msg->jsonSerialize(), $messages),
+                'pagination' => [
+                    'total' => $totalMessages,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                    'hasMore' => $hasMore
+                ]
             ];
 
             return $this->json($conversationData);

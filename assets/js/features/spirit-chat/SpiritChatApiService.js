@@ -55,13 +55,16 @@ export class SpiritChatApiService {
     }
     
     /**
-     * Get a specific conversation
+     * Get a specific conversation with pagination
      * @param {string} conversationId - The ID of the conversation
-     * @returns {Promise<Object>} - The conversation
+     * @param {number} limit - Number of messages to fetch (default: 5)
+     * @param {number} offset - Offset from the end (newest messages)
+     * @returns {Promise<Object>} - The conversation with messages and pagination info
      */
-    async getConversation(conversationId) {
+    async getConversation(conversationId, limit = 5, offset = 0) {
         try {
-            const response = await fetch(`${this.baseUrl}/${conversationId}`);
+            const params = new URLSearchParams({ limit, offset });
+            const response = await fetch(`${this.baseUrl}/${conversationId}?${params}`);
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to fetch conversation');

@@ -27,6 +27,12 @@ export class SpiritChatManager {
         this.executionStopped = false;
         this.isExecutingTools = false;
         
+        // Pagination state
+        this.messageLimit = 10; // Messages per page
+        this.currentOffset = 0;
+        this.hasMoreMessages = false;
+        this.totalMessages = 0;
+        
         // DOM Elements
         this.spiritIcon = document.getElementById('spiritIcon');
         this.spiritChatModal = document.getElementById('spiritChatModal');
@@ -593,6 +599,11 @@ export class SpiritChatManager {
         if (this.isLoadingMessages) return;
         this.isLoadingMessages = true;
         
+        // Reset pagination state for new conversation
+        this.currentOffset = 0;
+        this.hasMoreMessages = false;
+        this.totalMessages = 0;
+        
         try {
             // Show chat container
             if (this.chatContainer) {
@@ -631,16 +642,22 @@ export class SpiritChatManager {
                 }
             }
             
-            // Fetch conversation
-            const conversation = await this.apiService.getConversation(conversationId);
+            // Fetch conversation with pagination (last N messages)
+            const conversation = await this.apiService.getConversation(conversationId, this.messageLimit, this.currentOffset);
             this.currentConversationId = conversationId;
             localStorage.setItem('config.chat.last_conversation_id', conversationId);
+            
+            // Store pagination info
+            if (conversation.pagination) {
+                this.totalMessages = conversation.pagination.total;
+                this.hasMoreMessages = conversation.pagination.hasMore;
+            }
             
             // Update modal title
             this.spiritChatModalTitle.innerHTML = conversation.title /* + '<i class="mdi mdi-forum text-dark ms-2 fs-6 opacity-50"></i>' */;
             
-            // Render messages
-            this.renderMessages(conversation.messages);
+            // Render messages (with "load more" button if needed)
+            this.renderMessages(conversation.messages, true);
 
             // update conversation tokens
             this.apiService.getConversationTokens(conversationId).then(tokens => {
@@ -663,10 +680,145 @@ export class SpiritChatManager {
     }
     
     /**
+     * Load older messages (pagination)
+     */
+    async loadOlderMessages() {
+        if (this.isLoadingMessages || !this.hasMoreMessages || !this.currentConversationId) return;
+        this.isLoadingMessages = true;
+        
+        // Increase offset to get older messages
+        this.currentOffset += this.messageLimit;
+        
+        try {
+            // Show loading indicator at top
+            const loadMoreBtn = this.chatMessages.querySelector('#loadMoreMessagesBtn');
+            if (loadMoreBtn) {
+                loadMoreBtn.innerHTML = `
+                    <div class="spinner-border spinner-border-sm text-cyber me-2" role="status"></div>
+                    ${window.translations?.['spirit.chat.loading'] || 'Loading...'}
+                `;
+                loadMoreBtn.disabled = true;
+            }
+            
+            // Remember the first currently visible message to scroll back to it
+            const firstVisibleMessage = this.chatMessages.querySelector('.chat-message');
+            
+            // Fetch older messages
+            const conversation = await this.apiService.getConversation(
+                this.currentConversationId, 
+                this.messageLimit, 
+                this.currentOffset
+            );
+            
+            // Update pagination info
+            if (conversation.pagination) {
+                this.hasMoreMessages = conversation.pagination.hasMore;
+            }
+            
+            // Prepend older messages to chat
+            this.prependMessages(conversation.messages);
+            
+            // Scroll to the message that was first visible before loading (after DOM update)
+            if (firstVisibleMessage) {
+                // Use requestAnimationFrame to wait for DOM to be fully rendered
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        firstVisibleMessage.scrollIntoView({ behavior: 'instant', block: 'end' });
+                        
+                    });
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error loading older messages:', error);
+            // Revert offset on error
+            this.currentOffset -= this.messageLimit;
+        } finally {
+            this.isLoadingMessages = false;
+        }
+    }
+    
+    /**
+     * Prepend older messages to the chat (at the top)
+     * @param {Array} messages - Array of message objects to prepend
+     */
+    prependMessages(messages) {
+        if (!this.chatMessages || messages.length === 0) return;
+        
+        // Remove existing "load more" button
+        const existingBtn = this.chatMessages.querySelector('#loadMoreMessagesBtn');
+        if (existingBtn) {
+            existingBtn.parentElement.remove();
+        }
+        
+        // Create a fragment to hold the new messages
+        const fragment = document.createDocumentFragment();
+        
+        // Add "load more" button if there are more messages
+        if (this.hasMoreMessages) {
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'text-center p-2 mb-2';
+            loadMoreContainer.innerHTML = `
+                <button type="button" id="loadMoreMessagesBtn" class="btn btn-outline-cyber btn-sm">
+                    <i class="mdi mdi-history me-1"></i>
+                    ${window.translations?.['spirit.chat.load_older'] || 'Load older messages'}
+                </button>
+            `;
+            fragment.appendChild(loadMoreContainer);
+            
+            // Add click event listener only (no observer here - scroll positions user below button)
+            loadMoreContainer.querySelector('#loadMoreMessagesBtn').addEventListener('click', () => {
+                this.loadOlderMessages();
+            });
+        }
+        
+        // Render each message and add to fragment
+        messages.forEach(message => {
+            const messageEl = this.createMessageElement(message);
+            if (messageEl) {
+                fragment.appendChild(messageEl);
+            }
+        });
+        
+        // Insert at the beginning of chat messages
+        this.chatMessages.insertBefore(fragment, this.chatMessages.firstChild);
+        // Note: Observer is set up in loadOlderMessages() after scroll completes
+    }
+    
+    /**
+     * Setup scroll listener for auto-loading older messages when user scrolls to top
+     */
+    setupScrollAutoLoad() {
+        // The scroll happens on modal-body, not chatMessages (due to modal-dialog-scrollable)
+        const scrollContainer = this.spiritChatModal?.querySelector('.modal-body');
+        if (!scrollContainer) return;
+        
+        // Remove existing listener if any
+        if (this._scrollHandler) {
+            scrollContainer.removeEventListener('scroll', this._scrollHandler);
+        }
+        
+        // Store reference for cleanup
+        this._scrollContainer = scrollContainer;
+        
+        // Create scroll handler
+        this._scrollHandler = () => {
+            // Only trigger if: scrolled near top, not loading, has more messages
+            if (scrollContainer.scrollTop < 100 && !this.isLoadingMessages && this.hasMoreMessages) {
+                this.loadOlderMessages();
+            }
+        };
+        
+        // Add scroll listener
+        scrollContainer.addEventListener('scroll', this._scrollHandler);
+    }
+    
+    /**
      * Render messages in the chat container
      * @param {Array} messages - Array of message objects
+     * @param {boolean} isInitialLoad - Whether this is the initial load (shows "load more" button)
      */
-    renderMessages(messages) {
+    renderMessages(messages, isInitialLoad = false) {
         if (!this.chatMessages) return;
         
         // Clear loading indicator
@@ -681,159 +833,202 @@ export class SpiritChatManager {
             return;
         }
         
+        // Add "load more" button at the top if there are more messages
+        if (isInitialLoad && this.hasMoreMessages) {
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'text-center p-2 mb-2';
+            loadMoreContainer.innerHTML = `
+                <button type="button" id="loadMoreMessagesBtn" class="btn btn-outline-cyber btn-sm">
+                    <i class="mdi mdi-history me-1"></i>
+                    ${window.translations?.['spirit.chat.load_older'] || 'Load older messages'}
+                </button>
+            `;
+            this.chatMessages.appendChild(loadMoreContainer);
+            
+            // Add click event listener (manual fallback)
+            loadMoreContainer.querySelector('#loadMoreMessagesBtn').addEventListener('click', () => {
+                this.loadOlderMessages();
+            });
+        }
+        
         // Render each message
         messages.forEach(message => {
-            // Handle tool result messages - display frontendData if present
-            if (message.role === 'tool' || message.type === 'tool_result') {
-                // Check if message content has frontendData
-                let content = message.content;
-                if (Array.isArray(content)) {
-                    content.forEach(item => {
-                        if (item.frontendData) {
-                            const frontendDataEl = document.createElement('div');
-                            frontendDataEl.className = 'chat-message chat-message-system';
-                            
-                            frontendDataEl.innerHTML = `
-                                <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
-                                    ${item.frontendData}
-                                </div>
-                            `;
-                            
-                            this.chatMessages.appendChild(frontendDataEl);
-                            this.showContentShowcase(frontendDataEl);
-                        }
-                    });
-                } else if (content && typeof content === 'object' && content.frontendData) {
-                    const frontendDataEl = document.createElement('div');
-                    frontendDataEl.className = 'chat-message chat-message-system';
-                    
-                    frontendDataEl.innerHTML = `
-                        <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
-                            ${content.frontendData}
-                        </div>
-                    `;
-                    
-                    this.chatMessages.appendChild(frontendDataEl);
-                    this.showContentShowcase(frontendDataEl);
-                }
-                return;
-            }
-            
-            const messageEl = document.createElement('div');
-            messageEl.className = `chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`;
-            
-            // Format timestamp
-            let timestampHtml = '';
-            if (message.timestamp) {
-                const date = new Date(message.timestamp);
-                const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
-                timestampHtml = `<div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>`;
-            }
-
-            // format message content
-            let formattedContent = '';
-            
-            // Handle assistant messages with tool_use (content is full message object)
-            let hasToolExecution = false;
-            let toolExecutionHtml = '';
-            
-            if (message.role === 'assistant' && message.type === 'tool_use' && message.content && typeof message.content === 'object') {
-                // Extract text content from the full message object
-                const textContent = message.content.content;
-                // Handle null, empty string, or actual content (array vs string demon!)
-                if (textContent && textContent !== '') {
-                    if (typeof textContent === 'string') {
-                        formattedContent = this.formatMessageContent(textContent);
-                    } else if (Array.isArray(textContent)) {
-                        formattedContent = textContent.map(item => {
-                            if (item.type === 'text') {
-                                return this.formatMessageContent(item.text);
-                            }
-                            return '';
-                        }).join('');
-                    }
-                }
-                // Prepare tool execution indicator (will be added as separate element)
-                if (message.content.tool_calls && Array.isArray(message.content.tool_calls)) {
-                    hasToolExecution = true;
-                    const toolNames = message.content.tool_calls.map(tc => tc.function?.name || 'unknown').join(', ');
-                    toolExecutionHtml = `
-                        <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                            <!-- <i class="mdi mdi-check-circle text-success"></i> -->
-                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
-                        </div>
-                    `;
-                }
-            } else if (Array.isArray(message.content)) {
-                formattedContent = message.content.map(item => {
-                    if (item.type === 'text') {
-                        let formattedText = this.formatMessageContent(item.text);
-                        return (formattedText != '' ? `<div style="clear: both;"></div>` : '') + formattedText;
-                    } else if (item.type === 'image_url') {
-                        return `<div class="content-showcase position-relative d-inline-block float-end" data-title="" data-type="image">
-                                    <img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">
-                                    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
-                                        <i class="mdi mdi-fullscreen"></i>
-                                    </div>
-                                </div>`;
-                    } else if (item.type === 'file') {
-                        return `<div style="clear: both;"></div>
-                                <div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2 content-showcase position-relative"
-                                        data-title="${item.file.filename}" data-type="file"
-                                        onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
-                                    <div class="d-flex align-items-center px-1 chat-file-preview-title">
-                                        <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
-                                        <span class="text-cyber">${item.file.filename}</span>
-                                    </div>
-                                    <div class="p-2 pt-0 d-none embed-container">
-                                        <embed src="${item.file.file_data}"
-                                            width="100%" height="420"
-                                            class="rounded"
-                                            type="application/pdf"
-                                            title="${item.file.filename}" />
-                                    </div>
-                                    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">
-                                        <i class="mdi mdi-fullscreen"></i>
-                                    </div>
-                                </div>`;
-                    }
-                }).join('');
-                if (formattedContent.trim() != '') {
-                    formattedContent += '<div style="clear: both;"></div>';
-                }
-            } else {
-                formattedContent = this.formatMessageContent(message.content);
-            }
-            
-            messageEl.innerHTML = (formattedContent != '') ? `
-                <div class="chat-bubble">
-                    <div class="chat-content">${formattedContent}</div>
-                    <div class="chat-timestamp">${timestampHtml}</div>
-                </div>
-            ` : '';
-
-            // add content showcase icon event listener
-            this.showContentShowcase(messageEl);
-            
-            this.chatMessages.appendChild(messageEl);
-            
-            // Add tool execution block as separate element (outside bubble)
-            if (hasToolExecution) {
-                const toolEl = document.createElement('div');
-                toolEl.className = 'chat-message chat-message-tool';
-                toolEl.innerHTML = toolExecutionHtml;
-                this.chatMessages.appendChild(toolEl);
+            const messageEl = this.createMessageElement(message);
+            if (messageEl) {
+                this.chatMessages.appendChild(messageEl);
             }
         });
         
         // Scroll to bottom
-        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        this.chatMessages.scrollIntoView({ behavior: 'instant', block: 'end' });
+        
+        // Setup scroll listener for auto-loading (after scroll to bottom)
+        if (this.hasMoreMessages) {
+            setTimeout(() => this.setupScrollAutoLoad(), 100);
+        }
         
         // Focus input
-        if (this.messageInput) {
+        /* if (this.messageInput) {
             this.messageInput.focus();
+        } */
+    }
+    
+    /**
+     * Create a message element from message data
+     * @param {Object} message - Message object
+     * @returns {HTMLElement|null} - The message element or null
+     */
+    createMessageElement(message) {
+        // Handle tool result messages - display frontendData if present
+        if (message.role === 'tool' || message.type === 'tool_result') {
+            // Check if message content has frontendData
+            let content = message.content;
+            const fragment = document.createDocumentFragment();
+            
+            if (Array.isArray(content)) {
+                content.forEach(item => {
+                    if (item.frontendData) {
+                        const frontendDataEl = document.createElement('div');
+                        frontendDataEl.className = 'chat-message chat-message-system';
+                        
+                        frontendDataEl.innerHTML = `
+                            <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                                ${item.frontendData}
+                            </div>
+                        `;
+                        
+                        this.showContentShowcase(frontendDataEl);
+                        fragment.appendChild(frontendDataEl);
+                    }
+                });
+            } else if (content && typeof content === 'object' && content.frontendData) {
+                const frontendDataEl = document.createElement('div');
+                frontendDataEl.className = 'chat-message chat-message-system';
+                
+                frontendDataEl.innerHTML = `
+                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                        ${content.frontendData}
+                    </div>
+                `;
+                
+                this.showContentShowcase(frontendDataEl);
+                fragment.appendChild(frontendDataEl);
+            }
+            
+            return fragment.childNodes.length > 0 ? fragment : null;
         }
+        
+        const messageEl = document.createElement('div');
+        messageEl.className = `chat-message ${message.role === 'user' ? 'chat-message-user' : 'chat-message-assistant'}`;
+        
+        // Format timestamp
+        let timestampHtml = '';
+        if (message.timestamp) {
+            const date = new Date(message.timestamp);
+            const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+            const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+            timestampHtml = `<div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>`;
+        }
+
+        // format message content
+        let formattedContent = '';
+        
+        // Handle assistant messages with tool_use (content is full message object)
+        let hasToolExecution = false;
+        let toolExecutionHtml = '';
+        
+        if (message.role === 'assistant' && message.type === 'tool_use' && message.content && typeof message.content === 'object') {
+            // Extract text content from the full message object
+            const textContent = message.content.content;
+            // Handle null, empty string, or actual content (array vs string demon!)
+            if (textContent && textContent !== '') {
+                if (typeof textContent === 'string') {
+                    formattedContent = this.formatMessageContent(textContent);
+                } else if (Array.isArray(textContent)) {
+                    formattedContent = textContent.map(item => {
+                        if (item.type === 'text') {
+                            return this.formatMessageContent(item.text);
+                        }
+                        return '';
+                    }).join('');
+                }
+            }
+            // Prepare tool execution indicator (will be added as separate element)
+            if (message.content.tool_calls && Array.isArray(message.content.tool_calls)) {
+                hasToolExecution = true;
+                const toolNames = message.content.tool_calls.map(tc => tc.function?.name || 'unknown').join(', ');
+                toolExecutionHtml = `
+                    <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
+                        <!-- <i class="mdi mdi-check-circle text-success"></i> -->
+                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
+                    </div>
+                `;
+            }
+        } else if (Array.isArray(message.content)) {
+            formattedContent = message.content.map(item => {
+                if (item.type === 'text') {
+                    let formattedText = this.formatMessageContent(item.text);
+                    return (formattedText != '' ? `<div style="clear: both;"></div>` : '') + formattedText;
+                } else if (item.type === 'image_url') {
+                    return `<div class="content-showcase position-relative d-inline-block float-end" data-title="" data-type="image">
+                                <img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">
+                                <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
+                                    <i class="mdi mdi-fullscreen"></i>
+                                </div>
+                            </div>`;
+                } else if (item.type === 'file') {
+                    return `<div style="clear: both;"></div>
+                            <div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2 content-showcase position-relative"
+                                    data-title="${item.file.filename}" data-type="file"
+                                    onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
+                                <div class="d-flex align-items-center px-1 chat-file-preview-title">
+                                    <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                    <span class="text-cyber">${item.file.filename}</span>
+                                </div>
+                                <div class="p-2 pt-0 d-none embed-container">
+                                    <embed src="${item.file.file_data}"
+                                        width="100%" height="420"
+                                        class="rounded"
+                                        type="application/pdf"
+                                        title="${item.file.filename}" />
+                                </div>
+                                <div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">
+                                    <i class="mdi mdi-fullscreen"></i>
+                                </div>
+                            </div>`;
+                }
+            }).join('');
+            if (formattedContent.trim() != '') {
+                formattedContent += '<div style="clear: both;"></div>';
+            }
+        } else {
+            formattedContent = this.formatMessageContent(message.content);
+        }
+        
+        messageEl.innerHTML = (formattedContent != '') ? `
+            <div class="chat-bubble">
+                <div class="chat-content">${formattedContent}</div>
+                <div class="chat-timestamp">${timestampHtml}</div>
+            </div>
+        ` : '';
+
+        // add content showcase icon event listener
+        this.showContentShowcase(messageEl);
+        
+        // If there's tool execution, wrap in a fragment with both elements
+        if (hasToolExecution) {
+            const fragment = document.createDocumentFragment();
+            fragment.appendChild(messageEl);
+            
+            const toolEl = document.createElement('div');
+            toolEl.className = 'chat-message chat-message-tool';
+            toolEl.innerHTML = toolExecutionHtml;
+            fragment.appendChild(toolEl);
+            
+            return fragment;
+        }
+        
+        return messageEl;
     }
 
     /**
@@ -1747,7 +1942,7 @@ export class SpiritChatManager {
         ` : '';
         
         this.chatMessages.appendChild(messageEl);
-        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        this.chatMessages.scrollIntoView({ behavior: 'instant', block: 'end' });
     }
 
     /**
