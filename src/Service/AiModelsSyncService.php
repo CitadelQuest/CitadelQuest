@@ -91,6 +91,9 @@ class AiModelsSyncService
             if (!$modelsData['success']) {
                 return $modelsData;
             }
+
+            // Set all models inactive first
+            $this->aiServiceModelService->setAllModelsInactive($gateway->getId());
             
             // Process and store models
             $result = $this->processAndStoreModels($gateway, $modelsData['models']);

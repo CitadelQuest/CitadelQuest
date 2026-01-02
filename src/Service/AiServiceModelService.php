@@ -342,4 +342,13 @@ class AiServiceModelService
 
         return $result > 0;
     }
+
+    public function setAllModelsInactive(string $gatewayId): void
+    {
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement(
+            'UPDATE ai_service_model SET is_active = 0 WHERE ai_gateway_id = ?',
+            [$gatewayId]
+        );
+    }
 }
