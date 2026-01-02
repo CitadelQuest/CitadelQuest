@@ -229,10 +229,13 @@ class AIToolFileService
      * - append: Add content to end of file
      * - prepend: Add content to beginning of file
      * - insertAtLine: Insert content at specific line
+     * 
+     * Simplified format (one operation per call) for better LLM compatibility.
+     * For multiple operations, call this tool multiple times.
      */
     public function updateFileEfficient(array $arguments): array
     {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'updates']);
+        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
         
         try {
             $file = $this->projectFileService->findByPathAndName(
@@ -248,22 +251,45 @@ class AIToolFileService
                 ];
             }
             
-            if (!is_array($arguments['updates'])) {
-                return [
-                    'success' => false,
-                    'error' => 'Updates must be an array of update operations'
-                ];
+            // Build single update operation from flat parameters
+            $update = [
+                'operation' => $arguments['operation']
+            ];
+            
+            // Add operation-specific parameters
+            if (isset($arguments['find'])) {
+                $update['find'] = $arguments['find'];
             }
+            if (isset($arguments['replaceWith'])) {
+                $update['replace'] = $arguments['replaceWith'];
+            }
+            if (isset($arguments['startLine'])) {
+                $update['startLine'] = (int) $arguments['startLine'];
+            }
+            if (isset($arguments['endLine'])) {
+                $update['endLine'] = (int) $arguments['endLine'];
+            }
+            if (isset($arguments['line'])) {
+                $update['line'] = (int) $arguments['line'];
+            }
+            if (isset($arguments['content'])) {
+                $update['content'] = $arguments['content'];
+            }
+            
+            // Legacy support: if 'updates' array is provided, use it directly
+            $updates = isset($arguments['updates']) && is_array($arguments['updates']) 
+                ? $arguments['updates'] 
+                : [$update];
             
             $updatedFile = $this->projectFileService->updateFileEfficient(
                 $file->getId(),
-                $arguments['updates']
+                $updates
             );
             
             return [
                 'success' => true,
                 'file' => $updatedFile->jsonSerialize(),
-                'operations_applied' => count($arguments['updates'])
+                'operations_applied' => count($updates)
             ];
         } catch (\Exception $e) {
             return [
@@ -390,6 +416,11 @@ class AIToolFileService
     /**
      * Unified file management operations for AI tools
      * Supports: create, copy, rename_move, delete
+     * 
+     * Simplified flat parameters for better LLM compatibility:
+     * - sourcePath, sourceName: for copy, rename_move, delete
+     * - destPath, destName: for create, copy, rename_move
+     * - content: for create operation
      */
     public function manageFile(array $arguments): array
     {
@@ -412,19 +443,37 @@ class AIToolFileService
             $params = [];
 
             // Source parameters (required for copy, rename_move, delete)
+            // Support both flat (sourcePath, sourceName) and nested (source.path, source.name) formats
             if (in_array($operation, ['copy', 'rename_move', 'delete'])) {
-                if (!isset($arguments['source']) || !isset($arguments['source']['path']) || !isset($arguments['source']['name'])) {
-                    throw new \InvalidArgumentException($operation . ' operation requires source.path and source.name');
+                if (isset($arguments['sourcePath']) && isset($arguments['sourceName'])) {
+                    // New flat format
+                    $params['source'] = [
+                        'path' => $arguments['sourcePath'],
+                        'name' => $arguments['sourceName']
+                    ];
+                } elseif (isset($arguments['source']) && isset($arguments['source']['path']) && isset($arguments['source']['name'])) {
+                    // Legacy nested format
+                    $params['source'] = $arguments['source'];
+                } else {
+                    throw new \InvalidArgumentException($operation . ' operation requires sourcePath and sourceName');
                 }
-                $params['source'] = $arguments['source'];
             }
 
             // Destination parameters (required for create, copy, rename_move)
+            // Support both flat (destPath, destName) and nested (destination.path, destination.name) formats
             if (in_array($operation, ['create', 'copy', 'rename_move'])) {
-                if (!isset($arguments['destination']) || !isset($arguments['destination']['path']) || !isset($arguments['destination']['name'])) {
-                    throw new \InvalidArgumentException($operation . ' operation requires destination.path and destination.name');
+                if (isset($arguments['destPath']) && isset($arguments['destName'])) {
+                    // New flat format
+                    $params['destination'] = [
+                        'path' => $arguments['destPath'],
+                        'name' => $arguments['destName']
+                    ];
+                } elseif (isset($arguments['destination']) && isset($arguments['destination']['path']) && isset($arguments['destination']['name'])) {
+                    // Legacy nested format
+                    $params['destination'] = $arguments['destination'];
+                } else {
+                    throw new \InvalidArgumentException($operation . ' operation requires destPath and destName');
                 }
-                $params['destination'] = $arguments['destination'];
             }
 
             // Content parameter (required for create)

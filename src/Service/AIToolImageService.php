@@ -54,14 +54,24 @@ class AIToolImageService
             // Prepare input images
             $inputImages = [];
             $inputImageFiles = [];
-            if (isset($arguments['inputImageFiles']) && is_array($arguments['inputImageFiles']) && count($arguments['inputImageFiles']) > 0) {
-                foreach ($arguments['inputImageFiles'] as $inputImageFile) {
-                    if (!isset($inputImageFile['imageFile'])) {
+            if (isset($arguments['inputImageFiles']) && !empty($arguments['inputImageFiles'])) {
+                // Parse comma-separated string of file paths (simplified format for better LLM compatibility)
+                $filePaths = is_array($arguments['inputImageFiles']) 
+                    ? $arguments['inputImageFiles'] // Legacy array support
+                    : array_map('trim', explode(',', $arguments['inputImageFiles']));
+                
+                foreach ($filePaths as $filePath) {
+                    // Handle legacy array format with 'imageFile' key
+                    $imageFile = is_array($filePath) && isset($filePath['imageFile']) 
+                        ? $filePath['imageFile'] 
+                        : $filePath;
+                    
+                    if (empty($imageFile)) {
                         continue;
                     }
                     
                     // Find the file
-                    $pathParts = pathinfo($inputImageFile['imageFile']);
+                    $pathParts = pathinfo($imageFile);
                     $file = $this->projectFileService->findByPathAndName(
                         $arguments['projectId'],
                         $pathParts['dirname'],
@@ -71,7 +81,7 @@ class AIToolImageService
                     if (!$file) {
                         return [
                             'success' => false,
-                            'error' => 'Input image file not found: ' . $inputImageFile['imageFile']
+                            'error' => 'Input image file not found: ' . $imageFile
                         ];
                     }
                     

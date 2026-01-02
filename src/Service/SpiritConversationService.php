@@ -970,7 +970,7 @@ class SpiritConversationService
     private function buildSystemMessage(Spirit $spirit, string $lang): string
     {
         // Get current date and time
-        $currentDateTime = (new \DateTime())->format('Y-m-d H:i:s');
+        $currentDateTime = (new \DateTime('now', new \DateTimeZone('Europe/Prague')))->format('Y-m-d H:i:s');
 
         // Get user description from settings or use default empty value
         $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
