@@ -343,11 +343,17 @@ class CqChatApiController extends AbstractController
                 }, $messagesArray);
             }
             
+            // Calculate if there are more messages to load
+            $hasMore = ($offset + $limit) < $total;
+            
             return $this->json([
                 'messages' => $messagesArray,
-                'total' => $total,
-                'limit' => $limit,
-                'offset' => $offset
+                'pagination' => [
+                    'total' => $total,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                    'hasMore' => $hasMore
+                ]
             ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);

@@ -18,6 +18,16 @@ export class CqChatModalManager {
         this.lastMessageCount = 0;
         this.hasMarkedSeen = false;
         this.isInitialLoad = true;
+        this.isLoadingMessages = false;
+        
+        // Pagination state
+        this.messageLimit = 10; // Messages per page
+        this.currentOffset = 0;
+        this.hasMoreMessages = false;
+        this.totalMessages = 0;
+        
+        // Scroll state - for scrolling after modal is shown
+        this.pendingScrollToBottom = false;
         
         // DOM elements
         this.modal = document.getElementById('cqChatModal');
@@ -77,6 +87,12 @@ export class CqChatModalManager {
         // Modal events
         this.modal.addEventListener('shown.bs.modal', () => {
             this.messageInput?.focus();
+            
+            // Execute pending scroll if messages were loaded before modal was shown
+            if (this.pendingScrollToBottom) {
+                this.pendingScrollToBottom = false;
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+            }
         });
         
         this.modal.addEventListener('hidden.bs.modal', () => {
@@ -220,6 +236,11 @@ export class CqChatModalManager {
         this.hasMarkedSeen = false;
         this.isInitialLoad = true;
         
+        // Reset pagination state for new chat
+        this.currentOffset = 0;
+        this.hasMoreMessages = false;
+        this.totalMessages = 0;
+        
         // Show modal
         const modalInstance = new bootstrap.Modal(this.modal);
         modalInstance.show();
@@ -262,16 +283,25 @@ export class CqChatModalManager {
     }
     
     /**
-     * Load messages for current chat (initial load only)
+     * Load messages for current chat (initial load with pagination)
      */
     async loadMessages(chatId) {
+        if (this.isLoadingMessages) return;
+        this.isLoadingMessages = true;
+        
         try {
-            // Initial load - fetch all messages
-            const response = await this.apiService.getMessages(chatId);
+            // Initial load - fetch last N messages
+            const response = await this.apiService.getMessages(chatId, this.messageLimit, this.currentOffset);
             const messages = response.messages || [];
             
-            // Render all messages
-            this.renderMessages(messages);
+            // Store pagination info
+            if (response.pagination) {
+                this.totalMessages = response.pagination.total;
+                this.hasMoreMessages = response.pagination.hasMore;
+            }
+            
+            // Render messages (with "load more" button if needed)
+            this.renderMessages(messages, true);
             
             // Mark messages as seen on initial load
             if (!this.hasMarkedSeen) {
@@ -289,7 +319,115 @@ export class CqChatModalManager {
                     ${error.message}
                 </div>
             `;
+        } finally {
+            this.isLoadingMessages = false;
         }
+    }
+    
+    /**
+     * Load older messages (pagination)
+     */
+    async loadOlderMessages() {
+        if (this.isLoadingMessages || !this.hasMoreMessages || !this.currentChatId) return;
+        this.isLoadingMessages = true;
+        
+        // Increase offset to get older messages
+        this.currentOffset += this.messageLimit;
+        
+        try {
+            // Show loading indicator
+            const loadMoreBtn = this.messagesContainer.querySelector('#loadMoreMessagesBtn');
+            if (loadMoreBtn) {
+                loadMoreBtn.innerHTML = `
+                    <div class="spinner-border spinner-border-sm text-cyber me-2" role="status"></div>
+                    ${window.translations?.['cq_chat.loading'] || 'Loading...'}
+                `;
+                loadMoreBtn.disabled = true;
+            }
+            
+            // Remember the first currently visible message to scroll back to it
+            const firstVisibleMessage = this.messagesContainer.querySelector('.chat-message');
+            
+            // Fetch older messages
+            const response = await this.apiService.getMessages(
+                this.currentChatId,
+                this.messageLimit,
+                this.currentOffset
+            );
+            
+            // Update pagination info
+            if (response.pagination) {
+                this.hasMoreMessages = response.pagination.hasMore;
+            }
+            
+            // Prepend older messages to chat
+            this.prependMessages(response.messages || []);
+            
+            // Scroll to the message that was first visible before loading
+            if (firstVisibleMessage) {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        firstVisibleMessage.scrollIntoView({ behavior: 'instant', block: 'end' });
+                    });
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error loading older messages:', error);
+            // Revert offset on error
+            this.currentOffset -= this.messageLimit;
+        } finally {
+            this.isLoadingMessages = false;
+        }
+    }
+    
+    /**
+     * Prepend older messages to the chat (at the top)
+     */
+    prependMessages(messages) {
+        if (!this.messagesContainer || messages.length === 0) return;
+        
+        // Remove existing "load more" button
+        const existingBtn = this.messagesContainer.querySelector('#loadMoreMessagesBtn');
+        if (existingBtn) {
+            existingBtn.parentElement.remove();
+        }
+        
+        // Create a fragment to hold the new messages
+        const fragment = document.createDocumentFragment();
+        
+        // Add "load more" button if there are more messages
+        if (this.hasMoreMessages) {
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'text-center p-2 mb-2';
+            loadMoreContainer.innerHTML = `
+                <button type="button" id="loadMoreMessagesBtn" class="btn btn-outline-cyber btn-sm">
+                    <i class="mdi mdi-history me-1"></i>
+                    ${window.translations?.['cq_chat.load_older'] || 'Load older messages'}
+                </button>
+            `;
+            fragment.appendChild(loadMoreContainer);
+            
+            // Add click event listener
+            loadMoreContainer.querySelector('#loadMoreMessagesBtn').addEventListener('click', () => {
+                this.loadOlderMessages();
+            });
+        }
+        
+        // Sort messages by creation time (oldest first)
+        messages.sort((a, b) => new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at));
+        
+        // Render each message and add to fragment
+        messages.forEach(message => {
+            const messageEl = this.createMessageElement(message);
+            fragment.appendChild(messageEl);
+        });
+        
+        // Insert at the beginning of messages container
+        this.messagesContainer.insertBefore(fragment, this.messagesContainer.firstChild);
+        
+        // Initialize image showcase for new images
+        this.imageShowcase.init(this.messagesContainer);
     }
     
     /**
@@ -310,9 +448,9 @@ export class CqChatModalManager {
     }
     
     /**
-     * Render messages (full reload)
+     * Render messages (full reload with pagination support)
      */
-    renderMessages(messages) {
+    renderMessages(messages, isInitialLoad = false) {
         this.messagesContainer.innerHTML = '';
         
         if (messages.length === 0) {
@@ -323,6 +461,24 @@ export class CqChatModalManager {
                 </div>
             `;
             return;
+        }
+        
+        // Add "load more" button at the top if there are more messages
+        if (isInitialLoad && this.hasMoreMessages) {
+            const loadMoreContainer = document.createElement('div');
+            loadMoreContainer.className = 'text-center p-2 mb-2';
+            loadMoreContainer.innerHTML = `
+                <button type="button" id="loadMoreMessagesBtn" class="btn btn-outline-cyber btn-sm">
+                    <i class="mdi mdi-history me-1"></i>
+                    ${window.translations?.['cq_chat.load_older'] || 'Load older messages'}
+                </button>
+            `;
+            this.messagesContainer.appendChild(loadMoreContainer);
+            
+            // Add click event listener
+            loadMoreContainer.querySelector('#loadMoreMessagesBtn').addEventListener('click', () => {
+                this.loadOlderMessages();
+            });
         }
         
         // Sort messages by creation time (oldest first)
@@ -336,8 +492,47 @@ export class CqChatModalManager {
         // Initialize image showcase for fullscreen viewing
         this.imageShowcase.init(this.messagesContainer);
         
-        // Scroll to bottom
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        // Scroll to bottom - check if modal is visible
+        const isModalVisible = this.modal.classList.contains('show');
+        if (isModalVisible) {
+            // Modal is visible, scroll immediately
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        } else {
+            // Modal not yet visible, defer scroll to shown.bs.modal event
+            this.pendingScrollToBottom = true;
+        }
+        
+        // Setup scroll listener for auto-loading (use requestAnimationFrame to ensure scroll completes first)
+        if (this.hasMoreMessages) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    this.setupScrollAutoLoad();
+                });
+            });
+        }
+    }
+    
+    /**
+     * Setup scroll listener for auto-loading older messages when user scrolls to top
+     */
+    setupScrollAutoLoad() {
+        if (!this.messagesContainer) return;
+        
+        // Remove existing listener if any
+        if (this._scrollHandler) {
+            this.messagesContainer.removeEventListener('scroll', this._scrollHandler);
+        }
+        
+        // Create scroll handler
+        this._scrollHandler = () => {
+            // Only trigger if: scrolled near top, not loading, has more messages
+            if (this.messagesContainer.scrollTop < 100 && !this.isLoadingMessages && this.hasMoreMessages) {
+                this.loadOlderMessages();
+            }
+        };
+        
+        // Add scroll listener
+        this.messagesContainer.addEventListener('scroll', this._scrollHandler);
     }
     
     /**
