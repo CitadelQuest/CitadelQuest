@@ -9,7 +9,6 @@ use App\Entity\Spirit;
 use App\Service\AiServiceRequestService;
 use App\Service\AiServiceResponseService;
 use App\Entity\SpiritConversation;
-use App\Entity\SpiritConversationRequest;
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\CitadelVersion;
@@ -96,6 +95,18 @@ class SpiritConversationService
         }
         
         return SpiritConversation::fromArray($data);
+    }
+
+    public function getAllConversations(): array
+    {
+        $db = $this->getUserDb();
+        
+        $result = $db->executeQuery(
+            'SELECT id, spirit_id, title, created_at, last_interaction FROM spirit_conversation ORDER BY last_interaction DESC'
+        );
+        $results = $result->fetchAllAssociative();
+        
+        return array_map(fn($data) => SpiritConversation::fromArray($data), $results);
     }
 
     public function getConversationTokens(string $conversationId): array
@@ -554,6 +565,9 @@ class SpiritConversationService
         
         // Extract tool calls if present
         $toolCalls = $this->extractToolCalls($aiServiceResponse);
+
+        // Remove message content form aiServiceRequest, aiServiceResponse from all messages in conversation
+        $this->setMessagesRemovedFromAiServiceRequestAndResponse($conversationId);
         
         return [
             'message' => $assistantMessage,
@@ -709,6 +723,35 @@ class SpiritConversationService
         
         // Default to stop if unknown
         return 'stop';
+    }
+
+    public function setMessagesRemovedFromAiServiceRequestAndResponse(?string $conversationId = null): void
+    {
+        $db = $this->getUserDb();
+        
+        if ($conversationId) {
+            // Update for specific conversation
+            $db->executeStatement(
+                'UPDATE ai_service_request SET messages = "removed" 
+                 WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_request_id IS NOT NULL)',
+                [$conversationId]
+            );
+            $db->executeStatement(
+                'UPDATE ai_service_response SET message = "removed", full_response = "removed" 
+                 WHERE id IN (SELECT ai_service_response_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_response_id IS NOT NULL)',
+                [$conversationId]
+            );
+        } else {
+            // Update ALL messages (for vacuum/cleanup operations)
+            $db->executeStatement(
+                'UPDATE ai_service_request SET messages = "removed" 
+                 WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE ai_service_request_id IS NOT NULL)'
+            );
+            $db->executeStatement(
+                'UPDATE ai_service_response SET message = "removed", full_response = "removed" 
+                 WHERE id IN (SELECT ai_service_response_id FROM spirit_conversation_message WHERE ai_service_response_id IS NOT NULL)'
+            );
+        }
     }
     
     /**

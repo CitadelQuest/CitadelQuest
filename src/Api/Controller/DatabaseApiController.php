@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\UserDatabaseManager;
+use App\Service\SpiritConversationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
@@ -10,11 +11,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/api/database')]
 class DatabaseApiController extends AbstractController
 {
-    private UserDatabaseManager $userDatabaseManager;
-
-    public function __construct(UserDatabaseManager $userDatabaseManager)
-    {
-        $this->userDatabaseManager = $userDatabaseManager;
+    public function __construct(
+        private UserDatabaseManager $userDatabaseManager,
+        private SpiritConversationService $spiritConversationService
+    ) {
     }
 
     /**
@@ -35,6 +35,9 @@ class DatabaseApiController extends AbstractController
             // Get database size before vacuum
             $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
             $sizeBefore = file_exists($dbPath) ? filesize($dbPath) : 0;
+
+            // Remove messages from all spirit conversations (2 bulk queries)
+            $this->spiritConversationService->setMessagesRemovedFromAiServiceRequestAndResponse();
             
             // Execute VACUUM
             $startTime = microtime(true);
