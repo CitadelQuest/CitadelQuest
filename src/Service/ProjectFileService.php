@@ -23,7 +23,7 @@ class ProjectFileService
         'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         // Images, icons
-        'image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/ico', 'image/bmp', 'image/avif', 'image/tiff', 'image/vnd.microsoft.icon', 'image/x-icon', 'image/*',
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp', 'image/ico', 'image/bmp', 'image/avif', 'image/tiff', 'image/vnd.microsoft.icon', 'image/x-icon', 'image/*',
         // Archives
         'application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/gzip',
         // Data

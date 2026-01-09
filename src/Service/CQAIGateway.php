@@ -20,6 +20,8 @@ use Psr\Log\LoggerInterface;
 
 class CQAIGateway implements AiGatewayInterface
 {
+    private string $apiEndpointUrlPath = '/ai/chat/completions';
+    
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly SettingsService $settingsService,
@@ -103,7 +105,7 @@ class CQAIGateway implements AiGatewayInterface
         
         try {
             // Send request to CQAIGateway API
-            $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . '/ai/chat/completions', [
+            $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . $this->apiEndpointUrlPath, [
                 'headers' => $headers,
                 'json' => $requestData,
                 'timeout' => 600, // 10 minutes timeout
@@ -119,8 +121,8 @@ class CQAIGateway implements AiGatewayInterface
             $message = $choices[0]['message'] ?? [];
             $finishReason = $choices[0]['finish_reason'] ?? null;
 
-            // check if message contains injected system data
-            if (isset($message['content'])) {
+            // check if message contains injected system data (only for string content, not array/image responses)
+            if (isset($message['content']) && is_string($message['content'])) {
                 $message['content'] = $this->detectAndMarkInjectedSystemDataAsHallucination($message['content']);
                 // TODO: if hallucination detected, make request again
             }

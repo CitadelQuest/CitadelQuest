@@ -271,10 +271,32 @@ class AiServiceResponseService
                     
                     $filePath = $path;
                     try {
+                        $imageUrl = $image['image_url']['url'];
+                        $imageContent = null;
+                        $mimeType = null;
+                        
+                        // Check if URL is HTTP(S) - fetch the image content
+                        if (str_starts_with($imageUrl, 'http://') || str_starts_with($imageUrl, 'https://')) {
+                            // Fetch image from URL
+                            $imageContent = @file_get_contents($imageUrl);
+                            if ($imageContent === false) {
+                                $this->logger->error('saveImageFromMessage(): Failed to fetch image from URL: ' . $imageUrl);
+                                continue;
+                            }
+                            // Get mime type from URL extension or default to jpg
+                            $urlPath = parse_url($imageUrl, PHP_URL_PATH);
+                            $extension = pathinfo($urlPath, PATHINFO_EXTENSION) ?: 'jpg';
+                            $mimeType = 'image/' . $extension;
+                        } else {
+                            // Base64 data - use mime_content_type
+                            $mimeType = @mime_content_type($imageUrl);
+                            if (!$mimeType) {
+                                $mimeType = 'image/png'; // Default fallback
+                            }
+                        }
+                        
                         // index
                         $index = isset($image['index']) && is_int($image['index']) && $image['index'] > 0 ? '-' . $image['index'] : '';
-                        // generate new filename, second part of mimetype is extension
-                        $mimeType = mime_content_type($image['image_url']['url']);
                         $newFilename = '';
                         
                         // Priority: 1) filename from image_url (user upload), 2) method parameter, 3) generate unique
@@ -291,10 +313,19 @@ class AiServiceResponseService
                             $filenameparts = pathinfo($filename);
                             $newFilename = $filenameparts['filename'] . $index . '.' . $filenameparts['extension'];
                         } else {
-                            $newFilename = uniqid() . $index . '.' . (explode('/', $mimeType)[1] ?? pathinfo($image['image_url']['url'], PATHINFO_EXTENSION));
+                            $newFilename = uniqid() . $index . '.' . (explode('/', $mimeType)[1] ?? 'jpg');
                         }
 
-                        $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $image['image_url']['url']);
+                        // If we fetched from URL, pass the binary content directly
+                        $contentToSave = $imageContent !== null ? $imageContent : $imageUrl;
+                        
+                        $newFile = $this->projectFileService->createFile($projectId, $filePath, $newFilename, $contentToSave, $mimeType);
+                        
+                        // For base64data in response, convert fetched content to base64 data URL
+                        $base64Data = $imageContent !== null 
+                            ? 'data:' . $mimeType . ';base64,' . base64_encode($imageContent)
+                            : $imageUrl;
+                        
                         $newFiles[] = [
                             'id' => $newFile->getId(),
                             'name' => $newFile->getName(),
@@ -302,7 +333,7 @@ class AiServiceResponseService
                             'projectId' => $projectId,
                             'fullPath' => $newFile->getFullPath(),
                             'size' => $newFile->getSize(),
-                            'base64data' => $image['image_url']['url']
+                            'base64data' => $base64Data
                         ];
 
                         $this->logger->info('saveImageFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');

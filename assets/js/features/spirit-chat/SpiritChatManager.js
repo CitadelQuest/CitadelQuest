@@ -1644,9 +1644,9 @@ export class SpiritChatManager {
                 return `<option value="${model.id}" ${selected}>${model.modelName} [${contextWindow}]</option>`;
             }).join('');
             
-            // Populate secondary model dropdown (filter for image models if possible, or use all)
+            // Populate secondary model dropdown (filter for image output models)
             const imageModels = data.models.filter(m => 
-                m.modelName.toLowerCase().includes('image')
+                m.fullConfig?.architecture?.output_modalities?.includes('image')
             );
             const modelsForSecondary = imageModels.length > 0 ? imageModels : data.models;
             
