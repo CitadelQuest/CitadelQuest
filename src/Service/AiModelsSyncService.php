@@ -69,7 +69,7 @@ class AiModelsSyncService
      */
     public function syncModels(?User $user = null): array
     {
-        $this->logger->info('AiModelsSyncService: Starting models synchronization');
+        //$this->logger->info('AiModelsSyncService: Starting models synchronization');
 
         if ($user) {
             $this->settingsService->setUser($user);
@@ -105,7 +105,7 @@ class AiModelsSyncService
                 
                 // Set primary AI Model, if not set
                 $primaryAiServiceModelId = $this->settingsService->getSettingValue('ai.primary_ai_service_model_id');
-                if (!$primaryAiServiceModelId) {
+                if ($primaryAiServiceModelId === null) {
                     $defaultPrimaryAiModel = $this->aiServiceModelService->getDefaultPrimaryAiModelByGateway($gateway->getId());
                     if ($defaultPrimaryAiModel) {
                         $this->settingsService->setSetting('ai.primary_ai_service_model_id', $defaultPrimaryAiModel->getId());
@@ -114,16 +114,16 @@ class AiModelsSyncService
 
                 // Set secondary AI Model, if not set
                 $secondaryAiServiceModelId = $this->settingsService->getSettingValue('ai.secondary_ai_service_model_id');
-                if (!$secondaryAiServiceModelId) {
+                if ($secondaryAiServiceModelId === null) {
                     $defaultSecondaryAiModel = $this->aiServiceModelService->getDefaultSecondaryAiModelByGateway($gateway->getId());
                     if ($defaultSecondaryAiModel) {
                         $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $defaultSecondaryAiModel->getId());
                     }
                 }
 
-                $this->logger->info('AiModelsSyncService: Models synchronization completed successfully', [
+                /* $this->logger->info('AiModelsSyncService: Models synchronization completed successfully', [
                     'models_count' => count($result['models'])
-                ]);
+                ]); */
             }
                         
             return $result;
@@ -147,10 +147,10 @@ class AiModelsSyncService
      */
     private function fetchModelsFromApi(AiGateway $gateway): array
     {
-        $this->logger->info('AiModelsSyncService: Fetching models from API', [
-            'gateway_id' => $gateway->getId(),
-            'api_endpoint' => $gateway->getApiEndpointUrl()
-        ]);
+        //$this->logger->info('AiModelsSyncService: Fetching models from API', [
+        //    'gateway_id' => $gateway->getId(),
+        //    'api_endpoint' => $gateway->getApiEndpointUrl()
+        //]);
         
         try {
             $response = $this->httpClient->request(
@@ -167,9 +167,9 @@ class AiModelsSyncService
             );
             
             $statusCode = $response->getStatusCode(false);
-            $this->logger->info('AiModelsSyncService: Received API response', [
+            /* $this->logger->info('AiModelsSyncService: Received API response', [
                 'status_code' => $statusCode
-            ]);
+            ]); */
             
             if ($statusCode !== Response::HTTP_OK) {
                 return $this->handleApiError($statusCode);
@@ -187,9 +187,9 @@ class AiModelsSyncService
                 ];
             }
             
-            $this->logger->info('AiModelsSyncService: Successfully fetched models', [
+            /* $this->logger->info('AiModelsSyncService: Successfully fetched models', [
                 'models_count' => count($models)
-            ]);
+            ]); */
             
             return [
                 'success' => true,
@@ -252,10 +252,10 @@ class AiModelsSyncService
      */
     private function processAndStoreModels(AiGateway $gateway, array $modelsData): array
     {
-        $this->logger->info('AiModelsSyncService: Processing and storing models', [
+        /* $this->logger->info('AiModelsSyncService: Processing and storing models', [
             'gateway_id' => $gateway->getId(),
             'models_count' => count($modelsData)
-        ]);
+        ]); */
         
         $processedModels = [];
         $firstModelId = null;
@@ -275,7 +275,7 @@ class AiModelsSyncService
                 $pricingOutput = $model['pricing']['completion'] ?? null;
                 
                 // Check if model already exists
-                $existingModel = $this->aiServiceModelService->findByModelSlug($modelSlug, $gateway->getId());
+                $existingModel = $this->aiServiceModelService->findByModelSlug($modelSlug, $gateway->getId(), false);
                 
                 if ($existingModel) {
                     // Update existing model

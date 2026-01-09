@@ -133,11 +133,11 @@ class AiServiceModelService
         return $model;
     }
 
-    public function findByModelSlug(string $modelSlug, string $gatewayId): ?AiServiceModel
+    public function findByModelSlug(string $modelSlug, string $gatewayId, bool $activeOnly = true): ?AiServiceModel
     {
         $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
-            'SELECT * FROM ai_service_model WHERE is_active = 1 AND model_slug = ? AND ai_gateway_id = ?',
+            'SELECT * FROM ai_service_model WHERE ' . ($activeOnly ? 'is_active = 1 AND ' : '') . 'model_slug = ? AND ai_gateway_id = ?',
             [$modelSlug, $gatewayId]
         )->fetchAssociative();
 

@@ -57,17 +57,13 @@ class AIToolDiffusionService
         
         try {
             // Get primary AI model for the Diffusion Artist (prompt translator)
-            $primaryModelId = $this->settingsService->getSettingValue('ai.primary_ai_service_model_id');
             $aiServiceModel = null;
             $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-            if ($primaryModelId && $gateway) {
+            if ($gateway) {
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
             }
             if (!$aiServiceModel) {
-                // Fallback to any available model
-                if ($gateway) {
-                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
-                }
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
             }
             if (!$aiServiceModel) {
                 return [
