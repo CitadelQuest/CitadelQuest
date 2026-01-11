@@ -52,8 +52,7 @@ class DiaryEntryApiController extends AbstractController
             $data['mood'] ?? null,
             $data['tags'] ?? null,
             $data['isEncrypted'] ?? false,
-            $data['contentFormatted'] ?? null,
-            $data['consciousnessLevel'] ?? null
+            $data['contentFormatted'] ?? null
         );
 
         return $this->json([

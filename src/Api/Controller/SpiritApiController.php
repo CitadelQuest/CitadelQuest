@@ -24,12 +24,18 @@ class SpiritApiController extends AbstractController
     {
         try {
             $spirit = $this->spiritService->getUserSpirit();
-            
+
             if (!$spirit) {
                 return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
             }
-            
-            return $this->json($spirit);
+
+            // Get spirit settings and include them in the response
+            $settings = $this->spiritService->getSpiritSettings($spirit->getId());
+
+            $spiritData = $spirit->jsonSerialize();
+            $spiritData['settings'] = $settings;
+
+            return $this->json($spiritData);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -40,10 +46,17 @@ class SpiritApiController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         $name = $data['name'] ?? 'Spirit';
-        
+
         try {
             $spirit = $this->spiritService->createSpirit($name);
-            return $this->json($spirit, Response::HTTP_CREATED);
+
+            // Get spirit settings and include them in the response
+            $settings = $this->spiritService->getSpiritSettings($spirit->getId());
+
+            $spiritData = $spirit->jsonSerialize();
+            $spiritData['settings'] = $settings;
+
+            return $this->json($spiritData, Response::HTTP_CREATED);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -97,32 +110,6 @@ class SpiritApiController extends AbstractController
         return $this->json($interactions);
     }
 
-    #[Route('/abilities', name: 'app_api_spirit_abilities', methods: ['GET'])]
-    public function abilities(): JsonResponse
-    {
-        $spirit = $this->spiritService->getUserSpirit();
-        
-        if (!$spirit) {
-            return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
-        }
-        
-        $abilities = $this->spiritService->getSpiritAbilities($spirit->getId());
-        
-        return $this->json($abilities);
-    }
-
-    #[Route('/abilities/{id}/unlock', name: 'app_api_spirit_ability_unlock', methods: ['POST'])]
-    public function unlockAbility(string $id): JsonResponse
-    {
-        $ability = $this->spiritService->unlockAbility($id);
-        
-        if (!$ability) {
-            return $this->json(['error' => 'Ability not found'], Response::HTTP_NOT_FOUND);
-        }
-        
-        return $this->json($ability);
-    }
-    
     #[Route('/update', name: 'app_api_spirit_update', methods: ['POST'])]
     public function update(Request $request): JsonResponse
     {
@@ -135,19 +122,63 @@ class SpiritApiController extends AbstractController
             
             $data = json_decode($request->getContent(), true);
             
-            // Update the spirit's system prompt and AI model
+            // Update the spirit's system prompt and AI model via settings
             if (isset($data['systemPrompt'])) {
-                $spirit->setSystemPrompt($data['systemPrompt']);
+                $this->spiritService->setSpiritSetting($spirit->getId(), 'systemPrompt', $data['systemPrompt']);
             }
             
             if (isset($data['aiModel'])) {
-                $spirit->setAiModel($data['aiModel']);
+                $this->spiritService->setSpiritSetting($spirit->getId(), 'aiModel', $data['aiModel']);
             }
             
-            // Save the updated spirit
-            $this->spiritService->updateSpirit($spirit);
+            // Get the updated spirit
+            $updatedSpirit = $this->spiritService->getUserSpirit();
             
-            return $this->json($spirit);
+            return $this->json($updatedSpirit);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}/settings', name: 'app_api_spirit_settings', methods: ['GET'])]
+    public function getSettings(string $id): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $settings = $this->spiritService->getSpiritSettings($id);
+            
+            return $this->json($settings);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}/settings', name: 'app_api_spirit_settings_update', methods: ['POST'])]
+    public function updateSettings(string $id, Request $request): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $data = json_decode($request->getContent(), true);
+            
+            // Update settings
+            foreach ($data as $key => $value) {
+                $this->spiritService->setSpiritSetting($id, $key, $value);
+            }
+            
+            // Get the updated settings
+            $settings = $this->spiritService->getSpiritSettings($id);
+            
+            return $this->json($settings);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

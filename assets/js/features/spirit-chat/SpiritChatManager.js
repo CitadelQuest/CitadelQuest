@@ -417,7 +417,8 @@ export class SpiritChatManager {
             
             if (this.spiritLevel) {
                 const levelText = window.translations && window.translations['spirit.level'] ? window.translations['spirit.level'] : 'Level';
-                this.spiritLevel.textContent = `${levelText}: ${spirit.level}`;
+                const level = spirit.settings?.level || '1';
+                this.spiritLevel.textContent = `${levelText}: ${level}`;
             }
 
             // set response max output and load AI model info
@@ -484,7 +485,13 @@ export class SpiritChatManager {
             
             let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
             if (spiritAvatar) {
-                let color = JSON.parse(spirit.visualState)?.color??null;
+                let visualState = spirit.settings?.visualState || 'initial';
+                let color = null;
+                try {
+                    color = JSON.parse(visualState)?.color || null;
+                } catch (e) {
+                    // visualState might be just a string like 'initial', not JSON
+                }
                 if (color) {
                     spiritAvatar.forEach(icon => icon.style.color = color);
                 }

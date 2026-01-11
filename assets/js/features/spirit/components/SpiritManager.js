@@ -8,7 +8,6 @@ export class SpiritManager {
         this.translations = config.translations || {};
         this.apiEndpoints = config.apiEndpoints || {};
         this.spirit = null;
-        this.abilities = [];
         this.interactions = [];
         this.conversations = [];
         
@@ -19,11 +18,9 @@ export class SpiritManager {
         this.spiritCanvas = document.getElementById('spirit-canvas');
         this.nameDisplay = document.getElementById('spirit-name-display');
         this.levelDisplay = document.getElementById('spirit-level');
-        this.consciousnessDisplay = document.getElementById('spirit-consciousness');
         this.experienceBar = document.getElementById('spirit-experience-bar');
         this.experienceDisplay = document.getElementById('spirit-experience');
         this.nextLevelDisplay = document.getElementById('spirit-next-level');
-        this.abilitiesContainer = document.getElementById('spirit-abilities');
         this.interactionsContainer = document.getElementById('spirit-interactions');
         this.systemPromptInput = document.getElementById('spirit-system-prompt');
         this.aiModelSelect = document.getElementById('spirit-ai-model');
@@ -89,8 +86,11 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
+            
+            // Load spirit settings
+            await this.loadSpiritSettings();
+            
             this.showSpirit();
-            this.loadAbilities();
             this.loadInteractions();
 
             // Load spirit chat conversations list
@@ -114,9 +114,28 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
+            await this.loadSpiritSettings();
         } catch (error) {
             console.error('Error reloading spirit:', error);
             this.showError(this.translate('error.reloading_spirit', 'Failed to reload spirit'));
+        }
+    }
+    
+    /**
+     * Load the spirit's settings
+     */
+    async loadSpiritSettings() {
+        try {
+            const response = await fetch(this.apiEndpoints.settings.replace('{id}', this.spirit.id));
+            
+            if (!response.ok) {
+                throw new Error('Failed to load spirit settings');
+            }
+            
+            this.spirit.settings = await response.json();
+        } catch (error) {
+            console.error('Error loading spirit settings:', error);
+            this.spirit.settings = {};
         }
     }
     
@@ -140,7 +159,6 @@ export class SpiritManager {
             
             this.spirit = await response.json();
             this.showSpirit();
-            this.loadAbilities();
             
         } catch (error) {
             console.error('Error creating spirit:', error);
@@ -195,27 +213,7 @@ export class SpiritManager {
             this.showError(this.translate('error.interaction_failed', 'Failed to interact with spirit'));
         }
     }
-    
-    /**
-     * Load the spirit's abilities
-     */
-    async loadAbilities() {
-        try {
-            const response = await fetch(this.apiEndpoints.abilities);
-            
-            if (!response.ok) {
-                throw new Error('Failed to load abilities');
-            }
-            
-            this.abilities = await response.json();
-            this.renderAbilities();
-            
-        } catch (error) {
-            console.error('Error loading abilities:', error);
-            this.showError(this.translate('error.loading_abilities', 'Failed to load abilities'));
-        }
-    }
-    
+
     /**
      * Load the spirit's recent interactions
      */
@@ -255,40 +253,7 @@ export class SpiritManager {
             this.showError(this.translate('error.loading_conversations', 'Failed to load conversations'));
         }
     }
-    
-    /**
-     * Unlock a spirit ability
-     * @param {string} abilityId - The ID of the ability to unlock
-     */
-    async unlockAbility(abilityId) {
-        try {
-            const url = this.apiEndpoints.unlockAbility.replace('{id}', abilityId);
-            const response = await fetch(url, {
-                method: 'POST'
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to unlock ability');
-            }
-            
-            // Refresh abilities
-            this.loadAbilities();
 
-            // Refresh interactions
-            this.loadInteractions();
-
-            // Refresh spirit
-            await this.reloadSpirit();
-
-            // Refresh display
-            this.updateSpiritDisplay();
-            
-        } catch (error) {
-            console.error('Error unlocking ability:', error);
-            this.showError(this.translate('error.unlock_failed', 'Failed to unlock ability'));
-        }
-    }
-    
     /**
      * Show the spirit creation form
      */
@@ -333,45 +298,46 @@ export class SpiritManager {
     updateSpiritDisplay() {
         if (!this.spirit) return;
         
+        const settings = this.spirit.settings || {};
+        const level = parseInt(settings.level) || 1;
+        const experience = parseInt(settings.experience) || 0;
+        
         // Update basic info
         if (this.nameDisplay) {
             this.nameDisplay.textContent = this.spirit.name;
         }
         
         if (this.levelDisplay) {
-            this.levelDisplay.textContent = this.spirit.level;
+            this.levelDisplay.textContent = level;
         }
-        
-        if (this.consciousnessDisplay) {
-            this.consciousnessDisplay.textContent = this.spirit.consciousnessLevel;
-        }
-        
+
         // Update experience bar
         if (this.experienceBar) {
-            const nextLevelExp = this.spirit.level * 100;
-            const percentage = (this.spirit.experience / nextLevelExp) * 100;
+            const nextLevelExp = level * 100;
+            const percentage = (experience / nextLevelExp) * 100;
             this.experienceBar.style.width = `${percentage}%`;
             this.experienceBar.setAttribute('aria-valuenow', percentage);
         }
         
         if (this.experienceDisplay) {
-            this.experienceDisplay.textContent = this.spirit.experience;
+            this.experienceDisplay.textContent = experience;
         }
         
         if (this.nextLevelDisplay) {
-            this.nextLevelDisplay.textContent = this.spirit.level * 100;
+            this.nextLevelDisplay.textContent = level * 100;
         }
         
         // Update system prompt and AI model fields
         if (this.systemPromptInput) {
-            this.systemPromptInput.value = this.spirit.systemPrompt || '';
+            this.systemPromptInput.value = settings.systemPrompt || '';
         }
         
         if (this.aiModelSelect) {
             // Set the selected option based on the spirit's AI model
+            const aiModel = settings.aiModel || '';
             const options = this.aiModelSelect.options;
             for (let i = 0; i < options.length; i++) {
-                if (options[i].value === this.spirit.aiModel) {
+                if (options[i].value === aiModel) {
                     this.aiModelSelect.selectedIndex = i;
                     break;
                 }
@@ -438,49 +404,7 @@ export class SpiritManager {
             this.spiritCanvas.parentNode.appendChild(fallback);
         }
     }
-    
-    /**
-     * Render the spirit's abilities
-     */
-    renderAbilities() {
-        if (!this.abilitiesContainer || !this.abilities) return;
-        
-        if (this.abilities.length === 0) {
-            this.abilitiesContainer.innerHTML = `<p>${this.translate('spirit.no_abilities', 'No abilities unlocked yet.')}</p>`;
-            return;
-        }
-        
-        const abilitiesList = document.createElement('ul');
-        abilitiesList.className = 'list-group';
-        
-        this.abilities.forEach(ability => {
-            const item = document.createElement('li');
-            item.className = `list-group-item d-flex justify-content-between align-items-center ${ability.unlocked ? 'list-group-item-success' : 'list-group-item-secondary'}`;
-            
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = ability.abilityName;
-            item.appendChild(nameSpan);
-            
-            const badge = document.createElement('span');
-            badge.className = `badge ${ability.unlocked ? 'bg-success' : 'bg-secondary'} rounded-pill`;
-            badge.textContent = ability.unlocked ? this.translate('spirit.unlocked', 'Unlocked') : this.translate('spirit.locked', 'Locked');
-            item.appendChild(badge);
-            
-            if (!ability.unlocked) {
-                const unlockBtn = document.createElement('button');
-                unlockBtn.className = 'btn btn-sm btn-outline-primary ms-2';
-                unlockBtn.textContent = this.translate('spirit.unlock', 'Unlock');
-                unlockBtn.addEventListener('click', () => this.unlockAbility(ability.id));
-                item.appendChild(unlockBtn);
-            }
-            
-            abilitiesList.appendChild(item);
-        });
-        
-        this.abilitiesContainer.innerHTML = '';
-        this.abilitiesContainer.appendChild(abilitiesList);
-    }
-    
+
     /**
      * Render the spirit's recent interactions
      */
@@ -637,20 +561,18 @@ export class SpiritManager {
         if (!this.spirit || !this.systemPromptInput || !this.aiModelSelect) return;
         
         try {
-            // Update the spirit object with new values
-            this.spirit.systemPrompt = this.systemPromptInput.value.trim();
-            this.spirit.aiModel = this.aiModelSelect.value;
+            const systemPrompt = this.systemPromptInput.value.trim();
+            const aiModel = this.aiModelSelect.value;
             
             // Send the update to the server
-            const response = await fetch(this.apiEndpoints.update, {
+            const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    id: this.spirit.id,
-                    systemPrompt: this.spirit.systemPrompt,
-                    aiModel: this.spirit.aiModel
+                    systemPrompt,
+                    aiModel
                 })
             });
             

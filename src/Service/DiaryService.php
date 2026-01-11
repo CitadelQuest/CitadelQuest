@@ -20,8 +20,7 @@ class DiaryService
         ?string $mood = null,
         array|string|null $tags = null,
         ?bool $isEncrypted = null,
-        ?string $contentFormatted = null,
-        ?int $consciousnessLevel = null
+        ?string $contentFormatted = null
     ): DiaryEntry {
         $entry = new DiaryEntry();
         $entry
@@ -30,14 +29,13 @@ class DiaryService
             ->setMood($mood)
             ->setTags($tags)
             ->setIsEncrypted($isEncrypted ?? false)
-            ->setContentFormatted($contentFormatted)
-            ->setConsciousnessLevel($consciousnessLevel);
+            ->setContentFormatted($contentFormatted);
 
         // Store in user's database
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
         $userDb->executeStatement(
-            'INSERT INTO diary_entries (id, title, content, created_at, updated_at, is_encrypted, is_favorite, tags, mood, content_formatted, consciousness_level) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO diary_entries (id, title, content, created_at, updated_at, is_encrypted, is_favorite, tags, mood, content_formatted) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $entry->getId(),
                 $entry->getTitle(),
@@ -48,8 +46,7 @@ class DiaryService
                 $entry->isFavorite() ? 1 : 0,
                 $entry->getTags() ? implode(',', $entry->getTags()) : null,
                 $entry->getMood(),
-                $entry->getContentFormatted(),
-                $entry->getConsciousnessLevel()
+                $entry->getContentFormatted()
             ]
         );
 
@@ -118,7 +115,6 @@ class DiaryService
             ->setTags($row['tags'] ? explode(',', $row['tags']) : null)
             ->setIsEncrypted((bool)$row['is_encrypted'])
             ->setIsFavorite((bool)$row['is_favorite'])
-            ->setConsciousnessLevel(isset($row['consciousness_level']) ? (int)$row['consciousness_level'] : null)
             ->setCreatedAt(new \DateTimeImmutable($row['created_at']))
             ->setUpdatedAt(new \DateTimeImmutable($row['updated_at']))
         ;
@@ -179,14 +175,11 @@ class DiaryService
         if (isset($data['tags'])) {
             $entry->setTags($data['tags']);
         }
-        if (array_key_exists('consciousnessLevel', $data)) {
-            $entry->setConsciousnessLevel($data['consciousnessLevel'] !== '' ? (int)$data['consciousnessLevel'] : null);
-        }
         
         // Update in database
         $userDb->executeStatement(
             'UPDATE diary_entries 
-             SET title = ?, content = ?, content_formatted = ?, mood = ?, tags = ?, consciousness_level = ?, updated_at = CURRENT_TIMESTAMP 
+             SET title = ?, content = ?, content_formatted = ?, mood = ?, tags = ?, updated_at = CURRENT_TIMESTAMP 
              WHERE id = ?',
             [
                 $entry->getTitle(),
@@ -194,7 +187,6 @@ class DiaryService
                 $entry->getContentFormatted(),
                 $entry->getMood(),
                 $entry->getTags() ? implode(',', $entry->getTags()) : null,
-                $entry->getConsciousnessLevel(),
                 $id
             ]
         );

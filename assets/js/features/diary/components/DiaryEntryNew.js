@@ -8,14 +8,12 @@ export class DiaryEntryNew {
      * @param {Object} options - Configuration options
      * @param {Object} options.translations - Translation strings
      * @param {Element} options.entriesContainer - Container for diary entries
-     * @param {Function} options.getConsciousnessLevelClass - Function to get consciousness level CSS class
      * @param {Function} options.loadAndRenderEntries - Function to load and render entries
      * @param {Object} options.apiService - The DiaryApiService instance
      */
     constructor(options) {
         this.translations = options.translations;
         this.entriesContainer = options.entriesContainer;
-        this.getConsciousnessLevelClass = options.getConsciousnessLevelClass;
         this.loadAndRenderEntries = options.loadAndRenderEntries;
         this.apiService = options.apiService;
     }
@@ -69,18 +67,8 @@ export class DiaryEntryNew {
                 editor.focus();
             });
         });
-        
-        // Initialize consciousness level slider
-        const consciousnessLevelSlider = newEntryContainer.querySelector('#consciousnessLevel');
-        const consciousnessLevelValue = newEntryContainer.querySelector('.consciousness-level-value');
-        
-        if (consciousnessLevelSlider && consciousnessLevelValue) {
-            consciousnessLevelSlider.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value);
-                consciousnessLevelValue.textContent = value;
-                consciousnessLevelValue.className = `consciousness-level-value badge ${this.getConsciousnessLevelClass(value)}`;
-            });
-        }
+
+        // Initialize rich text editor
     }
 
     /**
@@ -106,7 +94,6 @@ export class DiaryEntryNew {
             contentFormatted: editor.innerHTML,
             mood: form.querySelector('#mood').value,
             tags: form.querySelector('#tags').value.split(',').map(tag => tag.trim()).filter(tag => tag),
-            consciousnessLevel: parseInt(form.querySelector('#consciousnessLevel').value) || 0,
             isEncrypted: form.querySelector('#isEncrypted')?.checked || false
         };
         
@@ -229,15 +216,6 @@ export class DiaryEntryNew {
                         <label for="tags" class="form-label">${this.translations.form_tags}</label>
                         <input type="text" class="form-control" id="tags" name="tags" placeholder="${this.translations.placeholders_tags}">
                         <small class="form-text text-muted">${this.translations.form_tags_help}</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="consciousnessLevel" class="form-label">${this.translations.form_consciousness_level}</label>
-                        <div class="d-flex align-items-center gap-2">
-                            <input type="range" class="form-range flex-grow-1" id="consciousnessLevel" name="consciousnessLevel" min="0" max="1000" step="10" value="0">
-                            <span class="consciousness-level-value badge bg-secondary">0</span>
-                        </div>
-                        <small class="form-text text-muted">${this.translations.form_consciousness_level_help}</small>
                     </div>
                     
                     <div class="mb-3 form-check">

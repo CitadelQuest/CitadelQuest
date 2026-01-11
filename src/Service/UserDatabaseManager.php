@@ -142,23 +142,8 @@ class UserDatabaseManager
             'CREATE TABLE IF NOT EXISTS spirits (
                 id VARCHAR(36) PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
-                level INTEGER DEFAULT 1,
-                experience INTEGER DEFAULT 0,
-                visual_state VARCHAR(50) DEFAULT "initial",
-                consciousness_level INTEGER DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP,
-                system_prompt TEXT,
-                ai_model VARCHAR(50) DEFAULT ""
-            )',
-            'CREATE TABLE IF NOT EXISTS spirit_abilities (
-                id VARCHAR(36) PRIMARY KEY,
-                spirit_id VARCHAR(36) NOT NULL,
-                ability_type VARCHAR(50) NOT NULL,
-                ability_name VARCHAR(255) NOT NULL,
-                unlocked BOOLEAN DEFAULT 0,
-                unlocked_at DATETIME,
-                FOREIGN KEY (spirit_id) REFERENCES spirits(id)
+                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP
             )',
             'CREATE TABLE IF NOT EXISTS spirit_interactions (
                 id VARCHAR(36) PRIMARY KEY,
@@ -169,7 +154,6 @@ class UserDatabaseManager
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (spirit_id) REFERENCES spirits(id)
             )',
-            'CREATE INDEX IF NOT EXISTS idx_spirit_abilities_spirit_id ON spirit_abilities(spirit_id)',
             'CREATE INDEX IF NOT EXISTS idx_spirit_interactions_spirit_id ON spirit_interactions(spirit_id)',
             'CREATE INDEX IF NOT EXISTS idx_spirit_interactions_created_at ON spirit_interactions(created_at)'
         ];

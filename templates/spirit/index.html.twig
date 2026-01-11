@@ -48,8 +48,7 @@
                             <div class="text-center mt-5">
                                 <h3 id="spirit-name-display" class="mb-2">Spirit Name</h3>
                                 <div class="d-flex justify-content-center align-items-center">
-                                    <span class="badge bg-primary me-2">Level <span id="spirit-level">1</span></span>
-                                    <span class="badge bg-info">Consciousness <span id="spirit-consciousness">1</span></span>
+                                    <span class="badge bg-primary">Level <span id="spirit-level">1</span></span>
                                 </div>
                             </div>
                             <div class="progress mt-3">
@@ -89,15 +88,7 @@
                             </div> #}
                         </div>
                         <div class="col-md-7">
-                            <h4>Abilities</h4>
-                            <div id="spirit-abilities" class="mb-4">
-                                <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                    <span class="visually-hidden">Loading abilities...</span>
-                                </div>
-                                <span>Loading abilities...</span>
-                            </div>
-                            
-                            <h4 class="mt-5">Recent Interactions</h4>
+                            <h4>Recent Interactions</h4>
                             <div id="spirit-interactions">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">Loading interactions...</span>
@@ -143,17 +134,11 @@
 </div>
 
 <div data-translations="{{ {}
-    |merge({'spirit.no_abilities': 'No abilities unlocked yet.'|trans})
     |merge({'spirit.no_interactions': 'No interactions recorded yet.'|trans})
-    |merge({'spirit.unlocked': 'Unlocked'|trans})
-    |merge({'spirit.locked': 'Locked'|trans})
-    |merge({'spirit.unlock': 'Unlock'|trans})
     |merge({'error.loading_spirit': 'Failed to load spirit'|trans})
     |merge({'error.creating_spirit': 'Failed to create spirit'|trans})
     |merge({'error.interaction_failed': 'Failed to interact with spirit'|trans})
-    |merge({'error.loading_abilities': 'Failed to load abilities'|trans})
     |merge({'error.loading_interactions': 'Failed to load interactions'|trans})
-    |merge({'error.unlock_failed': 'Failed to unlock ability'|trans})
     |json_encode|e('html_attr') }}">
 </div>
 {% endblock %}

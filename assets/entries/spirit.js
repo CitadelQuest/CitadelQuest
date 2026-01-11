@@ -23,8 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 update: '/api/spirit/update',
                 interact: '/api/spirit/interact',
                 interactions: '/api/spirit/interactions',
-                abilities: '/api/spirit/abilities',
-                unlockAbility: '/api/spirit/abilities/{id}/unlock',
+                settings: '/api/spirit/{id}/settings',
+                updateSettings: '/api/spirit/{id}/settings',
                 conversations: '/api/spirit-conversation/list/{id}'
             }
         });

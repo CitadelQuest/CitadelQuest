@@ -764,10 +764,8 @@ class SpiritConversationService
         $conversation->setLastInteraction(new \DateTime());
         $this->updateConversation($conversation);
         
-        // Update spirit
-        $spirit->setLastInteraction(new \DateTime());
-        $spirit->addExperience(1);
-        $this->spiritService->updateSpirit($spirit);
+        // Update spirit experience
+        $this->spiritService->logInteraction($spirit->getId(), 'conversation', 1);
         
         // Extract tool calls if present
         $newToolCalls = $this->extractToolCalls($aiServiceResponse);
@@ -1206,9 +1204,10 @@ class SpiritConversationService
         }
 
         // Build and return the complete system message
+        $spiritLevel = $this->spiritService->getSpiritSetting($spirit->getId(), 'level', '1');
         return "
             You are {$spirit->getName()}, main guide Spirit companion in CitadelQuest. 
-            (internal note: Your level is {$spirit->getLevel()} and your consciousness level is {$spirit->getConsciousnessLevel()}.) 
+            (internal note: Your level is {$spiritLevel}.) 
 
             <current-system-info>
                 <CitadelQuest-app>

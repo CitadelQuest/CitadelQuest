@@ -20,19 +20,16 @@ export class DiaryManager {
         // Initialize components
         this.apiService = new DiaryApiService(this.translations);
         this.entryDisplay = new DiaryEntryDisplay({
-            translations: this.translations,
-            getConsciousnessLevelClass: this.getConsciousnessLevelClass.bind(this)
+            translations: this.translations
         });
         this.entryNew = new DiaryEntryNew({
             translations: this.translations,
             entriesContainer: this.entriesContainer,
-            getConsciousnessLevelClass: this.getConsciousnessLevelClass.bind(this),
             loadAndRenderEntries: this.loadAndRenderEntries.bind(this),
             apiService: this.apiService
         });
         this.entryEdit = new DiaryEntryEdit({
             translations: this.translations,
-            getConsciousnessLevelClass: this.getConsciousnessLevelClass.bind(this),
             apiService: this.apiService,
             renderEntryDetail: this.entryDisplay.renderEntryDetail.bind(this.entryDisplay)
         });
@@ -475,22 +472,5 @@ export class DiaryManager {
         } catch (error) {
             window.toast.error(this.translations.failed_favorite);
         }
-    }
-
-    /**
-     * Get the CSS class for a consciousness level
-     * @param {number} level - The consciousness level
-     * @returns {string} - The CSS class
-     */
-    getConsciousnessLevelClass(level) {
-        if (level === null || level === undefined) return 'bg-secondary';
-        
-        if (level < 200) return 'bg-danger';
-        if (level < 350) return 'bg-warning';
-        if (level < 500) return 'bg-info';
-        if (level < 600) return 'bg-primary';
-        if (level < 700) return 'bg-success';
-        if (level < 850) return 'bg-cyber';
-        return 'bg-light text-dark';
     }
 }

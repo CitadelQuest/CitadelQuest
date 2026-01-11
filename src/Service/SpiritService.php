@@ -3,8 +3,8 @@
 namespace App\Service;
 
 use App\Entity\Spirit;
-use App\Entity\SpiritAbility;
 use App\Entity\SpiritInteraction;
+use App\Entity\SpiritSettings;
 use App\Entity\User;
 use PDO;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -36,23 +36,20 @@ class SpiritService
     public function findAll(): array
     {
         $db = $this->getUserDb();
-        
+
         $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC');
         $data = $result->fetchAllAssociative();
-        
+
         if (!$data) {
             return [];
         }
-        
+
         $spirits = [];
         foreach ($data as $spiritData) {
             $spirit = Spirit::fromArray($spiritData);
-            // Load spirit abilities
-            $abilities = $this->getSpiritAbilities($spirit->getId());
-            $spirit->setAbilities($abilities);
             $spirits[] = $spirit;
         }
-        
+
         return $spirits;
     }
     
@@ -62,21 +59,15 @@ class SpiritService
     public function getUserSpirit(): ?Spirit
     {
         $db = $this->getUserDb();
-        
+
         $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
         $data = $result->fetchAssociative();
-        
+
         if (!$data) {
             return null;
         }
-        
-        $spirit = Spirit::fromArray($data);
-        
-        // Load spirit abilities
-        $abilities = $this->getSpiritAbilities($spirit->getId());
-        $spirit->setAbilities($abilities);
-        
-        return $spirit;
+
+        return Spirit::fromArray($data);
     }
     
     /**
@@ -85,28 +76,20 @@ class SpiritService
     public function getSpirit(?string $spiritId = null): ?Spirit
     {
         $db = $this->getUserDb();
-        
+
         if ($spiritId === null) {
-            // Get primary spirit (first created)
             $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
         } else {
-            // Get specific spirit by ID
             $result = $db->executeQuery('SELECT * FROM spirits WHERE id = ?', [$spiritId]);
         }
-        
+
         $data = $result->fetchAssociative();
-        
+
         if (!$data) {
             return null;
         }
-        
-        $spirit = Spirit::fromArray($data);
-        
-        // Load spirit abilities
-        $abilities = $this->getSpiritAbilities($spirit->getId());
-        $spirit->setAbilities($abilities);
-        
-        return $spirit;
+
+        return Spirit::fromArray($data);
     }
     
     /**
@@ -119,42 +102,32 @@ class SpiritService
     public function createSpirit(string $name, ?string $color = null): Spirit
     {
         $db = $this->getUserDb();
-        
-        // Check if user already has a spirit
-        /* if ($this->getUserSpirit() !== null) {
-            throw new \RuntimeException('User already has a spirit');
-        } */
-        
+
         $spirit = new Spirit($name);
-        
-        // Set color if provided
-        if ($color) {
-            $spirit->setVisualState(json_encode(['color' => $color]));
-        }
-        
+
         $db->executeStatement(
-            'INSERT INTO spirits (id, name, level, experience, visual_state, consciousness_level, created_at, last_interaction, system_prompt, ai_model) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO spirits (id, name, created_at, last_interaction) VALUES (?, ?, ?, ?)',
             [
                 $spirit->getId(),
                 $spirit->getName(),
-                $spirit->getLevel(),
-                $spirit->getExperience(),
-                $spirit->getVisualState(),
-                $spirit->getConsciousnessLevel(),
                 $spirit->getCreatedAt()->format('Y-m-d H:i:s'),
-                $spirit->getLastInteraction()->format('Y-m-d H:i:s'),
-                $spirit->getSystemPrompt(),
-                $spirit->getAiModel()
+                $spirit->getLastInteraction()->format('Y-m-d H:i:s')
             ]
         );
-        
-        // Create default abilities
-        $this->createDefaultAbilities($spirit);
-        
+
+        // Initialize default settings
+        $this->setSpiritSetting($spirit->getId(), 'level', '1');
+        $this->setSpiritSetting($spirit->getId(), 'experience', '0');
+        $this->setSpiritSetting($spirit->getId(), 'visualState', 'initial');
+
+        // Set color if provided
+        if ($color) {
+            $this->setSpiritSetting($spirit->getId(), 'visualState', json_encode(['color' => $color]));
+        }
+
         // Log the creation interaction
         $this->logInteraction($spirit->getId(), 'creation', 10, 'Spirit created');
-        
+
         // Send a welcome notification
         $this->notificationService->createNotification(
             $this->security->getUser(),
@@ -162,7 +135,7 @@ class SpiritService
             'Your spirit companion is now ready to assist and grow with you.',
             'success'
         );
-        
+
         return $spirit;
     }
     
@@ -176,13 +149,12 @@ class SpiritService
     public function updateSpiritModel(string $spiritId, string $modelId): void
     {
         $spirit = $this->getSpirit($spiritId);
-        
+
         if (!$spirit) {
             throw new \RuntimeException('Spirit not found');
         }
-        
-        $spirit->setAiModel($modelId);
-        $this->updateSpirit($spirit);
+
+        $this->setSpiritSetting($spiritId, 'aiModel', $modelId);
     }
     
     /**
@@ -191,159 +163,26 @@ class SpiritService
     public function updateSpirit(Spirit $spirit): void
     {
         $db = $this->getUserDb();
-        
+
         $db->executeStatement(
-            'UPDATE spirits SET 
-            name = ?, 
-            level = ?, 
-            experience = ?, 
-            visual_state = ?, 
-            consciousness_level = ?, 
-            last_interaction = ?,
-            system_prompt = ?,
-            ai_model = ? 
-            WHERE id = ?',
+            'UPDATE spirits SET name = ?, last_interaction = ? WHERE id = ?',
             [
                 $spirit->getName(),
-                $spirit->getLevel(),
-                $spirit->getExperience(),
-                $spirit->getVisualState(),
-                $spirit->getConsciousnessLevel(),
                 $spirit->getLastInteraction()->format('Y-m-d H:i:s'),
-                $spirit->getSystemPrompt(),
-                $spirit->getAiModel(),
                 $spirit->getId()
             ]
         );
     }
-    
-    /**
-     * Get all abilities for a spirit
-     */
-    public function getSpiritAbilities(string $spiritId): array
-    {
-        $db = $this->getUserDb();
-        
-        $result = $db->executeQuery(
-            'SELECT * FROM spirit_abilities WHERE spirit_id = ?',
-            [$spiritId]
-        );
-        
-        $abilities = [];
-        while ($data = $result->fetchAssociative()) {
-            $abilities[] = SpiritAbility::fromArray($data);
-        }
-        
-        return $abilities;
-    }
-    
-    /**
-     * Create a new ability for a spirit
-     */
-    public function createAbility(string $spiritId, string $abilityType, string $abilityName, bool $unlocked = false): SpiritAbility
-    {
-        $db = $this->getUserDb();
-        
-        $ability = new SpiritAbility($spiritId, $abilityType, $abilityName);
-        
-        if ($unlocked) {
-            $ability->unlock();
-        }
-        
-        $db->executeStatement(
-            'INSERT INTO spirit_abilities (id, spirit_id, ability_type, ability_name, unlocked, unlocked_at) 
-            VALUES (?, ?, ?, ?, ?, ?)',
-            [
-                $ability->getId(),
-                $ability->getSpiritId(),
-                $ability->getAbilityType(),
-                $ability->getAbilityName(),
-                $ability->isUnlocked() ? 1 : 0,
-                $ability->getUnlockedAt() ? $ability->getUnlockedAt()->format('Y-m-d H:i:s') : null
-            ]
-        );
-        
-        return $ability;
-    }
-    
-    /**
-     * Update an existing ability
-     */
-    public function updateAbility(SpiritAbility $ability): void
-    {
-        $db = $this->getUserDb();
-        
-        $db->executeStatement(
-            'UPDATE spirit_abilities SET 
-            ability_type = ?, 
-            ability_name = ?, 
-            unlocked = ?, 
-            unlocked_at = ? 
-            WHERE id = ?',
-            [
-                $ability->getAbilityType(),
-                $ability->getAbilityName(),
-                $ability->isUnlocked() ? 1 : 0,
-                $ability->getUnlockedAt() ? $ability->getUnlockedAt()->format('Y-m-d H:i:s') : null,
-                $ability->getId()
-            ]
-        );
-    }
-    
-    /**
-     * Unlock a spirit ability
-     */
-    public function unlockAbility(string $abilityId): ?SpiritAbility
-    {
-        $db = $this->getUserDb();
-        
-        // Get the ability
-        $result = $db->executeQuery(
-            'SELECT * FROM spirit_abilities WHERE id = ?',
-            [$abilityId]
-        );
-        
-        $data = $result->fetchAssociative();
-        
-        if (!$data) {
-            return null;
-        }
-        
-        $ability = SpiritAbility::fromArray($data);
-        
-        if (!$ability->isUnlocked()) {
-            $ability->unlock();
-            $this->updateAbility($ability);
-            
-            // Log the unlock interaction
-            $this->logInteraction(
-                $ability->getSpiritId(), 
-                'ability_unlock', 
-                20, 
-                sprintf('Unlocked ability: %s', $ability->getAbilityName())
-            );
-            
-            // Send a notification
-            $this->notificationService->createNotification(
-                $this->security->getUser(),
-                sprintf('New ability unlocked: %s', $ability->getAbilityName()),
-                sprintf('Your spirit has unlocked a new %s ability!', $ability->getAbilityType()),
-                'info'
-            );
-        }
-        
-        return $ability;
-    }
-    
+
     /**
      * Log a spirit interaction
      */
     public function logInteraction(string $spiritId, string $interactionType, int $experienceGained = 0, ?string $context = null): SpiritInteraction
     {
         $db = $this->getUserDb();
-        
+
         $interaction = new SpiritInteraction($spiritId, $interactionType, $experienceGained, $context);
-        
+
         $db->executeStatement(
             'INSERT INTO spirit_interactions (id, spirit_id, interaction_type, context, experience_gained, created_at) 
             VALUES (?, ?, ?, ?, ?, ?)',
@@ -356,20 +195,23 @@ class SpiritService
                 $interaction->getCreatedAt()->format('Y-m-d H:i:s')
             ]
         );
-        
+
         // Update spirit experience and last interaction time
         if ($experienceGained > 0) {
-            $spirit = $this->getUserSpirit();
-            if ($spirit && $spirit->getId() === $spiritId) {
-                $spirit->addExperience($experienceGained);
+            $spirit = $this->getSpirit($spiritId);
+            if ($spirit) {
+                $currentExperience = (int)$this->getSpiritSetting($spiritId, 'experience', '0');
+                $newExperience = $currentExperience + $experienceGained;
+                $this->setSpiritSetting($spiritId, 'experience', (string)$newExperience);
+
                 $spirit->updateLastInteraction();
                 $this->updateSpirit($spirit);
-                
+
                 // Check if spirit leveled up
-                $this->checkForLevelUpNotification($spirit);
+                $this->checkForLevelUpNotification($spiritId, $newExperience);
             }
         }
-        
+
         return $interaction;
     }
     
@@ -396,80 +238,105 @@ class SpiritService
         
         return $interactions;
     }
-    
-    /**
-     * Create default abilities for a new spirit
-     */
-    private function createDefaultAbilities(Spirit $spirit): void
-    {
-        // Basic abilities that are unlocked by default
-        $this->createAbility($spirit->getId(), 'guide', 'UI Navigation', true);
-        $this->createAbility($spirit->getId(), 'guide', 'Feature Introduction', true);
-        
-        // Abilities that will be unlocked as the spirit grows
-        $this->createAbility($spirit->getId(), 'insight', 'Diary Reflection', false);
-        $this->createAbility($spirit->getId(), 'insight', 'Pattern Recognition', false);
-        $this->createAbility($spirit->getId(), 'communication', 'Notification Management', false);
-        $this->createAbility($spirit->getId(), 'communication', 'Message Assistance', false);
-        $this->createAbility($spirit->getId(), 'growth', 'Consciousness Expansion', false);
-        $this->createAbility($spirit->getId(), 'growth', 'Emotional Intelligence', false);
-    }
-    
+
     /**
      * Check if spirit leveled up and send notification if needed
      */
-    private function checkForLevelUpNotification(Spirit $spirit): void
+    private function checkForLevelUpNotification(string $spiritId, int $newExperience): void
     {
-        // Get the previous level from the database
-        $db = $this->getUserDb();
-        
-        $result = $db->executeQuery(
-            'SELECT level FROM spirits WHERE id = ?',
-            [$spirit->getId()]
-        );
-        
-        $data = $result->fetchAssociative();
-        $previousLevel = $data ? (int)$data['level'] : 1;
-        
-        // If the spirit leveled up, send a notification
-        if ($spirit->getLevel() > $previousLevel) {
-            $this->notificationService->createNotification(
-                $this->security->getUser(),
-                sprintf('%s leveled up!', $spirit->getName()),
-                sprintf('Your spirit has reached level %d. New abilities may be available.', $spirit->getLevel()),
-                'success'
-            );
-            
-            // Check if any abilities should be unlocked at this level
-            $this->unlockAbilitiesForLevel($spirit);
-        }
-    }
-    
-    /**
-     * Unlock abilities based on spirit level
-     */
-    private function unlockAbilitiesForLevel(Spirit $spirit): void
-    {
-        $level = $spirit->getLevel();
-        $abilities = $this->getSpiritAbilities($spirit->getId());
-        
-        foreach ($abilities as $ability) {
-            if (!$ability->isUnlocked()) {
-                // Define level requirements for each ability type
-                $shouldUnlock = match ($ability->getAbilityName()) {
-                    'Diary Reflection' => $level >= 3,
-                    'Pattern Recognition' => $level >= 5,
-                    'Notification Management' => $level >= 7,
-                    'Message Assistance' => $level >= 10,
-                    'Consciousness Expansion' => $level >= 15,
-                    'Emotional Intelligence' => $level >= 20,
-                    default => false
-                };
-                
-                if ($shouldUnlock) {
-                    $this->unlockAbility($ability->getId());
-                }
+        $currentLevel = (int)$this->getSpiritSetting($spiritId, 'level', '1');
+        $nextLevelThreshold = $this->calculateNextLevelThreshold($currentLevel);
+
+        if ($newExperience >= $nextLevelThreshold) {
+            $newLevel = $currentLevel + 1;
+            $this->setSpiritSetting($spiritId, 'level', (string)$newLevel);
+
+            $spirit = $this->getSpirit($spiritId);
+            if ($spirit) {
+                $this->notificationService->createNotification(
+                    $this->security->getUser(),
+                    sprintf('%s leveled up!', $spirit->getName()),
+                    sprintf('Your spirit has reached level %d.', $newLevel),
+                    'success'
+                );
             }
         }
+    }
+
+    private function calculateNextLevelThreshold(int $currentLevel): int
+    {
+        return (int)(100 * pow(1.5, $currentLevel - 1));
+    }
+
+    /**
+     * Get a spirit setting value
+     */
+    public function getSpiritSetting(string $spiritId, string $key, ?string $default = null): ?string
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT value FROM spirit_settings WHERE spirit_id = ? AND key = ?',
+            [$spiritId, $key]
+        );
+
+        $data = $result->fetchAssociative();
+
+        return $data ? $data['value'] : $default;
+    }
+
+    /**
+     * Set a spirit setting value
+     */
+    public function setSpiritSetting(string $spiritId, string $key, ?string $value): void
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT id FROM spirit_settings WHERE spirit_id = ? AND key = ?',
+            [$spiritId, $key]
+        );
+
+        $existing = $result->fetchAssociative();
+
+        if ($existing) {
+            $db->executeStatement(
+                'UPDATE spirit_settings SET value = ?, updated_at = ? WHERE id = ?',
+                [$value, date('Y-m-d H:i:s'), $existing['id']]
+            );
+        } else {
+            $setting = new SpiritSettings($spiritId, $key, $value);
+            $db->executeStatement(
+                'INSERT INTO spirit_settings (id, spirit_id, key, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    $setting->getId(),
+                    $setting->getSpiritId(),
+                    $setting->getKey(),
+                    $setting->getValue(),
+                    $setting->getCreatedAt()->format('Y-m-d H:i:s'),
+                    $setting->getUpdatedAt()->format('Y-m-d H:i:s')
+                ]
+            );
+        }
+    }
+
+    /**
+     * Get all settings for a spirit
+     */
+    public function getSpiritSettings(string $spiritId): array
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT * FROM spirit_settings WHERE spirit_id = ?',
+            [$spiritId]
+        );
+
+        $settings = [];
+        while ($data = $result->fetchAssociative()) {
+            $settings[$data['key']] = $data['value'];
+        }
+
+        return $settings;
     }
 }

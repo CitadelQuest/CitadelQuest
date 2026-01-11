@@ -8,11 +8,9 @@ export class DiaryEntryDisplay {
     /**
      * @param {Object} options - Configuration options
      * @param {Object} options.translations - Translation strings
-     * @param {Function} options.getConsciousnessLevelClass - Function to get consciousness level CSS class
      */
     constructor(options) {
         this.translations = options.translations;
-        this.getConsciousnessLevelClass = options.getConsciousnessLevelClass;
         this.loadingTemplate = `
             <div class="loading-indicator w-100 text-center">
                 <div class="spinner-border text-cyber" role="status">
@@ -100,9 +98,6 @@ export class DiaryEntryDisplay {
         // Format mood
         const moodHtml = entry.mood ? `• ${entry.mood}` : '';
         
-        // Format consciousness level
-        const consciousnessLevelHtml = entry.consciousnessLevel ? `• <span class="badge ${this.getConsciousnessLevelClass(entry.consciousnessLevel)} ms-1">${entry.consciousnessLevel}</span>` : '';
-        
         // Format preview content (first 150 chars)
         const contentPreview = entry.content.replace(/<[^>]*>/g, '').substring(0, 150) + '...';
         
@@ -123,7 +118,6 @@ export class DiaryEntryDisplay {
                     <small class="text-muted">
                         ${formattedDate}
                         ${moodHtml}
-                        ${consciousnessLevelHtml}
                     </small>
                 </div>
                 <div class="entry-content-original">

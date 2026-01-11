@@ -8,13 +8,11 @@ export class DiaryEntryEdit {
     /**
      * @param {Object} options - Configuration options
      * @param {Object} options.translations - Translation strings
-     * @param {Function} options.getConsciousnessLevelClass - Function to get consciousness level CSS class
      * @param {Object} options.apiService - The DiaryApiService instance
      * @param {Function} options.renderEntryDetail - Function to render entry detail
      */
     constructor(options) {
         this.translations = options.translations;
-        this.getConsciousnessLevelClass = options.getConsciousnessLevelClass;
         this.apiService = options.apiService;
         this.renderEntryDetail = options.renderEntryDetail;
     }
@@ -84,18 +82,6 @@ export class DiaryEntryEdit {
                     editor.focus();
                 });
             });
-            
-            // Initialize consciousness level slider
-            const consciousnessLevelSlider = contentContainer.querySelector('#consciousnessLevel');
-            const consciousnessLevelValue = contentContainer.querySelector('.consciousness-level-value');
-            
-            if (consciousnessLevelSlider && consciousnessLevelValue) {
-                consciousnessLevelSlider.addEventListener('input', (e) => {
-                    const value = parseInt(e.target.value);
-                    consciousnessLevelValue.textContent = value;
-                    consciousnessLevelValue.className = `consciousness-level-value badge ${this.getConsciousnessLevelClass(value)}`;
-                });
-            }
         } catch (error) {
             window.toast.error(this.translations.failed_load_edit);
             
@@ -126,8 +112,7 @@ export class DiaryEntryEdit {
             content: editor.innerText,
             contentFormatted: editor.innerHTML,
             mood: form.querySelector('#mood').value,
-            tags: form.querySelector('#tags').value.split(',').map(tag => tag.trim()).filter(tag => tag),
-            consciousnessLevel: parseInt(form.querySelector('#consciousnessLevel').value) || 0
+            tags: form.querySelector('#tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
         };
         
         try {
@@ -167,12 +152,6 @@ export class DiaryEntryEdit {
                 entryMood.textContent = formData.mood;
             }
             
-            const consciousnessLevel = entryCard.querySelector('.consciousness-level-value');
-            if (consciousnessLevel && formData.consciousnessLevel !== undefined) {
-                consciousnessLevel.textContent = formData.consciousnessLevel;
-                consciousnessLevel.className = `consciousness-level-value badge ${this.getConsciousnessLevelClass(formData.consciousnessLevel)}`;
-            }
-            
             // Update the original content preview for when it's collapsed
             const originalContentPreview = entryCard.querySelector('.entry-preview');
             if (originalContentPreview) {
@@ -209,15 +188,13 @@ export class DiaryEntryEdit {
             const metadataContainer = entryCard.querySelector('.entry-metadata');
             if (metadataContainer) {
                 const moodText = formData.mood ? `• ${formData.mood}` : '';
-                const clHtml = formData.consciousnessLevel !== undefined ? 
-                    `• <span class="badge ${this.getConsciousnessLevelClass(formData.consciousnessLevel)} ms-1">${formData.consciousnessLevel}</span>` : '';
                 
                 // Get the date text from existing metadata
                 const existingText = metadataContainer.querySelector('small').innerHTML;
                 const dateText = existingText.split('•')[0]; // Get the date part before any '•'
                 
-                // Update the metadata with new mood and consciousness level
-                metadataContainer.querySelector('small').innerHTML = `${dateText}${moodText}${clHtml}`;
+                // Update the metadata with new mood
+                metadataContainer.querySelector('small').innerHTML = `${dateText}${moodText}`;
             }
             
             // Force a small delay to ensure the API has updated the entry
@@ -338,15 +315,6 @@ export class DiaryEntryEdit {
                     <label for="tags" class="form-label">${this.translations.form_tags}</label>
                     <input type="text" class="form-control" id="tags" name="tags" value="${entry.tags ? entry.tags.join(', ') : ''}" placeholder="${this.translations.placeholders_tags}">
                     <small class="form-text text-muted">${this.translations.form_tags_help}</small>
-                </div>
-                
-                <div class="mb-3">
-                    <label for="consciousnessLevel" class="form-label">${this.translations.form_consciousness_level}</label>
-                    <div class="d-flex align-items-center gap-2">
-                        <input type="range" class="form-range flex-grow-1" id="consciousnessLevel" name="consciousnessLevel" min="0" max="1000" step="10" value="${entry.consciousnessLevel || 0}">
-                        <span class="consciousness-level-value badge ${this.getConsciousnessLevelClass(entry.consciousnessLevel)}">${entry.consciousnessLevel !== null ? entry.consciousnessLevel : 0}</span>
-                    </div>
-                    <small class="form-text text-muted">${this.translations.form_consciousness_level_help}</small>
                 </div>
                 
                 <div class="d-flex justify-content-between mt-4">
