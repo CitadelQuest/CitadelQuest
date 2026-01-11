@@ -50,6 +50,12 @@
                     </div>
                 </div>
             </div>
+                
+            {# Context window usage indicator #}
+            <div id="contextWindowUsage" class="w-100 m-0 p-0" title="{{ 'spirit.chat.context_window_usage'|trans|default('Context window usage') }}">
+                <div id="contextWindowUsageBar" class="bg-cyber rounded opacity-75" style="width: 0%; height: 2px; transition: width 0.3s ease;"></div>
+            </div>
+
             <div class="modal-footer chat-container border-secondary border-opacity-50">
                 <form id="chatForm" class="d-flex flex-column w-100 m-0">
 
@@ -102,7 +108,7 @@
                                         <span id="chatInfoPrimaryAiModel" class="small" title="{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}">-</span>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
-                                        <i class="mdi mdi-head-snowflake-outline text-cyber"></i>
+                                        <i class="mdi mdi-image-edit-outline text-cyber"></i>
                                         <span id="chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
                                     </div>
                                 </div>
@@ -134,7 +140,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
-                <h5 class="modal-title" id="newConversationModalLabel"><i class="mdi mdi-message-badge me-2"></i> {{ 'spirit.chat.new_conversation'|trans }}</h5>
+                <h5 class="modal-title" id="newConversationModalLabel"><i class="mdi mdi-message-plus me-2"></i> {{ 'spirit.chat.new_conversation'|trans }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
@@ -156,7 +162,7 @@
                         </div>
                         <div class="col-md-6">
                             <label for="newConvSecondaryModel" class="form-label small">
-                                <i class="mdi mdi-head-snowflake-outline me-1 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}
+                                <i class="mdi mdi-image-edit-outline me-1 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}
                             </label>
                             <select class="form-select form-select-sm" id="newConvSecondaryModel" name="secondary_model">
                                 <option value="">{{ 'ui.loading'|trans|default('Loading...') }}</option>

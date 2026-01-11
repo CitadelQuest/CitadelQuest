@@ -146,7 +146,7 @@ class AIToolDiffusionService
             $newFiles = $this->saveImagesFromDiffusionResponse($imageResponse, $arguments['projectId'], $outputPath, $outputFilename);
             
             // Build frontend display HTML
-            $contentFrontendData = $this->buildFrontendDisplay($newFiles, $diffusionParams);
+            $contentFrontendData = $this->buildFrontendDisplay($newFiles, $diffusionParams, $imageResponse['total_cost_credits']??0);
             
             $returnFiles = [];
             $returnSavedTo = [];
@@ -165,7 +165,8 @@ class AIToolDiffusionService
                     'model' => $diffusionParams['model'] ?? 'cq:100@1',
                     'seed' => $imageResponse['images'][0]['seed'] ?? null,
                 ],
-                '_frontendData' => $contentFrontendData
+                '_frontendData' => $contentFrontendData,
+                'total_cost_credits' => $imageResponse['total_cost_credits'] ?? 0,
             ];
             
         } catch (\Exception $e) {
@@ -441,7 +442,7 @@ PROMPT;
     /**
      * Build the frontend display HTML
      */
-    private function buildFrontendDisplay(array $savedFiles, array $diffusionParams): string
+    private function buildFrontendDisplay(array $savedFiles, array $diffusionParams, float $total_cost_credits): string
     {
         $html = '<div class="col-12 position-relative bg-light p-2 rounded bg-opacity-10">';
         
@@ -462,6 +463,9 @@ PROMPT;
             $html .= '      <i class="mdi mdi-fullscreen"></i>';
             $html .= '    </div>';
             $html .= '    <div style="clear: both;"></div>';
+            $total_cost_credits_parts = explode(".", $total_cost_credits);
+            $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
+            $html .= '    <div class="small text-muted float-start mt-2"><i class="mdi mdi-circle-multiple-outline me-1 ms-2 text-cyber opacity-50" title="Credits"></i> ' . $total_cost_credits_display . '</div>';
             // Download button
             $html .= '    <a class="btn btn-cyber btn-sm mt-3 float-end me-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1">';
             $html .= '      <i class="mdi mdi-download me-2"></i> Download';

@@ -89,17 +89,17 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="cqChatNewGroupModalLabel">
-                    <i class="mdi mdi-account-multiple-plus me-2"></i>{{ 'cq_chat.new_group_chat'|trans }}
+                    <i class="mdi mdi-message-plus me-2"></i>{{ 'cq_chat.new_group_chat'|trans }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label for="cqChatGroupName" class="form-label">{{ 'cq_chat.group_name'|trans }}</label>
+                    <label for="cqChatGroupName" class="form-label"><i class="mdi mdi-label me-2 text-cyber"></i>{{ 'cq_chat.group_name'|trans }}</label>
                     <input type="text" id="cqChatGroupName" class="form-control glass-input" placeholder="{{ 'cq_chat.enter_group_name'|trans }}" autocomplete="off">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">{{ 'cq_chat.select_members'|trans }}</label>
+                    <label class="form-label"><i class="mdi mdi-account-multiple-plus me-2 text-cyber"></i>{{ 'cq_chat.select_members'|trans }}</label>
                     <div id="cqChatGroupMembersList" class="border border-secondary rounded p-3 cyber-scrollbar" style="max-height: 300px; overflow-y: auto;">
                         <div class="text-center text-muted">
                             <i class="mdi mdi-loading mdi-spin"></i> {{ 'cq_chat.loading_contacts'|trans }}
@@ -110,7 +110,7 @@
                     <small class="text-muted">{{ 'cq_chat.selected'|trans }}: <span id="cqChatGroupSelectedCount">0</span></small>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer justify-content-between">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
                 </button>

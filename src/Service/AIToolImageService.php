@@ -152,6 +152,13 @@ class AIToolImageService
                     'error' => 'Content filter triggered. The image edit request or response may contain prohibited content.'
                 ];
             }
+
+            // Get usage from full response
+            $fullResponse = $aiServiceResponse->getFullResponse();
+            $usage = isset($fullResponse['usage']) ? $fullResponse['usage'] : null;
+            $totalCost = isset($usage['cost']) ? number_format($usage['cost']*100.0, 2) : null;
+            $total_cost_credits_parts = explode(".", $totalCost);
+            $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
             
             // Determine output path
             $outputPath = '/uploads/ai/img';
@@ -176,7 +183,7 @@ class AIToolImageService
             foreach ($inputImageFiles as $inputImage) {
                 $contentFrontendData .= '<img src="'. $inputImage['base64data'] . '" alt="'. $inputImage['name'] . '" style="width: 100%; height: auto;" class="rounded mb-0 border border-light border-opacity-10"/>';
                 $contentFrontendData .= '<div class="text-start small p mb-2 mx-2 bg-light bg-opacity-10 rounded-bottom" style="font-size: 0.6rem !important;">';
-                $contentFrontendData .=     '<i class="mdi mdi-image-outline text-cyber fs-6 mx-1"></i>';
+                $contentFrontendData .=     '<i class="mdi mdi-file-image text-cyber fs-6 mx-1 opacity-75"></i>';
                 $contentFrontendData .=     '<span class="text-muted">original:</span> ' . $inputImage['name'];
                 $contentFrontendData .= '</div>';
             }
@@ -188,10 +195,15 @@ class AIToolImageService
                 $contentFrontendData .= '<div class="col-12 col-md-8 float-end text-center position-relative bg-light p-2 rounded bg-opacity-10 border border-success border-opacity-10">';
 
                 $contentFrontendData .=     '<div class="text-start ms-2">';
-                $contentFrontendData .=         '<i class="mdi mdi-image-edit-outline text-cyber fs-5 float-start me-2"></i>';
+                $contentFrontendData .=         '<i class="mdi mdi-image-edit-outline text-cyber fs-6 float-start me-2 mb-2"></i>';
+                // if ':" in model's name, let's use just last part
+                $modelName_display = $aiServiceModel->getModelName();
+                if (strpos($modelName_display, ':') !== false) {
+                    $modelName_display = substr($modelName_display, strpos($modelName_display, ':') + 1);
+                }
+                $contentFrontendData .=         '<span class="small float-start mt-1 fw-bold">Image Editor Spirit</span><span class="small float-start mt-1 ms-2">'. $modelName_display .'</span>';
                 if ($messageFromAI) {
-                    $contentFrontendData .=     '<div class="small text-start float-start">';
-                    $contentFrontendData .=         '<div class="fw-bold">Image Editor Spirit Comments</div>';
+                    $contentFrontendData .=     '<div class="small text-start float-start my-1">';
                     $contentFrontendData .=         '<div class="ps-1 pb-1">' . nl2br(htmlspecialchars($messageFromAI)) . '</div>';
                     $contentFrontendData .=     '</div>';
                 }
@@ -201,12 +213,19 @@ class AIToolImageService
                 foreach ($newFiles as $savedFile) {
                     $randomID = uniqid();
                     $contentFrontendData .= '<div class="w-100 m-0 p-0 mb-2 text-center position-relative" id="content-showcase-'.$randomID.'">';
-                    $contentFrontendData .=     '<img src="'. $savedFile['base64data'] . '" alt="'. $savedFile['name'] . '" style="width: 100%; height: auto;" class="rounded shadow"/>';
+                    $contentFrontendData .=     '<img src="'. $savedFile['base64data'] . '" alt="'. $savedFile['name'] . '" style="width: 100%; height: auto;" class="rounded"/>';
                     $contentFrontendData .=     '<div class="content-showcase-icon position-absolute top-0 end-0 p-1 _py-2 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">' .
                                                     '<i class="mdi mdi-fullscreen"></i>' .
                                                 '</div>';
-                    $contentFrontendData .=     '<div class="small float-end text-end">Image file: `' . $savedFile['fullPath'] . '`<br>projectId: `' . $savedFile['projectId'] . '`</div><div style="clear: both;"></div>';
-                    $contentFrontendData .=     '<a class="btn btn-cyber btn-sm mt-2 float-end me-2 mb-3" href="/api/project-file/' . $savedFile['id'] . '/download?download=1"><i class="mdi mdi-download me-2"></i> Download</a>';
+                    if ($totalCost !== null) {
+                        $contentFrontendData .= '<div class="small float-start text-start mt-1 ms-2 opacity-75" title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i> ' . $total_cost_credits_display . '</div>';
+                    }
+                    $contentFrontendData .=     '<div class="small float-end text-end mt-1 me-2 opacity-75">
+                                                    <i class="mdi mdi-folder text-cyber ms-2 me-1"></i>' . $savedFile['projectId'] . '
+                                                    <i class="mdi mdi-file-image text-cyber ms-2 me-1"></i>' . $savedFile['fullPath'] . '
+                                                </div>';
+                    $contentFrontendData .=     '<div style="clear: both;"></div>';
+                    $contentFrontendData .=     '<a class="btn btn-cyber btn-sm mt-2 float-end me-2 mb-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1"><i class="mdi mdi-download me-2"></i> Download</a>';
                     $contentFrontendData .= '</div>';
                     $contentFrontendData .= '<div style="clear:both;"></div>';
 

@@ -304,4 +304,42 @@ class AiServiceUseLogService
 
         return $result > 0;
     }
+
+    /**
+     * Get token and price usage for a specific AI service request
+     * 
+     * @param string $aiServiceRequestId
+     * @return array|null Returns array with tokens/price or null if not found
+     */
+    public function getUsageByRequestId(string $aiServiceRequestId): ?array
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT 
+                input_tokens, output_tokens, total_tokens,
+                input_price, output_price, total_price
+            FROM ai_service_use_log 
+            WHERE ai_service_request_id = ?',
+            [$aiServiceRequestId]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return [
+            'inputTokens' => (int) ($result['input_tokens'] ?? 0),
+            'outputTokens' => (int) ($result['output_tokens'] ?? 0),
+            'totalTokens' => (int) ($result['total_tokens'] ?? 0),
+            'inputTokensFormatted' => number_format($result['input_tokens'] ?? 0, 0),
+            'outputTokensFormatted' => number_format($result['output_tokens'] ?? 0, 0),
+            'totalTokensFormatted' => number_format($result['total_tokens'] ?? 0, 0),
+            'inputPrice' => (float) ($result['input_price'] ?? 0),
+            'outputPrice' => (float) ($result['output_price'] ?? 0),
+            'totalPrice' => (float) ($result['total_price'] ?? 0),
+            'inputPriceFormatted' => number_format($result['input_price'] ?? 0, 2),
+            'outputPriceFormatted' => number_format($result['output_price'] ?? 0, 2),
+            'totalPriceFormatted' => number_format($result['total_price'] ?? 0, 2)
+        ];
+    }
 }

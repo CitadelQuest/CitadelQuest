@@ -57,7 +57,7 @@
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-head-snowflake-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
+                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-image-edit-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
                                     <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
                                         {% for model in aiImageModels %}
                                             <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
@@ -88,10 +88,12 @@
                         </span>
                         {% if api_key_state == 'set_and_valid' %}
                         <span class="d-flex align-items-center justify-content-end gap-2">
-                            <i class="mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
-                                title="{{ CQ_AI_GatewayCredits }} Credits"></i>
-                            <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
-                            <span class="small">{{ 'settings.ai.gateway.credits'|trans|default('Credits') }}</span>
+                            {# <i class="mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
+                                title="{{ CQ_AI_GatewayCredits }} Credits"></i> #}
+                            <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-dark bg-opacity-25{% endif %}">
+                                <i class="mdi mdi-circle-multiple-outline text-cyber me-1"></i>{{ CQ_AI_GatewayCredits }}
+                            </span>
+                            {# <span class="small">{{ 'settings.ai.gateway.credits'|trans|default('Credits') }}</span> #}
                         </span>
                         {% endif %}
                     </div>

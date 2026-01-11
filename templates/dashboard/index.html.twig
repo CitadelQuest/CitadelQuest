@@ -135,7 +135,7 @@
                             <a href="{{ path('app_file_browser') }}" class="text-decoration-none">
                                 <div class="card glass-panel h-100 glass-panel-glow">
                                     <div class="card-body text-center">
-                                        <i class="mdi mdi-file-star fs-1 text-warning mb-2"></i>
+                                        <i class="mdi mdi-folder-file opacity-75 fs-1 text-warning mb-2"></i>
                                         <h6 class="text-light">{{ 'file_browser.page_title'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.files_description'|trans }}</small>
                                     </div>
@@ -195,11 +195,12 @@
                             <i class="mdi mdi-server-network me-2"></i>CQ AI Gateway
                         </span>
                         <span class="d-flex align-items-center justify-content-end gap-2">
-                            <i class="mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
+                            <i class="d-none mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
                                 title="{{ CQ_AI_GatewayCredits }} Credits"></i>
                         
-                            <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-cyber{% endif %}">{{ CQ_AI_GatewayCredits }}</span>
-                            <span class="small">Credits</span>
+                            <span class="badge bg-opacity-50 {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-dark bg-opacity-25{% endif %}">
+                                <i class="mdi mdi-circle-multiple-outline text-cyber me-1"></i>{{ CQ_AI_GatewayCredits }}</span>
+                            <span class="small d-none">Credits</span>
                         </span>
                     </div>
                 </div>
@@ -246,7 +247,7 @@
                         
                         <!-- User Data -->
                         <div class="w-100 border-top border-opacity-25 border-secondary pt-2 d-flex align-items-center justify-content-start">
-                            <a href="{{ path('app_file_browser') }}"><i class="mdi mdi-folder-multiple-outline fs-2 text-warning"></i></a>
+                            <a href="{{ path('app_file_browser') }}"><i class="mdi mdi-folder-file opacity-75 fs-2 text-warning"></i></a>
                             <div class="d-flex flex-column align-items-start ms-3">
                                 <h5 class="mb-1">{{ storageInfo.data.formatted }}</h5>
                                 <small class="text-muted">{{ 'settings.storage.data'|trans }}</small>

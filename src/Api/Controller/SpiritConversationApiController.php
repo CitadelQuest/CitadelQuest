@@ -16,6 +16,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\Service\AiGatewayService;
+use App\Service\AiServiceUseLogService;
 use App\CitadelVersion;
 
 #[Route('/api/spirit-conversation')]
@@ -26,7 +27,8 @@ class SpiritConversationApiController extends AbstractController
         private readonly SpiritConversationService $conversationService, 
         private readonly SpiritService $spiritService, 
         private readonly SettingsService $settingsService,
-        private readonly AiServiceResponseService $aiServiceResponseService)
+        private readonly AiServiceResponseService $aiServiceResponseService,
+        private readonly AiServiceUseLogService $aiServiceUseLogService)
     {
     }
     
@@ -130,11 +132,16 @@ class SpiritConversationApiController extends AbstractController
     public function getConversationTokens(string $id): JsonResponse
     {
         try {
+            // get conversation tokens
             $conversationTokens = $this->conversationService->getConversationTokens($id);
             if (!$conversationTokens) {
                 return $this->json(['error' => 'Conversation tokens not found'], 404);
             }
-            return $this->json($conversationTokens);
+
+            // get conversation price
+            $conversationPrice = $this->conversationService->getConversationPrice($id);
+            
+            return $this->json( array_merge($conversationTokens, $conversationPrice));
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -164,14 +171,28 @@ class SpiritConversationApiController extends AbstractController
             $loadedCount = $limit + $offset;
             $hasMore = $totalMessages > $loadedCount;
             
-            // Convert conversation to array and add messages
+            // Convert conversation to array and add messages with usage data
+            $messagesWithUsage = array_map(function($msg) {
+                $msgData = $msg->jsonSerialize();
+                
+                // Add usage data if message has ai_service_request_id
+                if ($msg->getAiServiceRequestId()) {
+                    $usage = $this->aiServiceUseLogService->getUsageByRequestId($msg->getAiServiceRequestId());
+                    if ($usage) {
+                        $msgData['usage'] = $usage;
+                    }
+                }
+                
+                return $msgData;
+            }, $messages);
+            
             $conversationData = [
                 'id' => $conversation->getId(),
                 'spiritId' => $conversation->getSpiritId(),
                 'title' => $conversation->getTitle(),
                 'createdAt' => $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 'lastInteraction' => $conversation->getLastInteraction()->format('Y-m-d H:i:s'),
-                'messages' => array_map(fn($msg) => $msg->jsonSerialize(), $messages),
+                'messages' => $messagesWithUsage,
                 'pagination' => [
                     'total' => $totalMessages,
                     'limit' => $limit,
@@ -290,6 +311,17 @@ class SpiritConversationApiController extends AbstractController
                 $data['temperature'] ?? 0.7
             );
             
+            // Enrich message with usage data
+            if (isset($aiResponse['message']) && $aiResponse['message']->getAiServiceRequestId()) {
+                $usage = $this->aiServiceUseLogService->getUsageByRequestId($aiResponse['message']->getAiServiceRequestId());
+                if ($usage) {
+                    // Convert message to array and add usage
+                    $messageData = $aiResponse['message']->jsonSerialize();
+                    $messageData['usage'] = $usage;
+                    $aiResponse['message'] = $messageData;
+                }
+            }
+            
             return $this->json($aiResponse);
             
         } catch (\Exception $e) {
@@ -326,6 +358,17 @@ class SpiritConversationApiController extends AbstractController
                 $data['max_output'] ?? 500,
                 $data['temperature'] ?? 0.7
             );
+            
+            // Enrich message with usage data
+            if (isset($aiResponse['message']) && $aiResponse['message']->getAiServiceRequestId()) {
+                $usage = $this->aiServiceUseLogService->getUsageByRequestId($aiResponse['message']->getAiServiceRequestId());
+                if ($usage) {
+                    // Convert message to array and add usage
+                    $messageData = $aiResponse['message']->jsonSerialize();
+                    $messageData['usage'] = $usage;
+                    $aiResponse['message'] = $messageData;
+                }
+            }
             
             return $this->json($aiResponse);
             

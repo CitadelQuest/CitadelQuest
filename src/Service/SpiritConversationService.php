@@ -113,21 +113,80 @@ class SpiritConversationService
     {
         $db = $this->getUserDb();
         
-        // ai_service_response.ai_service_request_id = spirit_conversation_request.ai_service_request_id
+        // ai_service_use_log.ai_service_request_id = spirit_conversation_request.ai_service_request_id
         $result = $db->executeQuery("SELECT 
-                SUM(ai_service_response.total_tokens) AS total_tokens,
-                SUM(ai_service_response.input_tokens) AS input_tokens,
-                SUM(ai_service_response.output_tokens) AS output_tokens
+                SUM(ai_service_use_log.total_tokens) AS total_tokens,
+                SUM(ai_service_use_log.input_tokens) AS input_tokens,
+                SUM(ai_service_use_log.output_tokens) AS output_tokens
             FROM 
-                ai_service_response 
+                ai_service_use_log 
             WHERE 
-                ai_service_response.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)
+                ai_service_use_log.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)
         ", [$conversationId]);
         $data = $result->fetchAssociative();
+
+        // if 0, then maybe it's other data format/structure
+        if ($data['total_tokens'] == 0) {
+            $result = $db->executeQuery("SELECT 
+                    SUM(ai_service_use_log.total_tokens) AS total_tokens,
+                    SUM(ai_service_use_log.input_tokens) AS input_tokens,
+                    SUM(ai_service_use_log.output_tokens) AS output_tokens
+                FROM 
+                    ai_service_use_log 
+                WHERE 
+                    ai_service_use_log.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ?)
+            ", [$conversationId]);
+            $data = $result->fetchAssociative();
+        }
+
         return [
             'total_tokens' => $data['total_tokens'] ?? 0,
             'input_tokens' => $data['input_tokens'] ?? 0,
-            'output_tokens' => $data['output_tokens'] ?? 0
+            'output_tokens' => $data['output_tokens'] ?? 0,
+            'total_tokens_formatted' => number_format($data['total_tokens'] ?? 0),
+            'input_tokens_formatted' => number_format($data['input_tokens'] ?? 0),
+            'output_tokens_formatted' => number_format($data['output_tokens'] ?? 0)
+        ];
+    }
+
+    public function getConversationPrice(string $conversationId): array
+    {
+        $db = $this->getUserDb();
+        
+        // ai_service_use_log.ai_service_request_id = spirit_conversation_request.ai_service_request_id
+        // ai_service_use_log.total_price
+        $result = $db->executeQuery("SELECT 
+                SUM(ai_service_use_log.total_price) AS total_price,
+                SUM(ai_service_use_log.input_price) AS input_price,
+                SUM(ai_service_use_log.output_price) AS output_price
+            FROM 
+                ai_service_use_log 
+            WHERE 
+                ai_service_use_log.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)
+        ", [$conversationId]);
+        $data = $result->fetchAssociative();
+
+        // if 0, then maybe it's other data format/structure
+        if ($data['total_price'] == 0) {
+            $result = $db->executeQuery("SELECT 
+                SUM(ai_service_use_log.total_price) AS total_price,
+                SUM(ai_service_use_log.input_price) AS input_price,
+                SUM(ai_service_use_log.output_price) AS output_price
+            FROM 
+                ai_service_use_log 
+            WHERE 
+                ai_service_use_log.ai_service_request_id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ?)
+        ", [$conversationId]);
+        $data = $result->fetchAssociative();
+        }
+        
+        return [
+            'total_price' => $data['total_price'] ?? 0,
+            'input_price' => $data['input_price'] ?? 0,
+            'output_price' => $data['output_price'] ?? 0,
+            'total_price_formatted' => number_format($data['total_price'] ?? 0, 2),
+            'input_price_formatted' => number_format($data['input_price'] ?? 0, 2),
+            'output_price_formatted' => number_format($data['output_price'] ?? 0, 2)
         ];
     }
 
@@ -183,15 +242,18 @@ class SpiritConversationService
             
             // Calculate images count and size
             $imagesCount = 0;
+            $toolsCount = 0;
             $sizeInBytes = 0;
+            $lastMsgUsage = [];
             
             if ($isNewFormat) {
                 // New format: Count from message table
                 $messages = $db->executeQuery(
-                    'SELECT content, LENGTH(content) as size FROM spirit_conversation_message WHERE conversation_id = ?',
+                    'SELECT content, LENGTH(content) as size, type as response_type, ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ? ORDER BY created_at DESC',
                     [$data['id']]
                 )->fetchAllAssociative();
                 
+                $i = 0;
                 foreach ($messages as $msg) {
                     $sizeInBytes += (int)$msg['size'];
                     $content = json_decode($msg['content'], true);
@@ -207,6 +269,17 @@ class SpiritConversationService
                             }
                         }
                     }
+
+                    // Count tools count
+                    if ($msg['response_type'] == 'tool_use') {
+                        $toolsCount++;
+                    }
+
+                    // Get last message usage
+                    if ($lastMsgUsage == [] && isset($msg['ai_service_request_id']) && $msg['ai_service_request_id'] != null) {
+                        $lastMsgUsage = $this->aiServiceUseLogService->getUsageByRequestId($msg['ai_service_request_id']);
+                    }
+                    $i++;
                 }
             } else {
                 // Old format: Calculate from JSON array
@@ -249,8 +322,12 @@ class SpiritConversationService
                 'lastInteraction' => $data['last_interaction'],
                 'messagesCount' => $messagesCount,
                 'imagesCount' => $imagesCount,
+                'toolsCount' => $toolsCount,
                 'sizeInBytes' => $sizeInBytes,
-                'formattedSize' => $this->getFormattedSize($sizeInBytes)
+                'formattedSize' => $this->getFormattedSize($sizeInBytes),
+                'tokens' => $this->getConversationTokens($data['id']),
+                'price' => $this->getConversationPrice($data['id']),
+                'lastMsgUsage' => $lastMsgUsage
             ];
             $conversations[] = $conversation;
         }

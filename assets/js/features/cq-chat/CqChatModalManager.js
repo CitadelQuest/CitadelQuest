@@ -935,7 +935,7 @@ export class CqChatModalManager {
         if (hostContact) {
             const hostUsername = hostContact.cqContactUsername || 'Host';
             const hostDomain = hostContact.cqContactDomain || '';
-            html += `<span class="badge bg-secondary" title="${hostUsername}@${hostDomain}"><i class="mdi mdi-account me-1"></i>${hostUsername}</span>`;
+            html += `<span class="badge bg-secondary" title="${hostDomain}/${hostUsername}"><i class="mdi mdi-account me-1"></i>${hostUsername}</span>`;
         }
         
         members.forEach(member => {
@@ -943,7 +943,7 @@ export class CqChatModalManager {
             if (contact) {
                 const username = contact.cqContactUsername || 'Unknown';
                 const domain = contact.cqContactDomain || '';
-                html += `<span class="badge bg-secondary" title="${username}@${domain}"><i class="mdi mdi-account me-1"></i>${username}</span>`;
+                html += `<span class="badge bg-secondary" title="${domain}/${username}"><i class="mdi mdi-account me-1"></i>${username}</span>`;
             }
         });
         
@@ -1029,10 +1029,10 @@ export class CqChatModalManager {
             this.groupMembersList.innerHTML = activeContacts.map(contact => `
                 <div class="form-check mb-2">
                     <input class="form-check-input" type="checkbox" value="${contact.id}" 
-                           id="groupMember${contact.id}" data-contact-name="${contact.cqContactUsername}@${contact.cqContactDomain}">
+                           id="groupMember${contact.id}" data-contact-name="${contact.cqContactDomain}/${contact.cqContactUsername}">
                     <label class="form-check-label" for="groupMember${contact.id}">
-                        <i class="mdi mdi-account me-1"></i>
-                        ${contact.cqContactUsername}@${contact.cqContactDomain}
+                        <span class="text-cyber_ fw-bold">${contact.cqContactUsername}</span>
+                        <span class="text-muted small ms-1">${contact.cqContactDomain}</span>
                     </label>
                 </div>
             `).join('');

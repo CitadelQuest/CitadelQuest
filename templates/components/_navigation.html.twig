@@ -50,7 +50,7 @@
                     </li>
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_file_browser') }}">
-                            <i class="mdi mdi-file-star me-3{% if app.request.pathInfo == path('app_file_browser') %} text-cyber{% else %} text-warning{% endif %}"></i>
+                            <i class="mdi mdi-folder-file me-3{% if app.request.pathInfo == path('app_file_browser') %} text-cyber{% else %} text-warning{% endif %}"></i>
                             {{ 'file_browser.page_title'|trans }}
                         </a>
                     </li>

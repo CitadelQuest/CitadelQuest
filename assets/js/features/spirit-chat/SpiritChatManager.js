@@ -26,6 +26,7 @@ export class SpiritChatManager {
         // Async conversation state
         this.executionStopped = false;
         this.isExecutingTools = false;
+        this.lastMessageUsage = null;
         
         // Pagination state
         this.messageLimit = 10; // Messages per page
@@ -73,6 +74,12 @@ export class SpiritChatManager {
         this.chatInfoIcon = document.getElementById('chatInfoIcon');
         this.chatInfo = document.getElementById('chatInfo');
         this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        this.contextWindowUsageBar = document.getElementById('contextWindowUsageBar');
+        this.contextWindowUsage = document.getElementById('contextWindowUsage');
+        
+        // Context window tracking
+        this.primaryModelContextWindow = null;
+        this.currentContextUsage = 0;
         
         // New conversation AI model selectors
         this.newConvPrimaryModel = document.getElementById('newConvPrimaryModel');
@@ -152,9 +159,11 @@ export class SpiritChatManager {
     showCreditIndicator(creditBalance) {
         let creditBalanceText = creditBalance.toLocaleString('sk-SK');
         this.creditIndicator.innerHTML = `
-            <i class="ms-1 mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
-            title="${creditBalanceText} Credits"></i>
-            <span class="text-muted" style="font-size: 0.6rem !important;" title="${creditBalanceText} Credits">${creditBalanceText}<br>Credits</span>
+            <i class="d-none ms-1 mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
+                title="${creditBalanceText} Credits"></i>
+            <span class="text-muted" style="font-size: 0.6rem !important;" title="${creditBalanceText} Credits">
+                <i class="mdi mdi-circle-multiple-outline text-cyber opacity-75 me-1 ms-1"></i>${creditBalanceText}
+            </span>
         `;
     }
     
@@ -422,6 +431,8 @@ export class SpiritChatManager {
                     if (data.maxOutput) {
                         maxOutput = data.maxOutput;
                         this.updatePrimaryModelInfo(data);
+                        // Store context window for usage calculation
+                        this.primaryModelContextWindow = data.contextWindow || null;
                     }
                 } catch (error) {
                     console.error('Error fetching primary model:', error);
@@ -540,16 +551,24 @@ export class SpiritChatManager {
                         </button>
 
                         <small class="text-muted float-end d-none_d-md-inline-block pt-1 me-2">
-                            <span class="" title="Conversation size">${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
-                            <i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-2"></i><span class="" title="Messages count">${conversation.messagesCount || '0'}</span> <span class="text-cyber d-none">/</span>
-                            <i class="mdi mdi-image-outline text-cyber opacity-75 me-1 ms-2"></i><span class="" title="Images count">${conversation.imagesCount || '0'}</span>
-                            <i class="mdi mdi-clock-outline text-cyber opacity-75 me-1 ms-2"></i>${formattedDate} <span class="text-cyber">/</span> ${formattedTime}
+                            <span class="" title="Context window size"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1 ms-2"></i>${conversation.lastMsgUsage?.totalTokensFormatted || '0'}</span>
+                            <span class="" title="Conversation data size"><i class="mdi mdi-database text-cyber opacity-75 me-1 ms-2"></i>${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
+                            <span class="" title="Messages count"><i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.messagesCount || '0'}</span> <span class="text-cyber d-none">/</span>
+                            <span class="" title="User images count"><i class="mdi mdi-image-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.imagesCount || '0'}</span>
+                            <span class="" title="Tool use count"><i class="mdi mdi-tools text-cyber opacity-75 me-1 ms-2"></i>${conversation.toolsCount || '0'}</span>
+                            <span class="" title="Tokens"><i class="mdi mdi-tally-mark-5 text-cyber opacity-75 me-1 ms-2"></i>${conversation.tokens?.total_tokens_formatted || '0'}</span>
+                            <span class="" title="Credits - img gen not included"><i class="mdi mdi-circle-multiple-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.price?.total_price.toFixed(0) || '0'}</span>
+                            <span class="" title="Conversation start"><i class="mdi mdi-clock-outline text-cyber opacity-75 me-1 ms-2"></i>${formattedDate} <span class="text-cyber">/</span> ${formattedTime}</span>
                         </small>
                     </div>
                 `;
                 
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
+                    
+                    // Update context window usage from conversation's last message
+                    this.lastMessageUsage = conversation.lastMsgUsage || null;
+                    this.updateContextWindowUsage(conversation.lastMsgUsage?.totalTokens || 0);
                     
                     this.loadConversation(conversation.id);
 
@@ -659,11 +678,14 @@ export class SpiritChatManager {
             // Render messages (with "load more" button if needed)
             this.renderMessages(conversation.messages, true);
 
-            // update conversation tokens
-            this.apiService.getConversationTokens(conversationId).then(tokens => {
-                this.conversationTokens = tokens;
-                //console.log('Conversation tokens:', this.conversationTokens);
+            // update conversation tokens and price
+            let lastMsgUsage = null;
+            conversation.messages.forEach(msg => {
+                if (msg.usage && msg.usage.totalTokens) {
+                    lastMsgUsage = msg.usage;
+                }
             });
+            this.updateContextWindowUsage(parseInt(lastMsgUsage?.totalTokens || 0));
             
         } catch (error) {
             console.error('Error loading conversation:', error);
@@ -927,7 +949,22 @@ export class SpiritChatManager {
             const date = new Date(message.timestamp);
             const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
             const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
-            timestampHtml = `<div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>`;
+            timestampHtml = `<div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>`;
+        }
+        
+        // Format usage info (tokens and price) for assistant messages
+        let usageHtml = '<div></div>';
+        if (message.role === 'assistant' && message.usage) {
+            const tokens = message.usage.totalTokensFormatted;
+            const price = message.usage.totalPriceFormatted;
+            if (tokens > 0 || price > 0) {
+                usageHtml = `
+                    <div class="chat-usage small text-muted opacity-50">
+                        <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
+                        <i class="mdi mdi-circle-small opacity-75 me-1"></i>
+                        <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
+                    </div>`;
+            }
         }
 
         // format message content
@@ -957,10 +994,26 @@ export class SpiritChatManager {
             if (message.content.tool_calls && Array.isArray(message.content.tool_calls)) {
                 hasToolExecution = true;
                 const toolNames = message.content.tool_calls.map(tc => tc.function?.name || 'unknown').join(', ');
+                
+                // Format usage info for tool execution
+                let toolUsageHtml = '';
+                if (message.usage) {
+                    const tokens = message.usage.totalTokensFormatted;
+                    const price = message.usage.totalPriceFormatted;
+                    if (tokens > 0 || price > 0) {
+                        toolUsageHtml = `
+                            <span class="small text-muted opacity-50 ms-2">
+                                <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens}
+                                <i class="mdi mdi-circle-small opacity-75 me-1"></i>
+                                <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
+                            </span>`;
+                    }
+                }
+                
                 toolExecutionHtml = `
                     <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                        <!-- <i class="mdi mdi-check-circle text-success"></i> -->
-                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
+                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: <strong>${toolNames}</strong></span>
+                        ${toolUsageHtml}
                     </div>
                 `;
             }
@@ -1005,10 +1058,15 @@ export class SpiritChatManager {
             formattedContent = this.formatMessageContent(message.content);
         }
         
+        if (hasToolExecution) {
+            // prevent duplicate usage info message when tool execution is present
+            usageHtml = '<div></div>';
+        }
+
         messageEl.innerHTML = (formattedContent != '') ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-timestamp">${timestampHtml}</div>
+                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between">${usageHtml}${timestampHtml}</div>
             </div>
         ` : '';
 
@@ -1579,6 +1637,12 @@ export class SpiritChatManager {
             // Add AI's response to UI
             this.addAssistantMessageToUI(response.message);
             
+            // Update context window usage from response
+            if (response.message?.usage?.totalTokens) {
+                this.lastMessageUsage = response.message.usage;
+                this.updateContextWindowUsage(response.message.usage.totalTokens);
+            }
+            
             // If AI wants to use tools, execute them
             if (response.requiresToolExecution && response.toolCalls) {
                 await this.executeToolChain(response.message.id, response.toolCalls, maxOutput, 0.5/* temperature */);
@@ -1706,6 +1770,10 @@ export class SpiritChatManager {
             
             // Load the new conversation
             this.loadConversation(conversation.id);
+            
+            // Reset context window usage for new conversation
+            this.lastMessageUsage = null;
+            this.updateContextWindowUsage(0);
 
             // toggle tools and conversations panel
             this.toggleToolsAndConversationsPanel();
@@ -1745,6 +1813,44 @@ export class SpiritChatManager {
         this.chatInfoPrimaryAiModel.innerHTML = 
             '<span class="me-1 fw-bold">' + data.modelName + '</span> ' +
             '[<span class="d-md-inline_ d-none">context window: </span><span class="fw-bold_">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span>]';
+        // Store context window for usage calculation
+        this.primaryModelContextWindow = data.contextWindow || null;
+    }
+    
+    /**
+     * Update context window usage bar
+     * @param {number} usedTokens - Number of tokens used in current conversation
+     */
+    updateContextWindowUsage(usedTokens) {
+        if (!this.contextWindowUsageBar || !this.contextWindowUsage) return;
+        
+        this.currentContextUsage = usedTokens || 0;
+        
+        // Get translation for tooltip
+        const contextWindowLabel = window.translations?.['spirit.chat.context_window_usage'] || 'Context window usage';
+        
+        if (!this.primaryModelContextWindow || this.primaryModelContextWindow <= 0) {
+            this.contextWindowUsageBar.style.width = '0%';
+            this.contextWindowUsage.title = `${contextWindowLabel}: ?`;
+            return;
+        }
+        
+        const percentage = Math.min(100, (this.currentContextUsage / this.primaryModelContextWindow) * 100);
+        this.contextWindowUsageBar.style.width = percentage.toFixed(1) + '%';
+        
+        // Update color based on usage (green -> yellow -> red)
+        if (percentage < 50) {
+            this.contextWindowUsageBar.className = 'rounded opacity-75 bg-cyber';
+        } else if (percentage < 80) {
+            this.contextWindowUsageBar.className = 'rounded opacity-75 bg-warning';
+        } else {
+            this.contextWindowUsageBar.className = 'rounded opacity-75 bg-danger';
+        }
+        
+        // Update tooltip with translation
+        const usedFormatted = Number(this.currentContextUsage).toLocaleString('sk-SK');
+        const totalFormatted = Number(this.primaryModelContextWindow).toLocaleString('sk-SK');
+        this.contextWindowUsage.title = `${contextWindowLabel}: ${usedFormatted} / ${totalFormatted} (${percentage.toFixed(1)}%)`;
     }
     
     /**
@@ -1934,10 +2040,28 @@ export class SpiritChatManager {
             return;
         }
         
+        // Format usage info (tokens and price)
+        let usageHtml = '<div></div>';
+        if (message.usage) {
+            const tokens = message.usage.totalTokensFormatted;
+            const price = message.usage.totalPriceFormatted;
+            if (tokens > 0 || price > 0) {
+                usageHtml = `
+                    <div class="chat-usage small text-muted opacity-50">
+                        <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
+                        <i class="mdi mdi-circle-small opacity-75 me-1"></i>
+                        <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
+                    </div>`;
+            }
+        }
+        
         messageEl.innerHTML = formattedContent != '' ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
+                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between pt-1">
+                    ${usageHtml}
+                    <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75"></i> ${formattedTime}</div>
+                </div>
             </div>
         ` : '';
         
@@ -1979,10 +2103,24 @@ export class SpiritChatManager {
                 
                 // Replace loading spinner with success indicator
                 if (toolIndicator) {
+                    // Format usage info for tool execution
+                    let toolUsageHtml = '';
+                    if (response.message?.usage) {
+                        const tokens = response.message.usage.totalTokensFormatted;
+                        const price = response.message.usage.totalPriceFormatted;
+                        if (tokens > 0 || price > 0) {
+                            toolUsageHtml = `
+                                <span class="small text-muted opacity-50 ms-2">
+                                    <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens} <i class="mdi mdi-circle-small opacity-75 me-1"></i>
+                                    <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
+                                </span>`;
+                        }
+                    }
+                    
                     toolIndicator.innerHTML = `
                         <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                            <!-- <i class="mdi mdi-check-circle text-success"></i> -->
-                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: ${toolNames}</span>
+                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: <strong>${toolNames}</strong></span>
+                            ${toolUsageHtml}
                         </div>
                     `;
                 }
@@ -1994,6 +2132,12 @@ export class SpiritChatManager {
                 
                 // Add AI's next response
                 this.addAssistantMessageToUI(response.message);
+                
+                // Update context window usage from tool response
+                if (response.message?.usage?.totalTokens) {
+                    this.lastMessageUsage = response.message.usage;
+                    this.updateContextWindowUsage(response.message.usage.totalTokens);
+                }
                 
                 // Update credit indicator
                 this.updateCreditIndicator();
@@ -2049,7 +2193,7 @@ export class SpiritChatManager {
         toolEl.innerHTML = `
             <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-25 rounded">
                 <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
-                <span class="text-cyber small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executing: ${toolNames}</span>
+                <span class="text-cyber small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executing: <strong>${toolNames}</strong></span>
             </div>
         `;
         
