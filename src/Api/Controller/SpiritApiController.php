@@ -42,6 +42,32 @@ class SpiritApiController extends AbstractController
         }
     }
 
+    #[Route('/list', name: 'app_api_spirits_list', methods: ['GET'])]
+    public function list(): JsonResponse
+    {
+        try {
+            $spirits = $this->spiritService->findAll();
+            $primarySpirit = $this->spiritService->getUserSpirit();
+
+            $spiritsData = [];
+            foreach ($spirits as $spirit) {
+                $settings = $this->spiritService->getSpiritSettings($spirit->getId());
+                $progression = $this->spiritService->getLevelProgression($spirit->getId());
+
+                $spiritData = $spirit->jsonSerialize();
+                $spiritData['settings'] = $settings;
+                $spiritData['progression'] = $progression;
+                $spiritData['isPrimary'] = $primarySpirit && $spirit->getId() === $primarySpirit->getId();
+
+                $spiritsData[] = $spiritData;
+            }
+
+            return $this->json(['spirits' => $spiritsData]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
     #[Route('', name: 'app_api_spirit_create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
@@ -63,44 +89,11 @@ class SpiritApiController extends AbstractController
         }
     }
 
-    #[Route('/interact', name: 'app_api_spirit_interact', methods: ['POST'])]
-    public function interact(Request $request): JsonResponse
-    {
-        try {
-            $spirit = $this->spiritService->getUserSpirit();
-        
-            if (!$spirit) {
-                return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
-            }
-            
-            $data = json_decode($request->getContent(), true);
-            $interactionType = $data['interactionType'] ?? 'general';
-            $context = $data['context'] ?? null;
-            $experienceGained = $data['experienceGained'] ?? 5; // Default experience gain
-            
-            $interaction = $this->spiritService->logInteraction(
-                $spirit->getId(),
-                $interactionType,
-                $experienceGained,
-                $context
-            );
-            
-            // Get the updated spirit
-            $updatedSpirit = $this->spiritService->getUserSpirit();
-            
-            return $this->json([
-                'spirit' => $updatedSpirit,
-                'interaction' => $interaction
-            ]);
-        } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
-        }
-    }
-
     #[Route('/interactions', name: 'app_api_spirit_interactions', methods: ['GET'])]
-    public function interactions(): JsonResponse
+    public function interactions(Request $request): JsonResponse
     {
-        $spirit = $this->spiritService->getUserSpirit();
+        $spiritId = $request->query->get('spiritId');
+        $spirit = $spiritId ? $this->spiritService->getSpirit($spiritId) : $this->spiritService->getUserSpirit();
         
         if (!$spirit) {
             return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
@@ -115,13 +108,13 @@ class SpiritApiController extends AbstractController
     public function update(Request $request): JsonResponse
     {
         try {
-            $spirit = $this->spiritService->getUserSpirit();
+            $data = json_decode($request->getContent(), true);
+            $spiritId = $data['spiritId'] ?? null;
+            $spirit = $spiritId ? $this->spiritService->getSpirit($spiritId) : $this->spiritService->getUserSpirit();
             
             if (!$spirit) {
                 return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
             }
-            
-            $data = json_decode($request->getContent(), true);
             
             // Update the spirit's system prompt and AI model via settings
             if (isset($data['systemPrompt'])) {
@@ -133,7 +126,7 @@ class SpiritApiController extends AbstractController
             }
             
             // Get the updated spirit
-            $updatedSpirit = $this->spiritService->getUserSpirit();
+            $updatedSpirit = $this->spiritService->getSpirit($spirit->getId());
             
             return $this->json($updatedSpirit);
         } catch (\Exception $e) {
@@ -180,6 +173,43 @@ class SpiritApiController extends AbstractController
             $settings = $this->spiritService->getSpiritSettings($id);
             
             return $this->json($settings);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}', name: 'app_api_spirit_get_by_id', methods: ['GET'])]
+    public function getById(string $id): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Get spirit settings and include them in the response
+            $settings = $this->spiritService->getSpiritSettings($spirit->getId());
+
+            $spiritData = $spirit->jsonSerialize();
+            $spiritData['settings'] = $settings;
+            $spiritData['progression'] = $this->spiritService->getLevelProgression($spirit->getId());
+
+            return $this->json($spiritData);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}', name: 'app_api_spirit_delete', methods: ['DELETE'])]
+    public function delete(string $id): JsonResponse
+    {
+        try {
+            $this->spiritService->deleteSpirit($id);
+
+            return $this->json(['success' => true, 'message' => 'Spirit deleted successfully']);
+        } catch (\RuntimeException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

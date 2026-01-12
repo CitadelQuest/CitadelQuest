@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Your Spirit Companion{% endblock %}
+{% block title %}{{ 'spirit.title'|trans }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -9,32 +9,18 @@
 
 {% block body %}
 <div class="container mt-4">
+    <input type="hidden" id="spirit-id" value="{{ spiritId is defined ? spiritId : '' }}">
     <div class="glass-panel pt-4">
         {# <div class="text-white p-4">
-            <h2 class="mb-0">Your Spirit Companion</h2>
+            <h2 class="mb-0">{{ 'spirit.title'|trans }}</h2>
         </div> #}
         <div class="px-4 pb-4 pt-1">
             <div id="spirit-container">
                 <div class="text-center mb-4" id="spirit-loading">
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                        <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
                     </div>
-                    <p class="mt-2">Connecting with your Spirit...</p>
-                </div>
-                
-                <div id="create-spirit-form" class="d-none">
-                    <h3 class="text-center mb-4">Create Your Spirit Companion</h3>
-                    <p class="text-center">Your Spirit will guide you through CitadelQuest, growing and evolving alongside you.</p>
-                    
-                    <form id="spirit-creation-form" class="mt-4">
-                        <div class="mb-3">
-                            <label for="spirit-name" class="form-label">Name your Spirit</label>
-                            <input type="text" class="form-control" id="spirit-name" placeholder="Enter a name" required>
-                        </div>
-                        <div class="text-center">
-                            <button type="submit" class="btn btn-cyber">Create</button>
-                        </div>
-                    </form>
+                    <p class="mt-2">{{ 'spirit.detail.connecting'|trans }}</p>
                 </div>
                 
                 <div id="spirit-display" class="d-none">
@@ -46,9 +32,9 @@
                                     </div>
                                 </div>
                             <div class="text-center mt-5">
-                                <h3 id="spirit-name-display" class="mb-2">Spirit Name</h3>
+                                <h3 id="spirit-name-display" class="mb-2">{{ 'spirit.name'|trans }}</h3>
                                 <div class="d-flex justify-content-center align-items-center">
-                                    <span class="badge bg-primary">Level <span id="spirit-level">1</span></span>
+                                    <span class="badge bg-primary">{{ 'spirit.level'|trans }} <span id="spirit-level">1</span></span>
                                 </div>
                             </div>
                             <div class="progress mt-3">
@@ -58,15 +44,15 @@
                                 </div>
                             </div>
                             <p class="text-center mt-1">
-                                <small>Experience: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
+                                <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
                             </p>
 
-                            <h4>Recent Interactions</h4>
+                            <h4>{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
                             <div id="spirit-interactions">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                    <span class="visually-hidden">Loading interactions...</span>
+                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
                                 </div>
-                                <span>Loading interactions...</span>
+                                <span>{{ 'spirit.detail.loading_interactions'|trans }}</span>
                             </div>
                             
                             {# <div class="mt-4">
@@ -88,46 +74,17 @@
                             </div> #}
                         </div>
                         <div class="col-md-7">
-                            <h4 class="mt-5">Conversations</h4>
+                            <h4 class="mt-5">{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
                             <div id="conversations-list">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
                                 </div>
-                                <span>Loading conversations...</span>
+                                <span>{{ 'spirit.detail.loading_conversations'|trans }}</span>
                             </div>
                         </div>
                     </div>
-                    
-                    {# <div class="row mt-4">
-                        <div class="col-12">
-                            <div class="glass-panel">
-                                <div class="px-4 pt-3 pb-2 bg-cyber-g rounded-top">
-                                    <h5 class="mb-0">Interact with your Spirit</h5>
-                                </div>
-                                <div class="px-4 pt-0">
-                                    <form id="spirit-interact-form" class="mt-0">
-                                        <div class="mb-3">
-                                            <label for="interaction-type" class="form-label">Interaction Type</label>
-                                            <select class="form-select" id="interaction-type">
-                                                <option value="greeting">Greeting</option>
-                                                <option value="question">Question</option>
-                                                <option value="training">Training</option>
-                                                <option value="meditation">Meditation</option>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="interaction-context" class="form-label">Message (optional)</label>
-                                            <textarea class="form-control" id="interaction-context" rows="2" placeholder="Enter a message for your Spirit"></textarea>
-                                        </div>
-                                        <div class="text-end">
-                                            <button type="submit" class="btn btn-cyber">Send</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div> #}
                 </div>
+
             </div>
         </div>
     </div>

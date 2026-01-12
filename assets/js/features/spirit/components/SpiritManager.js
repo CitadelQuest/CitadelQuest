@@ -13,7 +13,6 @@ export class SpiritManager {
         
         // DOM elements
         this.spiritContainer = document.getElementById('spirit-container');
-        this.createForm = document.getElementById('create-spirit-form');
         this.spiritDisplay = document.getElementById('spirit-display');
         this.spiritCanvas = document.getElementById('spirit-canvas');
         this.nameDisplay = document.getElementById('spirit-name-display');
@@ -36,30 +35,6 @@ export class SpiritManager {
      * Initialize event listeners for user interactions
      */
     initEventListeners() {
-        // Spirit creation form submission
-        if (this.createForm) {
-            this.createForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const nameInput = this.createForm.querySelector('#spirit-name');
-                if (nameInput && nameInput.value.trim()) {
-                    this.createSpirit(nameInput.value.trim());
-                }
-            });
-        }
-        
-        // Interaction form submission
-        const interactForm = document.getElementById('spirit-interact-form');
-        if (interactForm) {
-            interactForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const interactionType = interactForm.querySelector('#interaction-type').value;
-                const context = interactForm.querySelector('#interaction-context').value;
-                
-                this.interactWithSpirit(interactionType, context);
-                interactForm.reset();
-            });
-        }
-        
         // Spirit settings update button
         if (this.updateSettingsBtn) {
             this.updateSettingsBtn.addEventListener('click', () => {
@@ -76,8 +51,6 @@ export class SpiritManager {
             const response = await fetch(this.apiEndpoints.get);
             
             if (response.status === 404) {
-                // No spirit found, show creation form
-                this.showCreateForm();
                 return;
             }
             
@@ -165,61 +138,17 @@ export class SpiritManager {
             this.showError(this.translate('error.creating_spirit', 'Failed to create spirit'));
         }
     }
-    
-    /**
-     * Interact with the spirit
-     * @param {string} interactionType - The type of interaction
-     * @param {string} context - Additional context for the interaction
-     */
-    async interactWithSpirit(interactionType, context) {
-        try {
-            // Show a loading indicator in the interactions container
-            if (this.interactionsContainer) {
-                this.interactionsContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-            }
-            
-            const response = await fetch(this.apiEndpoints.interact, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    interactionType,
-                    context,
-                    experienceGained: 5 // Default experience gain
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to interact with spirit');
-            }
-            
-            const data = await response.json();
-            this.spirit = data.spirit;
-            this.updateSpiritDisplay();
-            
-            // Update the interactions immediately
-            if (data.interaction) {
-                // Add the new interaction to the beginning of the array
-                this.interactions = [data.interaction, ...this.interactions];
-                this.renderInteractions();
-            } else {
-                // If the interaction isn't returned in the response, fetch all interactions
-                await this.loadInteractions();
-            }
-            
-        } catch (error) {
-            console.error('Error interacting with spirit:', error);
-            this.showError(this.translate('error.interaction_failed', 'Failed to interact with spirit'));
-        }
-    }
 
     /**
      * Load the spirit's recent interactions
      */
     async loadInteractions() {
         try {
-            const response = await fetch(this.apiEndpoints.interactions);
+            let url = this.apiEndpoints.interactions;
+            if (this.spirit && this.spirit.id) {
+                url += `?spiritId=${this.spirit.id}`;
+            }
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error('Failed to load interactions');
@@ -253,24 +182,6 @@ export class SpiritManager {
             this.showError(this.translate('error.loading_conversations', 'Failed to load conversations'));
         }
     }
-
-    /**
-     * Show the spirit creation form
-     */
-    showCreateForm() {
-        // Hide loading indicator
-        const loadingElement = document.getElementById('spirit-loading');
-        if (loadingElement) {
-            loadingElement.classList.add('d-none');
-        }
-        
-        if (this.createForm) {
-            this.createForm.classList.remove('d-none');
-        }
-        if (this.spiritDisplay) {
-            this.spiritDisplay.classList.add('d-none');
-        }
-    }
     
     /**
      * Show the spirit display and hide the creation form
@@ -282,9 +193,6 @@ export class SpiritManager {
             loadingElement.classList.add('d-none');
         }
         
-        if (this.createForm) {
-            this.createForm.classList.add('d-none');
-        }
         if (this.spiritDisplay) {
             this.spiritDisplay.classList.remove('d-none');
             this.updateSpiritDisplay();
@@ -492,7 +400,12 @@ export class SpiritManager {
 
             item.dataset.id = conversation.id;
             item.addEventListener('click', async () => {
-                // load conversation when modal is shown
+                // Select this spirit in the dropdown before opening modal
+                if (this.spirit && window.spiritDropdownManager) {
+                    window.spiritDropdownManager.selectSpirit(this.spirit.id);
+                }
+
+                // Load conversation when modal is shown
                 document.getElementById('spiritChatModal').addEventListener('shown.bs.modal', async () => {
                     if (item.dataset.id) {
                         // wait for loading to finish
@@ -502,9 +415,6 @@ export class SpiritManager {
                         window.spiritChatManager.loadConversation(item.dataset.id);
                     }
                 }, { once: true });
-
-                // open modal first
-                document.getElementById('spiritChatButton').dispatchEvent(new Event('click', { bubbles: true }));
 
             });
             conversationsList.appendChild(item);

@@ -37,7 +37,6 @@ export class SpiritChatManager {
         // DOM Elements
         this.spiritIcon = document.getElementById('spiritIcon');
         this.spiritChatModal = document.getElementById('spiritChatModal');
-        this.spiritChatButton = document.getElementById('spiritChatButton');
         this.spiritNames = document.querySelectorAll('.spiritName');
         this.spiritLevel = document.getElementById('spiritLevel');
         this.spiritChatAvatar = document.getElementById('spiritChatAvatar');
@@ -103,7 +102,11 @@ export class SpiritChatManager {
 
         // Show the modal if it was open before and we are on same url as before (page refresh/reload)
         if (localStorage.getItem('spiritChatModal') === 'true' && window.location.pathname === localStorage.getItem('spiritChatModalUrl')) {
-            this.spiritChatButton.dispatchEvent(new Event('click'));
+            // Restore selected spirit if saved
+            const savedSpiritId = localStorage.getItem('selectedSpiritId');
+            if (savedSpiritId && window.spiritDropdownManager) {
+                window.spiritDropdownManager.selectSpirit(savedSpiritId);
+            }
         }
 
         // show tools and conversations based on local storage
@@ -392,7 +395,7 @@ export class SpiritChatManager {
     }
     
     /**
-     * Fetch the user's primary spirit
+     * Fetch the user's primary spirit or selected spirit
      */
     async fetchPrimarySpirit() {
         // Check if we're in onboarding mode
@@ -400,106 +403,176 @@ export class SpiritChatManager {
         if (isOnboarding) {
             return;
         }
-        
+
+        // Get selected spirit ID from dropdown manager or default to primary
+        let spiritId = null;
+        if (window.spiritDropdownManager) {
+            spiritId = window.spiritDropdownManager.getSelectedSpiritId();
+        }
+
         try {
-            const response = await fetch('/api/spirit');
+            let response;
+            if (spiritId) {
+                // Fetch specific spirit
+                response = await fetch(`/api/spirit/${spiritId}/settings`);
+                if (response.ok) {
+                    const settings = await response.json();
+                    // Get spirit data from list
+                    const listResponse = await fetch('/api/spirit/list');
+                    const listData = await listResponse.json();
+                    const spirit = listData.spirits?.find(s => s.id === spiritId);
+                    if (spirit) {
+                        spirit.settings = settings;
+                        this.currentSpiritId = spirit.id;
+                        this.updateSpiritUI(spirit);
+                        return;
+                    }
+                }
+            }
+
+            // Fallback to primary spirit
+            response = await fetch('/api/spirit');
             if (!response.ok) {
                 throw new Error('Failed to fetch primary spirit');
             }
-            
+
             const spirit = await response.json();
             this.currentSpiritId = spirit.id;
-            
-            // Update UI with spirit info
-            if (this.spiritNames && this.spiritNames.length > 0) {
-                this.spiritNames.forEach(name => name.textContent = spirit.name);
-            }
-            
-            if (this.spiritLevel) {
-                const levelText = window.translations && window.translations['spirit.level'] ? window.translations['spirit.level'] : 'Level';
-                const level = spirit.settings?.level || '1';
-                this.spiritLevel.textContent = `${levelText}: ${level}`;
-            }
+            this.updateSpiritUI(spirit);
 
-            // set response max output and load AI model info
-            if (this.responseMaxOutputSlider) {
-                let maxOutput = '4096';
-                try {
-                    let response = await fetch('/api/ai/gateway/primary-model', {
-                        method: 'GET'
-                    });
-                    let data = await response.json();
-                    if (data.maxOutput) {
-                        maxOutput = data.maxOutput;
-                        this.updatePrimaryModelInfo(data);
-                        // Store context window for usage calculation
-                        this.primaryModelContextWindow = data.contextWindow || null;
-                    }
-                } catch (error) {
-                    console.error('Error fetching primary model:', error);
-                }
-
-                this.responseMaxOutputSlider.max = maxOutput;
-                localStorage.setItem('config.chat.settings.responseMaxOutput.value', maxOutput);
-                this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || maxOutput;
-
-                this.responseMaxOutputValue.textContent = this.responseMaxOutputSlider.value;
-            }
-            
-            // Load secondary AI model info
-            await this.loadSecondaryModelInfo();
-
-            // set response temperature
-            if (this.responseTemperatureSlider) {
-                this.responseTemperatureSlider.value = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
-                localStorage.setItem('config.chat.settings.responseTemperature.value', this.responseTemperatureSlider.value);
-
-                this.responseTemperatureValue.textContent = this.responseTemperatureSlider.value;
-            }
-
-            // set chat settings open
-            if (this.chatSettings) {
-                let open = localStorage.getItem('config.chat.settings.open') === 'true';
-                localStorage.setItem('config.chat.settings.open', open);
-                if (open) {
-                    this.chatSettings.classList.remove('d-none');
-                    this.chatSettings.classList.add('d-flex');
-                } else {
-                    this.chatSettings.classList.add('d-none');
-                    this.chatSettings.classList.remove('d-flex');
-                }
-            }
-            
-            // set chat info open
-            if (this.chatInfo) {
-                let open = localStorage.getItem('config.chat.info.open') === 'true';
-                localStorage.setItem('config.chat.info.open', open);
-                if (open) {
-                    this.chatInfo.classList.remove('d-none');
-                    this.chatInfo.classList.add('d-flex');
-                } else {
-                    this.chatInfo.classList.add('d-none');
-                    this.chatInfo.classList.remove('d-flex');
-                }
-            }
-            
-            let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
-            if (spiritAvatar) {
-                let visualState = spirit.settings?.visualState || 'initial';
-                let color = null;
-                try {
-                    color = JSON.parse(visualState)?.color || null;
-                } catch (e) {
-                    // visualState might be just a string like 'initial', not JSON
-                }
-                if (color) {
-                    spiritAvatar.forEach(icon => icon.style.color = color);
-                }
-            }
-            
         } catch (error) {
-            console.error('Error fetching primary spirit:', error);
+            console.error('Error fetching spirit:', error);
         }
+    }
+
+    async updateSpiritUI(spirit) {
+        // Update UI with spirit info
+        if (this.spiritNames && this.spiritNames.length > 0) {
+            this.spiritNames.forEach(name => name.textContent = spirit.name);
+        }
+
+        if (this.spiritLevel) {
+            const levelText = window.translations && window.translations['spirit.level'] ? window.translations['spirit.level'] : 'Level';
+            const level = spirit.settings?.level || '1';
+            this.spiritLevel.textContent = `${levelText}: ${level}`;
+        }
+
+        // set response max output and load AI model info
+        if (this.responseMaxOutputSlider) {
+            let maxOutput = '4096';
+            try {
+                let response = await fetch('/api/ai/gateway/primary-model', {
+                    method: 'GET'
+                });
+                let data = await response.json();
+                if (data.maxOutput) {
+                    maxOutput = data.maxOutput;
+                    this.updatePrimaryModelInfo(data);
+                    // Store context window for usage calculation
+                    this.primaryModelContextWindow = data.contextWindow || null;
+                }
+            } catch (error) {
+                console.error('Error fetching primary model:', error);
+            }
+
+            this.responseMaxOutputSlider.max = maxOutput;
+            localStorage.setItem('config.chat.settings.responseMaxOutput.value', maxOutput);
+            this.responseMaxOutputSlider.value = localStorage.getItem('config.chat.settings.responseMaxOutput.value') || maxOutput;
+
+            this.responseMaxOutputValue.textContent = this.responseMaxOutputSlider.value;
+        }
+
+        // Load secondary AI model info
+        await this.loadSecondaryModelInfo();
+
+        // set response temperature
+        if (this.responseTemperatureSlider) {
+            this.responseTemperatureSlider.value = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
+            localStorage.setItem('config.chat.settings.responseTemperature.value', this.responseTemperatureSlider.value);
+
+            this.responseTemperatureValue.textContent = this.responseTemperatureSlider.value;
+        }
+
+        // set chat settings open
+        if (this.chatSettings) {
+            let open = localStorage.getItem('config.chat.settings.open') === 'true';
+            localStorage.setItem('config.chat.settings.open', open);
+            if (open) {
+                this.chatSettings.classList.remove('d-none');
+                this.chatSettings.classList.add('d-flex');
+            } else {
+                this.chatSettings.classList.add('d-none');
+                this.chatSettings.classList.remove('d-flex');
+            }
+        }
+
+        // set chat info open
+        if (this.chatInfo) {
+            let open = localStorage.getItem('config.chat.info.open') === 'true';
+            localStorage.setItem('config.chat.info.open', open);
+            if (open) {
+                this.chatInfo.classList.remove('d-none');
+                this.chatInfo.classList.add('d-flex');
+            } else {
+                this.chatInfo.classList.add('d-none');
+                this.chatInfo.classList.remove('d-flex');
+            }
+        }
+
+        let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
+        if (spiritAvatar) {
+            let visualState = spirit.settings?.visualState || 'initial';
+            let color = null;
+            try {
+                color = JSON.parse(visualState)?.color || null;
+            } catch (e) {
+                // visualState might be just a string like 'initial', not JSON
+            }
+            if (color) {
+                spiritAvatar.forEach(icon => icon.style.color = color);
+            }
+        }
+    }
+
+    /**
+     * Switch to a different spirit
+     */
+    async switchSpirit(spiritId) {
+        if (this.currentSpiritId === spiritId) {
+            return;
+        }
+
+        this.currentSpiritId = spiritId;
+
+        // Clear current conversation
+        this.currentConversationId = null;
+        this.conversations = [];
+
+        // Clear chat messages
+        if (this.chatMessages) {
+            this.chatMessages.innerHTML = '';
+        }
+
+        // Fetch and update spirit UI
+        try {
+            const response = await fetch(`/api/spirit/${spiritId}/settings`);
+            if (response.ok) {
+                const settings = await response.json();
+                // Get spirit data from list
+                const listResponse = await fetch('/api/spirit/list');
+                const listData = await listResponse.json();
+                const spirit = listData.spirits?.find(s => s.id === spiritId);
+                if (spirit) {
+                    spirit.settings = settings;
+                    this.updateSpiritUI(spirit);
+                }
+            }
+        } catch (error) {
+            console.error('Error switching spirit:', error);
+        }
+
+        // Reload conversations for new spirit
+        await this.loadConversations(true);
     }
     
     /**
@@ -598,9 +671,25 @@ export class SpiritChatManager {
                 this.conversations.push(conversation);
 
                 if (loadLastConversation) {
-                    let lastConversationId = localStorage.getItem('config.chat.last_conversation_id') || conversation.id;
-                    this.currentConversationId = lastConversationId;
-                    await this.loadConversation(lastConversationId);
+                    // Only load last conversation if it belongs to current spirit
+                    let lastConversationId = localStorage.getItem('config.chat.last_conversation_id');
+                    let lastConversationSpiritId = localStorage.getItem('config.chat.last_conversation_spirit_id');
+                    
+                    // Check if the last conversation belongs to the current spirit
+                    if (lastConversationId && lastConversationSpiritId === this.currentSpiritId) {
+                        const lastConv = this.conversations.find(c => c.id === lastConversationId);
+                        if (lastConv) {
+                            this.currentConversationId = lastConversationId;
+                            await this.loadConversation(lastConversationId);
+                        }
+                    } else {
+                        this.spiritChatModalTitle.textContent = '';
+                        // toggle only if hidden
+                        let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
+                        if (!open) {
+                            this.toggleToolsAndConversationsPanel();
+                        }
+                    }
                     loadLastConversation = false;
                 }
             });
@@ -672,6 +761,7 @@ export class SpiritChatManager {
             const conversation = await this.apiService.getConversation(conversationId, this.messageLimit, this.currentOffset);
             this.currentConversationId = conversationId;
             localStorage.setItem('config.chat.last_conversation_id', conversationId);
+            localStorage.setItem('config.chat.last_conversation_spirit_id', this.currentSpiritId);
             
             // Store pagination info
             if (conversation.pagination) {

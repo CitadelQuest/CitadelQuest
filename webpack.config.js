@@ -30,6 +30,7 @@ Encore
     .addEntry('language-switcher', './assets/entries/language-switcher.js')
     .addEntry('diary', './assets/entries/diary.js')
     .addEntry('spirit', './assets/entries/spirit.js')
+    .addEntry('spirits', './assets/entries/spirits.js')
     .addEntry('spirit-chat', './assets/entries/spirit-chat.js')
     .addEntry('cq-chat-modal', './assets/entries/cq-chat-modal.js')
     .addEntry('welcome-onboarding', './assets/entries/welcome-onboarding.js')

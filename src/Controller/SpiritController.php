@@ -15,11 +15,16 @@ class SpiritController extends AbstractController
     public function __construct(
         private readonly SpiritService $spiritService
     ) {}
-    
+
     #[Route('', name: 'spirit_index')]
-    #[Route('/{id}', name: 'spirit_show', methods: ['GET'])]
     public function index(): Response
     {
         return $this->render('spirit/index.html.twig');
+    }
+
+    #[Route('/{id}', name: 'spirit_show', methods: ['GET'])]
+    public function show(string $id): Response
+    {
+        return $this->render('spirit/index.html.twig', ['spiritId' => $id]);
     }
 }

@@ -558,7 +558,7 @@ class SpiritConversationService
         }
         
         // Get spirit
-        $spirit = $this->spiritService->getUserSpirit();
+        $spirit = $this->spiritService->getSpirit($conversation->getSpiritId());
         if (!$spirit) {
             throw new \Exception('Spirit not found');
         }
@@ -679,7 +679,7 @@ class SpiritConversationService
         }
         
         // Get spirit
-        $spirit = $this->spiritService->getUserSpirit();
+        $spirit = $this->spiritService->getSpirit($conversation->getSpiritId());
         
         // Execute tools
         $toolResults = $this->executeToolCallsFromArray($toolCalls, $lang);

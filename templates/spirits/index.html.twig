@@ -1,0 +1,86 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Spirits{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="mdi mdi-ghost me-2 text-cyber"></i>
+            {{ 'spirits.title'|trans }}
+        </h1>
+        <a href="#" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#createSpiritModal">
+            <i class="mdi mdi-plus me-2"></i>
+            {{ 'spirits.create'|trans }}
+        </a>
+    </div>
+
+    <div id="spirits-container" class="row">
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-cyber" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Spirit Modal -->
+<div class="modal fade" id="createSpiritModal" tabindex="-1" aria-labelledby="createSpiritModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header border-success">
+                <h5 class="modal-title" id="createSpiritModalLabel">{{ 'spirits.create'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-spirit-form">
+                    <div class="mb-3">
+                        <label for="spirit-name" class="form-label">{{ 'spirits.name'|trans }}</label>
+                        <input type="text" class="form-control" id="spirit-name" required maxlength="100">
+                        <div class="text-muted small ms-2">{{ 'spirits.name_help'|trans }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="spirit-color" class="form-label">{{ 'spirits.color'|trans }}</label>
+                        <input type="color" class="form-control form-control-color" id="spirit-color" value="#95ec86" title="Choose your spirit color">
+                        <div class="text-muted small ms-2">{{ 'spirits.color_help'|trans }}</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'common.cancel'|trans }}</button>
+                <button type="button" class="btn btn-primary" id="create-spirit-btn">{{ 'spirits.create'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Spirit Modal -->
+<div class="modal fade" id="deleteSpiritModal" tabindex="-1" aria-labelledby="deleteSpiritModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger text-white">
+                <div class="modal-title" id="deleteSpiritModalLabel">{{ 'spirits.delete'|trans }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ 'spirits.delete_confirm'|trans }}</p>
+                <ul>
+                    <li>{{ 'spirits.delete_conversations'|trans }}</li>
+                    <li>{{ 'spirits.delete_interactions'|trans }}</li>
+                    <li>{{ 'spirits.delete_settings'|trans }}</li>
+                </ul>
+                <p class="text-danger fw-bold" id="delete-spirit-name"></p>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'common.cancel'|trans }}</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-spirit-btn">{{ 'spirits.delete'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{{ encore_entry_script_tags('spirits') }}
+{% endblock %}

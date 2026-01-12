@@ -23,17 +23,6 @@ function loadCurrentStep() {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Onboarding loaded');
-    // Disable spirit chat during onboarding to prevent errors
-    // The spirit icon in the menu should be inactive during onboarding
-    const spiritChatButton = document.getElementById('spiritChatButton');
-    if (spiritChatButton) {
-        // Disable the button during onboarding
-        spiritChatButton.style.pointerEvents = 'none';
-        spiritChatButton.style.opacity = '0.5';
-        
-        // Prevent the default SpiritChatManager from initializing
-        //spiritChatButton.classList.remove('spirit-chat-trigger'); // ??
-    }
     // Elements
     const apiKeyInput = document.getElementById('apiKey');
     const validateApiKeyBtn = document.getElementById('validateApiKey');
@@ -268,15 +257,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             console.log('Response data:', data);
             if (data.success) {
-                // save spiritId to localStorage 
+                // save spiritId to localStorage
                 localStorage.setItem('spiritId', data.spirit.id);
-                
+
                 // remove onboarding from localStorage
                 localStorage.removeItem('currentStep');
-
-                // enable spiritChatButton
-                spiritChatButton.style.pointerEvents = 'auto';
-                spiritChatButton.style.opacity = '1';
 
                 // Create 'first' spirit_conversation
                 fetch('/api/spirit-conversation/create', {

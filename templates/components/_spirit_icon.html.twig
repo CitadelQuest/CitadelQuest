@@ -1,10 +1,30 @@
 {% if app.user %}
 <div class="spirit-icon-container">
-    <div id="spiritIcon" class="spirit-icon">
-        <a href="#" id="spiritChatButton" data-bs-toggle="modal" data-bs-target="#spiritChatModal" 
-            class="d-flex align-items-center justify-content-center w-100 h-100">
-            <i class="mdi mdi-ghost" id="spiritChatButtonIcon"></i>
-        </a>
+    <div class="dropdown">
+        <div id="spiritIcon" class="spirit-icon dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <a href="#" class="d-flex align-items-center justify-content-center w-100 h-100">
+                <i class="mdi mdi-ghost" id="spiritChatButtonIcon"></i>
+            </a>
+        </div>
+        <ul class="dropdown-menu dropdown-menu-end" id="spirits-dropdown-menu">
+            <li><a class="dropdown-item h6 dropdown-header pb-1" href="{{ path('spirits_index') }}">
+                    <i class="mdi mdi-ghost me-2"></i>{{ 'spirits.title'|trans }}</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li id="spirits-list">
+                <div class="dropdown-item text-center">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </li>
+            {# <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="{{ path('spirits_index') }}">
+                    <i class="mdi mdi-view-list me-2"></i>
+                    {{ 'spirits.manage'|trans }}
+                </a>
+            </li> #}
+        </ul>
     </div>
 </div>
 {% endif %}

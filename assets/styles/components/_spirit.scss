@@ -135,36 +135,6 @@
     }
 }
 
-// Spirit interaction form
-#spirit-interact-form {
-    margin-top: 2rem;
-    padding: 1.5rem;
-    //@include mix.glass-panel;
-    
-    h4 {
-        color: colors.$cyber;
-        margin-bottom: 1rem;
-    }
-    
-    .form-label {
-        color: rgba(colors.$body-color, 0.8);
-    }
-    
-    .form-control, .form-select {
-        background-color: rgba(colors.$dark, 0.5);
-        border-color: rgba(colors.$cyber, 0.5);
-        color: colors.$body-color;
-        
-        &:focus {
-            box-shadow: 0 0 0 0.25rem rgba(colors.$cyber, 0.25);
-        }
-    }
-    
-    .btn-interact {
-        @include mix.cyber-button;
-    }
-}
-
 // Responsive adjustments
 @media (max-width: 768px) {
     .spirit-visual-container {

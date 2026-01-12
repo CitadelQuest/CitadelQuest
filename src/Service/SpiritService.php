@@ -359,4 +359,76 @@ class SpiritService
 
         return $settings;
     }
+
+    /**
+     * Delete a spirit and all related data (cascade delete)
+     * Cannot delete the primary (oldest) spirit
+     */
+    public function deleteSpirit(string $spiritId): void
+    {
+        $db = $this->getUserDb();
+
+        // Get the spirit to delete
+        $spirit = $this->getSpirit($spiritId);
+        if (!$spirit) {
+            throw new \RuntimeException('Spirit not found');
+        }
+
+        // Check if this is the primary spirit (oldest)
+        $primarySpirit = $this->getUserSpirit();
+        if ($primarySpirit && $spirit->getId() === $primarySpirit->getId()) {
+            throw new \RuntimeException('Cannot delete primary spirit');
+        }
+
+        // Start transaction for cascade delete
+        $db->beginTransaction();
+
+        try {
+            // Delete spirit settings
+            $db->executeStatement(
+                'DELETE FROM spirit_settings WHERE spirit_id = ?',
+                [$spiritId]
+            );
+
+            // Delete spirit interactions
+            $db->executeStatement(
+                'DELETE FROM spirit_interactions WHERE spirit_id = ?',
+                [$spiritId]
+            );
+
+            // Delete spirit conversation messages
+            $db->executeStatement(
+                'DELETE FROM spirit_conversation_message WHERE conversation_id IN (SELECT id FROM spirit_conversation WHERE spirit_id = ?)',
+                [$spiritId]
+            );
+
+            // Delete spirit conversations
+            $db->executeStatement(
+                'DELETE FROM spirit_conversation WHERE spirit_id = ?',
+                [$spiritId]
+            );
+
+            // Delete the spirit
+            $db->executeStatement(
+                'DELETE FROM spirits WHERE id = ?',
+                [$spiritId]
+            );
+
+            $db->commit();
+
+            // Send notification
+            $this->notificationService->createNotification(
+                $this->security->getUser(),
+                sprintf('Spirit %s has left', $spirit->getName()),
+                'The spirit and all its conversations have been deleted.',
+                'info'
+            );
+
+            $this->logger->info('Spirit deleted', ['spiritId' => $spiritId, 'spiritName' => $spirit->getName()]);
+        } catch (\Exception $e) {
+            $db->rollBack();
+            $this->logger->error('Failed to delete spirit', ['spiritId' => $spiritId, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
 }
