@@ -34,6 +34,7 @@ class SpiritApiController extends AbstractController
 
             $spiritData = $spirit->jsonSerialize();
             $spiritData['settings'] = $settings;
+            $spiritData['progression'] = $this->spiritService->getLevelProgression($spirit->getId());
 
             return $this->json($spiritData);
         } catch (\Exception $e) {

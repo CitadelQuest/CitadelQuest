@@ -297,41 +297,38 @@ export class SpiritManager {
      */
     updateSpiritDisplay() {
         if (!this.spirit) return;
-        
+
+        const progression = this.spirit.progression || {};
         const settings = this.spirit.settings || {};
-        const level = parseInt(settings.level) || 1;
-        const experience = parseInt(settings.experience) || 0;
-        
+
         // Update basic info
         if (this.nameDisplay) {
             this.nameDisplay.textContent = this.spirit.name;
         }
-        
+
         if (this.levelDisplay) {
-            this.levelDisplay.textContent = level;
+            this.levelDisplay.textContent = progression.level;
         }
 
         // Update experience bar
-        if (this.experienceBar) {
-            const nextLevelExp = level * 100;
-            const percentage = (experience / nextLevelExp) * 100;
-            this.experienceBar.style.width = `${percentage}%`;
-            this.experienceBar.setAttribute('aria-valuenow', percentage);
+        if (this.experienceBar && progression.percentage !== undefined) {
+            this.experienceBar.style.width = `${progression.percentage}%`;
+            this.experienceBar.setAttribute('aria-valuenow', progression.percentage);
         }
-        
+
         if (this.experienceDisplay) {
-            this.experienceDisplay.textContent = experience;
+            this.experienceDisplay.textContent = progression.experience;
         }
-        
+
         if (this.nextLevelDisplay) {
-            this.nextLevelDisplay.textContent = level * 100;
+            this.nextLevelDisplay.textContent = progression.nextLevelThreshold;
         }
-        
+
         // Update system prompt and AI model fields
         if (this.systemPromptInput) {
             this.systemPromptInput.value = settings.systemPrompt || '';
         }
-        
+
         if (this.aiModelSelect) {
             // Set the selected option based on the spirit's AI model
             const aiModel = settings.aiModel || '';
@@ -427,17 +424,17 @@ export class SpiritManager {
             const formattedDate = date.toLocaleString();
             
             const header = document.createElement('div');
-            header.className = 'd-flex justify-content-between';
-            
-            const typeSpan = document.createElement('span');
-            typeSpan.className = 'fw-bold';
-            typeSpan.textContent = interaction.interactionType;
-            header.appendChild(typeSpan);
+            header.className = 'd-flex flex-column justify-content-between';
             
             const dateSpan = document.createElement('small');
             dateSpan.className = 'text-muted';
             dateSpan.textContent = formattedDate;
             header.appendChild(dateSpan);
+            
+            const typeSpan = document.createElement('span');
+            typeSpan.className = '';
+            typeSpan.textContent = interaction.interactionType;
+            header.appendChild(typeSpan);
             
             item.appendChild(header);
             
@@ -449,7 +446,7 @@ export class SpiritManager {
             }
             
             const expGained = document.createElement('small');
-            expGained.className = 'text-success';
+            expGained.className = 'text-success fw-bold';
             expGained.textContent = `+${interaction.experienceGained} XP`;
             item.appendChild(expGained);
             

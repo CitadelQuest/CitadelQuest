@@ -639,6 +639,9 @@ class SpiritConversationService
         // Update conversation last_interaction
         $conversation->setLastInteraction(new \DateTime());
         $this->updateConversation($conversation);
+
+        // Update spirit experience
+        $this->spiritService->logInteraction($spirit->getId(), 'conversation', 1);
         
         // Extract tool calls if present
         $toolCalls = $this->extractToolCalls($aiServiceResponse);
@@ -765,7 +768,16 @@ class SpiritConversationService
         $this->updateConversation($conversation);
         
         // Update spirit experience
-        $this->spiritService->logInteraction($spirit->getId(), 'conversation', 1);
+        if ($toolCalls !== null) {
+            $toolCalls_function_names = array_map(function ($toolCall) {
+                if (isset($toolCall['function']) && isset($toolCall['function']['name'])) {
+                    return $toolCall['function']['name'];
+                }
+                return 'Unknown';
+            }, $toolCalls);
+            $this->spiritService->logInteraction($spirit->getId(), 'tool use: ' . implode(', ', $toolCalls_function_names), 2);
+            $this->logger->info('Tool calls: ' . json_encode($toolCalls));
+        }
         
         // Extract tool calls if present
         $newToolCalls = $this->extractToolCalls($aiServiceResponse);

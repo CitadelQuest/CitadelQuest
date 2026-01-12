@@ -9,13 +9,15 @@ use App\Entity\User;
 use PDO;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
+use Psr\Log\LoggerInterface;
 
 class SpiritService
 {
     public function __construct(
         private UserDatabaseManager $userDatabaseManager,
         private Security $security,
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private LoggerInterface $logger
     ) {}
     
     /**
@@ -266,6 +268,24 @@ class SpiritService
     private function calculateNextLevelThreshold(int $currentLevel): int
     {
         return (int)(100 * pow(1.5, $currentLevel - 1));
+    }
+
+    /**
+     * Get level progression data for a spirit
+     */
+    public function getLevelProgression(string $spiritId): array
+    {
+        $level = (int)$this->getSpiritSetting($spiritId, 'level', '1');
+        $experience = (int)$this->getSpiritSetting($spiritId, 'experience', '0');
+        $nextLevelThreshold = $this->calculateNextLevelThreshold($level);
+        $percentage = $nextLevelThreshold > 0 ? ($experience / $nextLevelThreshold) * 100 : 100;
+
+        return [
+            'level' => $level,
+            'experience' => $experience,
+            'nextLevelThreshold' => $nextLevelThreshold,
+            'percentage' => min(100, $percentage)
+        ];
     }
 
     /**
