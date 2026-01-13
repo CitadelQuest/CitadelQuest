@@ -143,6 +143,16 @@ spirit:
         connecting: 'Připojuji se k vašemu Duchovi...'
         loading_interactions: 'Načítám interakce...'
         loading_conversations: 'Načítám konverzace...'
+    settings:
+        title: 'Nastavení'
+        ai_model: 'AI Model'
+        use_primary_model: 'Použít primární AI Model'
+        system_prompt: 'Systémový prompt'
+        system_prompt_placeholder: 'Definujte, jak se má váš Duch chovat a jaké znalosti by měl mít...'
+        system_prompt_help: "Definujte charakter, osobnost a oblasti expertízy vašeho Ducha."
+        price_hint: 'název modelu [kontextové okno] (cena vstupu / cena výstupu) v Kreditech za milion tokenů'
+        saved: 'Nastavení Ducha úspěšně uloženo'
+        save_error: 'Nepodařilo se uložit nastavení Ducha'
     spirits_list:
         title: 'Duchové'
         description: 'Spravujte své AI Duchy'

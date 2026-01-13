@@ -54,17 +54,6 @@ class SpiritConversationApiController extends AbstractController
                 return $this->json(['error' => 'Missing required parameters'], 400);
             }
             
-            // Get the user's spirit
-            /* $spirit = $this->spiritService->getUserSpirit();
-            if (!$spirit) {
-                return $this->json(['error' => 'Spirit not found'], 404);
-            }
-            
-            // Verify it's the requested spirit
-            if ($spirit->getId() !== $data['spiritId']) {
-                return $this->json(['error' => 'Spirit not found'], 404);
-            } */
-            
             // Create conversation
             $conversation = $this->conversationService->createConversation(
                 $data['spiritId'],

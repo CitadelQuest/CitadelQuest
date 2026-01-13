@@ -8,6 +8,9 @@ export class UpdatesService {
         this.lastUpdateTimestamp = null;
         this.pollingInterval = null;
         this.listeners = new Map();
+        this.isPaused = false;
+        this.pausedInterval = null; // Store interval value when paused
+        this.pausedGetCurrentChatId = null; // Store getCurrentChatId function when paused
     }
 
     /**
@@ -64,6 +67,10 @@ export class UpdatesService {
             return;
         }
 
+        // Store interval and getCurrentChatId for pause/resume
+        this.pausedInterval = interval;
+        this.pausedGetCurrentChatId = getCurrentChatId;
+
         console.log('🔄 Starting unified updates polling...');
         
         // Poll immediately on start (don't wait for first interval)
@@ -93,7 +100,51 @@ export class UpdatesService {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
+            this.isPaused = false;
+            this.pausedInterval = null;
+            this.pausedGetCurrentChatId = null;
             console.log('⏸️ Stopped unified updates polling');
+        }
+    }
+
+    /**
+     * Pause polling temporarily (can be resumed)
+     */
+    pause() {
+        if (this.pollingInterval && !this.isPaused) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+            this.isPaused = true;
+            console.log('⏸️ Paused updates polling');
+        }
+    }
+
+    /**
+     * Resume polling after pause
+     */
+    resume() {
+        if (this.isPaused && this.pausedInterval) {
+            this.isPaused = false;
+            console.log('▶️ Resuming updates polling...');
+            
+            // Restart polling with stored parameters
+            const pollFunction = async () => {
+                try {
+                    const openChatId = this.pausedGetCurrentChatId ? this.pausedGetCurrentChatId() : null;
+                    const updates = await this.getUpdates(openChatId);
+                    
+                    // Notify all listeners
+                    this.notifyListeners(updates);
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            };
+            
+            // Execute immediately
+            pollFunction();
+            
+            // Then set up interval
+            this.pollingInterval = setInterval(pollFunction, this.pausedInterval);
         }
     }
 

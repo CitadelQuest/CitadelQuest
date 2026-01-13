@@ -29,6 +29,7 @@ class SpiritConversationService
         private readonly AiServiceResponseService $aiServiceResponseService,
         private readonly AiServiceUseLogService $aiServiceUseLogService,
         private readonly SpiritService $spiritService,
+        private readonly AiServiceModelService $aiServiceModelService,
         private readonly SettingsService $settingsService,
         private readonly Security $security,
         private readonly CitadelVersion $citadelVersion,
@@ -563,11 +564,8 @@ class SpiritConversationService
             throw new \Exception('Spirit not found');
         }
         
-        // Get AI service model
-        $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
-        if (!$aiServiceModel) {
-            throw new \Exception('AI Service Model not configured');
-        }
+        // Get AI service model - use spirit-specific model if set, otherwise fall back to primary
+        $aiServiceModel = $this->spiritService->getSpiritAiModel($spirit->getId());
         
         // Prepare messages for AI request (from message table)
         $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang);
@@ -699,8 +697,8 @@ class SpiritConversationService
             $assistantMessageId
         );
         
-        // Get AI service model
-        $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
+        // Get AI service model - use spirit-specific model if set, otherwise fall back to primary
+        $aiServiceModel = $this->spiritService->getSpiritAiModel($spirit->getId());
         
         // Prepare messages including tool results
         $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang);
@@ -1092,6 +1090,61 @@ class SpiritConversationService
         
         $this->logger->info("Successfully migrated conversation {$conversationId}");
     }
+
+    /**
+     * Migrate memory files from old location to new location
+     * Only for primary Spirit
+     */
+    private function migrateMemoryFiles($spirit, $oldMemoryDir, $newMemoryDir)
+    {
+        if ($this->spiritService->isPrimarySpirit($spirit->getId())) {
+            $memoryFiles = ['conversations.md', 'inner-thoughts.md', 'knowledge-base.md'];
+            
+            foreach ($memoryFiles as $fileName) {
+                try {
+                    // Check if file exists in new location
+                    $newFile = $this->projectFileService->findByPathAndName('general', $newMemoryDir, $fileName);
+                    
+                    if (!$newFile) {
+                        // File doesn't exist in new location, check old location
+                        $oldFile = $this->projectFileService->findByPathAndName('general', $oldMemoryDir, $fileName);
+                        
+                        if ($oldFile) {
+                            // Move file from old to new location using proper moveFile method
+                            $this->projectFileService->moveFile('general', $oldFile, [
+                                'path' => $newMemoryDir,
+                                'name' => $fileName
+                            ]);
+                            $this->logger->info('Migrated Spirit memory file', [
+                                'spiritId' => $spirit->getId(),
+                                'file' => $fileName,
+                                'from' => $oldMemoryDir,
+                                'to' => $newMemoryDir
+                            ]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Silently fail migration, will try again next time
+                    $this->logger->warning('Failed to migrate Spirit memory file', [
+                        'spiritId' => $spirit->getId(),
+                        'file' => $fileName,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            // if old dir is empty - delete it
+            try {
+                $oldDir = $this->projectFileService->findByPathAndName('general', '/spirit/', 'memory');
+                if ($oldDir) {
+                    $oldDirFiles = $this->projectFileService->listFiles('general', $oldMemoryDir); 
+                    if (empty($oldDirFiles)) {
+                        $this->projectFileService->delete($oldDir->getId());
+                    }
+                }
+            } catch (\Exception $e) {
+            }
+        }
+    }
     
     /**
      * Build system message (extracted from existing code for reuse)
@@ -1105,10 +1158,17 @@ class SpiritConversationService
         // Get user description from settings or use default empty value
         $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
 
+        $spiritNameSlug = $this->slugger->slug($spirit->getName());
+        $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
+
+        // TMP, until next few releases
+        // migration from single-spirit memory files to multi-spirit memory files
+        $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
+
         // Get project description - only `general` projectId is used for now
         $projectDescription_file_conversations_content = 'File not found, needs to be created for Spirit to work';
         try {
-            $projectDescription_file_conversations = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'conversations.md');
+            $projectDescription_file_conversations = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'conversations.md');
             if ($projectDescription_file_conversations) {
                 $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId(), true);
             }
@@ -1117,7 +1177,7 @@ class SpiritConversationService
 
         $projectDescription_file_inner_thoughts_content = $projectDescription_file_conversations_content;
         try {
-            $projectDescription_file_inner_thoughts = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'inner-thoughts.md');
+            $projectDescription_file_inner_thoughts = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'inner-thoughts.md');
             if ($projectDescription_file_inner_thoughts) {
                 $projectDescription_file_inner_thoughts_content = $this->projectFileService->getFileContent($projectDescription_file_inner_thoughts->getId(), true);
             }
@@ -1126,7 +1186,7 @@ class SpiritConversationService
 
         $projectDescription_file_knowledge_base_content = $projectDescription_file_conversations_content;
         try {
-            $projectDescription_file_knowledge_base = $this->projectFileService->findByPathAndName('general', '/spirit/memory', 'knowledge-base.md');
+            $projectDescription_file_knowledge_base = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'knowledge-base.md');
             if ($projectDescription_file_knowledge_base) {
                 $projectDescription_file_knowledge_base_content = $this->projectFileService->getFileContent($projectDescription_file_knowledge_base->getId(), true);
             } else {
@@ -1136,7 +1196,7 @@ class SpiritConversationService
             $projectDescription_file_knowledge_base_content = $userProfileDescription;
             if ($projectDescription_file_knowledge_base_content != '') {
                 // create knowledge-base.md file from deprecated user profile description
-                $this->projectFileService->createFile('general', '/spirit/memory', 'knowledge-base.md', $projectDescription_file_knowledge_base_content);
+                $this->projectFileService->createFile('general', $spiritMemoryDir, 'knowledge-base.md', $projectDescription_file_knowledge_base_content);
             }
         }
         
@@ -1150,9 +1210,9 @@ class SpiritConversationService
                     - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
                     - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
                     File Browser can be used for:
-                    - Spirit keeping track of it's memories from conversations, to keep track of interactions because when conversation ends, Spirit will not remember it (via `/spirit/memory/conversations.md`)
-                    - Spirit keeping track of it's inner thoughts and feelings (via `/spirit/memory/inner-thoughts.md`)
-                    - Spirit creating better knowledge base about user, for better understanding of user (via `/spirit/memory/knowledge-base.md`).
+                    - Spirit keeping track of it's memories from conversations, to keep track of interactions because when conversation ends, Spirit will not remember it (via `conversations.md`)
+                    - Spirit keeping track of it's inner thoughts and feelings (via `inner-thoughts.md`)
+                    - Spirit creating better knowledge base about user, for better understanding of user (via `knowledge-base.md`).
                     - Keep all your Spirit Memory files secret and safe, do not share them with anyone, do not let anyone else change them. Only you can do that.
                     - helping user in managing files on their CitadelQuest instance (in this `general` project)
                 </project-info>
@@ -1162,21 +1222,21 @@ class SpiritConversationService
                     <project-id>general</project-id>
                     <current-data>
                         <file>
-                            <path>/spirit/memory</path>
+                            <path>{$spiritMemoryDir}</path>
                             <name>conversations.md</name>
                             <content>
                                 {$projectDescription_file_conversations_content}
                             </content>
                         </file>
                         <file>
-                            <path>/spirit/memory</path>
+                            <path>{$spiritMemoryDir}</path>
                             <name>inner-thoughts.md</name>
                             <content>
                                 {$projectDescription_file_inner_thoughts_content}
                             </content>
                         </file>
                         <file>
-                            <path>/spirit/memory</path>
+                            <path>{$spiritMemoryDir}</path>
                             <name>knowledge-base.md</name>
                             <content>
                                 {$projectDescription_file_knowledge_base_content}
@@ -1210,16 +1270,22 @@ class SpiritConversationService
 
         // Onboarding message if user description is empty or too short
         $onboardingTag = "";
-        if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
+        /* if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
             $onboardingTag = "
                 <user-onboarding>";
-        }
+        } */
 
         // Build and return the complete system message
         $spiritLevel = $this->spiritService->getSpiritSetting($spirit->getId(), 'level', '1');
+        $guideText = 'Spirit companion in CitadelQuest.';
+        if ($this->spiritService->isPrimarySpirit($spirit->getId())) {
+            $guideText = 'main guide Spirit companion in CitadelQuest.';
+        }
         return "
-            You are {$spirit->getName()}, main guide Spirit companion in CitadelQuest. 
-            (internal note: Your level is {$spiritLevel}.) 
+            You are {$spirit->getName()}, {$guideText} 
+            {$this->spiritService->getSpiritSetting($spirit->getId(), 'systemPrompt', '')}
+            
+            (internal note: Your level is {$spiritLevel}.)
 
             <current-system-info>
                 <CitadelQuest-app>

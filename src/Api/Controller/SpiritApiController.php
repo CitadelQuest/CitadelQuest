@@ -47,7 +47,6 @@ class SpiritApiController extends AbstractController
     {
         try {
             $spirits = $this->spiritService->findAll();
-            $primarySpirit = $this->spiritService->getUserSpirit();
 
             $spiritsData = [];
             foreach ($spirits as $spirit) {
@@ -57,7 +56,7 @@ class SpiritApiController extends AbstractController
                 $spiritData = $spirit->jsonSerialize();
                 $spiritData['settings'] = $settings;
                 $spiritData['progression'] = $progression;
-                $spiritData['isPrimary'] = $primarySpirit && $spirit->getId() === $primarySpirit->getId();
+                $spiritData['isPrimary'] = $this->spiritService->isPrimarySpirit($spirit->getId());
 
                 $spiritsData[] = $spiritData;
             }

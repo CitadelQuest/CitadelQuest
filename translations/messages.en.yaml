@@ -143,6 +143,16 @@ spirit:
         connecting: 'Connecting with your Spirit...'
         loading_interactions: 'Loading interactions...'
         loading_conversations: 'Loading conversations...'
+    settings:
+        title: 'Settings'
+        ai_model: 'AI Model'
+        use_primary_model: 'Use Primary AI Model'
+        system_prompt: 'System Prompt'
+        system_prompt_placeholder: 'Define how your Spirit should behave and what knowledge it should have...'
+        system_prompt_help: "Define your Spirit's character, personality, and areas of expertise."
+        price_hint: 'model name [context window] (input price / output price) in Credits per million tokens'
+        saved: 'Spirit settings saved successfully'
+        save_error: 'Failed to save spirit settings'
     spirits_list:
         title: 'Spirits'
         description: 'Manage your AI Spirit companions'

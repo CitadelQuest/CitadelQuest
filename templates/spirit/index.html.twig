@@ -54,26 +54,33 @@
                                 </div>
                                 <span>{{ 'spirit.detail.loading_interactions'|trans }}</span>
                             </div>
-                            
-                            {# <div class="mt-4">
-                                <div class="form-group mb-3">
-                                    <label for="spirit-ai-model" class="form-label">AI Model</label>
-                                    <select id="spirit-ai-model" class="form-select">
-                                        <option value="anthropic/claude-3-7-sonnet-latest">Claude 3.7 Sonnet</option>
-                                        <option value="anthropic/claude-3-5-haiku-latest">Claude 3.5 Haiku</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="spirit-system-prompt" class="form-label">System Prompt</label>
-                                    <textarea id="spirit-system-prompt" class="form-control" rows="6" placeholder="Define your Spirit's character and abilities..."></textarea>
-                                    <div class="form-text text-muted p-2">Define how your Spirit should behave and what knowledge it should have.</div>
-                                </div>
-                                <div class="text-center mt-2">
-                                    <button id="update-spirit-settings" class="btn btn-sm btn-cyber"><i class="mdi mdi-check me-1"></i>Save Settings</button>
-                                </div>
-                            </div> #}
                         </div>
                         <div class="col-md-7">
+                            <h4>{{ 'spirit.settings.title'|trans|default('Settings') }}</h4>
+                            <div class="mb-4">
+                                <div class="form-group mb-3">
+                                    <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
+                                    <select id="spirit-ai-model" class="form-select" onchange="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;">
+                                        <option value="">{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}</option>
+                                        {% for model in aiModels %}
+                                            <option value="{{ model.id }}" data-slug="{{ model.modelSlug }}" {% if spirit.settings.aiModel is defined and spirit.settings.aiModel == model.id %}selected{% endif %}>
+                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text text-muted ms-2">{{ 'spirit.settings.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
+                                    <textarea id="spirit-system-prompt" class="form-control" rows="6" 
+                                        placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}" 
+                                        oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
+                                    <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>
+                                </div>
+                                <div class="text-end me-2 mt-2">
+                                    <button id="update-spirit-settings" class="btn btn-sm btn-cyber" disabled><i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}</button>
+                                </div>
+                            </div>
                             <h4 class="mt-5">{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
                             <div id="conversations-list">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">

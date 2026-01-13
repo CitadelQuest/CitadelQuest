@@ -1,4 +1,5 @@
 import { SpiritChatApiService } from './SpiritChatApiService';
+import { updatesService } from '../../services/UpdatesService';
 import * as bootstrap from 'bootstrap';
 //import { marked } from 'marked';
 import MarkdownIt from 'markdown-it';
@@ -13,6 +14,7 @@ export class SpiritChatManager {
     constructor() {
         this.apiService = new SpiritChatApiService();
         this.currentSpiritId = null;
+        this.currentSpirit = null; // Store current spirit data to avoid re-fetching
         this.currentConversationId = null;
         this.deleteConversationId = null;
         this.isLoadingMessages = false;
@@ -446,6 +448,9 @@ export class SpiritChatManager {
     }
 
     async updateSpiritUI(spirit) {
+        // Store spirit data for reuse
+        this.currentSpirit = spirit;
+        
         // Update UI with spirit info
         if (this.spiritNames && this.spiritNames.length > 0) {
             this.spiritNames.forEach(name => name.textContent = spirit.name);
@@ -461,7 +466,11 @@ export class SpiritChatManager {
         if (this.responseMaxOutputSlider) {
             let maxOutput = '4096';
             try {
-                let response = await fetch('/api/ai/gateway/primary-model', {
+                // Check if spirit has a specific AI model configured
+                let modelId = spirit.settings?.aiModel;
+                let apiUrl = modelId ? `/api/ai/gateway/model/${modelId}` : '/api/ai/gateway/primary-model';
+                
+                let response = await fetch(apiUrl, {
                     method: 'GET'
                 });
                 let data = await response.json();
@@ -472,7 +481,7 @@ export class SpiritChatManager {
                     this.primaryModelContextWindow = data.contextWindow || null;
                 }
             } catch (error) {
-                console.error('Error fetching primary model:', error);
+                console.error('Error fetching AI model:', error);
             }
 
             this.responseMaxOutputSlider.max = maxOutput;
@@ -1712,6 +1721,9 @@ export class SpiritChatManager {
         // reset message input height
         this.messageInput.dispatchEvent(new Event('input'));
         
+        // Pause updates polling during AI response processing
+        updatesService.pause();
+        
         try {
             // Add user message to UI immediately
             this.addUserMessageToUI(messageContent);
@@ -1747,9 +1759,6 @@ export class SpiritChatManager {
             
             // Update conversation list to reflect changes
             this.loadConversations();
-
-            // update credit indicator
-            this.updateCreditIndicator();
             
             // Trigger async database vacuum (user is now reading the response)
             // disabled - it's blocking async tool use
@@ -1764,6 +1773,12 @@ export class SpiritChatManager {
             window.toast.error(error.message || 'Failed to send message');
 
             this.sendMessageBtn.disabled = false;
+        } finally {
+            // Update credit indicator once at the end (after all tool executions)
+            this.updateCreditIndicator();
+            
+            // Resume updates polling after AI response is complete
+            updatesService.resume();
         }
         this.sendMessageBtn.disabled = false;
     }
@@ -1785,10 +1800,15 @@ export class SpiritChatManager {
                 return;
             }
             
-            // Get current primary model to know which is selected
-            const primaryResponse = await fetch('/api/ai/gateway/primary-model');
-            const primaryData = await primaryResponse.json();
-            const currentPrimaryId = primaryData.id || null;
+            // Get current Spirit's AI model from cached data (no extra fetch needed!)
+            let currentPrimaryId = this.currentSpirit?.settings?.aiModel || null;
+            
+            // If Spirit doesn't have a model set, fall back to global primary model
+            if (!currentPrimaryId) {
+                const primaryResponse = await fetch('/api/ai/gateway/primary-model');
+                const primaryData = await primaryResponse.json();
+                currentPrimaryId = primaryData.id || null;
+            }
             
             // Get current secondary model from settings
             const settingsResponse = await fetch('/api/settings/ai.secondary_ai_service_model_id');
@@ -1833,12 +1853,15 @@ export class SpiritChatManager {
         const title = this.conversationTitle.value.trim();
         
         try {
-            // Save selected AI models if changed
+            // Save selected AI model to current Spirit's settings
             if (this.newConvPrimaryModel && this.newConvPrimaryModel.value) {
-                await fetch('/api/ai/gateway/primary-model', {
-                    method: 'PUT',
+                await fetch(`/api/spirit/${this.currentSpiritId}/settings`, {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: this.newConvPrimaryModel.value })
+                    body: JSON.stringify({ 
+                        key: 'aiModel',
+                        value: this.newConvPrimaryModel.value 
+                    })
                 });
             }
             
@@ -2235,9 +2258,6 @@ export class SpiritChatManager {
                     this.lastMessageUsage = response.message.usage;
                     this.updateContextWindowUsage(response.message.usage.totalTokens);
                 }
-                
-                // Update credit indicator
-                this.updateCreditIndicator();
                 
                 // Check if more tools needed
                 if (!response.requiresToolExecution) {

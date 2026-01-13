@@ -89,7 +89,7 @@ class AIToolDiffusionService
                 $aiServiceModel->getId(),
                 $messages,
                 null,
-                0.7, // Some creativity for prompt generation
+                0.5,
                 null,
                 []
             );

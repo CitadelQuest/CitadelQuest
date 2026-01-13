@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\AiGatewayService;
+use App\Service\AiServiceModelService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,7 +16,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AiGatewayApiController extends AbstractController
 {
     public function __construct(
-        private readonly AiGatewayService $aiGatewayService
+        private readonly AiGatewayService $aiGatewayService,
+        private readonly AiServiceModelService $aiServiceModelService
     ) {
     }
 
@@ -78,6 +80,22 @@ class AiGatewayApiController extends AbstractController
             $model = $this->aiGatewayService->setPrimaryAiServiceModel(
                 $data['id']
             );
+        
+            if (!$model) {
+                return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);
+            }
+        
+            return $this->json($model, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/model/{id}', name: 'app_api_ai_gateway_model_get', methods: ['GET'])]
+    public function getModel(string $id): JsonResponse
+    {
+        try {
+            $model = $this->aiServiceModelService->findById($id);
         
             if (!$model) {
                 return $this->json(['error' => 'Model not found'], Response::HTTP_NOT_FOUND);

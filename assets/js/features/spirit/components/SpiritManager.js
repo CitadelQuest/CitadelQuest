@@ -248,6 +248,11 @@ export class SpiritManager {
                 }
             }
         }
+
+        // Disable save button after loading
+        if (this.updateSettingsBtn) {
+            this.updateSettingsBtn.disabled = true;
+        }
     }
     
     /**

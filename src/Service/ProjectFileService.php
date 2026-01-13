@@ -1071,7 +1071,7 @@ class ProjectFileService
     /**
      * Copy a file to destination using existing robust methods
      */
-    private function copyFile(string $projectId, ProjectFile $sourceFile, array $destination): array
+    public function copyFile(string $projectId, ProjectFile $sourceFile, array $destination): array
     {
         // Get source file content using existing method
         $sourceContent = $this->getFileContent($sourceFile->getId());
@@ -1095,7 +1095,7 @@ class ProjectFileService
     /**
      * Copy a directory to destination (recursive) using existing robust methods
      */
-    private function copyDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
+    public function copyDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
     {
         // Use existing robust createDirectory method
         $newDir = $this->createDirectory(
@@ -1145,7 +1145,7 @@ class ProjectFileService
     /**
      * Move/rename a file using existing robust database patterns
      */
-    private function moveFile(string $projectId, ProjectFile $sourceFile, array $destination): array
+    public function moveFile(string $projectId, ProjectFile $sourceFile, array $destination): array
     {
         $userDb = $this->getUserDb();
         
@@ -1213,7 +1213,7 @@ class ProjectFileService
     /**
      * Move/rename a directory (recursive) using existing robust database patterns
      */
-    private function moveDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
+    public function moveDirectory(string $projectId, ProjectFile $sourceDir, array $destination): array
     {
         $userDb = $this->getUserDb();
         
@@ -1531,7 +1531,7 @@ class ProjectFileService
     /**
      * Get thumbnail path for a file
      */
-    private function getThumbnailPath(string $originalPath): string
+    public function getThumbnailPath(string $originalPath): string
     {
         return $originalPath . self::THUMBNAIL_SUFFIX;
     }
@@ -1539,7 +1539,7 @@ class ProjectFileService
     /**
      * Check if GD library is available
      */
-    private function isGdAvailable(): bool
+    public function isGdAvailable(): bool
     {
         return extension_loaded('gd') && function_exists('imagecreatefromjpeg');
     }

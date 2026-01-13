@@ -6,6 +6,7 @@ use App\Entity\Spirit;
 use App\Entity\SpiritInteraction;
 use App\Entity\SpiritSettings;
 use App\Entity\User;
+use App\Entity\AiServiceModel;
 use PDO;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
@@ -17,6 +18,8 @@ class SpiritService
         private UserDatabaseManager $userDatabaseManager,
         private Security $security,
         private NotificationService $notificationService,
+        private AiServiceModelService $aiServiceModelService,
+        private AiGatewayService $aiGatewayService,
         private LoggerInterface $logger
     ) {}
     
@@ -157,6 +160,35 @@ class SpiritService
         }
 
         $this->setSpiritSetting($spiritId, 'aiModel', $modelId);
+    }
+    
+    /**
+     * Get a spirit's AI model
+     * Returns spirit-specific model if set, otherwise falls back to primary AI model
+     * 
+     * @param string $spiritId The ID of the spirit
+     * @return AiServiceModel|null The AI model to use for this spirit
+     * @throws \Exception If no model is configured
+     */
+    public function getSpiritAiModel(string $spiritId): ?AiServiceModel
+    {
+        // Try to get spirit-specific AI model
+        $spiritAiModelId = $this->getSpiritSetting($spiritId, 'aiModel');
+        if ($spiritAiModelId) {
+            $aiServiceModel = $this->aiServiceModelService->findById($spiritAiModelId);
+            if ($aiServiceModel) {
+                return $aiServiceModel;
+            }
+        }
+        
+        // Fall back to primary AI model
+        $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
+        
+        if (!$aiServiceModel) {
+            throw new \Exception('AI Service Model not configured');
+        }
+        
+        return $aiServiceModel;
     }
     
     /**
@@ -375,8 +407,7 @@ class SpiritService
         }
 
         // Check if this is the primary spirit (oldest)
-        $primarySpirit = $this->getUserSpirit();
-        if ($primarySpirit && $spirit->getId() === $primarySpirit->getId()) {
+        if ($this->isPrimarySpirit($spiritId)) {
             throw new \RuntimeException('Cannot delete primary spirit');
         }
 
@@ -430,5 +461,14 @@ class SpiritService
             $this->logger->error('Failed to delete spirit', ['spiritId' => $spiritId, 'error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    /**
+     * Check if a spirit is the primary (oldest) spirit
+     */
+    public function isPrimarySpirit(string $spiritId): bool
+    {
+        $primarySpirit = $this->getUserSpirit();
+        return $primarySpirit && $primarySpirit->getId() === $spiritId;
     }
 }
