@@ -1365,9 +1365,6 @@ class SpiritConversationService
             $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
         }
         
-        // Get user description from settings or use default empty value
-        $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
-        
         $defaultContent = 'File not found, needs to be created for Spirit to work';
         
         $files = [
@@ -1421,17 +1418,6 @@ class SpiritConversationService
                 throw new \Exception('Knowledge base file not found');
             }
         } catch (\Exception $e) {
-            // Fallback to user profile description
-            if ($userProfileDescription != '') {
-                $files['knowledge-base'] = [
-                    'content' => $userProfileDescription,
-                    'size' => strlen($userProfileDescription),
-                    'tokens' => (int) ceil(strlen($userProfileDescription) / 4),
-                    'exists' => false
-                ];
-                // create knowledge-base.md file from deprecated user profile description
-                $this->projectFileService->createFile('general', $spiritMemoryDir, 'knowledge-base.md', $userProfileDescription);
-            }
         }
         
         return $files;
