@@ -3,19 +3,22 @@
 namespace App\Api\Controller;
 
 use App\Service\SpiritService;
+use App\Service\SpiritConversationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/api/spirit')]
 #[IsGranted('ROLE_USER')]
 class SpiritApiController extends AbstractController
 {
     public function __construct(
-        private readonly SpiritService $spiritService
+        private readonly SpiritService $spiritService,
+        private readonly SpiritConversationService $spiritConversationService
     ) {
     }
 
@@ -209,6 +212,66 @@ class SpiritApiController extends AbstractController
             return $this->json(['success' => true, 'message' => 'Spirit deleted successfully']);
         } catch (\RuntimeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Get Spirit system prompt preview for the System Prompt Builder
+     * Returns the complete system prompt structure with current config
+     */
+    #[Route('/{id}/system-prompt-preview', name: 'api_spirit_system_prompt_preview', methods: ['GET'])]
+    public function getSystemPromptPreview(string $id, Request $request, TranslatorInterface $translator): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            // Get language from request or default to English
+            // Get locale for language
+            $locale = $request->getSession()->get('_locale') ?? 
+                      $request->getSession()->get('citadel_locale') ?? 'en';
+            $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+
+            // Get the system prompt preview data
+            $previewData = $this->spiritConversationService->getSystemPromptPreview($spirit, $lang);
+            
+            return $this->json($previewData);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Update Spirit system prompt configuration
+     * Updates which optional sections are included in the system prompt
+     */
+    #[Route('/{id}/system-prompt-config', name: 'api_spirit_system_prompt_config', methods: ['PUT'])]
+    public function updateSystemPromptConfig(string $id, Request $request): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], Response::HTTP_NOT_FOUND);
+            }
+            
+            $data = json_decode($request->getContent(), true);
+            
+            // Update the prompt configuration
+            $this->spiritConversationService->updatePromptConfig($id, $data);
+            
+            // Return the updated config
+            $config = $this->spiritConversationService->getPromptConfig($id);
+            
+            return $this->json([
+                'success' => true,
+                'config' => $config
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

@@ -1,4 +1,5 @@
 import { SpiritManager } from '../js/features/spirit/components/SpiritManager.js';
+import { SpiritPromptBuilder } from '../js/features/spirit/components/SpiritPromptBuilder.js';
 
 // Initialize spirit manager when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the spirit manager if the spirit container exists
     if (document.querySelector('#spirit-container')) {
-        new SpiritManager({
+        const spiritManager = new SpiritManager({
             spiritId: spiritId,
             translations: translations,
             apiEndpoints: {
@@ -32,5 +33,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 conversations: '/api/spirit-conversation/list/{id}'
             }
         });
+        
+        // Initialize the System Prompt Builder
+        const promptBuilder = new SpiritPromptBuilder({
+            spiritId: spiritId,
+            translations: translations,
+            apiEndpoints: {
+                preview: '/api/spirit/{id}/system-prompt-preview',
+                config: '/api/spirit/{id}/system-prompt-config'
+            }
+        });
+        
+        // Add event listener for the "Advanced Prompt Builder" button
+        const openPromptBuilderBtn = document.getElementById('open-prompt-builder');
+        if (openPromptBuilderBtn) {
+            openPromptBuilderBtn.addEventListener('click', () => {
+                // Get current spirit ID from the manager if available
+                const currentSpiritId = spiritManager.spirit?.id || spiritId;
+                if (currentSpiritId) {
+                    promptBuilder.open(currentSpiritId);
+                } else {
+                    console.warn('No Spirit ID available to open Prompt Builder');
+                    if (window.toast) {
+                        window.toast.error(translations['error.loading_spirit'] || 'No Spirit found');
+                    }
+                }
+            });
+        }
     }
 });

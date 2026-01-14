@@ -1,0 +1,188 @@
+{# System Prompt Builder Modal for Spirit #}
+<div class="modal fade" id="systemPromptBuilderModal" tabindex="-1" aria-labelledby="systemPromptBuilderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="systemPromptBuilderModalLabel">
+                    <i class="mdi mdi-code-braces me-2"></i>
+                    {{ 'spirit.prompt_builder.title'|trans }} - <span id="promptBuilderSpiritName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {# Loading indicator #}
+                <div id="promptBuilderLoading" class="text-center py-5">
+                    <div class="spinner-border text-cyber" role="status">
+                        <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                    </div>
+                    <p class="mt-2 text-muted">{{ 'spirit.prompt_builder.loading'|trans }}</p>
+                </div>
+
+                {# Main content (hidden until loaded) #}
+                <div id="promptBuilderContent" class="d-none">
+                    {# View mode toggle #}
+                    <div class="btn-group mb-4" role="group" aria-label="{{ 'spirit.prompt_builder.view_mode'|trans }}">
+                        <input type="radio" class="btn-check" name="promptViewMode" id="viewStructured" value="structured" checked>
+                        <label class="btn btn-outline-cyber" for="viewStructured">
+                            <i class="mdi mdi-format-list-bulleted me-1"></i>
+                            {{ 'spirit.prompt_builder.structured_view'|trans }}
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="promptViewMode" id="viewFinal" value="final">
+                        <label class="btn btn-outline-cyber" for="viewFinal">
+                            <i class="mdi mdi-code-tags me-1"></i>
+                            {{ 'spirit.prompt_builder.final_output'|trans }}
+                        </label>
+                    </div>
+
+                    {# Structured view #}
+                    <div id="structuredView">
+                        {# 1. Spirit Identity (readonly, always included) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-secondary bg-opacity-25 d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="mdi mdi-ghost me-2 text-cyber"></i>
+                                    <strong>1. {{ 'spirit.prompt_builder.section.identity'|trans }}</strong>
+                                </span>
+                                <span class="badge bg-secondary">{{ 'spirit.prompt_builder.readonly'|trans }}</span>
+                            </div>
+                            <div class="card-body">
+                                <pre class="mb-0 bg-dark bg-opacity-50 p-3 rounded small" id="sectionIdentity" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                            </div>
+                        </div>
+
+                        {# 2. Custom System Prompt (editable, always included) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-cyber bg-opacity-10 d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="mdi mdi-message-text-outline me-2 text-cyber"></i>
+                                    <strong>2. {{ 'spirit.prompt_builder.section.custom_prompt'|trans }}</strong>
+                                </span>
+                                <span class="badge bg-cyber text-dark">{{ 'spirit.prompt_builder.editable'|trans }}</span>
+                            </div>
+                            <div class="card-body">
+                                <textarea id="sectionCustomPrompt" class="form-control" rows="4" 
+                                    placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans }}"></textarea>
+                                <div class="form-text text-muted mt-2">
+                                    <i class="mdi mdi-information-outline me-1"></i>
+                                    {{ 'spirit.settings.system_prompt_help'|trans }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# 3. System Information (optional) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="toggleSystemInfo" checked>
+                                    <label class="form-check-label" for="toggleSystemInfo">
+                                        <i class="mdi mdi-information-outline me-2 text-info"></i>
+                                        <strong>3. {{ 'spirit.prompt_builder.section.system_info'|trans }}</strong>
+                                    </label>
+                                </div>
+                                <span class="badge bg-info text-dark">{{ 'spirit.prompt_builder.optional'|trans }}</span>
+                            </div>
+                            <div class="card-body" id="sectionSystemInfoBody">
+                                <pre class="mb-0 bg-dark bg-opacity-50 p-3 rounded small" id="sectionSystemInfo" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                                <div class="form-text text-muted mt-2">
+                                    <i class="mdi mdi-shield-lock-outline me-1"></i>
+                                    {{ 'spirit.prompt_builder.system_info_hint'|trans }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# 4. Spirit Memory Files (optional) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="toggleMemory" checked>
+                                    <label class="form-check-label" for="toggleMemory">
+                                        <i class="mdi mdi-brain me-2 text-info"></i>
+                                        <strong>4. {{ 'spirit.prompt_builder.section.memory'|trans }}</strong>
+                                    </label>
+                                </div>
+                                <span class="badge bg-info text-dark">{{ 'spirit.prompt_builder.optional'|trans }}</span>
+                            </div>
+                            <div class="card-body" id="sectionMemoryBody">
+                                <div id="memoryFilesList">
+                                    {# Memory files will be populated by JavaScript #}
+                                </div>
+                                <div class="form-text text-muted mt-2">
+                                    <i class="mdi mdi-folder-open-outline me-1"></i>
+                                    {{ 'spirit.prompt_builder.memory_hint'|trans }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# 5. AI Tools Instructions (optional) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="toggleTools" checked>
+                                    <label class="form-check-label" for="toggleTools">
+                                        <i class="mdi mdi-tools me-2 text-info"></i>
+                                        <strong>5. {{ 'spirit.prompt_builder.section.tools'|trans }}</strong>
+                                    </label>
+                                </div>
+                                <span class="badge bg-info text-dark">{{ 'spirit.prompt_builder.optional'|trans }}</span>
+                            </div>
+                            <div class="card-body" id="sectionToolsBody">
+                                <pre class="mb-0 bg-dark bg-opacity-50 p-3 rounded small" id="sectionTools" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                                <div class="form-text text-muted mt-2">
+                                    <i class="mdi mdi-function me-1"></i>
+                                    {{ 'spirit.prompt_builder.tools_hint'|trans }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# 6. Response Language (optional) #}
+                        <div class="card mb-3 glass-panel">
+                            <div class="card-header bg-info bg-opacity-10 d-flex justify-content-between align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="toggleLanguage" checked>
+                                    <label class="form-check-label" for="toggleLanguage">
+                                        <i class="mdi mdi-translate me-2 text-info"></i>
+                                        <strong>6. {{ 'spirit.prompt_builder.section.language'|trans }}</strong>
+                                    </label>
+                                </div>
+                                <span class="badge bg-info text-dark">{{ 'spirit.prompt_builder.optional'|trans }}</span>
+                            </div>
+                            <div class="card-body" id="sectionLanguageBody">
+                                <pre class="mb-0 bg-dark bg-opacity-50 p-3 rounded small" id="sectionLanguage" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                                <div class="form-text text-muted mt-2">
+                                    <i class="mdi mdi-web me-1"></i>
+                                    {{ 'spirit.prompt_builder.language_hint'|trans }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Final output view #}
+                    <div id="finalOutputView" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <span class="text-muted">{{ 'spirit.prompt_builder.estimated_tokens'|trans }}:</span>
+                                <strong class="text-cyber ms-2" id="tokenCount">0</strong>
+                            </div>
+                            <button class="btn btn-sm btn-outline-cyber" id="copyPromptBtn" type="button">
+                                <i class="mdi mdi-content-copy me-1"></i>
+                                {{ 'ui.copy'|trans }}
+                            </button>
+                        </div>
+                        <pre class="bg-dark p-3 rounded" style="max-height: 60vh; overflow-y: auto;"><code id="finalPromptOutput" class="language-xml" style="white-space: pre-wrap; word-wrap: break-word;"></code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-1"></i>
+                    {{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="savePromptConfigBtn" disabled>
+                    <i class="mdi mdi-content-save me-1"></i>
+                    {{ 'ui.save'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

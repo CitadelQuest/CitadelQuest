@@ -1149,58 +1149,165 @@ class SpiritConversationService
     /**
      * Build system message (extracted from existing code for reuse)
      * This is the CORE of what makes a Spirit a Spirit!
+     * 
+     * Now modular with configurable sections for the System Prompt Builder feature.
      */
-    private function buildSystemMessage(Spirit $spirit, string $lang): string
+    private function buildSystemMessage(Spirit $spirit, string $lang, ?array $promptConfig = null): string
     {
-        // Get current date and time
+        // Get config from Spirit settings or use defaults
+        $config = $promptConfig ?? $this->getPromptConfig($spirit->getId());
+        
+        // Build modular system prompt
+        $systemPrompt = $this->buildSpiritIdentity($spirit);
+        
+        if ($config['includeSystemInfo']) {
+            $systemPrompt .= $this->buildSystemInfoSection();
+        }
+        
+        if ($config['includeMemory']) {
+            $systemPrompt .= $this->buildMemorySection($spirit);
+        }
+        
+        if ($config['includeTools']) {
+            $systemPrompt .= $this->buildToolsSection();
+        }
+        
+        if ($config['includeLanguage']) {
+            $systemPrompt .= $this->buildLanguageSection($lang);
+        }
+        
+        return $systemPrompt;
+    }
+    
+    /**
+     * Get prompt configuration for a Spirit
+     * Returns array with boolean flags for each optional section
+     */
+    public function getPromptConfig(string $spiritId): array
+    {
+        return [
+            'includeSystemInfo' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeSystemInfo', 
+                '1'
+            ) === '1',
+            'includeMemory' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeMemory', 
+                '1'
+            ) === '1',
+            'includeTools' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeTools', 
+                '1'
+            ) === '1',
+            'includeLanguage' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeLanguage', 
+                '1'
+            ) === '1',
+        ];
+    }
+    
+    /**
+     * Update prompt configuration for a Spirit
+     */
+    public function updatePromptConfig(string $spiritId, array $config): void
+    {
+        if (isset($config['includeSystemInfo'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeSystemInfo',
+                $config['includeSystemInfo'] ? '1' : '0'
+            );
+        }
+        if (isset($config['includeMemory'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeMemory',
+                $config['includeMemory'] ? '1' : '0'
+            );
+        }
+        if (isset($config['includeTools'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeTools',
+                $config['includeTools'] ? '1' : '0'
+            );
+        }
+        if (isset($config['includeLanguage'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeLanguage',
+                $config['includeLanguage'] ? '1' : '0'
+            );
+        }
+    }
+    
+    /**
+     * Build Spirit Identity section (always included)
+     * Contains: Spirit name, guide text, custom system prompt, level
+     */
+    public function buildSpiritIdentity(Spirit $spirit): string
+    {
+        $spiritLevel = $this->spiritService->getSpiritSetting($spirit->getId(), 'level', '1');
+        $guideText = 'Spirit companion in CitadelQuest.';
+        if ($this->spiritService->isPrimarySpirit($spirit->getId())) {
+            $guideText = 'main guide Spirit companion in CitadelQuest.';
+        }
+        
+        $customPrompt = $this->spiritService->getSpiritSetting($spirit->getId(), 'systemPrompt', '');
+        
+        return "
+            You are {$spirit->getName()}, {$guideText} 
+            {$customPrompt}
+            
+            (internal note: Your level is {$spiritLevel}.)";
+    }
+    
+    /**
+     * Build System Info section (optional)
+     * Contains: Host, version, user info, datetime
+     */
+    public function buildSystemInfoSection(): string
+    {
         $currentDateTime = (new \DateTime('now', new \DateTimeZone('Europe/Prague')))->format('Y-m-d H:i:s');
+        
+        return "
 
-        // Get user description from settings or use default empty value
-        $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
-
+            <current-system-info>
+                <CitadelQuest-app>
+                    <host>{$_SERVER["SERVER_NAME"]}</host>
+                    <version>{$this->citadelVersion->getVersion()}</version>
+                </CitadelQuest-app>
+                <user>
+                    <username>{$this->user->getUsername()}</username>
+                    <email>{$this->user->getEmail()}</email>
+                </user>
+                <datetime>
+                    {$currentDateTime}
+                </datetime>
+            </current-system-info>";
+    }
+    
+    /**
+     * Build Memory section (optional)
+     * Contains: Spirit memory files (conversations.md, inner-thoughts.md, knowledge-base.md)
+     */
+    public function buildMemorySection(Spirit $spirit): string
+    {
         $spiritNameSlug = $this->slugger->slug($spirit->getName());
         $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
-
+        
         // TMP, until next few releases
         // migration from single-spirit memory files to multi-spirit memory files
         $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
-
-        // Get project description - only `general` projectId is used for now
-        $projectDescription_file_conversations_content = 'File not found, needs to be created for Spirit to work';
-        try {
-            $projectDescription_file_conversations = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'conversations.md');
-            if ($projectDescription_file_conversations) {
-                $projectDescription_file_conversations_content = $this->projectFileService->getFileContent($projectDescription_file_conversations->getId(), true);
-            }
-        } catch (\Exception $e) {
-        }
-
-        $projectDescription_file_inner_thoughts_content = $projectDescription_file_conversations_content;
-        try {
-            $projectDescription_file_inner_thoughts = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'inner-thoughts.md');
-            if ($projectDescription_file_inner_thoughts) {
-                $projectDescription_file_inner_thoughts_content = $this->projectFileService->getFileContent($projectDescription_file_inner_thoughts->getId(), true);
-            }
-        } catch (\Exception $e) {
-        }
-
-        $projectDescription_file_knowledge_base_content = $projectDescription_file_conversations_content;
-        try {
-            $projectDescription_file_knowledge_base = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'knowledge-base.md');
-            if ($projectDescription_file_knowledge_base) {
-                $projectDescription_file_knowledge_base_content = $this->projectFileService->getFileContent($projectDescription_file_knowledge_base->getId(), true);
-            } else {
-                throw new \Exception('Knowledge base file not found');
-            }
-        } catch (\Exception $e) {
-            $projectDescription_file_knowledge_base_content = $userProfileDescription;
-            if ($projectDescription_file_knowledge_base_content != '') {
-                // create knowledge-base.md file from deprecated user profile description
-                $this->projectFileService->createFile('general', $spiritMemoryDir, 'knowledge-base.md', $projectDescription_file_knowledge_base_content);
-            }
-        }
         
-        $projectDescription = "
+        // Get memory files content
+        $memoryFiles = $this->getMemoryFilesContent($spirit, $spiritMemoryDir);
+        
+        return "
+
             <projects>
                 <project-id>general</project-id>
                 <project-name>General (multi-purpose file browser) project</project-name>
@@ -1225,33 +1332,124 @@ class SpiritConversationService
                             <path>{$spiritMemoryDir}</path>
                             <name>conversations.md</name>
                             <content>
-                                {$projectDescription_file_conversations_content}
+                                {$memoryFiles['conversations']['content']}
                             </content>
                         </file>
                         <file>
                             <path>{$spiritMemoryDir}</path>
                             <name>inner-thoughts.md</name>
                             <content>
-                                {$projectDescription_file_inner_thoughts_content}
+                                {$memoryFiles['inner-thoughts']['content']}
                             </content>
                         </file>
                         <file>
                             <path>{$spiritMemoryDir}</path>
                             <name>knowledge-base.md</name>
                             <content>
-                                {$projectDescription_file_knowledge_base_content}
+                                {$memoryFiles['knowledge-base']['content']}
                             </content>
                         </file>
                     </current-data>
                 </project>
             </active-projects>";
-
-        // AI Tool management tools
-        $aiToolManagementTools = $this->aiToolService->findAll();
-        $aiToolManagementToolsContent = "";
+    }
+    
+    /**
+     * Get memory files content for a Spirit
+     * Returns array with file contents and metadata
+     */
+    public function getMemoryFilesContent(Spirit $spirit, ?string $spiritMemoryDir = null): array
+    {
+        if ($spiritMemoryDir === null) {
+            $spiritNameSlug = $this->slugger->slug($spirit->getName());
+            $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
+        }
         
-        if (isset($aiToolManagementTools) && count($aiToolManagementTools) > 0) {
-            $aiToolManagementToolsContent .= "
+        // Get user description from settings or use default empty value
+        $userProfileDescription = $this->settingsService->getSettingValue('profile.description', '');
+        
+        $defaultContent = 'File not found, needs to be created for Spirit to work';
+        
+        $files = [
+            'conversations' => ['content' => $defaultContent, 'size' => 0, 'tokens' => 0, 'exists' => false],
+            'inner-thoughts' => ['content' => $defaultContent, 'size' => 0, 'tokens' => 0, 'exists' => false],
+            'knowledge-base' => ['content' => $defaultContent, 'size' => 0, 'tokens' => 0, 'exists' => false],
+        ];
+        
+        // conversations.md
+        try {
+            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'conversations.md');
+            if ($file) {
+                $content = $this->projectFileService->getFileContent($file->getId(), true);
+                $files['conversations'] = [
+                    'content' => $content,
+                    'size' => strlen($content),
+                    'tokens' => (int) ceil(strlen($content) / 4),
+                    'exists' => true
+                ];
+            }
+        } catch (\Exception $e) {
+        }
+        
+        // inner-thoughts.md
+        try {
+            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'inner-thoughts.md');
+            if ($file) {
+                $content = $this->projectFileService->getFileContent($file->getId(), true);
+                $files['inner-thoughts'] = [
+                    'content' => $content,
+                    'size' => strlen($content),
+                    'tokens' => (int) ceil(strlen($content) / 4),
+                    'exists' => true
+                ];
+            }
+        } catch (\Exception $e) {
+        }
+        
+        // knowledge-base.md
+        try {
+            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'knowledge-base.md');
+            if ($file) {
+                $content = $this->projectFileService->getFileContent($file->getId(), true);
+                $files['knowledge-base'] = [
+                    'content' => $content,
+                    'size' => strlen($content),
+                    'tokens' => (int) ceil(strlen($content) / 4),
+                    'exists' => true
+                ];
+            } else {
+                throw new \Exception('Knowledge base file not found');
+            }
+        } catch (\Exception $e) {
+            // Fallback to user profile description
+            if ($userProfileDescription != '') {
+                $files['knowledge-base'] = [
+                    'content' => $userProfileDescription,
+                    'size' => strlen($userProfileDescription),
+                    'tokens' => (int) ceil(strlen($userProfileDescription) / 4),
+                    'exists' => false
+                ];
+                // create knowledge-base.md file from deprecated user profile description
+                $this->projectFileService->createFile('general', $spiritMemoryDir, 'knowledge-base.md', $userProfileDescription);
+            }
+        }
+        
+        return $files;
+    }
+    
+    /**
+     * Build Tools section (optional)
+     * Contains: AI tools instructions
+     */
+    public function buildToolsSection(): string
+    {
+        $aiToolManagementTools = $this->aiToolService->findAll();
+        
+        if (!isset($aiToolManagementTools) || count($aiToolManagementTools) === 0) {
+            return '';
+        }
+        
+        return "
             
             <ai-tools-instructions>
                 <local-meanings>
@@ -1259,57 +1457,124 @@ class SpiritConversationService
                 </local-meanings>
                 <important>
                     NEVER simulate or fake tool responses - always call the actual tool function.
-                    If you need to use a tool, you MUST call it with proper parameters.
+                    If you need to use a tool, you MUST call it with proper parameters defined in tools/functions schema.
                     After calling a tool, wait for the actual response before continuing.
                 </important>
                 <important>
                     If tool call result is negative 3x, do not call the tool again.
                 </important>
             </ai-tools-instructions>";
-        }
-
-        // Onboarding message if user description is empty or too short
-        $onboardingTag = "";
-        /* if ($userProfileDescription == '' || $this->getConversationsCount() <= 1) {
-            $onboardingTag = "
-                <user-onboarding>";
-        } */
-
-        // Build and return the complete system message
-        $spiritLevel = $this->spiritService->getSpiritSetting($spirit->getId(), 'level', '1');
-        $guideText = 'Spirit companion in CitadelQuest.';
-        if ($this->spiritService->isPrimarySpirit($spirit->getId())) {
-            $guideText = 'main guide Spirit companion in CitadelQuest.';
-        }
+    }
+    
+    /**
+     * Build Language section (optional)
+     * Contains: Response language instruction
+     */
+    public function buildLanguageSection(string $lang): string
+    {
         return "
-            You are {$spirit->getName()}, {$guideText} 
-            {$this->spiritService->getSpiritSetting($spirit->getId(), 'systemPrompt', '')}
-            
-            (internal note: Your level is {$spiritLevel}.)
-
-            <current-system-info>
-                <CitadelQuest-app>
-                    <host>{$_SERVER["SERVER_NAME"]}</host>
-                    <version>{$this->citadelVersion->getVersion()}</version>
-                </CitadelQuest-app>
-                <user>
-                    <username>{$this->user->getUsername()}</username>
-                    <email>{$this->user->getEmail()}</email>
-                </user>
-                <datetime>
-                    {$currentDateTime}
-                </datetime>
-            </current-system-info>
-
-            {$onboardingTag}
-
-            {$projectDescription}
-            
-            {$aiToolManagementToolsContent}
             <response-language>
             {$lang}
             </response-language>
         ";
+    }
+    
+    /**
+     * Get complete system prompt preview for the System Prompt Builder
+     * Returns structured data for modal display
+     */
+    public function getSystemPromptPreview(Spirit $spirit, string $lang = 'English'): array
+    {
+        $spiritNameSlug = $this->slugger->slug($spirit->getName());
+        $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
+        
+        $config = $this->getPromptConfig($spirit->getId());
+        $memoryFiles = $this->getMemoryFilesContent($spirit, $spiritMemoryDir);
+        
+        // Build sections data
+        $sections = [
+            'identity' => [
+                'title' => 'Spirit Identity',
+                'content' => $this->buildSpiritIdentity($spirit),
+                'editable' => false,
+                'alwaysIncluded' => true
+            ],
+            'customPrompt' => [
+                'title' => 'Custom System Prompt',
+                'content' => $this->spiritService->getSpiritSetting($spirit->getId(), 'systemPrompt', ''),
+                'editable' => true,
+                'alwaysIncluded' => true
+            ],
+            'systemInfo' => [
+                'title' => 'System Information',
+                'content' => $this->buildSystemInfoSection(),
+                'editable' => false,
+                'enabled' => $config['includeSystemInfo'],
+                'configKey' => 'includeSystemInfo'
+            ],
+            'memory' => [
+                'title' => 'Spirit Memory Files',
+                'enabled' => $config['includeMemory'],
+                'configKey' => 'includeMemory',
+                'files' => [
+                    [
+                        'name' => 'conversations.md',
+                        'path' => $spiritMemoryDir,
+                        'size' => $memoryFiles['conversations']['size'],
+                        'tokens' => $memoryFiles['conversations']['tokens'],
+                        'content' => $memoryFiles['conversations']['content'],
+                        'exists' => $memoryFiles['conversations']['exists']
+                    ],
+                    [
+                        'name' => 'inner-thoughts.md',
+                        'path' => $spiritMemoryDir,
+                        'size' => $memoryFiles['inner-thoughts']['size'],
+                        'tokens' => $memoryFiles['inner-thoughts']['tokens'],
+                        'content' => $memoryFiles['inner-thoughts']['content'],
+                        'exists' => $memoryFiles['inner-thoughts']['exists']
+                    ],
+                    [
+                        'name' => 'knowledge-base.md',
+                        'path' => $spiritMemoryDir,
+                        'size' => $memoryFiles['knowledge-base']['size'],
+                        'tokens' => $memoryFiles['knowledge-base']['tokens'],
+                        'content' => $memoryFiles['knowledge-base']['content'],
+                        'exists' => $memoryFiles['knowledge-base']['exists']
+                    ]
+                ]
+            ],
+            'tools' => [
+                'title' => 'AI Tools Instructions',
+                'content' => $this->buildToolsSection(),
+                'editable' => false,
+                'enabled' => $config['includeTools'],
+                'configKey' => 'includeTools'
+            ],
+            'language' => [
+                'title' => 'Response Language',
+                'content' => $this->buildLanguageSection($lang),
+                'editable' => false,
+                'enabled' => $config['includeLanguage'],
+                'configKey' => 'includeLanguage',
+                'currentLanguage' => $lang
+            ]
+        ];
+        
+        // Build full prompt
+        $fullPrompt = $this->buildSystemMessage($spirit, $lang, $config);
+        
+        // Estimate tokens (chars / 4 is a rough approximation)
+        $estimatedTokens = (int) ceil(strlen($fullPrompt) / 4);
+        
+        return [
+            'sections' => $sections,
+            'config' => $config,
+            'fullPrompt' => $fullPrompt,
+            'estimatedTokens' => $estimatedTokens,
+            'spiritId' => $spirit->getId(),
+            'spiritName' => $spirit->getName(),
+            'memoryDir' => $spiritMemoryDir
+        ];
     }
 
 }

@@ -47,12 +47,12 @@
                                 <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
                             </p>
 
-                            <h4>{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
-                            <div id="spirit-interactions">
+                            <h4>{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
+                            <div id="conversations-list">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
                                 </div>
-                                <span>{{ 'spirit.detail.loading_interactions'|trans }}</span>
+                                <span>{{ 'spirit.detail.loading_conversations'|trans }}</span>
                             </div>
                         </div>
                         <div class="col-md-7">
@@ -77,16 +77,20 @@
                                         oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
                                     <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>
                                 </div>
-                                <div class="text-end me-2 mt-2">
+                                <div class="d-flex justify-content-between align-items-center me-2 mt-2">
+                                    <button id="open-prompt-builder" class="btn btn-sm btn-outline-secondary" type="button">
+                                        <i class="mdi mdi-code-braces me-1"></i>{{ 'spirit.prompt_builder.button'|trans|default('Advanced Prompt Builder') }}
+                                    </button>
                                     <button id="update-spirit-settings" class="btn btn-sm btn-cyber" disabled><i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}</button>
                                 </div>
                             </div>
-                            <h4 class="mt-5">{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
-                            <div id="conversations-list">
+                            <hr>
+                            <h4 class="mt-5">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
+                            <div id="spirit-interactions">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
                                 </div>
-                                <span>{{ 'spirit.detail.loading_conversations'|trans }}</span>
+                                <span>{{ 'spirit.detail.loading_interactions'|trans }}</span>
                             </div>
                         </div>
                     </div>
@@ -103,8 +107,19 @@
     |merge({'error.creating_spirit': 'Failed to create spirit'|trans})
     |merge({'error.interaction_failed': 'Failed to interact with spirit'|trans})
     |merge({'error.loading_interactions': 'Failed to load interactions'|trans})
+    |merge({'spirit.prompt_builder.saved': 'Configuration saved successfully'|trans})
+    |merge({'error.loading_prompt': 'Failed to load prompt data'|trans})
+    |merge({'error.saving_config': 'Failed to save configuration'|trans})
+    |merge({'ui.saving': 'Saving...'|trans})
+    |merge({'ui.save': 'Save'|trans})
+    |merge({'ui.copied': 'Copied to clipboard'|trans})
+    |merge({'error.copy_failed': 'Failed to copy to clipboard'|trans})
+    |merge({'spirit.prompt_builder.no_tools': 'No AI tools available'|trans})
     |json_encode|e('html_attr') }}">
 </div>
+
+{# System Prompt Builder Modal #}
+{% include 'spirit/_system_prompt_builder_modal.html.twig' %}
 {% endblock %}
 
 {% block javascripts %}

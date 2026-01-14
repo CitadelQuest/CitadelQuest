@@ -342,17 +342,17 @@ export class SpiritManager {
         }
         
         const interactionsList = document.createElement('ul');
-        interactionsList.className = 'list-group';
+        interactionsList.className = 'list-group bg-secondary bg-opacity-25';
         
         this.interactions.forEach(interaction => {
             const item = document.createElement('li');
-            item.className = 'list-group-item';
+            item.className = 'list-group-item small';
             
             const date = new Date(interaction.createdAt);
             const formattedDate = date.toLocaleString();
             
             const header = document.createElement('div');
-            header.className = 'd-flex flex-column justify-content-between';
+            header.className = 'd-flex justify-content-between';
             
             const dateSpan = document.createElement('small');
             dateSpan.className = 'text-muted';
@@ -364,19 +364,19 @@ export class SpiritManager {
             typeSpan.textContent = interaction.interactionType;
             header.appendChild(typeSpan);
             
+            const expGained = document.createElement('small');
+            expGained.className = 'text-success';
+            expGained.textContent = `+${interaction.experienceGained} XP`;
+            header.appendChild(expGained);
+            
             item.appendChild(header);
             
             if (interaction.context) {
                 const context = document.createElement('p');
-                context.className = 'mb-1 mt-1';
+                context.className = '';
                 context.textContent = interaction.context;
                 item.appendChild(context);
             }
-            
-            const expGained = document.createElement('small');
-            expGained.className = 'text-success fw-bold';
-            expGained.textContent = `+${interaction.experienceGained} XP`;
-            item.appendChild(expGained);
             
             interactionsList.appendChild(item);
         });
