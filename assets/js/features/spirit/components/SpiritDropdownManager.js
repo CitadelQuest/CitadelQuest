@@ -63,7 +63,7 @@ export class SpiritDropdownManager {
         const isPrimary = spirit.isPrimary || false;
         const isSelected = this.selectedSpiritId === spirit.id;
 
-        // Get spirit color
+        // Get spirit color for dynamic styling
         let spiritColor = '#95ec86';
         try {
             const visualState = settings.visualState || 'initial';
@@ -77,8 +77,8 @@ export class SpiritDropdownManager {
 
         a.innerHTML = `
             <div class="d-flex align-items-center">
-                <div class="spirit-avatar me-2" style="width: 24px; height: 24px; border-radius: 50%; background: ${spiritColor}; display: flex; align-items: center; justify-content-center;">
-                    <i class="mdi mdi-ghost" style="color: white; font-size: 0.75rem;"></i>
+                <div class="spirit-icon me-3">
+                    <i class="mdi mdi-ghost"></i>
                 </div>
                 <div>
                     <div class="fw-bold ${isSelected ? 'text-cyber' : ''}">
@@ -90,6 +90,16 @@ export class SpiritDropdownManager {
             </div>
             ${isSelected ? '<i class="mdi mdi-check text-cyber"></i>' : ''}
         `;
+
+        // Apply spirit color to the icon
+        const iconDiv = a.querySelector('.spirit-icon');
+        if (iconDiv) {
+            iconDiv.style.backgroundColor = spiritColor + '21';
+        }
+        const icon = a.querySelector('.spirit-icon i');
+        if (icon) {
+            icon.style.color = spiritColor;
+        }
 
         a.addEventListener('click', (e) => {
             e.preventDefault();

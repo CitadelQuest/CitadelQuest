@@ -278,12 +278,12 @@ dashboard:
     welcome: 'Vitajte, %username%!'
     description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
     quick_actions: 'Rýchle akcie'
-    spirit_description: 'Chatujte s vaším AI Duchom'
-    contacts_description: 'Spravujte vaše kontakty'
-    files_description: 'Prehliadajte a spravujte vaše súbory'
-    settings_description: 'Nakonfigurujte váš CitadelQuest'
-    backup_description: 'Vytvárajte a obnovujte zálohy'
-    admin_description: 'Správa Citadely'
+    spirits_description: 'Spravujte svojich AI Duchov spoločníkov'
+    contacts_description: 'Spravujte vaše kontakty v Citadele'
+    files_description: 'Prezeraj a spravuj svoje súbory'
+    settings_description: 'Nakonfiguruj svoj CitadelQuest'
+    backup_description: 'Vytvor a obnov zálohy'
+    admin_description: 'Administrácia Citadely'
 
 settings:
     page_title: 'Nastavenia'

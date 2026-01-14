@@ -209,6 +209,21 @@ export class SpiritManager {
         const progression = this.spirit.progression || {};
         const settings = this.spirit.settings || {};
 
+        // Update Spirit icon color
+        const spiritIcon = document.querySelector('#spiritChatAvatar .spirit-detail-icon');
+        if (spiritIcon) {
+            let visualState = settings.visualState || '{"color":"#95ec86"}';
+            let color = null;
+            try {
+                color = JSON.parse(visualState)?.color || null;
+            } catch (e) {
+                color = '#95ec86';
+            }
+            if (color) {
+                spiritIcon.style.color = color;
+            }
+        }
+
         // Update basic info
         if (this.nameDisplay) {
             this.nameDisplay.textContent = this.spirit.name;

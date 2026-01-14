@@ -123,12 +123,10 @@ class SpiritService
         // Initialize default settings
         $this->setSpiritSetting($spirit->getId(), 'level', '1');
         $this->setSpiritSetting($spirit->getId(), 'experience', '0');
-        $this->setSpiritSetting($spirit->getId(), 'visualState', 'initial');
-
-        // Set color if provided
-        if ($color) {
-            $this->setSpiritSetting($spirit->getId(), 'visualState', json_encode(['color' => $color]));
-        }
+        
+        // Set visualState with color (use provided color or default cyber green)
+        $defaultColor = $color ?? '#95ec86';
+        $this->setSpiritSetting($spirit->getId(), 'visualState', json_encode(['color' => $defaultColor]));
 
         // Log the creation interaction
         $this->logInteraction($spirit->getId(), 'creation', 10, 'Spirit created');

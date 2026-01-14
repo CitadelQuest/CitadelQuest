@@ -282,16 +282,16 @@ profile:
         connection: 'Chyba připojení. Zkuste to prosím znovu.'
 
 dashboard:
-    title: 'Přehled'
-    welcome: 'Vítejte, %username%!'
-    description: 'Váš osobní přehled CitadelQuest a rychlý přístup ke všem funkcím.'
+    title: 'Nástěnka'
+    welcome: 'Vítej, %username%!'
+    description: 'Tvůj osobní přehled CitadelQuestu a rychlý přístup ke všem funkcím.'
     quick_actions: 'Rychlé akce'
-    spirit_description: 'Chatujte s vaším AI Duchem'
-    contacts_description: 'Spravujte vaše kontakty'
-    files_description: 'Procházejte a spravujte vaše soubory'
-    settings_description: 'Nakonfigurujte váš CitadelQuest'
-    backup_description: 'Vytvářejte a obnovujte zálohy'
-    admin_description: 'Správa Citadely'
+    spirits_description: 'Spravuj své AI Duchy společníky'
+    contacts_description: 'Spravuj své kontakty v Citadele'
+    files_description: 'Procházej a spravuj své soubory'
+    settings_description: 'Nakonfiguruj svůj CitadelQuest'
+    backup_description: 'Vytvoř a obnov zálohy'
+    admin_description: 'Administrace Citadely'
 
 settings:
     page_title: 'Nastavení'

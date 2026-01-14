@@ -451,6 +451,22 @@ export class SpiritChatManager {
         // Store spirit data for reuse
         this.currentSpirit = spirit;
         
+        // Update Spirit color immediately (before any async operations)
+        let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
+        if (spiritAvatar) {
+            let visualState = spirit.settings?.visualState || '{"color":"#95ec86"}';
+            let color = null;
+            try {
+                color = JSON.parse(visualState)?.color || null;
+            } catch (e) {
+                // visualState might be just a string, use default
+                color = '#95ec86';
+            }
+            if (color) {
+                spiritAvatar.forEach(icon => icon.style.color = color);
+            }
+        }
+        
         // Update UI with spirit info
         if (this.spiritNames && this.spiritNames.length > 0) {
             this.spiritNames.forEach(name => name.textContent = spirit.name);
@@ -525,20 +541,6 @@ export class SpiritChatManager {
             } else {
                 this.chatInfo.classList.add('d-none');
                 this.chatInfo.classList.remove('d-flex');
-            }
-        }
-
-        let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
-        if (spiritAvatar) {
-            let visualState = spirit.settings?.visualState || 'initial';
-            let color = null;
-            try {
-                color = JSON.parse(visualState)?.color || null;
-            } catch (e) {
-                // visualState might be just a string like 'initial', not JSON
-            }
-            if (color) {
-                spiritAvatar.forEach(icon => icon.style.color = color);
             }
         }
     }

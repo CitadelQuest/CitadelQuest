@@ -3,21 +3,35 @@
 @use '../variables' as vars;
 @use '../mixins' as mixins;
 
-// Spirit Icon in Navigation
+// Spirit Icon in Navigation and Dropdown
 .spirit-icon-container {
     position: relative;
     margin: 0 0.5rem;
     cursor: pointer;
     
-    .spirit-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background-color: #89898921 !important;
-        overflow: hidden;        
+    // Hide Bootstrap dropdown arrow
+    .dropdown-toggle::after {
+        display: none;
     }
-
+    
     #spiritChatButtonIcon {
+        color: colors.$secondary;
+        transition: all vars.$transition-quick ease-in-out;
+        animation: spirit-fading 3s ease-in-out infinite;
+    }
+}
+
+.spirit-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #89898921 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    
+    i {
         color: colors.$secondary;
         transition: all vars.$transition-quick ease-in-out;
         animation: spirit-fading 3s ease-in-out infinite;
@@ -28,6 +42,30 @@
     color: colors.$secondary;
     transition: all vars.$transition-quick ease-in-out;
     animation: spirit-fading 3s ease-in-out infinite;
+}
+
+.spirit-detail-icon {
+    color: colors.$secondary;
+    transition: all vars.$transition-quick ease-in-out;
+    animation: spirit-fading 3s ease-in-out infinite;
+}
+
+.spirit-list-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #89898921 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    
+    i {
+        color: colors.$secondary;
+        font-size: 1.5rem;
+        transition: all vars.$transition-quick ease-in-out;
+        animation: spirit-fading 3s ease-in-out infinite;
+    }
 }
 
 // Spirit Avatar in Chat

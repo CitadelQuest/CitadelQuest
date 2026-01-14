@@ -286,7 +286,7 @@ dashboard:
     welcome: 'Welcome, %username%!'
     description: 'Your personal CitadelQuest overview and quick access to all features.'
     quick_actions: 'Quick Actions'
-    spirit_description: 'Chat with your AI Spirit'
+    spirits_description: 'Manage your AI Spirit companions'
     contacts_description: 'Manage your Citadel contacts'
     files_description: 'Browse and manage your files'
     settings_description: 'Configure your CitadelQuest'

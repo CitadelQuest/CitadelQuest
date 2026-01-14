@@ -119,8 +119,8 @@ export class SpiritsManager {
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div class="d-flex align-items-center">
-                            <div class="spirit-avatar me-3" style="width: 50px; height: 50px; border-radius: 50%; background: ${spiritColor}; display: flex; align-items: center; justify-content-center;">
-                                <i class="mdi mdi-ghost" style="color: white; font-size: 1.5rem;"></i>
+                            <div class="spirit-list-icon me-3">
+                                <i class="mdi mdi-ghost"></i>
                             </div>
                             <div>
                                 <h5 class="card-title mb-0">
@@ -162,6 +162,16 @@ export class SpiritsManager {
                 </div>
             </div>
         `;
+
+        // Apply spirit color to the icon
+        const iconDiv = col.querySelector('.spirit-list-icon');
+        if (iconDiv) {
+            iconDiv.style.backgroundColor = spiritColor + '21';
+        }
+        const icon = col.querySelector('.spirit-list-icon i');
+        if (icon) {
+            icon.style.color = spiritColor;
+        }
 
         // Add delete button event listener
         const deleteBtn = col.querySelector('.spirit-delete-btn');
