@@ -10,6 +10,18 @@
  */
 class UserMigration_20260111194900
 {
+    /**
+     * Generate a UUID v4
+     */
+    private function generateUuid(): string
+    {
+        $data = random_bytes(16);
+        $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
+        $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
+        
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
     public function getDescription(): string
     {
         return 'Migrate Spirit properties to SpiritSettings table';
@@ -70,7 +82,7 @@ class UserMigration_20260111194900
             INSERT INTO spirit_settings (id, spirit_id, key, value, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
         ');
-        $stmt->execute([uuid_create(), $spiritId, $key, $value, $now, $now]);
+        $stmt->execute([$this->generateUuid(), $spiritId, $key, $value, $now, $now]);
     }
 
     private function dropColumn(\PDO $pdo, string $table, string $column): void
