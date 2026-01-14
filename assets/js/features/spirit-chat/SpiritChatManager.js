@@ -452,7 +452,7 @@ export class SpiritChatManager {
         this.currentSpirit = spirit;
         
         // Update Spirit color immediately (before any async operations)
-        let spiritAvatar = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
+        let spiritAvatar = document.querySelectorAll('.spiritChatButtonIcon');
         if (spiritAvatar) {
             let visualState = spirit.settings?.visualState || '{"color":"#95ec86"}';
             let color = null;

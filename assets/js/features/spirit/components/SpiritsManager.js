@@ -116,7 +116,7 @@ export class SpiritsManager {
 
         col.innerHTML = `
             <div class="card h-100 spirit-card glass-panel ${isPrimary ? 'glass-panel-glow' : ''}">
-                <div class="card-body">
+                <div class="card-body shadow-sm">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div class="d-flex align-items-center">
                             <div class="spirit-list-icon me-3">
@@ -132,7 +132,7 @@ export class SpiritsManager {
                         </div>
                     </div>
 
-                    <div class="mb-3">
+                    <div class="">
                         <div class="d-flex justify-content-between mb-1">
                             <span class="fw-bold">${spiritsLevel} ${progression.level || 1}</span>
                             <span class="text-muted">${progression.experience || 0} XP</span>
@@ -142,19 +142,17 @@ export class SpiritsManager {
                         </div>
                         <small class="text-muted">${spiritsNextLevel}: ${progression.nextLevelThreshold || 100} XP</small>
                     </div>
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="mdi mdi-clock me-1"></i>
-                            ${spiritsLastInteraction} ${formattedDate}
-                        </small>
-                    </div>
                 </div>
                 <div class="card-footer bg-transparent border-0">
-                    <div class="d-flex gap-2">
-                        <a href="/spirit/${spirit.id}" class="btn btn-sm btn-cyber flex-grow-1">
-                            <i class="mdi mdi-eye me-1"></i> ${uiView}
-                        </a>
+                    <div class="d-flex gap-2 justify-content-between my-1">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-cyber spirit-chat-btn" data-spirit-id="${spirit.id}">
+                                <i class="mdi mdi-forum-outline"></i>
+                            </button>
+                            <a href="/spirit/${spirit.id}" class="btn btn-sm btn-cyber">
+                                <i class="mdi mdi-eye"></i>
+                            </a>
+                        </div>
                         <button class="btn btn-sm btn-outline-danger spirit-delete-btn ${isPrimary ? 'd-none' : ''}" data-spirit-id="${spirit.id}" data-spirit-name="${spirit.name}" ${isPrimary ? 'disabled' : ''}>
                             <i class="mdi mdi-delete"></i>
                         </button>
@@ -171,6 +169,14 @@ export class SpiritsManager {
         const icon = col.querySelector('.spirit-list-icon i');
         if (icon) {
             icon.style.color = spiritColor;
+        }
+
+        // Add chat button event listener
+        const chatBtn = col.querySelector('.spirit-chat-btn');
+        if (chatBtn) {
+            chatBtn.addEventListener('click', () => {
+                this.openSpiritChat(spirit.id);
+            });
         }
 
         // Add delete button event listener
@@ -238,6 +244,23 @@ export class SpiritsManager {
             if (window.toast) {
                 window.toast.error(error.message || errorCreateFailed);
             }
+        }
+    }
+
+    openSpiritChat(spiritId) {
+        // Store selected spirit ID
+        localStorage.setItem('selectedSpiritId', spiritId);
+
+        // Notify SpiritChatManager if it exists
+        if (window.spiritChatManager) {
+            window.spiritChatManager.switchSpirit(spiritId);
+        }
+
+        // Open Spirit Chat modal
+        const spiritChatModal = document.getElementById('spiritChatModal');
+        if (spiritChatModal) {
+            const modal = new bootstrap.Modal(spiritChatModal);
+            modal.show();
         }
     }
 

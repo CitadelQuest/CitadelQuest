@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to update spirit avatar color
     function updateSpiritAvatarColor(color) {
-        const spiritAvatars = document.querySelectorAll('#spiritChatButtonIcon, .spiritChatButtonIcon');
+        const spiritAvatars = document.querySelectorAll('.spiritChatButtonIcon');
         if (spiritAvatars && color) {
             spiritAvatars.forEach(icon => icon.style.color = color);
         }
