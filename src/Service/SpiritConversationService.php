@@ -332,6 +332,16 @@ class SpiritConversationService
             ];
             $conversations[] = $conversation;
         }
+
+        // TMP, until next few releases
+        // migration from single-spirit memory files to multi-spirit memory files
+        $spirit = $this->spiritService->getSpirit($spiritId);
+        if ($spirit) {
+            $spiritNameSlug = $this->slugger->slug($spirit->getName());
+            $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
+            $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
+        }
+        //
         
         return $conversations;
     }

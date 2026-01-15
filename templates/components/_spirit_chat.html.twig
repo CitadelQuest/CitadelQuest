@@ -152,26 +152,6 @@
                         <input type="text" class="form-control" id="conversationTitle" required focus>
                     </div>
                     
-                    {# AI Model Selection #}
-                    <div class="row mb-3" id="aiModelSelectionContainer">
-                        <div class="col-md-6 mb-2 mb-md-0">
-                            <label for="newConvPrimaryModel" class="form-label small">
-                                <i class="mdi mdi-brain me-1 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}
-                            </label>
-                            <select class="form-select form-select-sm" id="newConvPrimaryModel" name="primary_model">
-                                <option value="">{{ 'ui.loading'|trans|default('Loading...') }}</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="newConvSecondaryModel" class="form-label small">
-                                <i class="mdi mdi-image-edit-outline me-1 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}
-                            </label>
-                            <select class="form-select form-select-sm" id="newConvSecondaryModel" name="secondary_model">
-                                <option value="">{{ 'ui.loading'|trans|default('Loading...') }}</option>
-                            </select>
-                        </div>
-                    </div>
-                    
                     <div class="d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
                         <button type="submit" class="btn btn-cyber"><i class="mdi mdi-check me-2"></i>{{ 'ui.create'|trans }}</button>

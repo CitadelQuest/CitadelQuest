@@ -131,14 +131,6 @@ class SpiritService
         // Log the creation interaction
         $this->logInteraction($spirit->getId(), 'creation', 10, 'Spirit created');
 
-        // Send a welcome notification
-        $this->notificationService->createNotification(
-            $this->security->getUser(),
-            sprintf('Spirit %s has joined you!', $spirit->getName()),
-            'Your spirit companion is now ready to assist and grow with you.',
-            'success'
-        );
-
         return $spirit;
     }
     
@@ -444,14 +436,6 @@ class SpiritService
             );
 
             $db->commit();
-
-            // Send notification
-            $this->notificationService->createNotification(
-                $this->security->getUser(),
-                sprintf('Spirit %s has left', $spirit->getName()),
-                'The spirit and all its conversations have been deleted.',
-                'info'
-            );
 
             $this->logger->info('Spirit deleted', ['spiritId' => $spiritId, 'spiritName' => $spirit->getName()]);
         } catch (\Exception $e) {

@@ -75,9 +75,10 @@ class SpiritApiController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         $name = $data['name'] ?? 'Spirit';
+        $color = $data['color'] ?? null;
 
         try {
-            $spirit = $this->spiritService->createSpirit($name);
+            $spirit = $this->spiritService->createSpirit($name, $color);
 
             // Get spirit settings and include them in the response
             $settings = $this->spiritService->getSpiritSettings($spirit->getId());

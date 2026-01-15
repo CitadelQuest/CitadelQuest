@@ -29,7 +29,9 @@
     <div class="modal-dialog">
         <div class="modal-content glass-panel">
             <div class="modal-header border-success">
-                <h5 class="modal-title" id="createSpiritModalLabel">{{ 'spirits.create'|trans }}</h5>
+                <h5 class="modal-title" id="createSpiritModalLabel">
+                    <i class="mdi mdi-ghost me-2"></i>{{ 'spirits.create'|trans }}
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -47,8 +49,12 @@
                 </form>
             </div>
             <div class="modal-footer border-secondary justify-content-between">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'common.cancel'|trans }}</button>
-                <button type="button" class="btn btn-primary" id="create-spirit-btn">{{ 'spirits.create'|trans }}</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'common.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="create-spirit-btn">
+                    <i class="mdi mdi-plus me-2"></i>{{ 'spirits.create'|trans }}
+                </button>
             </div>
         </div>
     </div>
