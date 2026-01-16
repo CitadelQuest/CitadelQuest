@@ -24,6 +24,13 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache modules
 RUN a2enmod rewrite headers
 
+# Configure PHP for large file uploads (backups up to 1GB)
+RUN echo "upload_max_filesize = 1024M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 1100M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit = 1024M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time = 900" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_input_time = 600" >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Set global ServerName to prevent warnings
 RUN echo "ServerName citadelquest.local" >> /etc/apache2/apache2.conf
 
