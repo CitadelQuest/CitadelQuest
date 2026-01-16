@@ -310,6 +310,7 @@ dashboard:
     welcome: 'Vítej, %username%!'
     description: 'Tvůj osobní přehled CitadelQuestu a rychlý přístup ke všem funkcím.'
     quick_actions: 'Rychlé akce'
+    spirit_description: 'Chatuj s tvým AI Duchem'
     spirits_description: 'Spravuj své AI Duchy společníky'
     contacts_description: 'Spravuj své kontakty v Citadele'
     files_description: 'Procházej a spravuj své soubory'

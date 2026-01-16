@@ -83,7 +83,7 @@ class UserDatabaseManager
 
     /**
      * Initialize the user database schema.
-     * IMPORTANT: When modifying this schema, always create a corresponding user migration in migrations/user/
+     * IMPORTANT: Never modify this schema, always create a corresponding user migration in migrations/user/
      * User migrations must be simple SQL (no Doctrine) since they run from the standalone update script.
      * See migrations/user/Version20250218135524.php for an example.
      */
@@ -142,8 +142,23 @@ class UserDatabaseManager
             'CREATE TABLE IF NOT EXISTS spirits (
                 id VARCHAR(36) PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
+                level INTEGER DEFAULT 1,
+                experience INTEGER DEFAULT 0,
+                visual_state VARCHAR(50) DEFAULT "initial",
+                consciousness_level INTEGER DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP
+                last_interaction DATETIME DEFAULT CURRENT_TIMESTAMP,
+                system_prompt TEXT,
+                ai_model VARCHAR(50) DEFAULT ""
+            )',
+            'CREATE TABLE IF NOT EXISTS spirit_abilities (
+                id VARCHAR(36) PRIMARY KEY,
+                spirit_id VARCHAR(36) NOT NULL,
+                ability_type VARCHAR(50) NOT NULL,
+                ability_name VARCHAR(255) NOT NULL,
+                unlocked BOOLEAN DEFAULT 0,
+                unlocked_at DATETIME,
+                FOREIGN KEY (spirit_id) REFERENCES spirits(id)
             )',
             'CREATE TABLE IF NOT EXISTS spirit_interactions (
                 id VARCHAR(36) PRIMARY KEY,

@@ -299,11 +299,12 @@ profile:
 
 dashboard:
     title: 'Prehľad'
-    welcome: 'Vitajte, %username%!'
+    welcome: 'Vitaj, %username%!'
     description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
     quick_actions: 'Rýchle akcie'
-    spirits_description: 'Spravujte svojich AI Duchov spoločníkov'
-    contacts_description: 'Spravujte vaše kontakty v Citadele'
+    spirit_description: 'Chatuj s tvojim AI Duchom'
+    spirits_description: 'Spravuj svojich AI Duchov spoločníkov'
+    contacts_description: 'Spravuj svoje kontakty v Citadele'
     files_description: 'Prezeraj a spravuj svoje súbory'
     settings_description: 'Nakonfiguruj svoj CitadelQuest'
     backup_description: 'Vytvor a obnov zálohy'
