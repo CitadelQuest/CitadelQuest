@@ -1439,7 +1439,7 @@ class SpiritConversationService
      */
     public function buildToolsSection(): string
     {
-        $aiToolManagementTools = $this->aiToolService->findAll();
+        $aiToolManagementTools = $this->aiToolService->findAll(true);
         
         if (!isset($aiToolManagementTools) || count($aiToolManagementTools) === 0) {
             return '';

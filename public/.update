@@ -576,17 +576,13 @@ class CitadelQuestUpdater
             
             // Process each user database
             foreach (new DirectoryIterator($userDbDir) as $file) {
-                if ($file->isDot() || $file->isDir() || 
-                    ($file->getExtension() !== 'db' && $file->getExtension() !== 'sqlite')
-                   ) continue;
+                if ($file->isDot() || $file->isDir() ||  // skip . and ..
+                    ($file->getExtension() !== 'db' && $file->getExtension() !== 'sqlite') || // skip non-database files
+                    strpos($file->getFilename(), 'sse-') !== false // skip sse dbs
+                ) continue;
                 
                 $dbPath = $file->getPathname();
 
-                // skip `sse-*` dbs
-                if (strpos($dbPath, 'sse-') === 0) {
-                    continue;
-                }
-                
                 $this->log("Processing database: " . $file->getFilename());
                 
                 // Connect to user database and verify integrity

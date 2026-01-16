@@ -35,12 +35,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         // Remove user's database
         $this->userDatabaseManager->deleteUserDatabase($user);
         
-        // and sse-{user_id}.db
-        $sseDbPath = $this->params->get('kernel.project_dir') . '/var/user_databases/sse-' . $user->getId() . '.db';
-        if (file_exists($sseDbPath)) {
-            unlink($sseDbPath);
-        }
-        
         // and dir user_backups/{user_id}/
         $backupDir = $this->params->get('kernel.project_dir') . '/var/user_backups/' . $user->getId();
         if (file_exists($backupDir)) {

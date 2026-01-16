@@ -191,8 +191,8 @@ class UserDatabaseManager
                 unlink($dbFullPath);
             }
 
-            // sse-
-            $sseFullPath = 'sse-' . $dbFullPath;
+            // server-sent events db
+            $sseFullPath = $this->databasesDir . '/sse-' . $user->getDatabasePath();
             if (file_exists($sseFullPath)) {
                 unlink($sseFullPath);
             }
