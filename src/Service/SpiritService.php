@@ -7,10 +7,12 @@ use App\Entity\SpiritInteraction;
 use App\Entity\SpiritSettings;
 use App\Entity\User;
 use App\Entity\AiServiceModel;
+use App\Service\ProjectFileService;
 use PDO;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
 class SpiritService
 {
@@ -20,7 +22,9 @@ class SpiritService
         private NotificationService $notificationService,
         private AiServiceModelService $aiServiceModelService,
         private AiGatewayService $aiGatewayService,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private SluggerInterface $slugger,
+        private ProjectFileService $projectFileService,
     ) {}
     
     /**
@@ -442,6 +446,13 @@ class SpiritService
             $db->rollBack();
             $this->logger->error('Failed to delete spirit', ['spiritId' => $spiritId, 'error' => $e->getMessage()]);
             throw $e;
+        }
+
+        // delete also project_file (Spirit directory)
+        $spiritNameSlug = $this->slugger->slug($spirit->getName());
+        $memoryDir = $this->projectFileService->findByPathAndName('general', '/spirit/', $spiritNameSlug);
+        if ($memoryDir) {
+            $this->projectFileService->delete($memoryDir->getId());            
         }
     }
 

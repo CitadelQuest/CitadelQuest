@@ -464,4 +464,215 @@ class BackupManager
         }
         rmdir($dir);
     }
+
+    // ========== CHUNKED UPLOAD METHODS ==========
+
+    private const CHUNK_SIZE = 25 * 1024 * 1024; // 25MB chunks
+
+    /**
+     * Initialize a chunked upload session
+     */
+    public function initChunkedUpload(string $filename, int $totalSize, int $totalChunks): array
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in to upload a backup');
+        }
+
+        // Generate unique upload ID
+        $uploadId = bin2hex(random_bytes(16));
+
+        // Create temp directory for chunks
+        $projectDir = $this->params->get('kernel.project_dir');
+        $tempDir = $projectDir . '/var/backup_uploads/' . $user->getId() . '/' . $uploadId;
+        $this->ensureDirectoryExists($tempDir);
+
+        // Store upload metadata (convert UUID to string for JSON storage)
+        $metadata = [
+            'uploadId' => $uploadId,
+            'filename' => $filename,
+            'totalSize' => $totalSize,
+            'totalChunks' => $totalChunks,
+            'receivedChunks' => [],
+            'createdAt' => time(),
+            'userId' => (string) $user->getId()
+        ];
+
+        file_put_contents($tempDir . '/metadata.json', json_encode($metadata));
+
+        $this->logger->info("Chunked upload initialized: {$uploadId} for {$filename}");
+
+        return [
+            'uploadId' => $uploadId,
+            'chunkSize' => self::CHUNK_SIZE
+        ];
+    }
+
+    /**
+     * Upload a single chunk
+     */
+    public function uploadChunk(string $uploadId, int $chunkIndex, \Symfony\Component\HttpFoundation\File\UploadedFile $chunk): array
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in to upload a backup');
+        }
+
+        $projectDir = $this->params->get('kernel.project_dir');
+        $tempDir = $projectDir . '/var/backup_uploads/' . $user->getId() . '/' . $uploadId;
+
+        // Verify upload exists
+        $metadataPath = $tempDir . '/metadata.json';
+        if (!file_exists($metadataPath)) {
+            throw new \RuntimeException('Upload session not found');
+        }
+
+        $metadata = json_decode(file_get_contents($metadataPath), true);
+
+        // Verify ownership (compare as strings since UUID is stored as string in JSON)
+        if ($metadata['userId'] !== (string) $user->getId()) {
+            throw new \RuntimeException('Unauthorized');
+        }
+
+        // Save chunk
+        $chunkPath = $tempDir . '/chunk_' . str_pad($chunkIndex, 5, '0', STR_PAD_LEFT);
+        $chunk->move($tempDir, 'chunk_' . str_pad($chunkIndex, 5, '0', STR_PAD_LEFT));
+
+        // Update metadata
+        $metadata['receivedChunks'][$chunkIndex] = [
+            'index' => $chunkIndex,
+            'size' => filesize($chunkPath),
+            'receivedAt' => time()
+        ];
+        file_put_contents($metadataPath, json_encode($metadata));
+
+        $this->logger->debug("Chunk {$chunkIndex} received for upload {$uploadId}");
+
+        return [
+            'received' => count($metadata['receivedChunks']),
+            'total' => $metadata['totalChunks']
+        ];
+    }
+
+    /**
+     * Finalize chunked upload - assemble chunks into final backup file
+     */
+    public function finalizeChunkedUpload(string $uploadId): array
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in to upload a backup');
+        }
+
+        $projectDir = $this->params->get('kernel.project_dir');
+        $tempDir = $projectDir . '/var/backup_uploads/' . $user->getId() . '/' . $uploadId;
+
+        // Verify upload exists
+        $metadataPath = $tempDir . '/metadata.json';
+        if (!file_exists($metadataPath)) {
+            throw new \RuntimeException('Upload session not found');
+        }
+
+        $metadata = json_decode(file_get_contents($metadataPath), true);
+
+        // Verify ownership (compare as strings since UUID is stored as string in JSON)
+        if ($metadata['userId'] !== (string) $user->getId()) {
+            throw new \RuntimeException('Unauthorized');
+        }
+
+        // Verify all chunks received
+        if (count($metadata['receivedChunks']) !== $metadata['totalChunks']) {
+            throw new \RuntimeException(
+                'Missing chunks: received ' . count($metadata['receivedChunks']) . 
+                ' of ' . $metadata['totalChunks']
+            );
+        }
+
+        // Ensure backup directory exists
+        $backupDir = $this->params->get('app.backup_dir') . '/' . $user->getId();
+        $this->ensureDirectoryExists($backupDir);
+
+        // Generate unique filename
+        $filename = $this->generateUniqueFilename($backupDir, $metadata['filename']);
+        $targetPath = $backupDir . '/' . $filename;
+
+        try {
+            // Assemble chunks into final file
+            $targetHandle = fopen($targetPath, 'wb');
+            if (!$targetHandle) {
+                throw new \RuntimeException('Failed to create backup file');
+            }
+
+            for ($i = 0; $i < $metadata['totalChunks']; $i++) {
+                $chunkPath = $tempDir . '/chunk_' . str_pad($i, 5, '0', STR_PAD_LEFT);
+                if (!file_exists($chunkPath)) {
+                    fclose($targetHandle);
+                    throw new \RuntimeException("Missing chunk {$i}");
+                }
+
+                $chunkHandle = fopen($chunkPath, 'rb');
+                while (!feof($chunkHandle)) {
+                    fwrite($targetHandle, fread($chunkHandle, 8192));
+                }
+                fclose($chunkHandle);
+            }
+
+            fclose($targetHandle);
+
+            // Verify the backup is valid
+            if (!$this->verifyBackup($targetPath)) {
+                if (file_exists($targetPath)) {
+                    unlink($targetPath);
+                }
+                throw new \RuntimeException('Invalid backup file: user.db not found in archive');
+            }
+
+            // Cleanup temp directory
+            $this->removeDirectory($tempDir);
+
+            $this->logger->info("Chunked upload finalized: {$targetPath}");
+
+            return [
+                'filename' => $filename,
+                'size' => filesize($targetPath),
+                'timestamp' => filemtime($targetPath)
+            ];
+
+        } catch (\Exception $e) {
+            // Cleanup on error
+            if (isset($targetPath) && file_exists($targetPath)) {
+                unlink($targetPath);
+            }
+            $this->removeDirectory($tempDir);
+            throw new \RuntimeException('Failed to finalize upload: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Cancel/cleanup a chunked upload
+     */
+    public function cancelChunkedUpload(string $uploadId): void
+    {
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            throw new \RuntimeException('User must be logged in');
+        }
+
+        $projectDir = $this->params->get('kernel.project_dir');
+        $tempDir = $projectDir . '/var/backup_uploads/' . $user->getId() . '/' . $uploadId;
+
+        if (is_dir($tempDir)) {
+            // Verify ownership before deleting
+            $metadataPath = $tempDir . '/metadata.json';
+            if (file_exists($metadataPath)) {
+                $metadata = json_decode(file_get_contents($metadataPath), true);
+                if ($metadata['userId'] !== (string) $user->getId()) {
+                    throw new \RuntimeException('Unauthorized');
+                }
+            }
+
+            $this->removeDirectory($tempDir);
+            $this->logger->info("Chunked upload cancelled: {$uploadId}");
+        }
+    }
 }

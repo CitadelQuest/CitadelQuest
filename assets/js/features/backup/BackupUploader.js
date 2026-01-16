@@ -6,6 +6,8 @@
 // Maximum file size in bytes (1000MB for backup files)
 const MAX_BACKUP_SIZE = 1048576000;
 const ALLOWED_EXTENSION = '.citadel';
+// Chunk size for uploads (25MB - stays under Cloudflare's 100MB limit with margin)
+const CHUNK_SIZE = 25 * 1024 * 1024;
 
 export class BackupUploader {
     /**
@@ -144,15 +146,16 @@ export class BackupUploader {
     }
     
     /**
-     * Upload file with progress tracking
+     * Upload file using chunked upload for large files
      * @param {File} file - File to upload
      */
-    uploadFile(file) {
+    async uploadFile(file) {
         if (this.isUploading) {
             return;
         }
         
         this.isUploading = true;
+        this.currentUploadId = null;
         
         // Show progress container
         this.progressContainer.style.display = 'block';
@@ -166,7 +169,7 @@ export class BackupUploader {
                     <div class="progress-bar bg-cyber" role="progressbar" style="width: 0%"></div>
                 </div>
                 <div class="backup-uploader-progress-status">
-                    <small class="text-secondary">${this.translations.uploading || 'Uploading...'}</small>
+                    <small class="text-secondary">${this.translations.uploading || 'Uploading...'} 0%</small>
                 </div>
             </div>
         `;
@@ -174,73 +177,129 @@ export class BackupUploader {
         const progressBar = this.progressContainer.querySelector('.progress-bar');
         const statusText = this.progressContainer.querySelector('.backup-uploader-progress-status small');
         
-        // Create FormData
-        const formData = new FormData();
-        formData.append('backup', file);
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        console.log('[BackupUploader] Starting chunked upload:', file.name, 'size:', file.size, 'chunks:', totalChunks);
         
-        // Use XMLHttpRequest for progress tracking
-        const xhr = new XMLHttpRequest();
-        
-        console.log('[BackupUploader] Starting upload for file:', file.name, 'size:', file.size);
-        
-        xhr.upload.addEventListener('loadstart', (e) => {
-            console.log('[BackupUploader] Upload started');
-        });
-        
-        xhr.upload.addEventListener('progress', (e) => {
-            console.log('[BackupUploader] Progress event:', e.lengthComputable, e.loaded, e.total);
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                progressBar.style.width = `${percent}%`;
-                statusText.textContent = `${this.translations.uploading || 'Uploading...'} ${percent}%`;
+        try {
+            // Step 1: Initialize upload session
+            statusText.textContent = this.translations.initializing || 'Initializing upload...';
+            const initResponse = await fetch('/backup/upload/init', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    filename: file.name,
+                    totalSize: file.size,
+                    totalChunks: totalChunks
+                })
+            });
+            
+            const initData = await initResponse.json();
+            if (!initData.success) {
+                throw new Error(initData.error || 'Failed to initialize upload');
             }
-        });
-        
-        xhr.addEventListener('loadstart', (e) => {
-            console.log('[BackupUploader] XHR loadstart');
-        });
-        
-        xhr.addEventListener('load', () => {
-            console.log('[BackupUploader] XHR load complete, status:', xhr.status);
-            console.log('[BackupUploader] Response text:', xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    console.log('[BackupUploader] Parsed response:', response);
-                    if (response.success) {
-                        this.showSuccess(file);
-                        this.onUploadSuccess(response);
-                    } else {
-                        console.log('[BackupUploader] Server returned error:', response.error);
-                        this.showUploadError(file, response.error || this.translations.upload_failed || 'Upload failed');
+            
+            this.currentUploadId = initData.uploadId;
+            console.log('[BackupUploader] Upload initialized, ID:', this.currentUploadId);
+            
+            // Step 2: Upload chunks sequentially
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                
+                const chunkFormData = new FormData();
+                chunkFormData.append('uploadId', this.currentUploadId);
+                chunkFormData.append('chunkIndex', i);
+                chunkFormData.append('chunk', chunk);
+                
+                // Upload chunk with retry logic
+                let retries = 3;
+                let chunkSuccess = false;
+                
+                while (retries > 0 && !chunkSuccess) {
+                    try {
+                        const chunkResponse = await fetch('/backup/upload/chunk', {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: chunkFormData
+                        });
+                        
+                        const chunkData = await chunkResponse.json();
+                        if (!chunkData.success) {
+                            throw new Error(chunkData.error || 'Chunk upload failed');
+                        }
+                        
+                        chunkSuccess = true;
+                        console.log('[BackupUploader] Chunk', i + 1, 'of', totalChunks, 'uploaded');
+                        
+                    } catch (chunkError) {
+                        retries--;
+                        console.warn('[BackupUploader] Chunk', i, 'failed, retries left:', retries, chunkError);
+                        if (retries === 0) {
+                            throw new Error(`Chunk ${i + 1} failed after 3 attempts: ${chunkError.message}`);
+                        }
+                        // Wait before retry
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
-                } catch (e) {
-                    console.log('[BackupUploader] JSON parse error:', e, 'Raw:', xhr.responseText);
-                    this.showUploadError(file, this.translations.upload_failed || 'Upload failed');
                 }
-            } else {
+                
+                // Update progress
+                const percent = Math.round(((i + 1) / totalChunks) * 100);
+                progressBar.style.width = `${percent}%`;
+                statusText.textContent = `${this.translations.uploading || 'Uploading...'} ${percent}% (${i + 1}/${totalChunks})`;
+            }
+            
+            // Step 3: Finalize upload
+            statusText.textContent = this.translations.finalizing || 'Finalizing upload...';
+            const finalizeResponse = await fetch('/backup/upload/finalize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    uploadId: this.currentUploadId
+                })
+            });
+            
+            const finalizeData = await finalizeResponse.json();
+            if (!finalizeData.success) {
+                throw new Error(finalizeData.error || 'Failed to finalize upload');
+            }
+            
+            console.log('[BackupUploader] Upload finalized successfully');
+            this.showSuccess(file);
+            this.onUploadSuccess(finalizeData);
+            
+        } catch (error) {
+            console.error('[BackupUploader] Upload failed:', error);
+            
+            // Cleanup: cancel the upload session
+            if (this.currentUploadId) {
                 try {
-                    const response = JSON.parse(xhr.responseText);
-                    this.showUploadError(file, response.error || this.translations.upload_failed || 'Upload failed');
-                } catch (e) {
-                    this.showUploadError(file, this.translations.upload_failed || 'Upload failed');
+                    await fetch('/backup/upload/cancel', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ uploadId: this.currentUploadId })
+                    });
+                } catch (cancelError) {
+                    console.warn('[BackupUploader] Failed to cancel upload:', cancelError);
                 }
             }
+            
+            this.showUploadError(file, error.message || this.translations.upload_failed || 'Upload failed');
+        } finally {
             this.isUploading = false;
-        });
-        
-        xhr.addEventListener('error', () => {
-            this.showUploadError(file, this.translations.network_error || 'Network error occurred');
-            this.isUploading = false;
-        });
-        
-        xhr.addEventListener('abort', () => {
-            this.isUploading = false;
-        });
-        
-        xhr.open('POST', '/backup/upload');
-        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.send(formData);
+            this.currentUploadId = null;
+        }
     }
     
     /**

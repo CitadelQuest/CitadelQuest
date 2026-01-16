@@ -162,4 +162,126 @@ class BackupController extends AbstractController
             return new JsonResponse(['error' => 'Upload failed: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Initialize a chunked upload session
+     * Returns an upload ID to be used for subsequent chunk uploads
+     */
+    #[Route('/backup/upload/init', name: 'app_backup_upload_init', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function initChunkedUpload(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $filename = $data['filename'] ?? null;
+            $totalSize = $data['totalSize'] ?? null;
+            $totalChunks = $data['totalChunks'] ?? null;
+
+            if (!$filename || !$totalSize || !$totalChunks) {
+                return new JsonResponse(['error' => 'Missing required fields: filename, totalSize, totalChunks'], 400);
+            }
+
+            // Validate file extension
+            if (!str_ends_with(strtolower($filename), '.citadel')) {
+                return new JsonResponse(['error' => 'Invalid file format. Only .citadel files are accepted.'], 400);
+            }
+
+            // Validate file size (1000MB max)
+            $maxSize = 1048576000; // 1000MB
+            if ($totalSize > $maxSize) {
+                return new JsonResponse(['error' => 'File is too large. Maximum size is 1000MB.'], 400);
+            }
+
+            $result = $this->backupManager->initChunkedUpload($filename, $totalSize, $totalChunks);
+
+            return new JsonResponse([
+                'success' => true,
+                'uploadId' => $result['uploadId'],
+                'chunkSize' => $result['chunkSize']
+            ]);
+        } catch (\Exception $e) {
+            error_log('[BackupUpload] Init chunked upload failed: ' . $e->getMessage());
+            return new JsonResponse(['error' => 'Failed to initialize upload: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Upload a single chunk
+     */
+    #[Route('/backup/upload/chunk', name: 'app_backup_upload_chunk', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function uploadChunk(Request $request): JsonResponse
+    {
+        try {
+            $uploadId = $request->request->get('uploadId');
+            $chunkIndex = (int) $request->request->get('chunkIndex');
+            $chunk = $request->files->get('chunk');
+
+            if (!$uploadId || $chunkIndex === null || !$chunk) {
+                return new JsonResponse(['error' => 'Missing required fields: uploadId, chunkIndex, chunk'], 400);
+            }
+
+            $result = $this->backupManager->uploadChunk($uploadId, $chunkIndex, $chunk);
+
+            return new JsonResponse([
+                'success' => true,
+                'chunkIndex' => $chunkIndex,
+                'received' => $result['received']
+            ]);
+        } catch (\Exception $e) {
+            error_log('[BackupUpload] Chunk upload failed: ' . $e->getMessage());
+            return new JsonResponse(['error' => 'Chunk upload failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Finalize chunked upload - assemble chunks into final backup file
+     */
+    #[Route('/backup/upload/finalize', name: 'app_backup_upload_finalize', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function finalizeChunkedUpload(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $uploadId = $data['uploadId'] ?? null;
+
+            if (!$uploadId) {
+                return new JsonResponse(['error' => 'Missing uploadId'], 400);
+            }
+
+            $result = $this->backupManager->finalizeChunkedUpload($uploadId);
+
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Backup uploaded successfully!',
+                'backup' => $result
+            ]);
+        } catch (\Exception $e) {
+            error_log('[BackupUpload] Finalize failed: ' . $e->getMessage());
+            return new JsonResponse(['error' => 'Failed to finalize upload: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Cancel/cleanup a chunked upload
+     */
+    #[Route('/backup/upload/cancel', name: 'app_backup_upload_cancel', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function cancelChunkedUpload(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $uploadId = $data['uploadId'] ?? null;
+
+            if (!$uploadId) {
+                return new JsonResponse(['error' => 'Missing uploadId'], 400);
+            }
+
+            $this->backupManager->cancelChunkedUpload($uploadId);
+
+            return new JsonResponse(['success' => true]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 500);
+        }
+    }
 }
