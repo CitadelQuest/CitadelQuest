@@ -138,8 +138,14 @@ class BackupController extends AbstractController
             $uploadedFile = $request->files->get('backup');
             
             if (!$uploadedFile) {
-                return new JsonResponse(['error' => 'No file uploaded'], 400);
+                // Log what we received
+                error_log('[BackupUpload] No file in request. Files: ' . json_encode($request->files->keys()));
+                error_log('[BackupUpload] POST max size: ' . ini_get('post_max_size') . ', Upload max: ' . ini_get('upload_max_filesize'));
+                return new JsonResponse(['error' => 'No file uploaded. Check PHP upload limits.'], 400);
             }
+
+            // Log file info
+            error_log('[BackupUpload] Received file: ' . $uploadedFile->getClientOriginalName() . ', size: ' . $uploadedFile->getSize() . ', error: ' . $uploadedFile->getError());
 
             $result = $this->backupManager->uploadBackup($uploadedFile);
             
@@ -149,8 +155,10 @@ class BackupController extends AbstractController
                 'backup' => $result
             ]);
         } catch (\InvalidArgumentException $e) {
+            error_log('[BackupUpload] InvalidArgumentException: ' . $e->getMessage());
             return new JsonResponse(['error' => $e->getMessage()], 400);
         } catch (\Exception $e) {
+            error_log('[BackupUpload] Exception: ' . $e->getMessage());
             return new JsonResponse(['error' => 'Upload failed: ' . $e->getMessage()], 500);
         }
     }

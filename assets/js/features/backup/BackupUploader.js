@@ -181,7 +181,14 @@ export class BackupUploader {
         // Use XMLHttpRequest for progress tracking
         const xhr = new XMLHttpRequest();
         
+        console.log('[BackupUploader] Starting upload for file:', file.name, 'size:', file.size);
+        
+        xhr.upload.addEventListener('loadstart', (e) => {
+            console.log('[BackupUploader] Upload started');
+        });
+        
         xhr.upload.addEventListener('progress', (e) => {
+            console.log('[BackupUploader] Progress event:', e.lengthComputable, e.loaded, e.total);
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
                 progressBar.style.width = `${percent}%`;
@@ -189,17 +196,26 @@ export class BackupUploader {
             }
         });
         
+        xhr.addEventListener('loadstart', (e) => {
+            console.log('[BackupUploader] XHR loadstart');
+        });
+        
         xhr.addEventListener('load', () => {
+            console.log('[BackupUploader] XHR load complete, status:', xhr.status);
+            console.log('[BackupUploader] Response text:', xhr.responseText);
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
                     const response = JSON.parse(xhr.responseText);
+                    console.log('[BackupUploader] Parsed response:', response);
                     if (response.success) {
                         this.showSuccess(file);
                         this.onUploadSuccess(response);
                     } else {
+                        console.log('[BackupUploader] Server returned error:', response.error);
                         this.showUploadError(file, response.error || this.translations.upload_failed || 'Upload failed');
                     }
                 } catch (e) {
+                    console.log('[BackupUploader] JSON parse error:', e, 'Raw:', xhr.responseText);
                     this.showUploadError(file, this.translations.upload_failed || 'Upload failed');
                 }
             } else {
