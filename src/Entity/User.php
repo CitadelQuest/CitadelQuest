@@ -8,11 +8,12 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use App\Validator\UniqueUsernameCaseInsensitive;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[UniqueEntity(fields: ['email'], message: 'auth.register.error.email_already_used')]
-#[UniqueEntity(fields: ['username'], message: 'auth.register.error.username_already_used')]
+#[UniqueUsernameCaseInsensitive]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
