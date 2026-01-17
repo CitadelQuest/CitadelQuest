@@ -24,6 +24,7 @@ class AIToolFileService
     public function listFiles(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path']);
+        $this->validateSpiritAccess($arguments);
         
         try {
             $files = $this->projectFileService->listFiles(
@@ -50,6 +51,7 @@ class AIToolFileService
     public function getFileContent(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name']);
+        $this->validateSpiritAccess($arguments);
         
         try {
             $file = $this->projectFileService->findByPathAndName(
@@ -199,6 +201,7 @@ class AIToolFileService
     public function createDirectory(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name']);
+        $this->validateSpiritAccess($arguments);
         
         try {
             $directory = $this->projectFileService->createDirectory(
@@ -236,6 +239,7 @@ class AIToolFileService
     public function updateFileEfficient(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
+        $this->validateSpiritAccess($arguments);
         
         try {
             $file = $this->projectFileService->findByPathAndName(
@@ -360,10 +364,12 @@ class AIToolFileService
     
     /**
      * Get the complete project tree structure
+     * Note: Spirit access validation is done per-path, tree shows all but access is restricted
      */
     public function getProjectTree(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId']);
+        // Note: getProjectTree shows full structure, access control is enforced on individual file operations
         
         try {
             $tree = $this->projectFileService->showProjectTree($arguments['projectId'], true);
@@ -428,6 +434,15 @@ class AIToolFileService
             // Validate required parameters
             if (!isset($arguments['projectId']) || !isset($arguments['operation'])) {
                 throw new \InvalidArgumentException('manageFile requires projectId and operation parameters');
+            }
+            
+            // Validate Spirit access for source path
+            if (isset($arguments['sourcePath'])) {
+                $this->validateSpiritAccess(['path' => $arguments['sourcePath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+            }
+            // Validate Spirit access for destination path
+            if (isset($arguments['destPath'])) {
+                $this->validateSpiritAccess(['path' => $arguments['destPath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
             }
 
             $projectId = $arguments['projectId'];
@@ -511,6 +526,44 @@ class AIToolFileService
             if (!isset($arguments[$arg])) {
                 throw new \InvalidArgumentException("Missing required argument: $arg");
             }
+        }
+    }
+    
+    /**
+     * Validate Spirit access to path
+     * Spirits can access all files EXCEPT other Spirits' folders in /spirit/
+     * 
+     * @param array $arguments Tool arguments containing path and optional _spiritSlug
+     * @throws \RuntimeException if access is denied
+     */
+    private function validateSpiritAccess(array $arguments): void
+    {
+        $spiritSlug = $arguments['_spiritSlug'] ?? null;
+        if (!$spiritSlug) {
+            return; // No Spirit context, allow all (for non-Spirit usage like user's file browser)
+        }
+        
+        $path = $arguments['path'] ?? '/';
+        
+        // Normalize path
+        $path = '/' . ltrim($path, '/');
+        
+        // Check if path is within /spirit/ directory
+        if (!str_starts_with($path, '/spirit/')) {
+            return; // Not in /spirit/ directory, allow access
+        }
+        
+        // Extract the spirit folder name from path (e.g., /spirit/SpiritName/... -> SpiritName)
+        $pathParts = explode('/', trim($path, '/'));
+        if (count($pathParts) < 2) {
+            return; // Just /spirit/ itself, allow access
+        }
+        
+        $targetSpiritSlug = $pathParts[1]; // The folder name after /spirit/
+        
+        // Allow access only if it's the Spirit's own folder
+        if ($targetSpiritSlug !== $spiritSlug) {
+            throw new \RuntimeException("Access denied: Spirit can only access its own folder /spirit/{$spiritSlug}/, not /spirit/{$targetSpiritSlug}/");
         }
     }
 }

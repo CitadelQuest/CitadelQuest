@@ -688,9 +688,10 @@ class SpiritConversationService
         
         // Get spirit
         $spirit = $this->spiritService->getSpirit($conversation->getSpiritId());
+        $spiritSlug = (string) $this->slugger->slug($spirit->getName());
         
         // Execute tools
-        $toolResults = $this->executeToolCallsFromArray($toolCalls, $lang);
+        $toolResults = $this->executeToolCallsFromArray($toolCalls, $lang, $spiritSlug);
         
         // Create tool result message
         $messageService = new SpiritConversationMessageService(
@@ -877,8 +878,12 @@ class SpiritConversationService
     /**
      * Execute tool calls from array format
      * Reuses existing AIToolCallService logic
+     * 
+     * @param array $toolCalls Tool calls to execute
+     * @param string $lang Language for tool responses
+     * @param string|null $spiritSlug Spirit's name slug for access control
      */
-    private function executeToolCallsFromArray(array $toolCalls, string $lang): array
+    private function executeToolCallsFromArray(array $toolCalls, string $lang, ?string $spiritSlug = null): array
     {
         $results = [];
         
@@ -894,6 +899,11 @@ class SpiritConversationService
             // Parse arguments if string
             if (is_string($toolArgs)) {
                 $toolArgs = json_decode($toolArgs, true) ?? [];
+            }
+            
+            // Add Spirit slug for access control (used by file tools)
+            if ($spiritSlug) {
+                $toolArgs['_spiritSlug'] = $spiritSlug;
             }
             
             // Execute tool
