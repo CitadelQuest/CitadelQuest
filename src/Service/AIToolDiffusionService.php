@@ -108,11 +108,45 @@ class AIToolDiffusionService
             // Parse the JSON response from Diffusion Artist
             $diffusionParams = $this->parseDiffusionArtistResponse($aiServiceResponse);
             
+            // If parsing failed, retry once with error feedback
             if (!$diffusionParams) {
-                return [
-                    'success' => false,
-                    'error' => 'Failed to parse Diffusion Artist response. The AI may not have returned valid JSON.'
+                $failedContent = $this->extractResponseContent($aiServiceResponse);
+                
+                // Build retry messages with error feedback
+                $retryMessages = $messages;
+                $retryMessages[] = ['role' => 'assistant', 'content' => $failedContent];
+                $retryMessages[] = ['role' => 'user', 'content' => 
+                    "Your response was not valid JSON and could not be parsed. " .
+                    "Please respond with ONLY a valid JSON object - no markdown code blocks, no explanation text. " .
+                    "The JSON must contain 'positivePrompt' as a required field. Start directly with { and end with }."
                 ];
+                
+                // Create retry request
+                $retryAiServiceRequest = $this->aiServiceRequestService->createRequest(
+                    $aiServiceModel->getId(),
+                    $retryMessages,
+                    null,
+                    0.3, // Lower temperature for more consistent output
+                    null,
+                    []
+                );
+                
+                // Send retry request
+                $retryResponse = $this->aiGatewayService->sendRequest(
+                    $retryAiServiceRequest,
+                    'diffusionArtistSpirit AI Tool - Prompt Translation (Retry)',
+                    $lang,
+                    $arguments['projectId']
+                );
+                
+                $diffusionParams = $this->parseDiffusionArtistResponse($retryResponse);
+                
+                if (!$diffusionParams) {
+                    return [
+                        'success' => false,
+                        'error' => 'Failed to parse Diffusion Artist response after retry. The AI did not return valid JSON.'
+                    ];
+                }
             }
             
             // Override with user-specified params if provided
@@ -271,6 +305,26 @@ PROMPT;
         $message .= "\nRespond with ONLY the JSON object, no other text.";
         
         return $message;
+    }
+    
+    /**
+     * Extract content string from AI service response
+     */
+    private function extractResponseContent($aiServiceResponse): string
+    {
+        $message = $aiServiceResponse->getMessage();
+        $content = $message['content'] ?? '';
+        
+        if (is_array($content)) {
+            foreach ($content as $item) {
+                if (isset($item['type']) && $item['type'] === 'text') {
+                    return $item['text'];
+                }
+            }
+            return '';
+        }
+        
+        return is_string($content) ? $content : '';
     }
     
     /**
