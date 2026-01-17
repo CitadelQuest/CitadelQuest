@@ -625,6 +625,23 @@ admin:
         showing_lines: 'Zobrazujem %filtered% z %total% riadkov'
         total_lines: 'Celkom %total% riadkov'
     
+    system_backups:
+        title: 'Systémové zálohy'
+        description: 'Tieto zálohy sa vytvárajú pred aktualizáciami systému. Môžu byť použité na obnovenie systému ak aktualizácia zlyhá.'
+        list_title: 'Dostupné zálohy'
+        backup_name: 'Názov zálohy'
+        created_at: 'Vytvorené'
+        size: 'Veľkosť'
+        actions: 'Akcie'
+        delete: 'Zmazať'
+        no_backups: 'Žiadne systémové zálohy nenájdené'
+        total_backups: 'Celkom záloh'
+        total_size: 'Celková veľkosť'
+        confirm_delete_title: 'Zmazať systémovú zálohu'
+        confirm_delete: 'Naozaj chcete zmazať túto zálohu? Túto akciu nie je možné vrátiť späť.'
+        deleted: 'Systémová záloha %name% úspešne zmazaná'
+        delete_failed: 'Zmazanie systémovej zálohy zlyhalo'
+
     migrations:
         title: 'Migrácie používateľov'
         pending_requests: 'Čakajúce žiadosti o migráciu'
@@ -695,6 +712,7 @@ ui:
     loading: 'Načítavam...'
     view: 'Zobraziť'
     none: 'Žiadny'
+    back: 'Späť'
 
 file_browser:
     page_title: 'Správca súborov'

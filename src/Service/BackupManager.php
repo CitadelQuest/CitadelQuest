@@ -675,4 +675,105 @@ class BackupManager
             $this->logger->info("Chunked upload cancelled: {$uploadId}");
         }
     }
+
+    // ========== SYSTEM BACKUP METHODS (for update backups) ==========
+
+    /**
+     * Get list of system backups created during updates
+     * These are stored in var/backups/updates/
+     */
+    public function getSystemBackups(): array
+    {
+        $projectDir = $this->params->get('kernel.project_dir');
+        $systemBackupDir = $projectDir . '/var/backups/updates';
+
+        if (!is_dir($systemBackupDir)) {
+            return [];
+        }
+
+        $backups = [];
+        $finder = new Finder();
+        $finder->directories()->in($systemBackupDir)->depth('== 0')->name('backup_*')->sortByModifiedTime();
+
+        foreach ($finder as $dir) {
+            // Calculate directory size
+            $size = $this->getDirectorySize($dir->getRealPath());
+            
+            // Parse timestamp from directory name (backup_YYYY-MM-DD_HHmmss)
+            $dirName = $dir->getFilename();
+            $timestamp = $dir->getMTime();
+            
+            // Try to extract date from directory name
+            if (preg_match('/backup_(\d{4}-\d{2}-\d{2}_\d{6})/', $dirName, $matches)) {
+                $dateStr = $matches[1];
+                $parsedDate = \DateTime::createFromFormat('Y-m-d_His', $dateStr);
+                if ($parsedDate) {
+                    $timestamp = $parsedDate->getTimestamp();
+                }
+            }
+
+            $backups[] = [
+                'name' => $dirName,
+                'timestamp' => $timestamp,
+                'size' => $size,
+                'path' => $dir->getRealPath()
+            ];
+        }
+
+        return array_reverse($backups); // Most recent first
+    }
+
+    /**
+     * Delete a system backup directory
+     */
+    public function deleteSystemBackup(string $backupName): void
+    {
+        $projectDir = $this->params->get('kernel.project_dir');
+        $systemBackupDir = $projectDir . '/var/backups/updates';
+        $backupPath = $systemBackupDir . '/' . $backupName;
+
+        // Security: Validate backup name format
+        if (!preg_match('/^backup_\d{4}-\d{2}-\d{2}_\d{6}$/', $backupName)) {
+            throw new \RuntimeException('Invalid backup name format');
+        }
+
+        if (!is_dir($backupPath)) {
+            throw new \RuntimeException('System backup not found');
+        }
+
+        // Verify it's within the expected directory
+        $realPath = realpath($backupPath);
+        $realBackupDir = realpath($systemBackupDir);
+        if ($realPath === false || $realBackupDir === false || strpos($realPath, $realBackupDir) !== 0) {
+            throw new \RuntimeException('Invalid backup path');
+        }
+
+        $this->removeDirectory($backupPath);
+        $this->logger->info("System backup deleted: {$backupName}");
+    }
+
+    /**
+     * Calculate total size of a directory
+     */
+    private function getDirectorySize(string $dir): int
+    {
+        $size = 0;
+        
+        if (!is_dir($dir)) {
+            return 0;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($iterator as $file) {
+            if ($file->isFile()) {
+                $size += $file->getSize();
+            }
+        }
+
+        return $size;
+    }
 }

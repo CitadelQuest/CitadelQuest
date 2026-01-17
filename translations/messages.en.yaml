@@ -640,6 +640,23 @@ admin:
         clear_backup_info: 'A backup will be created before clearing the file.'    
         back_to_dashboard: 'Back to Dashboard'
     
+    system_backups:
+        title: 'System Backups'
+        description: 'These backups are created before system updates. They can be used to restore the system if an update fails.'
+        list_title: 'Available Backups'
+        backup_name: 'Backup Name'
+        created_at: 'Created At'
+        size: 'Size'
+        actions: 'Actions'
+        delete: 'Delete'
+        no_backups: 'No system backups found'
+        total_backups: 'Total backups'
+        total_size: 'Total size'
+        confirm_delete_title: 'Delete System Backup'
+        confirm_delete: 'Are you sure you want to delete this backup? This action cannot be undone.'
+        deleted: 'System backup %name% deleted successfully'
+        delete_failed: 'Failed to delete system backup'
+
     migrations:
         title: 'User Migrations'
         pending_requests: 'Pending Migration Requests'
@@ -710,6 +727,7 @@ ui:
     loading: 'Loading...'
     view: 'View'
     none: 'None'
+    back: 'Back'
 
 file_browser:
     page_title: 'File Browser'

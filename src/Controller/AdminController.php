@@ -16,6 +16,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
+use App\Service\BackupManager;
 
 #[Route('/administration')]
 #[IsGranted('ROLE_ADMIN')]
@@ -27,7 +28,8 @@ class AdminController extends AbstractController
         private readonly TranslatorInterface $translator,
         private readonly RequestStack $requestStack,
         private readonly SystemSettingsService $systemSettingsService,
-        private readonly PasswordResetService $passwordResetService
+        private readonly PasswordResetService $passwordResetService,
+        private readonly BackupManager $backupManager
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -250,6 +252,38 @@ class AdminController extends AbstractController
                 'success' => false,
                 'message' => $this->translator->trans('admin.error.password_reset_failed')
             ], 500);
+        }
+    }
+
+    #[Route('/system-backups', name: 'app_admin_system_backups')]
+    public function systemBackups(): Response
+    {
+        $backups = $this->backupManager->getSystemBackups();
+        
+        // Calculate total size
+        $totalSize = array_sum(array_column($backups, 'size'));
+        
+        return $this->render('admin/system-backups.html.twig', [
+            'backups' => $backups,
+            'totalSize' => $totalSize,
+        ]);
+    }
+
+    #[Route('/system-backups/delete/{backupName}', name: 'app_admin_system_backup_delete', methods: ['POST'])]
+    public function deleteSystemBackup(string $backupName): JsonResponse
+    {
+        try {
+            $this->backupManager->deleteSystemBackup($backupName);
+            
+            return $this->json([
+                'success' => true,
+                'message' => $this->translator->trans('admin.system_backups.deleted', ['%name%' => $backupName])
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 400);
         }
     }
 }
