@@ -23,7 +23,8 @@ class AIToolCallService
         private readonly AIToolFileService $aiToolFileService,
         private readonly AIToolToolService $aiToolToolService,
         private readonly AIToolImageService $aiToolImageService,
-        private readonly AIToolDiffusionService $aiToolDiffusionService
+        private readonly AIToolDiffusionService $aiToolDiffusionService,
+        private readonly AIToolWebService $aiToolWebService
     ) {
     }
     
@@ -63,6 +64,11 @@ class AIToolCallService
             // For diffusion image tools, delegate to AIToolDiffusionService
             if (in_array($toolName, ['diffusionArtistSpirit'])) {
                 return $this->aiToolDiffusionService->{$toolName}($arguments);
+            }
+            
+            // For web tools, delegate to AIToolWebService
+            if (in_array($toolName, ['fetchURL'])) {
+                return $this->aiToolWebService->{$toolName}($arguments);
             }
 
             // createSepaEuroPaymentQrCode
