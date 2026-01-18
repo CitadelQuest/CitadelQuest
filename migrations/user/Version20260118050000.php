@@ -26,7 +26,7 @@ class UserMigration_20260118050000
     {
         // Add fetchURL tool
         $this->addTool($db, 'fetchURL', 
-            'Fetch and read content from a web URL. Returns clean, extracted text content from web pages. Use this to research topics, read documentation, get current information (prices, opening hours, news), or access any public web content. Results are cached to avoid repeated fetches.',
+            'Fetch and read content from a web URL. Returns clean, extracted text content from web pages. Use this to research topics, read documentation, get current information (prices, opening hours, news), or access any public web content. Search the web using `https://search.brave.com/search?q={query}`. Results are cached to avoid repeated fetches.',
             [
                 'type' => 'object',
                 'properties' => [
