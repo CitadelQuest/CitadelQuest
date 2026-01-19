@@ -802,7 +802,7 @@ class SpiritConversationService
     
     /**
      * Determine response type from AI service response
-     * Uses finish_reason: 'stop', 'tool_use', 'length'
+     * Uses finish_reason: 'stop', 'tool_use', 'length', 'content_filter'
      */
     private function determineResponseType(AiServiceResponse $response): string
     {
@@ -813,6 +813,8 @@ class SpiritConversationService
             return 'tool_use';
         } elseif ($finishReason === 'length') {
             return 'length';
+        } elseif ($finishReason === 'content_filter') {
+            return 'content_filter';
         } elseif ($finishReason === 'stop') {
             return 'stop';
         }

@@ -1077,7 +1077,35 @@ export class SpiritChatManager {
         let hasToolExecution = false;
         let toolExecutionHtml = '';
         
-        if (message.role === 'assistant' && message.type === 'tool_use' && message.content && typeof message.content === 'object') {
+        // Handle content_filter response type
+        let hasContentFilter = false;
+        let contentFilterHtml = '';
+        
+        if (message.role === 'assistant' && message.type === 'content_filter') {
+            hasContentFilter = true;
+            
+            // Format usage info for content filter
+            let filterUsageHtml = '';
+            if (message.usage) {
+                const tokens = message.usage.totalTokensFormatted;
+                const price = message.usage.totalPriceFormatted;
+                if (tokens > 0 || price > 0) {
+                    filterUsageHtml = `
+                        <span class="small text-muted opacity-50 ms-2">
+                            <i class="mdi mdi-tally-mark-5 me-1 text-warning opacity-50" title="Tokens"></i>${tokens}
+                            <i class="mdi mdi-circle-small opacity-75 me-1"></i>
+                            <i class="mdi mdi-circle-multiple-outline me-1 text-warning opacity-50" title="Credits"></i>${price}
+                        </span>`;
+                }
+            }
+            
+            contentFilterHtml = `
+                <div class="d-flex align-items-center gap-2 p-2 bg-warning bg-opacity-10 rounded border border-warning border-opacity-25">
+                    <span class="text-muted small"><i class="mdi mdi-shield-alert text-warning opacity-75 me-2"></i><strong class="text-warning">Content Filter</strong> - The AI response was blocked by the model's content policy.</span>
+                    ${filterUsageHtml}
+                </div>
+            `;
+        } else if (message.role === 'assistant' && message.type === 'tool_use' && message.content && typeof message.content === 'object') {
             // Extract text content from the full message object
             const textContent = message.content.content;
             // Handle null, empty string, or actual content (array vs string demon!)
@@ -1185,6 +1213,19 @@ export class SpiritChatManager {
             toolEl.className = 'chat-message chat-message-tool';
             toolEl.innerHTML = toolExecutionHtml;
             fragment.appendChild(toolEl);
+            
+            return fragment;
+        }
+        
+        // If there's content filter, wrap in a fragment with warning element
+        if (hasContentFilter) {
+            const fragment = document.createDocumentFragment();
+            fragment.appendChild(messageEl);
+            
+            const filterEl = document.createElement('div');
+            filterEl.className = 'chat-message chat-message-warning';
+            filterEl.innerHTML = contentFilterHtml;
+            fragment.appendChild(filterEl);
             
             return fragment;
         }
