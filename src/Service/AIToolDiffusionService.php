@@ -498,12 +498,19 @@ PROMPT;
      */
     private function buildFrontendDisplay(array $savedFiles, array $diffusionParams, float $total_cost_credits): string
     {
+        $uniqueId = uniqid();
+        $detailsPanelId = 'diffusion-details-' . $uniqueId;
+        $imageContainerId = 'diffusion-image-' . $uniqueId;
         $html = '<div class="col-12 position-relative bg-light p-2 rounded bg-opacity-10">';
         
-        // Header with Diffusion Artist info
-        $html .= '<div class="text-start ms-2 d-inline-block w-100 mb-1">';
+        // Header with Diffusion Artist info and toggle icon
+        $html .= '<div class="text-start ms-2 d-inline-block w-100 mb-1 position-relative">';
         $html .= '  <i class="mdi mdi-palette text-cyber fs-5 float-start me-2"></i>';
         $html .= '  <div class="small float-start mt-2 fw-bold">Diffusion Artist Spirit</div>';
+        // Toggle icon for details panel (upper right) - toggles both details panel visibility and image container width
+        $html .= '  <div class="position-absolute top-0 end-0 me-2 cursor-pointer text-muted" onclick="document.getElementById(\'' . $detailsPanelId . '\').classList.toggle(\'d-none\'); document.getElementById(\'' . $imageContainerId . '\').classList.toggle(\'w-50\'); this.querySelector(\'i\').classList.toggle(\'mdi-information-outline\'); this.querySelector(\'i\').classList.toggle(\'mdi-information-off-outline\');" title="Toggle generation details">';
+        $html .= '    <i class="mdi mdi-information-outline fs-5"></i>';
+        $html .= '  </div>';
         $html .= '</div>';
         $html .= '<div style="clear:both;"></div>';
         
@@ -511,7 +518,7 @@ PROMPT;
         foreach ($savedFiles as $savedFile) {
             $randomID = uniqid();
             $html .= '<div class="w-100 m-0 p-0 mb-2 position-relative" id="content-showcase-' . $randomID . '">';
-            $html .= '  <div class="d-inline-block position-relative w-50 m-0">';
+            $html .= '  <div id="' . $imageContainerId . '" class="d-inline-block position-relative m-0">';
             $html .= '    <img src="' . $savedFile['base64data'] . '" alt="' . htmlspecialchars($savedFile['name']) . '" style="max-width: 100%; max-height: 70vh;" class="rounded float-end"/>';
             $html .= '    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">';
             $html .= '      <i class="mdi mdi-fullscreen"></i>';
@@ -525,8 +532,8 @@ PROMPT;
             $html .= '      <i class="mdi mdi-download me-2"></i> Download';
             $html .= '    </a>';
             $html .= '  </div>';
-            // File info
-            $html .= '  <div class="float-end d-none d-sm-inline-block text-start mt-1 w-50 m-0 px-3" style="font-size: 0.8rem !important;">';
+            // File info (hidden by default, toggle with info icon)
+            $html .= '  <div id="' . $detailsPanelId . '" class="float-end d-none text-start mt-1 w-50 m-0 px-3" style="font-size: 0.8rem !important;">';
             $html .= $this->renderDiffusionParam('Image file', htmlspecialchars($savedFile['fullPath']));
 
             if ($savedFile['seed']) {
