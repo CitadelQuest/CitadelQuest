@@ -5,6 +5,7 @@
  */
 
 import { SpiritChatManager } from '../spirit-chat';
+import * as bootstrap from 'bootstrap';
 
 // save currentStep to localStorage
 function saveCurrentStep(currentStep) {
@@ -272,22 +273,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ spiritId: localStorage.getItem('spiritId'), title: 'First conversation' })
                 })
                 .then(response => response.json())
-                .then(data => {
-                    if (data.title && data.id) {
-                        if (window.spiritChatManager) {
-                            // destroy the current spiritChatManager
-                            window.spiritChatManager = null;
-                        }
-                        // Initialize Spirit chat functionality
-                        window.spiritChatManager = new SpiritChatManager();
-                        window.spiritChatManager.init();
+                .then(async (conversationData) => {
+                    if (conversationData.title && conversationData.id) {
+                        const spiritId = localStorage.getItem('spiritId');
+                        const conversationId = conversationData.id;
                         
-                        // Open spirit chat modal
-                        //document.getElementById("spiritChatButton").dispatchEvent(new Event('click', { bubbles: true }));
+                        // Store conversation info for auto-loading
+                        localStorage.setItem('config.chat.last_conversation_id', conversationId);
+                        localStorage.setItem('config.chat.last_conversation_spirit_id', spiritId);
+                        localStorage.setItem('selectedSpiritId', spiritId);
+                        
+                        // Refresh the spirit dropdown in navbar with the new spirit
+                        if (window.spiritDropdownManager) {
+                            await window.spiritDropdownManager.loadSpirits();
+                            window.spiritDropdownManager.selectedSpiritId = spiritId;
+                        }
+                        
+                        // Use existing SpiritChatManager or create new one
+                        if (!window.spiritChatManager) {
+                            window.spiritChatManager = new SpiritChatManager();
+                            await window.spiritChatManager.init();
+                        }
+                        
+                        // Switch to the new spirit (this fetches spirit data, updates UI including AI models, and loads conversations)
+                        await window.spiritChatManager.switchSpirit(spiritId);
+                        
+                        // Update credit indicator (not called during onboarding init)
+                        await window.spiritChatManager.updateCreditIndicator();
 
                         // Hide onboarding and show onboarding complete
                         document.querySelector('.onboarding-container').classList.add('d-none');
                         document.querySelector('.onboarding-complete-container').classList.remove('d-none');
+                        
+                        // Add click handler for the "Chat with Spirit" button
+                        const chatWithSpiritBtn = document.querySelector('.onboarding-complete-container .btn-cyber');
+                        if (chatWithSpiritBtn) {
+                            chatWithSpiritBtn.addEventListener('click', function() {
+                                const spiritChatModal = document.getElementById('spiritChatModal');
+                                if (spiritChatModal) {
+                                    const modal = new bootstrap.Modal(spiritChatModal);
+                                    modal.show();
+                                }
+                            });
+                        }
                     }
                 })
                 .catch(error => {

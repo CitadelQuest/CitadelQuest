@@ -238,7 +238,7 @@ Convert the user's natural language description into a structured JSON response 
 
 ### Negative Prompt (things to avoid)
 Common negative prompts for quality:
-- `old, bad anatomy, bad hands, missing fingers, extra fingers, deformed, ugly, mutated`
+- `bad anatomy, bad hands, missing fingers, extra fingers, deformed, ugly, mutated`
 - `blurry, low quality, worst quality, jpeg artifacts`
 - `watermark, signature, text`
 - all `no ..` should be in the negative prompt

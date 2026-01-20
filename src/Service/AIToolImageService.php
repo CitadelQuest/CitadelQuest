@@ -225,7 +225,7 @@ class AIToolImageService
                                                     <i class="mdi mdi-file-image text-cyber ms-2 me-1"></i>' . $savedFile['fullPath'] . '
                                                 </div>';
                     $contentFrontendData .=     '<div style="clear: both;"></div>';
-                    $contentFrontendData .=     '<a class="btn btn-cyber btn-sm mt-2 float-end me-2 mb-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1"><i class="mdi mdi-download me-2"></i> Download</a>';
+                    $contentFrontendData .=     '<a class="btn btn-outline-primary btn-sm mt-2 float-end me-2 mb-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1"><i class="mdi mdi-download"></i></a>';
                     $contentFrontendData .= '</div>';
                     $contentFrontendData .= '<div style="clear:both;"></div>';
 
