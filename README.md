@@ -2,7 +2,19 @@
 
 A decentralized platform for AI-human, human-human collaboration with emphasis on personal data sovereignty and private communication.
 
-<img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/b625b4a7-c444-45f7-8c8c-99c92b6d7413" />
+<img width="75%" alt="CitadelQuest - Dashboard" src="https://github.com/user-attachments/assets/0bf46dd1-5a3e-4a0b-b191-2a8012a35b4a" />
+
+###
+
+<img width="30%" alt="CitadelQuest - File Browser" src="https://github.com/user-attachments/assets/3fa43f83-fada-447a-938c-29d008db2343" />
+
+<img width="30%" alt="CitadelQuest - First Spirit Chat" src="https://github.com/user-attachments/assets/0d03426b-0a81-4d94-b9f8-f68cea904034" />
+
+###
+
+<img width="30%" alt="CitadelQuest - Image gen" src="https://github.com/user-attachments/assets/1c95a49c-3084-4e14-8325-5358bd49df13" />
+
+<img width="30%" alt="CitadelQuest - Image edit" src="https://github.com/user-attachments/assets/4db29ca6-776d-4038-bf10-6ebeb472c853" />
 
 
 ## New Installation
@@ -12,6 +24,9 @@ A decentralized platform for AI-human, human-human collaboration with emphasis o
 4. The installer will automatically handle everything!
 5. After installation, create a new user (administrator) and login
 6. Enjoy!
+
+## For Docker Deployments
+See /docker/README.md for Coolify deployment instructions.
 
 ## Core Features
 
@@ -206,4 +221,4 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 See the [LICENSE](LICENSE) file for the full license text.
 
-Copyright (C) 2024-2025 CitadelQuest Development Team
+Copyright (C) 2024-2026 CitadelQuest Development Team
