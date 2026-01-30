@@ -46,6 +46,8 @@ services:
                 App\Service\AIToolFileService: '@App\Service\AIToolFileService'
                 App\Service\AIToolToolService: '@App\Service\AIToolToolService'
                 App\Service\AIToolImageService: '@App\Service\AIToolImageService'
+                App\Service\AIToolMemoryService: '@App\Service\AIToolMemoryService'
+                App\Service\SpiritMemoryService: '@App\Service\SpiritMemoryService'
 
     App\Service\CQAIGateway:
         autowire: true

@@ -239,7 +239,7 @@ class AIToolWebService
             // Check if file exists and update, or create new
             $existingFile = $this->projectFileService->findByPathAndName($projectId, $path, $filename);
             if ($existingFile) {
-                $this->projectFileService->updateContent($existingFile->getId(), json_encode($annoData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                $this->projectFileService->updateFile($existingFile->getId(), json_encode($annoData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
             } else {
                 $this->projectFileService->createFile($projectId, $path, $filename, json_encode($annoData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
             }
@@ -507,7 +507,7 @@ You are a web content extractor. Your task is to extract the meaningful main con
 1. Extract ONLY the main article/content - ignore navigation, ads, footers, sidebars, cookie notices
 2. Preserve the content structure (headings, lists, paragraphs)
 3. Convert to clean Markdown format
-4. Keep important links if they're part of the content (format as [text](url))
+4. Keep important links if they're part of the content or navigation/sitemap (format as [text](url))
 5. Remove all tracking parameters from URLs
 6. If the page is a list/index, extract the list items with their descriptions
 7. For product pages: extract name, price, description, availability

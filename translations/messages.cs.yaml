@@ -239,11 +239,11 @@ spirit:
             identity: 'Identita Ducha'
             custom_prompt: 'Vlastní systémový prompt'
             system_info: 'Systémové informace'
-            memory: 'Paměťové soubory Ducha'
+            memory: 'Paměť Ducha'
             tools: 'Instrukce pro AI nástroje'
             language: 'Jazyk odpovědí'
         system_info_hint: 'Vypněte pro testování zaměřené na soukromí bez systémového kontextu'
-        memory_hint: 'Paměťové soubory Ducha poskytují kontext z předchozích konverzací'
+        memory_hint: 'Paměť Ducha poskytuje kontext z předchozích konverzací'
         tools_hint: 'Instrukce pro používání AI nástrojů (volání funkcí)'
         language_hint: 'Ovládá jazyk odpovědí Ducha'
 

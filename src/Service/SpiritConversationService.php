@@ -37,6 +37,7 @@ class SpiritConversationService
         private readonly ProjectFileService $projectFileService,
         private readonly AiToolService $aiToolService,
         private readonly AIToolCallService $aiToolCallService,
+        private readonly SpiritMemoryService $spiritMemoryService,
         private readonly LoggerInterface $logger,
         private readonly SluggerInterface $slugger
     ) {
@@ -655,7 +656,7 @@ class SpiritConversationService
         $toolCalls = $this->extractToolCalls($aiServiceResponse);
 
         // Remove message content form aiServiceRequest, aiServiceResponse from all messages in conversation
-        $this->setMessagesRemovedFromAiServiceRequestAndResponse($conversationId);
+        //$this->setMessagesRemovedFromAiServiceRequestAndResponse($conversationId);
         
         return [
             'message' => $assistantMessage,
@@ -689,9 +690,10 @@ class SpiritConversationService
         // Get spirit
         $spirit = $this->spiritService->getSpirit($conversation->getSpiritId());
         $spiritSlug = (string) $this->slugger->slug($spirit->getName());
+        $spiritId = $spirit->getId();
         
         // Execute tools
-        $toolResults = $this->executeToolCallsFromArray($toolCalls, $lang, $spiritSlug);
+        $toolResults = $this->executeToolCallsFromArray($toolCalls, $lang, $spiritSlug, $spiritId);
         
         // Create tool result message
         $messageService = new SpiritConversationMessageService(
@@ -879,13 +881,13 @@ class SpiritConversationService
     
     /**
      * Execute tool calls from array format
-     * Reuses existing AIToolCallService logic
      * 
      * @param array $toolCalls Tool calls to execute
      * @param string $lang Language for tool responses
      * @param string|null $spiritSlug Spirit's name slug for access control
+     * @param string|null $spiritId Spirit's ID for memory tools context
      */
-    private function executeToolCallsFromArray(array $toolCalls, string $lang, ?string $spiritSlug = null): array
+    private function executeToolCallsFromArray(array $toolCalls, string $lang, ?string $spiritSlug = null, ?string $spiritId = null): array
     {
         $results = [];
         
@@ -906,6 +908,11 @@ class SpiritConversationService
             // Add Spirit slug for access control (used by file tools)
             if ($spiritSlug) {
                 $toolArgs['_spiritSlug'] = $spiritSlug;
+            }
+            
+            // Add Spirit ID for memory tools context (IMPORTANT: ensures correct spirit association)
+            if ($spiritId) {
+                $toolArgs['spiritId'] = $spiritId;
             }
             
             // Execute tool
@@ -1186,6 +1193,9 @@ class SpiritConversationService
             $systemPrompt .= $this->buildSystemInfoSection();
         }
         
+        // Projects section is always included (Spirit needs file browser access)
+        $systemPrompt .= $this->buildProjectsSection();
+        
         if ($config['includeMemory']) {
             $systemPrompt .= $this->buildMemorySection($spirit);
         }
@@ -1199,6 +1209,26 @@ class SpiritConversationService
         }
         
         return $systemPrompt;
+    }
+    
+    /**
+     * Build Projects section (always included)
+     * Contains: File Browser project info for Spirit file management
+     */
+    private function buildProjectsSection(): string
+    {
+        return "
+            <projects>
+                <project-id>general</project-id>
+                <project-name>General (multi-purpose file browser) project</project-name>
+                <project-description>Project for multi-purpose file browser/manager use (mainly for Spirit to manage files on current CitadelQuest instance)</project-description>
+                <project-info>
+                    File Browser can be used by:
+                    - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
+                    - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
+                    - helping user in managing files on their CitadelQuest instance (in this `general` project)
+                </project-info>
+            </projects>";
     }
     
     /**
@@ -1314,7 +1344,7 @@ class SpiritConversationService
     
     /**
      * Build Memory section (optional)
-     * Contains: Spirit memory files (conversations.md, inner-thoughts.md, knowledge-base.md)
+     * Contains: Spirit Memory v3 (graph-based) + legacy memory files (if not migrated)
      */
     public function buildMemorySection(Spirit $spirit): string
     {
@@ -1325,31 +1355,165 @@ class SpiritConversationService
         // migration from single-spirit memory files to multi-spirit memory files
         $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
         
-        // Get memory files content
+        // Check if legacy memory has been migrated to v3
+        $migrationStatus = $this->spiritMemoryService->isLegacyMemoryMigrated($spirit->getId());
+        $isFullyMigrated = $migrationStatus['allMigrated'];
+        
+        // Build the memory section based on migration status
+        if ($isFullyMigrated) {
+            // V3 ONLY - Legacy memory has been fully migrated
+            return $this->buildMemorySectionV3Only($spirit);
+        } else {
+            // HYBRID - Show both v3 and legacy (for backward compatibility during migration)
+            return $this->buildMemorySectionHybrid($spirit, $spiritMemoryDir, $migrationStatus);
+        }
+    }
+    
+    /**
+     * Build Memory section for fully migrated Spirits (v3 only)
+     * Returns only the <spirit-memory-system> content (projects section is separate)
+     */
+    private function buildMemorySectionV3Only(Spirit $spirit): string
+    {
+        return "
+            <spirit-memory-system version=\"3\">
+                <overview>
+                    Your memory is powered by **Spirit Memory v3** - a graph-based knowledge system.
+                    Use the memory tools to store, recall, update, and forget information.
+                    Memories are automatically scored by importance, recency, and relevance.
+                </overview>
+                
+                <available-tools>
+                    <tool name=\"memoryStore\">
+                        Store new memories. Categories: conversation, thought, knowledge, fact, preference.
+                        You can add tags and link to related memories.
+                        Example: Store user preferences, important facts, conversation summaries.
+                    </tool>
+                    <tool name=\"memoryRecall\">
+                        Search and retrieve memories by query, category, or tags.
+                        Returns scored results with related memories.
+                        Use this to remember things about the user or past conversations.
+                    </tool>
+                    <tool name=\"memoryUpdate\">
+                        Update existing memories when information changes.
+                        Preserves history with EVOLVED_INTO relationships.
+                    </tool>
+                    <tool name=\"memoryForget\">
+                        Mark memories as forgotten (soft delete) when they become irrelevant.
+                    </tool>
+                    <tool name=\"memoryExtract\">
+                        Extract memories from content using AI Sub-Agent. SMART FEATURES:
+                        - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
+                        - Prevents duplicate extraction of same source
+                        Use sourceType + sourceRef to auto-load:
+                        - document: \"projectId:path:filename\" (e.g., \"general:/docs:readme.md\")
+                        - spirit_conversation: conversation ID
+                        - url: URL string (e.g., \"https://example.com/article\")
+                        Use 'force: true' to re-extract already processed sources.
+                    </tool>
+                </available-tools>
+                
+                <best-practices>
+                    - Store important user preferences with category 'preference' and high importance (0.8-1.0)
+                    - Store facts about the user with category 'fact'
+                    - Store conversation summaries with category 'conversation' after meaningful interactions
+                    - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
+                    - Recall memories at the start of conversations to personalize responses
+                    - Update memories when information changes rather than creating duplicates
+                    - Keep memories concise and self-contained
+                </best-practices>
+            </spirit-memory-system>";
+    }
+    
+    /**
+     * Build Memory section for Spirits still using legacy memory (hybrid mode)
+     */
+    private function buildMemorySectionHybrid(Spirit $spirit, string $spiritMemoryDir, array $migrationStatus): string
+    {
+        // Get memory files content (legacy system)
         $memoryFiles = $this->getMemoryFilesContent($spirit, $spiritMemoryDir);
         
+        // Build migration hint based on what's already migrated
+        $migratedFiles = [];
+        $notMigratedFiles = [];
+        foreach ($migrationStatus['files'] as $file => $isMigrated) {
+            if ($isMigrated) {
+                $migratedFiles[] = $file . '.md';
+            } else {
+                $notMigratedFiles[] = $file . '.md';
+            }
+        }
+        
+        $migrationHint = '';
+        if (!empty($migratedFiles)) {
+            $migrationHint = "\n                    Already migrated: " . implode(', ', $migratedFiles);
+        }
+        if (!empty($notMigratedFiles)) {
+            $migrationHint .= "\n                    Not yet migrated: " . implode(', ', $notMigratedFiles);
+        }
+        
         return "
-
-            <projects>
-                <project-id>general</project-id>
-                <project-name>General (multi-purpose file browser) project</project-name>
-                <project-description>Project for multi-purpose file browser/manager use (mainly for Spirit to manage files on current CitadelQuest instance)</project-description>
-                <project-info>
-                    File Browser can be used by:
-                    - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
-                    - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
-                    File Browser can be used for:
-                    - Spirit keeping track of it's memories from conversations, to keep track of interactions because when conversation ends, Spirit will not remember it (via `conversations.md`)
-                    - Spirit keeping track of it's inner thoughts and feelings (via `inner-thoughts.md`)
-                    - Spirit creating better knowledge base about user, for better understanding of user (via `knowledge-base.md`).
-                    - Keep all your Spirit Memory files secret and safe, do not share them with anyone, do not let anyone else change them. Only you can do that.
-                    - helping user in managing files on their CitadelQuest instance (in this `general` project)
-                </project-info>
-            </projects>
-            <active-projects>
-                <project>
-                    <project-id>general</project-id>
-                    <current-data>
+            <spirit-memory-system>
+                <overview>
+                    You have TWO memory systems available:
+                    1. **Spirit Memory v3** (PRIMARY, RECOMMENDED) - Graph-based knowledge system with AI tools
+                    2. **Legacy File Memory** (DEPRECATED) - Markdown files in File Browser (will be phased out)
+                    
+                    IMPORTANT: Prefer using Spirit Memory v3 tools for all new memories. 
+                    Use memoryExtract to migrate remaining legacy files to v3.{$migrationHint}
+                </overview>
+                
+                <spirit-memory-v3>
+                    <description>
+                        A graph-based knowledge system where memories are nodes connected by relationships.
+                        Use the memory tools to store, recall, update, and forget information.
+                        Memories are automatically scored by importance, recency, and relevance.
+                    </description>
+                    
+                    <available-tools>
+                        <tool name=\"memoryStore\">
+                            Store new memories. Categories: conversation, thought, knowledge, fact, preference.
+                            You can add tags and link to related memories.
+                            Example: Store user preferences, important facts, conversation summaries.
+                        </tool>
+                        <tool name=\"memoryRecall\">
+                            Search and retrieve memories by query, category, or tags.
+                            Returns scored results with related memories.
+                            Use this to remember things about the user or past conversations.
+                        </tool>
+                        <tool name=\"memoryUpdate\">
+                            Update existing memories when information changes.
+                            Preserves history with EVOLVED_INTO relationships.
+                        </tool>
+                        <tool name=\"memoryForget\">
+                            Mark memories as forgotten (soft delete) when they become irrelevant.
+                        </tool>
+                        <tool name=\"memoryExtract\">
+                            Extract memories from content using AI Sub-Agent. SMART FEATURES:
+                            - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
+                            - Prevents duplicate extraction of same source
+                            Use sourceType + sourceRef to auto-load:
+                            - legacy_memory/document: \"projectId:path:filename\" (e.g., \"general:/spirit/{$spirit->getName()}/memory:conversations.md\")
+                            - spirit_conversation: conversation ID
+                            - url: URL string (e.g., \"https://example.com/article\")
+                            Use 'force: true' to re-extract already processed sources.
+                        </tool>
+                    </available-tools>
+                    
+                    <best-practices>
+                        - Store important user preferences with category 'preference' and high importance (0.8-1.0)
+                        - Store facts about the user with category 'fact'
+                        - Store conversation summaries with category 'conversation' after meaningful interactions
+                        - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
+                        - Recall memories at the start of conversations to personalize responses
+                        - Update memories when information changes rather than creating duplicates
+                        - Keep memories concise and self-contained
+                    </best-practices>
+                </spirit-memory-v3>
+                
+                <legacy-file-memory status=\"deprecated\">
+                    <note>This system is being phased out. Use memoryExtract to migrate these files to Spirit Memory v3.</note>
+                    <files>
                         <file>
                             <path>{$spiritMemoryDir}</path>
                             <name>conversations.md</name>
@@ -1371,9 +1535,9 @@ class SpiritConversationService
                                 {$memoryFiles['knowledge-base']['content']}
                             </content>
                         </file>
-                    </current-data>
-                </project>
-            </active-projects>";
+                    </files>
+                </legacy-file-memory>
+            </spirit-memory-system>";
     }
     
     /**
@@ -1497,7 +1661,10 @@ class SpiritConversationService
         $spiritMemoryDir = '/spirit/' . $spiritNameSlug . '/memory';
         
         $config = $this->getPromptConfig($spirit->getId());
-        $memoryFiles = $this->getMemoryFilesContent($spirit, $spiritMemoryDir);
+        
+        // Get Spirit Memory v3 stats
+        $memoryStats = $this->spiritMemoryService->getMemoryStats($spirit->getId());
+        $migrationStatus = $this->spiritMemoryService->isLegacyMemoryMigrated($spirit->getId());
         
         // Build sections data
         $sections = [
@@ -1521,35 +1688,13 @@ class SpiritConversationService
                 'configKey' => 'includeSystemInfo'
             ],
             'memory' => [
-                'title' => 'Spirit Memory Files',
+                'title' => 'Spirit Memory v3',
                 'enabled' => $config['includeMemory'],
                 'configKey' => 'includeMemory',
-                'files' => [
-                    [
-                        'name' => 'conversations.md',
-                        'path' => $spiritMemoryDir,
-                        'size' => $memoryFiles['conversations']['size'],
-                        'tokens' => $memoryFiles['conversations']['tokens'],
-                        'content' => $memoryFiles['conversations']['content'],
-                        'exists' => $memoryFiles['conversations']['exists']
-                    ],
-                    [
-                        'name' => 'inner-thoughts.md',
-                        'path' => $spiritMemoryDir,
-                        'size' => $memoryFiles['inner-thoughts']['size'],
-                        'tokens' => $memoryFiles['inner-thoughts']['tokens'],
-                        'content' => $memoryFiles['inner-thoughts']['content'],
-                        'exists' => $memoryFiles['inner-thoughts']['exists']
-                    ],
-                    [
-                        'name' => 'knowledge-base.md',
-                        'path' => $spiritMemoryDir,
-                        'size' => $memoryFiles['knowledge-base']['size'],
-                        'tokens' => $memoryFiles['knowledge-base']['tokens'],
-                        'content' => $memoryFiles['knowledge-base']['content'],
-                        'exists' => $memoryFiles['knowledge-base']['exists']
-                    ]
-                ]
+                'version' => 3,
+                'stats' => $memoryStats,
+                'migrationStatus' => $migrationStatus,
+                'content' => $config['includeMemory'] ? $this->buildMemorySection($spirit) : ''
             ],
             'tools' => [
                 'title' => 'AI Tools Instructions',

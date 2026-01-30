@@ -63,9 +63,12 @@ class SpiritService
     }
     
     /**
-     * Get the user's primary spirit
+     * Get the user's PRIMARY spirit (first created)
+     * 
+     * WARNING: This returns the FIRST spirit, not necessarily the one in current context.
+     * For conversation/tool contexts, use getSpirit($spiritId) with explicit ID instead.
      */
-    public function getUserSpirit(): ?Spirit
+    public function getUserPrimarySpirit(): ?Spirit
     {
         $db = $this->getUserDb();
 
@@ -80,18 +83,27 @@ class SpiritService
     }
     
     /**
-     * Get a spirit by ID or the primary spirit if ID is null
+     * @deprecated Use getUserPrimarySpirit() instead - name is clearer about what it returns
+     */
+    public function getUserSpirit(): ?Spirit
+    {
+        return $this->getUserPrimarySpirit();
+    }
+    
+    /**
+     * Get a spirit by ID
+     * 
+     * Returns null if spiritId is null or spirit not found.
+     * Does NOT fallback to primary spirit - use getUserPrimarySpirit() explicitly if needed.
      */
     public function getSpirit(?string $spiritId = null): ?Spirit
     {
-        $db = $this->getUserDb();
-
         if ($spiritId === null) {
-            $result = $db->executeQuery('SELECT * FROM spirits ORDER BY created_at ASC LIMIT 1');
-        } else {
-            $result = $db->executeQuery('SELECT * FROM spirits WHERE id = ?', [$spiritId]);
+            return null;
         }
-
+        
+        $db = $this->getUserDb();
+        $result = $db->executeQuery('SELECT * FROM spirits WHERE id = ?', [$spiritId]);
         $data = $result->fetchAssociative();
 
         if (!$data) {

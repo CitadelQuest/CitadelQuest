@@ -24,7 +24,8 @@ class AIToolCallService
         private readonly AIToolToolService $aiToolToolService,
         private readonly AIToolImageService $aiToolImageService,
         private readonly AIToolDiffusionService $aiToolDiffusionService,
-        private readonly AIToolWebService $aiToolWebService
+        private readonly AIToolWebService $aiToolWebService,
+        private readonly AIToolMemoryService $aiToolMemoryService
     ) {
     }
     
@@ -69,6 +70,11 @@ class AIToolCallService
             // For web tools, delegate to AIToolWebService
             if (in_array($toolName, ['fetchURL'])) {
                 return $this->aiToolWebService->{$toolName}($arguments);
+            }
+
+            // For memory tools, delegate to AIToolMemoryService
+            if (in_array($toolName, ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract'])) {
+                return $this->aiToolMemoryService->{$toolName}($arguments);
             }
 
             // createSepaEuroPaymentQrCode

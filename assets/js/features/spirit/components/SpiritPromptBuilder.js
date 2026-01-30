@@ -188,8 +188,8 @@ export class SpiritPromptBuilder {
             }
         }
         
-        // 4. Memory files
-        this.renderMemoryFiles(sections.memory);
+        // 4. Memory (v3 graph-based system)
+        this.renderMemorySection(sections.memory);
         const toggleMemory = document.getElementById('toggleMemory');
         if (toggleMemory && sections.memory) {
             toggleMemory.checked = sections.memory.enabled;
@@ -226,58 +226,105 @@ export class SpiritPromptBuilder {
     }
     
     /**
-     * Render memory files with collapsible previews
+     * Render Spirit Memory v3 section with stats
      */
-    renderMemoryFiles(memorySection) {
+    renderMemorySection(memorySection) {
         const container = document.getElementById('memoryFilesList');
-        if (!container || !memorySection || !memorySection.files) return;
+        if (!container || !memorySection) return;
         
         container.innerHTML = '';
         
-        memorySection.files.forEach((file, index) => {
-            const fileEl = document.createElement('div');
-            fileEl.className = 'mb-2';
-            
-            const sizeFormatted = this.formatBytes(file.size);
-            const existsClass = file.exists ? 'text-success' : 'text-warning';
-            const existsIcon = file.exists ? 'mdi-check-circle' : 'mdi-alert-circle';
-            
-            fileEl.innerHTML = `
-                <div class="d-flex align-items-center justify-content-between p-2 bg-dark bg-opacity-25 rounded cursor-pointer" 
-                     data-bs-toggle="collapse" data-bs-target="#memoryFile${index}" aria-expanded="false">
+        const stats = memorySection.stats || {};
+        const migration = memorySection.migrationStatus || {};
+        
+        // Memory stats display
+        const statsEl = document.createElement('div');
+        
+        const totalMemories = stats.totalMemories || 0;
+        const categories = stats.categories || {};
+        const tagsCount = stats.tagsCount || 0;
+        const relationshipsCount = stats.relationshipsCount || 0;
+        
+        // Build category badges
+        let categoryBadges = '';
+        for (const [cat, count] of Object.entries(categories)) {
+            const badgeClass = this.getCategoryBadgeClass(cat);
+            categoryBadges += `<span class="badge ${badgeClass} me-1">${cat}: ${count}</span>`;
+        }
+        if (!categoryBadges) {
+            categoryBadges = '<span class="text-muted small">No memories yet</span>';
+        }
+        
+        // Migration status
+        let migrationStatus = '';
+        if (migration.allMigrated) {
+            migrationStatus = `<span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>Fully migrated to v3</span>`;
+        } else if (migration.migrated) {
+            migrationStatus = `<span class="badge bg-warning text-dark"><i class="mdi mdi-progress-clock me-1"></i>Partially migrated</span>`;
+        } else {
+            migrationStatus = `<span class="badge bg-secondary"><i class="mdi mdi-database-outline me-1"></i>Ready for migration</span>`;
+        }
+        
+        statsEl.innerHTML = `
+            <div class="p-3 bg-dark bg-opacity-25 rounded">
+                <div class="d-flex align-items-center justify-content-between mb-2">
                     <div>
-                        <i class="mdi mdi-chevron-right me-2 collapse-icon"></i>
-                        <i class="mdi mdi-file-document-outline me-2 text-cyber"></i>
-                        <strong>${file.name}</strong>
-                        <span class="text-muted ms-2">(${sizeFormatted}, ~${file.tokens} tokens)</span>
+                        <i class="mdi mdi-brain me-2 text-cyber"></i>
+                        <strong>Spirit Memory v3</strong>
+                        <span class="text-muted ms-2">(Graph-based knowledge system)</span>
                     </div>
-                    <span class="${existsClass}">
-                        <i class="mdi ${existsIcon}"></i>
-                    </span>
+                    ${migrationStatus}
                 </div>
-                <div class="collapse" id="memoryFile${index}">
-                    <div class="p-2 bg-dark bg-opacity-50 rounded-bottom">
-                        <pre class="mb-0 small" style="white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto;">${this.escapeHtml(file.content)}</pre>
+                
+                <div class="row g-2 mt-2">
+                    <div class="col-auto">
+                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                            <div class="h4 mb-0 text-cyber">${totalMemories}</div>
+                            <small class="text-muted">Memories</small>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                            <div class="h4 mb-0 text-info">${tagsCount}</div>
+                            <small class="text-muted">Tags</small>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                            <div class="h4 mb-0 text-warning">${relationshipsCount}</div>
+                            <small class="text-muted">Links</small>
+                        </div>
                     </div>
                 </div>
-            `;
+                
+                <div class="mt-3">
+                    <small class="text-muted d-block mb-1">Categories:</small>
+                    ${categoryBadges}
+                </div>
+            </div>
             
-            container.appendChild(fileEl);
-            
-            // Handle collapse icon rotation
-            const collapseEl = fileEl.querySelector(`#memoryFile${index}`);
-            const iconEl = fileEl.querySelector('.collapse-icon');
-            
-            collapseEl.addEventListener('show.bs.collapse', () => {
-                iconEl.classList.remove('mdi-chevron-right');
-                iconEl.classList.add('mdi-chevron-down');
-            });
-            
-            collapseEl.addEventListener('hide.bs.collapse', () => {
-                iconEl.classList.remove('mdi-chevron-down');
-                iconEl.classList.add('mdi-chevron-right');
-            });
-        });
+            <p class="small text-muted mt-2 mb-0">
+                <i class="mdi mdi-information-outline me-1"></i>
+                Spirit Memory v3 uses AI tools (memoryStore, memoryRecall, etc.) to manage knowledge.
+                Toggle OFF to disable memory context in system prompt.
+            </p>
+        `;
+        
+        container.appendChild(statsEl);
+    }
+    
+    /**
+     * Get badge class for memory category
+     */
+    getCategoryBadgeClass(category) {
+        const classes = {
+            'conversation': 'bg-primary',
+            'thought': 'bg-info',
+            'knowledge': 'bg-success',
+            'fact': 'bg-warning text-dark',
+            'preference': 'bg-danger'
+        };
+        return classes[category] || 'bg-secondary';
     }
     
     /**

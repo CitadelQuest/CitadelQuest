@@ -239,11 +239,11 @@ spirit:
             identity: 'Spirit Identity'
             custom_prompt: 'Custom System Prompt'
             system_info: 'System Information'
-            memory: 'Spirit Memory Files'
+            memory: 'Spirit Memory'
             tools: 'AI Tools Instructions'
             language: 'Response Language'
         system_info_hint: 'Disable for privacy-focused testing without system context'
-        memory_hint: 'Spirit memory files provide context from previous conversations'
+        memory_hint: 'Spirit memory provides context from previous conversations'
         tools_hint: 'Instructions for AI tool usage (function calling)'
         language_hint: 'Controls the language of Spirit responses'
 
