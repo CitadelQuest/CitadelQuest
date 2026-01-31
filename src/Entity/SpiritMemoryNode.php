@@ -18,6 +18,7 @@ class SpiritMemoryNode implements JsonSerializable
     private int $accessCount;
     private ?string $sourceType;
     private ?string $sourceRef;
+    private ?string $sourceRange;
     private bool $isActive;
     private ?string $supersededBy;
 
@@ -56,6 +57,7 @@ class SpiritMemoryNode implements JsonSerializable
         $this->accessCount = 0;
         $this->sourceType = null;
         $this->sourceRef = null;
+        $this->sourceRange = null;
         $this->isActive = true;
         $this->supersededBy = null;
     }
@@ -119,6 +121,11 @@ class SpiritMemoryNode implements JsonSerializable
     public function getSourceRef(): ?string
     {
         return $this->sourceRef;
+    }
+
+    public function getSourceRange(): ?string
+    {
+        return $this->sourceRange;
     }
 
     public function isActive(): bool
@@ -198,6 +205,12 @@ class SpiritMemoryNode implements JsonSerializable
         return $this;
     }
 
+    public function setSourceRange(?string $sourceRange): self
+    {
+        $this->sourceRange = $sourceRange;
+        return $this;
+    }
+
     public function setIsActive(bool $isActive): self
     {
         $this->isActive = $isActive;
@@ -239,6 +252,7 @@ class SpiritMemoryNode implements JsonSerializable
             'accessCount' => $this->accessCount,
             'sourceType' => $this->sourceType,
             'sourceRef' => $this->sourceRef,
+            'sourceRange' => $this->sourceRange,
             'isActive' => $this->isActive,
             'supersededBy' => $this->supersededBy,
         ];
@@ -265,6 +279,7 @@ class SpiritMemoryNode implements JsonSerializable
         $node->setAccessCount((int)($data['access_count'] ?? 0));
         $node->setSourceType($data['source_type'] ?? null);
         $node->setSourceRef($data['source_ref'] ?? null);
+        $node->setSourceRange($data['source_range'] ?? null);
         $node->setIsActive((bool)($data['is_active'] ?? true));
         $node->setSupersededBy($data['superseded_by'] ?? null);
 

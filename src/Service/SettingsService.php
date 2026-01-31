@@ -150,4 +150,28 @@ class SettingsService
             return [];
         }
     }
+
+    /**
+     * Get user locale
+     */
+    public function getUserLocale(): array
+    {
+        $r = [];
+
+        $r['code'] = $this->getSettingValue('_locale', 'en');
+
+        switch ($r['code']) {
+            case 'sk':
+                $r['lang'] = 'Slovenčina';
+                break;
+            case 'cz':
+                $r['lang'] = 'Čeština';
+                break;
+            case 'en':
+            default:
+                $r['lang'] = 'English';
+        }
+
+        return $r;
+    }
 }

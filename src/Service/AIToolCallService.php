@@ -73,7 +73,7 @@ class AIToolCallService
             }
 
             // For memory tools, delegate to AIToolMemoryService
-            if (in_array($toolName, ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract'])) {
+            if (in_array($toolName, ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract', 'memoryAnalyzeRelationships'])) {
                 return $this->aiToolMemoryService->{$toolName}($arguments);
             }
 

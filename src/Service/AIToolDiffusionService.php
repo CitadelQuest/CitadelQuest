@@ -276,6 +276,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 2. Choose the best model based on the style requested
 3. Adjust dimensions for the content (portrait: 832x1216, landscape: 1216x832, square: 1216x1216)
 4. Keep prompts concise but descriptive
+<clean_system_prompt>
 PROMPT;
     }
     

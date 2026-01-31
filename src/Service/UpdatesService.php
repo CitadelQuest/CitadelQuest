@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Entity\SpiritMemoryJob;
 use App\Service\UserDatabaseManager;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -19,7 +20,9 @@ class UpdatesService
         private readonly Security $security,
         private readonly CqChatService $cqChatService,
         private readonly CqChatMsgService $cqChatMsgService,
-        private readonly CqContactService $cqContactService
+        private readonly CqContactService $cqContactService,
+        private readonly SpiritMemoryJobService $spiritMemoryJobService,
+        private readonly AIToolMemoryService $aiToolMemoryService
     ) {
         $this->user = $security->getUser();
     }
@@ -79,12 +82,16 @@ class UpdatesService
             $statusUpdates = $this->getMessageStatusUpdates($openChatId, $since);
         }
 
+        // 5. Process pending memory extraction jobs (one step per poll)
+        $memoryJobs = $this->processMemoryJobs($since);
+
         return [
             'timestamp' => $currentTime->format('c'), // ISO 8601
             'unreadCount' => $unreadCount,
             'chats' => $chats,
             'messages' => $messages,
-            'statusUpdates' => $statusUpdates
+            'statusUpdates' => $statusUpdates,
+            'memoryJobs' => $memoryJobs
         ];
     }
 
@@ -297,5 +304,73 @@ class UpdatesService
         )->fetchAllAssociative();
 
         return $results;
+    }
+
+    /**
+     * Process pending memory extraction jobs and return status updates
+     * Processes ONE job step per poll to avoid blocking
+     */
+    private function processMemoryJobs(string $since): array
+    {
+        $result = [
+            'active' => [],
+            'completed' => [],
+            'processed' => false
+        ];
+
+        try {
+            // Get jobs to process - both pending AND processing (to continue in-progress jobs)
+            $jobsToProcess = $this->spiritMemoryJobService->getJobsToProcess(1);
+            
+            if (!empty($jobsToProcess)) {
+                $job = $jobsToProcess[0];
+                
+                // Start the job if it's pending
+                if ($job->isPending()) {
+                    $this->spiritMemoryJobService->startJob($job);
+                }
+                
+                // Process one step based on job type
+                if ($job->getType() === SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE) {
+                    $this->aiToolMemoryService->processExtractionJobStep($job);
+                    $result['processed'] = true;
+                } elseif ($job->getType() === SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
+                    $this->aiToolMemoryService->processRelationshipAnalysisJobStep($job);
+                    $result['processed'] = true;
+                }
+            }
+
+            // Get active jobs for status display
+            $activeJobs = $this->spiritMemoryJobService->getActiveJobs();
+            foreach ($activeJobs as $job) {
+                $result['active'][] = [
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'createdAt' => $job->getCreatedAt()->format('c')
+                ];
+            }
+
+            // Get recently completed jobs for notifications
+            $completedJobs = $this->spiritMemoryJobService->getRecentlyCompletedJobs($since);
+            foreach ($completedJobs as $job) {
+                $result['completed'][] = [
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'result' => $job->getResult(),
+                    'error' => $job->getError(),
+                    'completedAt' => $job->getCompletedAt()?->format('c')
+                ];
+            }
+
+        } catch (\Exception $e) {
+            // Don't fail the entire update request for job processing errors
+            $result['error'] = $e->getMessage();
+        }
+
+        return $result;
     }
 }

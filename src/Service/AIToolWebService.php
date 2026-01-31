@@ -522,6 +522,7 @@ Return ONLY the extracted content in Markdown format. No explanations, no meta-c
 - If the content is in a non-English language, keep it in that language
 - Preserve any important numbers, dates, prices, contact information
 - If the page appears to be an error page or login wall, state that briefly
+<clean_system_prompt>
 PROMPT;
     }
 

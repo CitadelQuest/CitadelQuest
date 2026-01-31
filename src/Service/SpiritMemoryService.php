@@ -42,7 +42,8 @@ class SpiritMemoryService
         ?string $sourceType = null,
         ?string $sourceRef = null,
         array $tags = [],
-        ?string $relatesTo = null
+        ?string $relatesTo = null,
+        ?string $sourceRange = null
     ): SpiritMemoryNode {
         $db = $this->getUserDb();
 
@@ -50,6 +51,7 @@ class SpiritMemoryService
         $node = new SpiritMemoryNode($spiritId, $content, $category, $importance, $summary);
         $node->setSourceType($sourceType);
         $node->setSourceRef($sourceRef);
+        $node->setSourceRange($sourceRange);
 
         // Auto-generate summary if not provided (first 100 chars)
         if (!$summary && strlen($content) > 100) {
@@ -59,8 +61,8 @@ class SpiritMemoryService
         // Insert into database
         $db->executeStatement(
             'INSERT INTO spirit_memory_nodes 
-            (id, spirit_id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, is_active, superseded_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (id, spirit_id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, source_range, is_active, superseded_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $node->getId(),
                 $node->getSpiritId(),
@@ -74,6 +76,7 @@ class SpiritMemoryService
                 0,
                 $node->getSourceType(),
                 $node->getSourceRef(),
+                $node->getSourceRange(),
                 1,
                 null
             ]
@@ -463,6 +466,63 @@ class SpiritMemoryService
         }
 
         return $nodes;
+    }
+
+    /**
+     * Get memories by category for a spirit
+     */
+    public function findByCategory(string $spiritId, string $category, bool $activeOnly = true): array
+    {
+        $db = $this->getUserDb();
+
+        $sql = 'SELECT * FROM spirit_memory_nodes WHERE spirit_id = ? AND category = ?';
+        if ($activeOnly) {
+            $sql .= ' AND is_active = 1';
+        }
+        $sql .= ' ORDER BY importance DESC, created_at DESC';
+
+        $result = $db->executeQuery($sql, [$spiritId, $category]);
+
+        $nodes = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $nodes[] = SpiritMemoryNode::fromArray($row);
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * Get all unique categories for a spirit
+     */
+    public function getCategories(string $spiritId): array
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT DISTINCT category FROM spirit_memory_nodes WHERE spirit_id = ? AND is_active = 1',
+            [$spiritId]
+        );
+
+        return array_column($result->fetchAllAssociative(), 'category');
+    }
+
+    /**
+     * Check if a relationship already exists between two memories
+     */
+    public function relationshipExists(string $sourceId, string $targetId, ?string $type = null): bool
+    {
+        $db = $this->getUserDb();
+
+        $sql = 'SELECT COUNT(*) FROM spirit_memory_relationships WHERE source_id = ? AND target_id = ?';
+        $params = [$sourceId, $targetId];
+
+        if ($type) {
+            $sql .= ' AND type = ?';
+            $params[] = $type;
+        }
+
+        $result = $db->executeQuery($sql, $params);
+        return (int)$result->fetchOne() > 0;
     }
 
     /**

@@ -110,7 +110,7 @@ class AIToolImageService
             $messages = [
                 [
                     'role' => 'system',
-                    'content' => $systemPrompt
+                    'content' => $systemPrompt . '<clean_system_prompt>'
                 ],
                 [
                     'role' => 'user',
