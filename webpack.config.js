@@ -41,6 +41,7 @@ Encore
     .addEntry('file_browser', './assets/entries/file_browser.js')
     .addEntry('dashboard-badges', './assets/js/features/dashboard/dashboard-badges.js')
     .addEntry('database-vacuum', './assets/js/utils/database-vacuum.js')
+    .addEntry('spirit-memory', './assets/entries/spirit-memory.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

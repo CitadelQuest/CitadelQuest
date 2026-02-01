@@ -96,7 +96,7 @@ class SpiritApiController extends AbstractController
     public function interactions(Request $request): JsonResponse
     {
         $spiritId = $request->query->get('spiritId');
-        $spirit = $spiritId ? $this->spiritService->getSpirit($spiritId) : $this->spiritService->getUserSpirit();
+        $spirit = $this->spiritService->getSpirit($spiritId);
         
         if (!$spirit) {
             return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);
@@ -113,7 +113,7 @@ class SpiritApiController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true);
             $spiritId = $data['spiritId'] ?? null;
-            $spirit = $spiritId ? $this->spiritService->getSpirit($spiritId) : $this->spiritService->getUserSpirit();
+            $spirit = $this->spiritService->getSpirit($spiritId);
             
             if (!$spirit) {
                 return $this->json(['error' => 'No spirit found'], Response::HTTP_NOT_FOUND);

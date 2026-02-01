@@ -74,14 +74,10 @@ class AIToolMemoryService
             // Get the Spirit ID (use primary spirit if not specified)
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
-                $spirit = $this->spiritService->getUserSpirit();
-                if (!$spirit) {
-                    return [
-                        'success' => false,
-                        'error' => 'No Spirit found'
-                    ];
-                }
-                $spiritId = $spirit->getId();
+                return [
+                    'success' => false,
+                    'error' => 'No Spirit found'
+                ];
             }
 
             // Extract optional arguments
@@ -159,14 +155,10 @@ class AIToolMemoryService
             // Get the Spirit ID
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
-                $spirit = $this->spiritService->getUserSpirit();
-                if (!$spirit) {
-                    return [
-                        'success' => false,
-                        'error' => 'No Spirit found'
-                    ];
-                }
-                $spiritId = $spirit->getId();
+                return [
+                    'success' => false,
+                    'error' => 'No Spirit found'
+                ];
             }
 
             // Extract optional arguments
@@ -356,14 +348,10 @@ class AIToolMemoryService
             // Get the Spirit ID first (needed for duplicate check)
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
-                $spirit = $this->spiritService->getUserSpirit();
-                if (!$spirit) {
-                    return [
-                        'success' => false,
-                        'error' => 'No Spirit found'
-                    ];
-                }
-                $spiritId = $spirit->getId();
+                return [
+                    'success' => false,
+                    'error' => 'No Spirit found'
+                ];
             }
 
             $sourceType = $arguments['sourceType'] ?? null;
@@ -1134,27 +1122,6 @@ PROMPT;
                         'strength' => $strength,
                         'context' => $context
                     ];
-
-                    // For CONTRADICTS, create bidirectional relationship
-                    if ($type === SpiritMemoryNode::RELATION_CONTRADICTS) {
-                        if (!$this->spiritMemoryService->relationshipExists($existingMemoryId, $memoryId, $type)) {
-                            $reverseRelationship = $this->spiritMemoryService->createRelationship(
-                                $existingMemoryId,
-                                $memoryId,
-                                $type,
-                                $strength,
-                                $context
-                            );
-                            $createdRelationships[] = [
-                                'id' => $reverseRelationship->getId(),
-                                'sourceId' => $existingMemoryId,
-                                'targetId' => $memoryId,
-                                'type' => $type,
-                                'strength' => $strength,
-                                'context' => $context . ' (bidirectional)'
-                            ];
-                        }
-                    }
                 } catch (\Exception $e) {
                     $this->logger->warning('Failed to create relationship', [
                         'error' => $e->getMessage(),
@@ -1641,13 +1608,13 @@ You are the Content Block Extractor Agent. Your task is to analyze content and s
 Analyze the provided content (with line numbers) and identify its natural structure - sections, chapters, topics, time periods, or any other logical divisions.
 
 ## Guidelines:
-- Identify 2-12 logical blocks (sections) in the content
+- Identify 2-9 logical blocks (sections) in the content
 - Each block should be a coherent, self-contained section
 - Preserve the natural structure of the document (headings, topics, time periods)
 - Use the LINE NUMBERS shown at the start of each line to specify block ranges
 - Create a meaningful title and summary for each block
 - Extract 2-5 content-related tags for each block (topics, people, places, concepts mentioned)
-- Set is_leaf=true if a block is small enough to not need further splitting (typically <30 lines or atomic content)
+- Set is_leaf=true if a block is small enough to not need further splitting (typically <12 lines or atomic content)
 
 ## Block Detection Strategies:
 - **Documents**: Use headings, chapters, sections
@@ -1665,15 +1632,15 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
             "title": "Section title or description",
             "summary": "Brief summary of this section (max 100 chars)",
             "start_line": 1,
-            "end_line": 25,
+            "end_line": 12,
             "is_leaf": false,
             "tags": ["topic1", "person-name", "concept"]
         },
         {
             "title": "Another section",
             "summary": "Summary of section content",
-            "start_line": 26,
-            "end_line": 50,
+            "start_line": 13,
+            "end_line": 25,
             "is_leaf": true,
             "tags": ["migration", "prague", "december-2025"]
         }
@@ -1688,7 +1655,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 2. start_line and end_line are LINE NUMBERS (1-indexed, as shown in the content)
 3. Blocks must be contiguous and cover the entire content
 4. end_line of one block should be start_line-1 of the next
-5. Minimum 2 blocks, maximum 12 blocks
+5. Minimum 2 blocks, maximum 9 blocks
 6. If content is too small or atomic, return single block with is_leaf=true
 7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "january-2026")
 PROMPT;

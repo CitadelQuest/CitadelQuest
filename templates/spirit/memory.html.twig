@@ -1,0 +1,283 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'spirit.memory.title'|trans }} - {{ spirit.name }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('spirit-memory') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid memory-explorer">
+    <input type="hidden" id="spirit-id" value="{{ spiritId }}">
+    <input type="hidden" id="spirit-name" value="{{ spirit.name }}">
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-panel mb-3">
+                <div class="d-flex justify-content-between align-items-center p-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{{ path('spirit_show', {id: spiritId}) }}" class="btn btn-outline-secondary me-3">
+                            <i class="mdi mdi-arrow-left"></i>
+                        </a>
+                        <h4 class="mb-0">
+                            <i class="mdi mdi-brain text-cyber me-2"></i>
+                            {{ 'spirit.memory.title'|trans }} - {{ spirit.name }}
+                        </h4>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="memory-stats" class="d-flex gap-3 me-3">
+                            <span class="badge bg-secondary">
+                                <i class="mdi mdi-circle-multiple"></i>
+                                <span id="stats-nodes">0</span> {{ 'spirit.memory.nodes'|trans }}
+                            </span>
+                            <span class="badge bg-secondary">
+                                <i class="mdi mdi-link-variant"></i>
+                                <span id="stats-edges">0</span> {{ 'spirit.memory.relationships'|trans }}
+                            </span>
+                        </div>
+                        <div class="btn-group">
+                            <button id="btn-reset-view" class="btn btn-sm btn-outline-secondary" title="{{ 'spirit.memory.reset_view'|trans }}">
+                                <i class="mdi mdi-video-3d"></i>
+                            </button>
+                            <button id="btn-top-view" class="btn btn-sm btn-outline-secondary" title="{{ 'spirit.memory.top_view'|trans }}">
+                                <i class="mdi mdi-arrow-collapse-down"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4 col-md-4">
+            <div class="glass-panel p-3 memory-panel compilation-panel">
+                <h5 class="mb-3">
+                    <i class="mdi mdi-file-document-multiple text-cyber me-2"></i>
+                    {{ 'spirit.memory.compilation'|trans }}
+                </h5>
+                
+                <div id="compilation-placeholder" class="text-center text-secondary py-5 placeholder-state">
+                    <i class="mdi mdi-selection-ellipse placeholder-icon"></i>
+                    <p class="mt-2">{{ 'spirit.memory.select_for_compilation'|trans }}</p>
+                </div>
+                
+                <div id="compilation-content" class="d-none">
+                    <div id="compilation-selected" class="mb-3">
+                        <label class="form-label small text-cyber d-flex align-items-center">
+                            <i class="mdi mdi-star me-1"></i>
+                            {{ 'spirit.memory.selected_memory'|trans }}
+                        </label>
+                        <div id="compilation-selected-content" class="small p-2 rounded compilation-selected"></div>
+                    </div>
+                    
+                    <div id="compilation-related">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 col-md-4">
+            <div class="rounded memory-graph-wrapper">
+                <div id="memory-graph-container" style="width: 100%; height: 100%; position: relative;">
+                    <div id="memory-loading" class="position-absolute top-50 start-50 translate-middle text-center">
+                        <div class="spinner-border text-cyber" role="status">
+                            <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                        </div>
+                        <p class="mt-2 text-secondary">{{ 'spirit.memory.loading_graph'|trans }}</p>
+                    </div>
+                    <canvas id="memory-graph-canvas" class="rounded"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-4">
+            <div class="glass-panel p-3 memory-panel details-panel">
+                <h5 class="mb-3">
+                    <i class="mdi mdi-information-outline text-cyber me-2"></i>
+                    {{ 'spirit.memory.details'|trans }}
+                </h5>
+                
+                <div id="node-details" class="d-none">
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.importance'|trans }}</label>
+                        <div class="progress importance-bar">
+                            <div id="detail-importance-bar" class="progress-bar bg-cyber" role="progressbar"></div>
+                        </div>
+                        <small id="detail-importance-value" class="text-cyber"></small>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.summary'|trans }}</label>
+                        <p id="detail-summary" class="mb-0 small"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.category'|trans }}</label>
+                        <div id="detail-category" class="badge"></div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.tags'|trans }}</label>
+                        <div id="detail-tags"></div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.created_at'|trans }}</label>
+                        <p id="detail-created" class="mb-0 small text-secondary"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <label class="detail-label">{{ 'spirit.memory.access_count'|trans }}</label>
+                        <p id="detail-access" class="mb-0 small text-secondary"></p>
+                    </div>
+                </div>
+                
+                <div id="node-placeholder" class="text-center text-secondary placeholder-state">
+                    <i class="mdi mdi-cursor-default-click-outline placeholder-icon"></i>
+                    <p class="mt-2">{{ 'spirit.memory.click_node'|trans }}</p>
+                </div>
+                
+                <hr class="my-3">
+                
+                {# Categories Filter #}
+                <div class="filter-section mb-3">
+                    <h6 class="mb-2 filter-section-header" data-bs-toggle="collapse" data-bs-target="#categories-filter" role="button">
+                        <i class="mdi mdi-circle-multiple text-cyber me-2"></i>
+                        {{ 'spirit.memory.legend_categories'|trans }}
+                        <i class="mdi mdi-chevron-down filter-toggle-icon ms-auto"></i>
+                    </h6>
+                    <div id="categories-filter" class="collapse show small legend-section">
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-cat-conversation">
+                                <span class="badge category-badge conversation">●</span> conversation
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-category" type="checkbox" id="filter-cat-conversation" data-category="conversation" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-cat-knowledge">
+                                <span class="badge category-badge knowledge">●</span> knowledge
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-category" type="checkbox" id="filter-cat-knowledge" data-category="knowledge" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-cat-preference">
+                                <span class="badge category-badge preference">●</span> preference
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-category" type="checkbox" id="filter-cat-preference" data-category="preference" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-cat-thought">
+                                <span class="badge category-badge thought">●</span> thought
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-category" type="checkbox" id="filter-cat-thought" data-category="thought" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-cat-fact">
+                                <span class="badge category-badge fact">●</span> fact
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-category" type="checkbox" id="filter-cat-fact" data-category="fact" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {# Relationships Filter #}
+                <div class="filter-section">
+                    <h6 class="mb-2 filter-section-header" data-bs-toggle="collapse" data-bs-target="#relationships-filter" role="button">
+                        <i class="mdi mdi-link-variant text-cyber me-2"></i>
+                        {{ 'spirit.memory.legend_relationships'|trans }}
+                        <i class="mdi mdi-chevron-down filter-toggle-icon ms-auto"></i>
+                    </h6>
+                    <div id="relationships-filter" class="collapse show small legend-section">
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-relates-to">
+                                <span class="rel-color relates-to">―</span> {{ 'spirit.memory.relationship_types.relates_to'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-relates-to" data-relationship="RELATES_TO" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-derived-from">
+                                <span class="rel-color derived-from">―</span> {{ 'spirit.memory.relationship_types.derived_from'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-derived-from" data-relationship="DERIVED_FROM" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-evolved-into">
+                                <span class="rel-color evolved-into">―</span> {{ 'spirit.memory.relationship_types.evolved_into'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-evolved-into" data-relationship="EVOLVED_INTO" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-part-of">
+                                <span class="rel-color part-of">―</span> {{ 'spirit.memory.relationship_types.part_of'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-part-of" data-relationship="PART_OF" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-contradicts">
+                                <span class="rel-color contradicts">―</span> {{ 'spirit.memory.relationship_types.contradicts'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-contradicts" data-relationship="CONTRADICTS" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-reinforces">
+                                <span class="rel-color reinforces">―</span> {{ 'spirit.memory.relationship_types.reinforces'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-reinforces" data-relationship="REINFORCES" checked>
+                            </div>
+                        </div>
+                        <div class="filter-item d-flex align-items-center justify-content-between">
+                            <label class="form-check-label" for="filter-rel-supersedes">
+                                <span class="rel-color supersedes">―</span> {{ 'spirit.memory.relationship_types.supersedes'|trans }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-supersedes" data-relationship="SUPERSEDES" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        window.memoryExplorerTranslations = {
+            relationship_types: {
+                'RELATES_TO': '{{ 'spirit.memory.relationship_types.relates_to'|trans }}',
+                'DERIVED_FROM': '{{ 'spirit.memory.relationship_types.derived_from'|trans }}',
+                'EVOLVED_INTO': '{{ 'spirit.memory.relationship_types.evolved_into'|trans }}',
+                'PART_OF': '{{ 'spirit.memory.relationship_types.part_of'|trans }}',
+                'CONTRADICTS': '{{ 'spirit.memory.relationship_types.contradicts'|trans }}',
+                'REINFORCES': '{{ 'spirit.memory.relationship_types.reinforces'|trans }}',
+                'SUPERSEDES': '{{ 'spirit.memory.relationship_types.supersedes'|trans }}'
+            }
+        };
+    </script>
+    {{ encore_entry_script_tags('spirit-memory') }}
+{% endblock %}

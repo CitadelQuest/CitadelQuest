@@ -1,0 +1,235 @@
+// Spirit Memory Explorer Styles
+// ================================
+@use '../colors' as colors;
+@use '../variables' as vars;
+@use '../mixins' as mix;
+
+// Category Colors
+$category-conversation: #4a9eff;
+$category-knowledge: #4aff9e;
+$category-preference: #9e4aff;
+$category-thought: #ff9e4a;
+$category-fact: #4affff;
+
+// Relationship Colors
+$rel-relates-to: #ffffff;
+$rel-derived-from: #ffff00;
+$rel-evolved-into: #00ffff;
+$rel-part-of: #00ff00;
+$rel-contradicts: #ff0000;
+$rel-reinforces: #0088ff;
+$rel-supersedes: #ff8800;
+
+// Panel Heights
+$panel-height: calc(100vh - 200px);
+$panel-min-height: 500px;
+
+// Memory Explorer Container
+.memory-explorer {
+    // Panels
+    .memory-panel {
+        height: $panel-height;
+        min-height: $panel-min-height;
+        overflow-y: auto;
+        @include mix.cyber-scrollbar;
+    }
+
+    // Graph Container
+    .memory-graph-wrapper {
+        height: $panel-height;
+        min-height: $panel-min-height;
+    }
+
+    // Compilation Panel (Left)
+    .compilation-panel {
+        .compilation-selected {
+            background: rgba(colors.$cyber, 0.1);
+            border-left: 3px solid colors.$cyber;
+        }
+
+        .compilation-block {
+            cursor: pointer;
+            transition: box-shadow vars.$duration-quick vars.$ease-standard;
+
+            &:hover,
+            &.hover-highlight {
+                box-shadow: 0 0 10px rgba(colors.$cyber, 0.5);
+            }
+
+            &.expanded .compilation-content {
+                display: block;
+            }
+
+            &:not(.expanded) .compilation-content {
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .expand-indicator {
+                font-size: 0.7rem;
+                opacity: 0.6;
+                transition: opacity vars.$duration-quick;
+            }
+
+            &:hover .expand-indicator {
+                opacity: 1;
+            }
+        }
+
+        .relationship-type {
+            &.relates-to { color: $rel-relates-to; }
+            &.derived-from { color: $rel-derived-from; }
+            &.evolved-into { color: $rel-evolved-into; }
+            &.part-of { color: $rel-part-of; }
+            &.contradicts { color: $rel-contradicts; }
+            &.reinforces { color: $rel-reinforces; }
+            &.supersedes { color: $rel-supersedes; }
+        }
+
+        .relationship-context {
+            font-style: italic;
+        }
+
+        // Markdown content styling
+        .compilation-content {
+            p { margin-bottom: 0.5rem; }
+            p:last-child { margin-bottom: 0; }
+            ul, ol { margin-bottom: 0.5rem; padding-left: 1.2rem; }
+            code { 
+                background: rgba(colors.$cyber, 0.1); 
+                padding: 0.1rem 0.3rem; 
+                border-radius: 3px;
+                font-size: 0.85em;
+            }
+            pre {
+                background: rgba(0, 0, 0, 0.3);
+                padding: 0.5rem;
+                border-radius: vars.$border-radius;
+                overflow-x: auto;
+                code { background: transparent; padding: 0; }
+            }
+        }
+    }
+
+    // Details Panel (Right)
+    .details-panel {
+        .detail-section {
+            margin-bottom: 0.75rem;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            color: colors.$secondary-color;
+            margin-bottom: 0.25rem;
+        }
+
+        .importance-bar {
+            height: 8px;
+        }
+    }
+
+    // Legend
+    .legend-section {
+        .legend-item {
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
+        }
+
+        // Category badges
+        .category-badge {
+            &.conversation { background-color: $category-conversation; }
+            &.knowledge { background-color: $category-knowledge; }
+            &.preference { background-color: $category-preference; }
+            &.thought { background-color: $category-thought; }
+            &.fact { background-color: $category-fact; }
+        }
+
+        // Relationship colors
+        .rel-color {
+            &.relates-to { color: $rel-relates-to; }
+            &.derived-from { color: $rel-derived-from; }
+            &.evolved-into { color: $rel-evolved-into; }
+            &.part-of { color: $rel-part-of; }
+            &.contradicts { color: $rel-contradicts; }
+            &.reinforces { color: $rel-reinforces; }
+            &.supersedes { color: $rel-supersedes; }
+        }
+    }
+
+    // Placeholder states
+    .placeholder-state {
+        .placeholder-icon {
+            font-size: 3rem;
+            opacity: 0.5;
+        }
+    }
+
+    // Filter sections
+    .filter-section {
+        .filter-section-header {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: color vars.$duration-quick;
+
+            &:hover {
+                color: colors.$cyber;
+            }
+
+            .filter-toggle-icon {
+                transition: transform vars.$duration-quick;
+            }
+
+            &[aria-expanded="false"] .filter-toggle-icon {
+                transform: rotate(-90deg);
+            }
+        }
+
+        .filter-item {
+            padding: 0.25rem 0;
+            border-bottom: 1px solid rgba(colors.$cyber, 0.1);
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .form-check-label {
+                font-size: 0.8rem;
+                text-transform: lowercase;
+                cursor: pointer;
+                
+                span {
+                    margin-right: vars.$spacing-unit;
+                }
+            }
+
+            .form-check-input {
+                cursor: pointer;
+                scale: 0.8;
+
+                &:checked {
+                    background-color: colors.$cyber;
+                    border-color: colors.$cyber;
+                }
+            }
+        }
+    }
+
+    // 3D Node Labels
+    .node-label {
+        background: rgba(0, 0, 0, 0.85);
+        border: 1px solid colors.$cyber;
+        border-radius: vars.$border-radius;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        color: #fff;
+        white-space: normal;
+        max-width: 300px;
+        pointer-events: none;
+        box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
+    }
+}

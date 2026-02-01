@@ -24,6 +24,7 @@
         "@mdi/font": "^7.4.47",
         "@popperjs/core": "^2.11.8",
         "bootstrap": "^5.3.3",
+        "d3-force": "^3.0.0",
         "markdown-it": "^14.1.0",
         "marked": "^16.2.0",
         "three": "^0.175.0"

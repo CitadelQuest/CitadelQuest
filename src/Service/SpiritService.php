@@ -112,6 +112,10 @@ class SpiritService
 
         return Spirit::fromArray($data);
     }
+    public function findById(string $id): ?Spirit
+    {
+        return $this->getSpirit($id);
+    }
     
     /**
      * Create a new spirit for the user

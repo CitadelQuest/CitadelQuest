@@ -508,17 +508,30 @@ class SpiritMemoryService
 
     /**
      * Check if a relationship already exists between two memories
+     * Checks both directions to prevent duplicate bidirectional relationships
      */
-    public function relationshipExists(string $sourceId, string $targetId, ?string $type = null): bool
+    public function relationshipExists(string $sourceId, string $targetId, ?string $type = null, bool $checkBothDirections = true): bool
     {
         $db = $this->getUserDb();
 
-        $sql = 'SELECT COUNT(*) FROM spirit_memory_relationships WHERE source_id = ? AND target_id = ?';
-        $params = [$sourceId, $targetId];
+        if ($checkBothDirections) {
+            // Check both directions to prevent duplicates
+            $sql = 'SELECT COUNT(*) FROM spirit_memory_relationships WHERE ((source_id = ? AND target_id = ?) OR (source_id = ? AND target_id = ?))';
+            $params = [$sourceId, $targetId, $targetId, $sourceId];
 
-        if ($type) {
-            $sql .= ' AND type = ?';
-            $params[] = $type;
+            if ($type) {
+                $sql .= ' AND type = ?';
+                $params[] = $type;
+            }
+        } else {
+            // Only check specified direction
+            $sql = 'SELECT COUNT(*) FROM spirit_memory_relationships WHERE source_id = ? AND target_id = ?';
+            $params = [$sourceId, $targetId];
+
+            if ($type) {
+                $sql .= ' AND type = ?';
+                $params[] = $type;
+            }
         }
 
         $result = $db->executeQuery($sql, $params);
@@ -779,6 +792,76 @@ class SpiritMemoryService
         }
 
         return count($prunedIds);
+    }
+
+    // ========================================
+    // GRAPH DATA (for visualization)
+    // ========================================
+
+    /**
+     * Get all relationships for a spirit's memories (for graph visualization)
+     */
+    public function getAllRelationships(string $spiritId): array
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            "SELECT r.* FROM spirit_memory_relationships r
+             JOIN spirit_memory_nodes n ON r.source_id = n.id
+             WHERE n.spirit_id = ? AND n.is_active = 1",
+            [$spiritId]
+        );
+
+        $relationships = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $relationships[] = SpiritMemoryRelationship::fromArray($row);
+        }
+
+        return $relationships;
+    }
+
+    /**
+     * Get graph data for visualization (nodes + edges in one call)
+     */
+    public function getGraphData(string $spiritId): array
+    {
+        $nodes = $this->findAllBySpirit($spiritId, true);
+        $relationships = $this->getAllRelationships($spiritId);
+
+        // Build nodes array with tags
+        $graphNodes = [];
+        foreach ($nodes as $node) {
+            $graphNodes[] = [
+                'id' => $node->getId(),
+                'content' => $node->getContent(),
+                'summary' => $node->getSummary(),
+                'category' => $node->getCategory(),
+                'importance' => $node->getImportance(),
+                'confidence' => $node->getConfidence(),
+                'createdAt' => $node->getCreatedAt()->format('Y-m-d H:i:s'),
+                'accessCount' => $node->getAccessCount(),
+                'tags' => $this->getTagsForMemory($node->getId())
+            ];
+        }
+
+        // Build edges array
+        $graphEdges = [];
+        foreach ($relationships as $rel) {
+            $graphEdges[] = [
+                'id' => $rel->getId(),
+                'source' => $rel->getSourceId(),
+                'target' => $rel->getTargetId(),
+                'type' => $rel->getType(),
+                'strength' => $rel->getStrength(),
+                'context' => $rel->getContext()
+            ];
+        }
+
+        return [
+            'nodes' => $graphNodes,
+            'edges' => $graphEdges,
+            'stats' => $this->getStats($spiritId)
+        ];
     }
 
     // ========================================
