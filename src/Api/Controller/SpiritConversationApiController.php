@@ -261,9 +261,6 @@ class SpiritConversationApiController extends AbstractController
                 $userMessageArray['content'] = array_merge($userMessageArray['content'], $newFilesInfo);
             }
             
-            // Replace PDF base64 data with annotations if available
-            $userMessageArray = $this->conversationService->updatePDFannotationsInMessage($userMessageArray);
-
             // save images from message
             $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
                 new AiServiceResponse('', $userMessageArray, []),

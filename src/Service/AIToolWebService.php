@@ -3,7 +3,6 @@
 namespace App\Service;
 
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\CitadelVersion;
 
@@ -33,7 +32,7 @@ class AIToolWebService
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly HttpClientInterface $httpClient,
-        private readonly SluggerInterface $slugger
+        private readonly AnnoService $annoService
     ) {
     }
 
@@ -162,120 +161,41 @@ class AIToolWebService
     }
 
     /**
-     * Check cache for existing content
+     * Check cache for existing content (uses AnnoService)
      */
     private function checkCache(string $url, string $projectId): ?array
     {
-        [$path, $filename] = $this->getUrlCachePath($url);
+        $data = $this->annoService->readAnnotation(AnnoService::TYPE_URL, $url, $projectId, true);
         
-        try {
-            $file = $this->projectFileService->findByPathAndName($projectId, $path, $filename);
-            if (!$file) {
-                return null;
-            }
-            
-            $content = $this->projectFileService->getFileContent($file->getId());
-            $data = json_decode($content, true);
-            
-            if (!$data || $data['type'] !== 'url') {
-                return null;
-            }
-            
-            // Check if cache is expired
-            if (isset($data['url']['expires_at'])) {
-                $expiresAt = new \DateTime($data['url']['expires_at']);
-                if ($expiresAt < new \DateTime()) {
-                    return null; // Cache expired
-                }
-            }
-            
-            // Extract text content from content array
-            $textContent = '';
-            if (isset($data['url']['content']) && is_array($data['url']['content'])) {
-                foreach ($data['url']['content'] as $item) {
-                    if (isset($item['text'])) {
-                        $textContent .= $item['text'] . "\n";
-                    }
-                }
-            }
-            
-            return [
-                'title' => $data['url']['title'] ?? '',
-                'description' => $data['url']['description'] ?? '',
-                'content' => trim($textContent),
-                'fetched_at' => $data['url']['fetched_at'] ?? null
-            ];
-            
-        } catch (\Exception $e) {
+        if (!$data) {
             return null;
         }
+        
+        $metadata = $this->annoService->getMetadata($data);
+        $textContent = $this->annoService->getTextContent($data);
+        
+        return [
+            'title' => $metadata['title'] ?? '',
+            'description' => $metadata['description'] ?? '',
+            'content' => trim($textContent),
+            'fetched_at' => $metadata['fetched_at'] ?? null
+        ];
     }
 
     /**
-     * Save content to cache in .anno format
+     * Save content to cache in .anno format (uses AnnoService)
      */
     private function saveToCache(string $url, string $projectId, array $content): void
     {
-        [$path, $filename] = $this->getUrlCachePath($url);
+        $annoData = $this->annoService->buildUrlAnnotation(
+            $url,
+            $content['title'] ?? '',
+            $content['description'] ?? '',
+            $content['content'] ?? '',
+            self::CACHE_DURATION_HOURS
+        );
         
-        $expiresAt = (new \DateTime())->modify('+' . self::CACHE_DURATION_HOURS . ' hours');
-        
-        $annoData = [
-            'type' => 'url',
-            'url' => [
-                'hash' => hash('sha256', $url),
-                'source' => $url,
-                'title' => $content['title'] ?? '',
-                'description' => $content['description'] ?? '',
-                'fetched_at' => $content['fetched_at'] ?? (new \DateTime())->format('c'),
-                'expires_at' => $expiresAt->format('c'),
-                'content' => [
-                    ['type' => 'text', 'text' => $content['content']]
-                ]
-            ]
-        ];
-        
-        try {
-            // Check if file exists and update, or create new
-            $existingFile = $this->projectFileService->findByPathAndName($projectId, $path, $filename);
-            if ($existingFile) {
-                $this->projectFileService->updateFile($existingFile->getId(), json_encode($annoData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-            } else {
-                $this->projectFileService->createFile($projectId, $path, $filename, json_encode($annoData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-            }
-        } catch (\Exception $e) {
-            // Cache save failed, but we can continue
-        }
-    }
-
-    /**
-     * Get cache path and filename for a URL
-     */
-    private function getUrlCachePath(string $url): array
-    {
-        $parsed = parse_url($url);
-        $domain = $parsed['host'] ?? 'unknown';
-        $pathPart = ($parsed['path'] ?? '') . (isset($parsed['query']) ? '?' . $parsed['query'] : '');
-        
-        $domainSlug = (string) $this->slugger->slug($domain);
-        
-        // For homepage (empty or just "/"), use domain slug as filename
-        $pathTrimmed = trim($pathPart, '/');
-        if (empty($pathTrimmed)) {
-            $urlSlug = $domainSlug;
-        } else {
-            $urlSlug = (string) $this->slugger->slug($pathTrimmed);
-        }
-        
-        // Limit slug length
-        if (strlen($urlSlug) > 100) {
-            $urlSlug = substr($urlSlug, 0, 100) . '-' . substr(hash('sha256', $pathPart), 0, 8);
-        }
-        
-        $path = '/annotations/web/' . $domainSlug;
-        $filename = $urlSlug . '.anno';
-        
-        return [$path, $filename];
+        $this->annoService->writeAnnotation(AnnoService::TYPE_URL, $url, $annoData, $projectId);
     }
 
     /**

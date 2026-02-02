@@ -36,11 +36,12 @@ class SpiritMemoryJobService
     /**
      * Create a new job
      */
-    public function create(string $spiritId, string $type, array $payload): SpiritMemoryJob
+    public function create(string $spiritId, string $type, array $payload, int $totalSteps = 0): SpiritMemoryJob
     {
         $db = $this->getUserDb();
         
         $job = new SpiritMemoryJob($spiritId, $type, $payload);
+        $job->setTotalSteps($totalSteps);
 
         $db->executeStatement(
             'INSERT INTO spirit_memory_jobs 
@@ -54,7 +55,7 @@ class SpiritMemoryJobService
                 json_encode($job->getPayload()),
                 null,
                 0,
-                0,
+                $totalSteps,
                 null,
                 $job->getCreatedAt()->format('Y-m-d H:i:s'),
                 null,
@@ -287,10 +288,14 @@ class SpiritMemoryJobService
      */
     private function getJobCompletionTitle(SpiritMemoryJob $job): string
     {
+        $payload = $job->getPayload();
+        $docName = $payload['document_title'] ?? $payload['source_ref'] ?? null;
+        $suffix = $docName ? '<br/>' . $docName : '';
+        
         return match ($job->getType()) {
-            SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE => '📚 Memory Extraction Complete',
-            SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS => '🔗 Relationship Analysis Complete',
-            default => '✅ Memory Job Complete'
+            SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE => '📚 Memory Extraction Complete' . $suffix,
+            SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS => '🔗 Relationship Analysis Complete' . $suffix,
+            default => '✅ Memory Job Complete' . $suffix
         };
     }
 
@@ -318,10 +323,14 @@ class SpiritMemoryJobService
      */
     private function getJobFailureTitle(SpiritMemoryJob $job): string
     {
+        $payload = $job->getPayload();
+        $docName = $payload['document_title'] ?? $payload['source_ref'] ?? null;
+        $suffix = $docName ? ' - ' . $docName : '';
+        
         return match ($job->getType()) {
-            SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE => '❌ Memory Extraction Failed',
-            SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS => '❌ Relationship Analysis Failed',
-            default => '❌ Memory Job Failed'
+            SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE => '❌ Memory Extraction Failed' . $suffix,
+            SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS => '❌ Relationship Analysis Failed' . $suffix,
+            default => '❌ Memory Job Failed' . $suffix
         };
     }
 }

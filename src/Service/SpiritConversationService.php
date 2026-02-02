@@ -39,6 +39,7 @@ class SpiritConversationService
         private readonly AIToolCallService $aiToolCallService,
         private readonly SpiritMemoryService $spiritMemoryService,
         private readonly LoggerInterface $logger,
+        private readonly AnnoService $annoService,
         private readonly SluggerInterface $slugger
     ) {
         $this->user = $security->getUser();
@@ -467,86 +468,6 @@ class SpiritConversationService
         }
 
         return $newFiles;
-    }
-
-    /**
-     * Replace PDF base64 data with annotations if available
-     * This saves AI processing costs by using pre-extracted text instead of raw PDF data
-     * 
-     * @param array $message The message array with content
-     * @param string $projectId The project ID (default: 'general')
-     * @return array The message with PDF data replaced by annotations where available
-     */
-    public function updatePDFannotationsInMessage(array $message, string $projectId = 'general'): array
-    {
-        if (!isset($message['content']) || !is_array($message['content'])) {
-            return $message;
-        }
-        
-        $updatedContent = [];
-        
-        foreach ($message['content'] as $contentItem) {
-            $contentItemAdded = false;
-            
-            // Check if content is a PDF file
-            if (isset($contentItem['type']) && $contentItem['type'] === 'file' && 
-                isset($contentItem['file']['filename'])) {
-                
-                $filename = $contentItem['file']['filename'];
-                $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                
-                // Only process PDF files
-                if ($extension === 'pdf') {
-                    // Build annotation path: /annotations/pdf/{slug-filename}/{filename}.anno
-                    $annotationPath = '/annotations/pdf/' . $this->slugger->slug($filename);
-                    $annotationFilename = $filename . '.anno';
-                    
-                    try {
-                        $annotationFile = $this->projectFileService->findByPathAndName(
-                            $projectId,
-                            $annotationPath,
-                            $annotationFilename
-                        );
-                        
-                        if ($annotationFile) {
-                            $annotationFileContent = json_decode(
-                                $this->projectFileService->getFileContent($annotationFile->getId()), 
-                                true
-                            );
-                            
-                            // Verify annotation matches the file
-                            if (isset($annotationFileContent['file']['name']) && 
-                                $annotationFileContent['file']['name'] === $filename &&
-                                isset($annotationFileContent['file']['content'])) {
-                                
-                                // Replace PDF base64 with annotation content
-                                $annotationContent = $annotationFileContent['file']['content'];
-                                
-                                if (is_array($annotationContent)) {
-                                    foreach ($annotationContent as $annotationItem) {
-                                        $updatedContent[] = $annotationItem;
-                                    }
-                                } else {
-                                    $updatedContent[] = $annotationContent;
-                                }
-                                
-                                $contentItemAdded = true;
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        // Annotation not found or error reading - keep original content
-                    }
-                }
-            }
-            
-            // If content item was not replaced, keep original
-            if (!$contentItemAdded) {
-                $updatedContent[] = $contentItem;
-            }
-        }
-        
-        $message['content'] = $updatedContent;
-        return $message;
     }
 
     /**

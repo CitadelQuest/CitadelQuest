@@ -4,7 +4,6 @@ namespace App\Service;
 
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 /**
  * Service for AI Tool file operations
@@ -14,7 +13,7 @@ class AIToolFileService
     public function __construct(
         private readonly ProjectFileService $projectFileService,
         private readonly Security $security,
-        private readonly SluggerInterface $slugger
+        private readonly AnnoService $annoService
     ) {
     }
     
@@ -83,48 +82,14 @@ class AIToolFileService
             $filename = $file->getName();
             $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
             
-            // For PDF files, try to use cached annotations instead of raw binary
+            // For PDF files, try to use cached annotations instead of raw binary (uses AnnoService)
             $usedAnnotations = false;
             if ($extension === 'pdf') {
-                $annotationPath = '/annotations/pdf/' . $this->slugger->slug($filename);
-                $annotationFilename = $filename . '.anno';
+                $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
                 
-                try {
-                    $annotationFile = $this->projectFileService->findByPathAndName(
-                        $projectId,
-                        $annotationPath,
-                        $annotationFilename
-                    );
-                    
-                    if ($annotationFile) {
-                        $annotationContent = json_decode(
-                            $this->projectFileService->getFileContent($annotationFile->getId()),
-                            true
-                        );
-                        
-                        // Verify annotation matches the file and extract text content
-                        if (isset($annotationContent['file']['name']) && 
-                            $annotationContent['file']['name'] === $filename &&
-                            isset($annotationContent['file']['content'])) {
-                            
-                            // Build readable text from annotation content array
-                            $textParts = [];
-                            $annoContent = $annotationContent['file']['content'];
-                            
-                            if (is_array($annoContent)) {
-                                foreach ($annoContent as $item) {
-                                    if (isset($item['text'])) {
-                                        $textParts[] = $item['text'];
-                                    }
-                                }
-                            }
-                            
-                            $content = implode("\n", $textParts);
-                            $usedAnnotations = true;
-                        }
-                    }
-                } catch (\Exception $e) {
-                    // Annotation not found or error - fall back to raw content
+                if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
+                    $content = $this->annoService->getTextContent($annoData);
+                    $usedAnnotations = true;
                 }
             }
             

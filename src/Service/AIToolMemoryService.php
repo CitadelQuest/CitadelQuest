@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\SpiritMemoryNode;
 use App\Entity\SpiritMemoryJob;
 use Psr\Log\LoggerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * Service for AI Tool memory operations
@@ -26,6 +27,8 @@ use Psr\Log\LoggerInterface;
  */
 class AIToolMemoryService
 {
+    private $user;
+    
     public function __construct(
         private readonly SpiritMemoryService $spiritMemoryService,
         private readonly SpiritService $spiritService,
@@ -37,8 +40,12 @@ class AIToolMemoryService
         private readonly AIToolWebService $aiToolWebService,
         private readonly LoggerInterface $logger,
         private readonly SettingsService $settingsService,
-        private readonly SpiritMemoryJobService $spiritMemoryJobService
+        private readonly SpiritMemoryJobService $spiritMemoryJobService,
+        private readonly AnnoService $annoService,
+        private readonly NotificationService $notificationService,
+        private readonly Security $security
     ) {
+        $this->user = $security->getUser();
     }
 
     /**
@@ -412,8 +419,9 @@ class AIToolMemoryService
                 $documentTitle = $loadResult['title'];
             }
 
-            // For large documents (>5KB) or when maxDepth > 1, use recursive extraction with async jobs
-            $contentLength = strlen($content);
+            // For large text documents (>5KB) or when maxDepth > 1, use recursive extraction with async jobs
+            // Binary files (array content) skip recursive extraction - AI parses them directly
+            $contentLength = is_string($content) ? strlen($content) : 0;
             $useRecursiveExtraction = $contentLength > 5000 && $maxDepth > 1;
 
             if ($useRecursiveExtraction) {
@@ -648,6 +656,24 @@ class AIToolMemoryService
                 'documentSummaryId' => $documentSummaryNode?->getId()
             ]);
 
+            // Send notification for synchronous extraction (includes relationship analysis)
+            if ($this->user) {
+                $docName = $sourceRef ?? 'content';
+                $totalRelationships = 0;
+                foreach ($storedMemories as $mem) {
+                    if (isset($mem['relationshipAnalysis']['relationshipsCreated'])) {
+                        $totalRelationships += $mem['relationshipAnalysis']['relationshipsCreated'];
+                    }
+                }
+                $this->notificationService->createNotification(
+                    $this->user,
+                    '📚 Memory Extraction Complete<br/>' . $docName,
+                    'Extraction complete. Created ' . count($storedMemories) . ' memory nodes. ' .
+                    'Analyzed relationships, created ' . $totalRelationships . ' connections.',
+                    'success'
+                );
+            }
+
             return [
                 'success' => true,
                 'extractedCount' => count($extractedMemories),
@@ -754,36 +780,89 @@ PROMPT;
     /**
      * Build the user message for the Memory Extractor
      */
-    private function buildMemoryExtractorUserMessage(array $arguments): string
+    private function buildMemoryExtractorUserMessage(array $arguments): array
     {
-        $message = "Extract memories from the following content:\n\n";
+        if (isset($arguments['content']) && is_string($arguments['content'])) {
+
+            $message = "Extract memories from the following content:\n\n";
         
-        if (!empty($arguments['sourceType'])) {
-            $message .= "**Source Type**: " . $arguments['sourceType'] . "\n";
+            if (!empty($arguments['sourceType'])) {
+                $message .= "**Source Type**: " . $arguments['sourceType'] . "\n";
+            }
+        
+            if (!empty($arguments['sourceRef'])) {
+                $message .= "**Source Reference**: " . $arguments['sourceRef'] . "\n";
+            }
+            
+            if (!empty($arguments['context'])) {
+                $message .= "**Additional Context**: " . $arguments['context'] . "\n";
+            }
+            
+            $message .= "\n---\n\n";
+            $message .= "**Content to analyze**:\n\n";
+            $message .= $arguments['content'];
+            $message .= "\n\n---\n\n";
+            $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
+            
+            return  [
+                        [
+                            'text' => $message,
+                            'type' => 'text'
+                        ]
+                    ];
+
+        } elseif (isset($arguments['content']) && is_array($arguments['content'])) {
+
+            $message = "Extract memories from the attached content:\n\n";
+        
+            if (!empty($arguments['sourceType'])) {
+                $message .= "**Source Type**: " . $arguments['sourceType'] . "\n";
+            }
+        
+            if (!empty($arguments['sourceRef'])) {
+                $message .= "**Source Reference**: " . $arguments['sourceRef'] . "\n";
+            }
+            
+            if (!empty($arguments['context'])) {
+                $message .= "**Additional Context**: " . $arguments['context'] . "\n";
+            }
+            
+            $message .= "---\n\n";
+            $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
+            
+            return  [
+                        [
+                            'text' => $message,
+                            'type' => 'text'
+                        ],
+                        [
+                            'file' => [
+                                'file_data' => $arguments['content']['file_data'],
+                                'filename' => $arguments['content']['filename'],
+                            ],
+                            'type' => 'file'
+                        ]
+                    ];
+
+        } else {
+
+            return [
+                [
+                    'text' => 'No content or file ID provided',
+                    'type' => 'text'
+                ]
+            ];
+
         }
-        
-        if (!empty($arguments['sourceRef'])) {
-            $message .= "**Source Reference**: " . $arguments['sourceRef'] . "\n";
-        }
-        
-        if (!empty($arguments['context'])) {
-            $message .= "**Additional Context**: " . $arguments['context'] . "\n";
-        }
-        
-        $message .= "\n---\n\n";
-        $message .= "**Content to analyze**:\n\n";
-        $message .= $arguments['content'];
-        $message .= "\n\n---\n\n";
-        $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
-        
-        return $message;
     }
 
     /**
      * Generate an AI summary of document content
      * Uses the same AI model as memory extraction for consistency
+     * 
+     * @param string|array $content String content or array with file_data/filename for binary files
      */
-    private function generateDocumentSummary(string $content, string $documentTitle, $aiServiceModel): ?string
+    private function generateDocumentSummary(string|array $content, string $documentTitle, $aiServiceModel): ?string
     {
         try {
             $systemPrompt = <<<'PROMPT'
@@ -801,16 +880,35 @@ You are a Document Summarizer. Your task is to create a comprehensive yet concis
 Respond with ONLY the summary text, no formatting, no headers, no explanations.
 PROMPT;
 
-            $userMessage = "Summarize the following document:\n\n";
-            $userMessage .= "**Document Title**: {$documentTitle}\n\n";
-            $userMessage .= "---\n\n";
-            $userMessage .= $content;
-            $userMessage .= "\n\n---\n\n";
-            $userMessage .= "Provide a comprehensive summary of this document.";
+            // Build user message content based on content type
+            if (is_string($content)) {
+                // String content - include directly in message
+                $userMessageContent = "Summarize the following document:\n\n";
+                $userMessageContent .= "**Document Title**: {$documentTitle}\n\n";
+                $userMessageContent .= "---\n\n";
+                $userMessageContent .= $content;
+                $userMessageContent .= "\n\n---\n\n";
+                $userMessageContent .= "Provide a comprehensive summary of this document.";
+            } else {
+                // Array content (binary file) - build multimodal message
+                $userMessageContent = [
+                    [
+                        'type' => 'text',
+                        'text' => "Summarize the following document:\n\n**Document Title**: {$documentTitle}\n\n---\n\nProvide a comprehensive summary of this document."
+                    ],
+                    [
+                        'type' => 'file',
+                        'file' => [
+                            'file_data' => $content['file_data'],
+                            'filename' => $content['filename'],
+                        ]
+                    ]
+                ];
+            }
 
             $messages = [
                 ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage]
+                ['role' => 'user', 'content' => $userMessageContent]
             ];
 
             $aiServiceRequest = $this->aiServiceRequestService->createRequest(
@@ -1376,6 +1474,8 @@ PROMPT;
     /**
      * Load content from a project file
      * Format: "projectId:path:filename" (e.g., "general:/spirit/Bilbo/memory:conversations.md")
+     * 
+     * For PDF files, automatically checks for .anno annotations first (uses AnnoService)
      */
     private function loadFromProjectFile(string $sourceRef): array
     {
@@ -1408,9 +1508,40 @@ PROMPT;
                 ];
             }
             
+            // For PDF files, check for annotations first (uses AnnoService)
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            if ($extension === 'pdf') {
+                $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
+                
+                if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
+                    $content = $this->annoService->getTextContent($annoData);
+                    
+                    return [
+                        'success' => true,
+                        'content' => $content,
+                        'fileName' => $filename,
+                        'filePath' => $path,
+                        'usedAnnotation' => true
+                    ];
+                }
+                
+                // send binary PDF file - will be auto-parsed
+                $content = $this->projectFileService->getFileContent($file->getId());
+                return [
+                    'success' => true,
+                    'content' => [
+                        'file_data' => $content,
+                        'filename' => $filename
+                    ],
+                    'fileName' => $filename,
+                    'filePath' => $path,
+                    'usedAnnotation' => false
+                ];
+            }
+            
             $content = $this->projectFileService->getFileContent($file->getId());
             
-            // Check if content is binary/base64
+            // Check if content is binary/base64 (for non-PDF files)
             if (strpos($content, 'data:') === 0) {
                 return [
                     'success' => false,
@@ -1608,7 +1739,7 @@ You are the Content Block Extractor Agent. Your task is to analyze content and s
 Analyze the provided content (with line numbers) and identify its natural structure - sections, chapters, topics, time periods, or any other logical divisions.
 
 ## Guidelines:
-- Identify 2-9 logical blocks (sections) in the content
+- Identify few larger logical blocks (sections) in the content
 - Each block should be a coherent, self-contained section
 - Preserve the natural structure of the document (headings, topics, time periods)
 - Use the LINE NUMBERS shown at the start of each line to specify block ranges
@@ -1655,7 +1786,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 2. start_line and end_line are LINE NUMBERS (1-indexed, as shown in the content)
 3. Blocks must be contiguous and cover the entire content
 4. end_line of one block should be start_line-1 of the next
-5. Minimum 2 blocks, maximum 9 blocks
+5. Minimum 2 blocks, maximum 9 blocks (sections)
 6. If content is too small or atomic, return single block with is_leaf=true
 7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "january-2026")
 PROMPT;
@@ -1794,7 +1925,8 @@ PROMPT;
                             'pending_node_ids' => $extractedNodeIds,
                             'processed_count' => 0,
                             'relationships_created' => 0,
-                            'source_job_id' => $job->getId()
+                            'source_job_id' => $job->getId(),
+                            'document_title' => $payload['document_title'] ?? null,
                         ],
                         count($extractedNodeIds)
                     );

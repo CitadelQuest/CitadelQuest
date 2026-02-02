@@ -14,6 +14,7 @@ use App\Service\AiGatewayInterface;
 use App\Service\AiServiceUseLogService;
 use App\Service\AiServiceResponseService;
 use App\Service\AiServiceRequestService;
+use App\Service\AnnoService;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\DependencyInjection\ServiceLocator;
@@ -293,6 +294,7 @@ class AiGatewayService
     {
         $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+        $annoService = $this->serviceLocator->get(AnnoService::class);
         
         // Get the model from request
         $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
@@ -311,6 +313,13 @@ class AiGatewayService
         if (!$gatewayImplementation) {
             throw new \Exception('Gateway implementation not found for type: ' . $aiGateway->getType());
         }
+
+        // Replace PDF base64 data with new `annotations` if available
+        $requestMessages = $request->getMessages();
+        for ($i = 0; $i < count($requestMessages); $i++) {
+            $requestMessages[$i] = $annoService->updatePDFannotationsInMessage($requestMessages[$i]);
+        }
+        $request->setMessages($requestMessages);
         
         // Send the request to gateway implementation
         $response = $gatewayImplementation->sendRequest($request/* , $this */);
@@ -330,12 +339,16 @@ class AiGatewayService
         $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
 
         // Save annotations to file
-        $annotationsSaved = $aiServiceResponseService->saveAnnotationsToFile($response, $projectId/*, ai_request_id > conversation_request.ai_service_request_id > conversation.project_id */);
-
+        $annotations = $response->getMessage()['annotations'] ?? null;
+        $annotationsSaved = [];
+        if ($annotations) {
+            $annotationsSaved = $annoService->saveAnnotations($annotations, $projectId);
+        }
+        
         // Save images from response
         // only if annotations exists - will not save any other images, bug maybe
         // TODO: TEST more
-        if ($annotationsSaved) {
+        if ($annotations && count($annotationsSaved) > 0) {
             $imagesSaved = $aiServiceResponseService->saveImagesFromMessage($response, $projectId, '/uploads/ai/img');
         }
         

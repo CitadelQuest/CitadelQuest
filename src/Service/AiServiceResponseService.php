@@ -10,7 +10,6 @@ use App\Service\ProjectFileService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 class AiServiceResponseService
 {
@@ -20,7 +19,7 @@ class AiServiceResponseService
         private readonly Security $security,
         private readonly ProjectFileService $projectFileService,
         private readonly LoggerInterface $logger,
-        private readonly SluggerInterface $slugger
+        private readonly AnnoService $annoService
     ) {
     }
     
@@ -150,76 +149,6 @@ class AiServiceResponseService
         );
 
         return $result > 0;
-    }
-
-    public function saveAnnotationsToFile(AiServiceResponse $response, string $projectId = 'general'): array
-    {
-        $annotations = isset($response->getMessage()['annotations']) ? $response->getMessage()['annotations'] : null;
-        if (!$annotations) {
-            return [];
-        }
-        
-        // Set annotations file path
-        $filePath = '/annotations';
-        $newFiles = [];
-
-        foreach ($annotations as $annotation) {
-            // Skip non-file annotations
-            if (!isset($annotation['type']) || $annotation['type'] !== 'file') {
-                continue;
-            }
-            
-            // Skip annotations without file name
-            if (!isset($annotation['file']) || !isset($annotation['file']['name'])) {
-                $this->logger->warning('saveAnnotationsToFile(): Annotation file name not found');
-                continue;
-            }
-
-            // Check for PDF file and update $filePath
-            if (strtolower(pathinfo($annotation['file']['name'], PATHINFO_EXTENSION)) === 'pdf') {
-                $filePath = '/annotations/pdf/' . $this->slugger->slug( $annotation['file']['name'] );
-            } else {
-                $filePath = '/annotations/' . $this->slugger->slug($annotation['file']['name']);
-            }
-
-            // Set file name and create file
-            $fileName = $annotation['file']['name'] . '.anno';
-            try {
-                $newFile = $this->projectFileService->createFile($projectId, $filePath, $fileName, json_encode($annotation));
-                $newFiles[] = $newFile;
-
-                $this->logger->info('saveAnnotationsToFile(): Annotation file saved: ' . $fileName . ' (size: ' . $newFile->getSize() . ' bytes)');
-            } catch (\Throwable $th) {
-                $this->logger->error('saveAnnotationsToFile(): Error saving annotation file ' . $fileName . ': ' . $th->getMessage());
-            }
-
-            // Check all annotation.file.content for `image_url` data
-            if (isset($annotation['file']['content']) && is_array($annotation['file']['content'])) {
-                $i = 0;
-                foreach ($annotation['file']['content'] as $content) {
-                    // Check if content has image_url
-                    $imageDataContent = isset($content['image_url']) && isset($content['image_url']['url']) ? $content['image_url']['url'] : null;
-                    if ($imageDataContent) {
-                        // Create image file
-                        $imgFileName = $annotation['file']['name'] . '.img-' . $i . '.jpg';
-                        try {
-                            $i++;
-                            $newImageFile = $this->projectFileService->createFile($projectId, $filePath, $imgFileName, $imageDataContent);
-                            $newFiles[] = $newImageFile;
-
-                            $this->logger->info('saveAnnotationsToFile(): Annotation image file saved: ' . $imgFileName . ' (size: ' . $newImageFile->getSize() . ' bytes)');
-                        } catch (\Throwable $th) {
-                            $this->logger->error('saveAnnotationsToFile(): Error saving annotation image file ' . $imgFileName . ': ' . $th->getMessage());
-                        }
-                    }
-                }
-            }
-
-            // TODO future FEATURE: save annotations to '.annoz' file with ZIP compression
-            // TODO future FEATURE: add hash check to prevent duplicate annotations
-        }
-
-        return $newFiles;
     }
 
     public function saveImagesFromMessage(AiServiceResponse $response, string $projectId = 'general', string $path = '/uploads/ai/img', string $filename = ''): array

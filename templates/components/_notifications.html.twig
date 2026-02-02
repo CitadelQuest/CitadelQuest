@@ -63,8 +63,8 @@
                         
                         {# Content #}
                         <div class="notification-content flex-grow-1">
-                            <div class="notification-title fw-semibold mb-1">{{ notification.title }}</div>
-                            <div class="notification-message small mb-1 text-wrap">{{ notification.message }}</div>
+                            <div class="notification-title fw-semibold mb-1">{{ notification.title|raw }}</div>
+                            <div class="notification-message small mb-1 text-wrap">{{ notification.message|raw }}</div>
                             <div class="notification-time text-muted" data-timestamp="{{ notification.createdAt|date('c') }}">
                                 {{ notification.createdAt|date('Y-m-d H:i:s') }}
                             </div>
@@ -94,8 +94,8 @@
                         
                         {# Content #}
                         <div class="notification-content flex-grow-1">
-                            <div class="notification-title fw-semibold mb-1">{{ notification.title }}</div>
-                            <div class="notification-message small mb-1 text-wrap">{{ notification.message }}</div>
+                            <div class="notification-title fw-semibold mb-1">{{ notification.title|raw }}</div>
+                            <div class="notification-message small mb-1 text-wrap">{{ notification.message|raw }}</div>
                             <div class="notification-time text-muted" data-timestamp="{{ notification.createdAt|date('c') }}">
                                 {{ notification.createdAt|date('Y-m-d H:i:s') }}
                             </div>
