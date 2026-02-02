@@ -278,6 +278,7 @@ spirit:
             contradicts: 'Contradicts'
             reinforces: 'Reinforces'
             supersedes: 'Supersedes'
+        source_viewer: 'Source Viewer'
 
 spirits:
     title: 'Spirits'

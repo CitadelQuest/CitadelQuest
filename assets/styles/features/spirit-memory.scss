@@ -31,6 +31,7 @@ $panel-min-height: 500px;
         height: $panel-height;
         min-height: $panel-min-height;
         overflow-y: auto;
+        overflow-x: hidden;
         @include mix.cyber-scrollbar;
     }
 

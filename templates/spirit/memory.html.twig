@@ -262,6 +262,36 @@
         </div>
     </div>
 </div>
+
+{# Source Viewer Modal #}
+<div class="modal fade" id="sourceViewerModal" tabindex="-1" aria-labelledby="sourceViewerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="sourceViewerModalLabel">
+                    <i class="mdi mdi-file-document-outline text-cyber me-2"></i>
+                    {{ 'spirit.memory.source_viewer'|trans }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div id="source-viewer-info" class="small text-secondary">
+                        <span id="source-viewer-file"></span>
+                        <span id="source-viewer-range" class="ms-2"></span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-cyber" id="copySourceContentBtn">
+                        <i class="mdi mdi-content-copy me-1"></i>{{ 'ui.copy'|trans }}
+                    </button>
+                </div>
+                <pre id="source-viewer-content" class="bg-secondary bg-opacity-25 p-3 rounded" style="max-height: 60vh; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"></pre>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.close'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}

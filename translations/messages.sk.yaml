@@ -270,6 +270,7 @@ spirit:
             contradicts: 'Protirečí'
             reinforces: 'Posilňuje'
             supersedes: 'Nahrádza'
+        source_viewer: 'Zobraziť zdroj'
 
 spirits:
     title: 'Duchovia'

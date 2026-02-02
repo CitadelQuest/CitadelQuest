@@ -278,6 +278,7 @@ spirit:
             contradicts: 'Protiřečí'
             reinforces: 'Posiluje'
             supersedes: 'Nahrazuje'
+        source_viewer: 'Zobrazit zdroj'
 
 spirits:
     title: 'Duchové'

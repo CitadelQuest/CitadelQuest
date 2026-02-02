@@ -1,5 +1,6 @@
 import { MemoryGraphView } from './MemoryGraphView';
 import MarkdownIt from 'markdown-it';
+import * as bootstrap from 'bootstrap';
 
 /**
  * Spirit Memory Explorer - Main entry point
@@ -326,10 +327,27 @@ class SpiritMemoryExplorer {
         if (selectedContentEl) {
             const content = node.content || '(no content)';
             const charCount = content.length;
+            const sourceRef = node.sourceRef;
+            const sourceRange = node.sourceRange;
+            const memoryTitle = node.summary || '(no summary)';
+            
+            const showSourceBtn = sourceRef ? `
+                <button class="btn btn-sm btn-outline-secondary show-source-btn py-0 px-1 ms-2" 
+                        data-source-ref="${this.escapeHtml(sourceRef)}" 
+                        data-source-range="${sourceRange || ''}"
+                        data-memory-title="${this.escapeHtml(memoryTitle)}"
+                        title="Show source">
+                    <i class="mdi mdi-file-find-outline"></i>
+                </button>
+            ` : '';
+            
             selectedContentEl.setAttribute('data-node-id', node.id);
             selectedContentEl.classList.add('compilation-block', 'expanded');
             selectedContentEl.innerHTML = `
-                <div class="fw-bold mb-1" style="color: ${this.getCategoryColor(node.category)};">${node.summary || '(no summary)'}</div>
+                <div class="fw-bold mb-1 d-flex align-items-center" style="color: ${this.getCategoryColor(node.category)};">
+                    <span class="flex-grow-1">${node.summary || '(no summary)'}</span>
+                    ${showSourceBtn}
+                </div>
                 <div class="compilation-content small">${this.md.render(content)}</div>
                 <div class="char-count text-secondary text-end mt-1 me-1">${charCount.toLocaleString()} chars</div>
             `;
@@ -399,6 +417,9 @@ class SpiritMemoryExplorer {
             // Click to toggle expand/collapse
             if (fullContent && contentEl) {
                 block.addEventListener('click', (e) => {
+                    // Don't expand if clicking on the show source button
+                    if (e.target.closest('.show-source-btn')) return;
+                    
                     e.stopPropagation();
                     const isExpanded = block.classList.toggle('expanded');
                     
@@ -416,6 +437,118 @@ class SpiritMemoryExplorer {
                 });
             }
         });
+
+        // Setup show source button handlers
+        this.setupShowSourceButtons();
+    }
+
+    /**
+     * Setup click handlers for Show Source buttons
+     */
+    setupShowSourceButtons() {
+        const buttons = document.querySelectorAll('.show-source-btn');
+        buttons.forEach(btn => {
+            // Remove existing listener to avoid duplicates
+            btn.replaceWith(btn.cloneNode(true));
+        });
+        // Re-query after cloning
+        document.querySelectorAll('.show-source-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const sourceRef = btn.dataset.sourceRef;
+                const sourceRange = btn.dataset.sourceRange;
+                const memoryTitle = btn.dataset.memoryTitle;
+                await this.showSourceContent(sourceRef, sourceRange, memoryTitle);
+            });
+        });
+        
+        // Setup copy button
+        this.setupCopySourceButton();
+    }
+    
+    /**
+     * Setup copy button for source viewer modal
+     */
+    setupCopySourceButton() {
+        const copyBtn = document.getElementById('copySourceContentBtn');
+        if (!copyBtn) return;
+        
+        // Remove existing listener
+        const newBtn = copyBtn.cloneNode(true);
+        copyBtn.replaceWith(newBtn);
+        
+        newBtn.addEventListener('click', () => {
+            const contentEl = document.getElementById('source-viewer-content');
+            if (!contentEl) return;
+            
+            const content = contentEl.textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalHtml = newBtn.innerHTML;
+                newBtn.innerHTML = '<i class="mdi mdi-check me-1"></i>Copied!';
+                newBtn.classList.remove('btn-outline-cyber');
+                newBtn.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    newBtn.innerHTML = originalHtml;
+                    newBtn.classList.remove('btn-success');
+                    newBtn.classList.add('btn-outline-cyber');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                if (window.toast) {
+                    window.toast.error('Failed to copy content');
+                }
+            });
+        });
+    }
+
+    /**
+     * Fetch and display source content in modal
+     */
+    async showSourceContent(sourceRef, sourceRange, memoryTitle) {
+        const modal = document.getElementById('sourceViewerModal');
+        const modalTitle = document.getElementById('sourceViewerModalLabel');
+        const fileEl = document.getElementById('source-viewer-file');
+        const rangeEl = document.getElementById('source-viewer-range');
+        const contentEl = document.getElementById('source-viewer-content');
+
+        if (!modal || !contentEl) return;
+
+        // Set modal title to memory title
+        if (modalTitle && memoryTitle) {
+            modalTitle.innerHTML = `<i class="mdi mdi-file-document-outline text-cyber me-2"></i>${memoryTitle}`;
+        }
+
+        // Show loading state
+        contentEl.textContent = 'Loading...';
+        fileEl.textContent = '';
+        rangeEl.textContent = sourceRange ? `(lines ${sourceRange.replace(':', '-')})` : '';
+
+        // Show modal
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+
+        try {
+            const response = await fetch(`/spirit/${this.spiritId}/memory/source`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source_ref: sourceRef, source_range: sourceRange })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to load source');
+            }
+
+            const data = await response.json();
+            contentEl.textContent = data.content || '(empty)';
+            fileEl.textContent = data.filename || sourceRef;
+
+        } catch (error) {
+            console.error('Failed to load source:', error);
+            contentEl.textContent = `Error: ${error.message}`;
+        }
     }
 
     /**
@@ -525,11 +658,28 @@ class SpiritMemoryExplorer {
                 `;
             }).join('');
 
+            // Show source button if source_ref exists
+            const sourceRef = group.node.sourceRef;
+            const sourceRange = group.node.sourceRange;
+            const memoryTitle = group.node.summary || '(no summary)';
+            const showSourceBtn = sourceRef ? `
+                <button class="btn btn-sm btn-outline-secondary show-source-btn py-0 px-1 ms-2" 
+                        data-source-ref="${this.escapeHtml(sourceRef)}" 
+                        data-source-range="${sourceRange || ''}"
+                        data-memory-title="${this.escapeHtml(memoryTitle)}"
+                        title="Show source">
+                    <i class="mdi mdi-file-find-outline"></i>
+                </button>
+            ` : '';
+
             return `
                 <div class="mb-3">
                     ${relationshipsHtml}
                     <div class="compilation-block small p-2 rounded bg-secondary bg-opacity-25" data-node-id="${group.node.id}" data-full-content="${this.escapeHtml(fullContent)}">
-                        <div class="fw-bold mb-1" style="color: ${this.getCategoryColor(group.node.category)};">${group.node.summary || '(no summary)'}</div>
+                        <div class="fw-bold mb-1 d-flex align-items-center" style="color: ${this.getCategoryColor(group.node.category)};">
+                            <span class="flex-grow-1">${group.node.summary || '(no summary)'}</span>
+                            ${showSourceBtn}
+                        </div>
                         <div class="compilation-content small">${needsTruncate ? this.truncateText(fullContent, 150) : this.md.render(fullContent || '(no content)')}</div>
                         ${needsTruncate ? '<div class="expand-indicator text-cyber mt-1 d-inline-block float-start"><i class="mdi mdi-chevron-down"></i></div>' : ''}
                         <div class="char-count text-secondary d-inline-block float-end mt-1 me-1">${charCount.toLocaleString()} chars</div>

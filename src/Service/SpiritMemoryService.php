@@ -840,7 +840,10 @@ class SpiritMemoryService
                 'confidence' => $node->getConfidence(),
                 'createdAt' => $node->getCreatedAt()->format('Y-m-d H:i:s'),
                 'accessCount' => $node->getAccessCount(),
-                'tags' => $this->getTagsForMemory($node->getId())
+                'tags' => $this->getTagsForMemory($node->getId()),
+                'sourceType' => $node->getSourceType(),
+                'sourceRef' => $node->getSourceRef(),
+                'sourceRange' => $node->getSourceRange()
             ];
         }
 
