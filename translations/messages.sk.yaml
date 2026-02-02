@@ -239,9 +239,10 @@ spirit:
         tools_hint: 'Inštrukcie pre používanie AI nástrojov (volanie funkcií)'
         language_hint: 'Ovláda jazyk odpovedí Ducha'
     memory:
-        title: 'Prieskumník pamäte'
-        nodes: 'uzlov'
-        relationships: 'vzťahov'
+        title: 'Prieskumník Pamäte'
+        explore: 'Preskúmať'
+        nodes: 'uzly'
+        relationships: 'vzťahy'
         reset_view: 'Predvolený pohľad'
         top_view: 'Pohľad zhora'
         loading_graph: 'Načítanie grafu pamäte...'

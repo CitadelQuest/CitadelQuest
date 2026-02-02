@@ -2,6 +2,7 @@
  * SpiritManager - Manages the Spirit feature UI and API interactions
  */
 //import * as THREE from 'three';
+import { ProfileMemoryGraph } from './ProfileMemoryGraph.js';
 
 export class SpiritManager {
     constructor(config) {
@@ -10,6 +11,7 @@ export class SpiritManager {
         this.spirit = null;
         this.interactions = [];
         this.conversations = [];
+        this.profileMemoryGraph = null;
         
         // DOM elements
         this.spiritContainer = document.getElementById('spirit-container');
@@ -247,6 +249,9 @@ export class SpiritManager {
             this.nextLevelDisplay.textContent = progression.nextLevelThreshold;
         }
 
+        // Initialize Profile Memory Graph after UI is rendered
+        this.initProfileMemoryGraph();
+
         // Update system prompt and AI model fields
         if (this.systemPromptInput) {
             this.systemPromptInput.value = settings.systemPrompt || '';
@@ -268,6 +273,25 @@ export class SpiritManager {
         if (this.updateSettingsBtn) {
             this.updateSettingsBtn.disabled = true;
         }
+    }
+
+    /**
+     * Initialize the profile memory graph visualization
+     */
+    initProfileMemoryGraph() {
+        // Only initialize once
+        if (this.profileMemoryGraph) {
+            return;
+        }
+
+        // Check if memory canvas exists
+        const memoryCanvas = document.getElementById('profile-memory-canvas');
+        if (!memoryCanvas || !this.spirit?.id) {
+            return;
+        }
+
+        // Initialize the memory graph
+        this.profileMemoryGraph = new ProfileMemoryGraph(this.spirit.id);
     }
     
     /**

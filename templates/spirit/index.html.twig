@@ -47,6 +47,35 @@
                                 <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
                             </p>
 
+                            {# Memory Explorer Section #}
+                            <div class="mt-4 mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="mb-0">
+                                        <i class="mdi mdi-brain text-cyber me-2"></i>{{ 'spirit.memory.title'|trans }}
+                                    </h5>
+                                    <a href="{{ path('spirit_memory_explorer', {spiritId: spiritId}) }}" class="btn btn-sm btn-outline-cyber" id="btn-open-memory-explorer">
+                                        <i class="mdi mdi-arrow-expand-all me-1"></i>{{ 'spirit.memory.explore'|trans }}
+                                    </a>
+                                </div>
+                                <div class="memory-graph-preview rounded" style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
+                                    <div id="profile-memory-loading" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
+                                        <div class="spinner-border spinner-border-sm text-cyber" role="status">
+                                            <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                                        </div>
+                                        <p class="mt-2 small text-secondary">{{ 'spirit.memory.loading_graph'|trans }}</p>
+                                    </div>
+                                    <canvas id="profile-memory-canvas" class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <small class="text-secondary ms-2">
+                                        <i class="mdi mdi-circle-multiple"></i>
+                                        <span id="profile-stats-nodes">0</span> {{ 'spirit.memory.nodes'|trans }} · 
+                                        <i class="mdi mdi-link-variant"></i>
+                                        <span id="profile-stats-edges">0</span> {{ 'spirit.memory.relationships'|trans }}
+                                    </small>
+                                </div>
+                            </div>
+
                             <h4>{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
                             <div id="conversations-list">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">

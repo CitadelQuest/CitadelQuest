@@ -219,18 +219,57 @@ $panel-min-height: 500px;
             }
         }
     }
+}
 
-    // 3D Node Labels
-    .node-label {
-        background: rgba(0, 0, 0, 0.85);
-        border: 1px solid colors.$cyber;
-        border-radius: vars.$border-radius;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        color: #fff;
-        white-space: normal;
-        max-width: 300px;
-        pointer-events: none;
-        box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
+// Memory Preview on Spirit Profile Page
+.memory-graph-preview {
+    transition: border-color vars.$duration-quick vars.$ease-standard;
+    position: relative;
+    overflow: hidden;
+
+    &:hover {
+        border-color: rgba(colors.$cyber, 0.5);
     }
+
+    canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    // CSS2D label renderer overlay
+    > div:not(#profile-memory-loading) {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    #profile-memory-loading {
+        z-index: 10;
+        
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+        }
+    }
+}
+
+// 3D Node Labels - Global scope for both full explorer and profile preview
+// CSS2DRenderer creates overlay divs that need global styling
+.node-label {
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid colors.$cyber;
+    border-radius: vars.$border-radius;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #fff;
+    white-space: normal;
+    max-width: 300px;
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
 }

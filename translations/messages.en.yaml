@@ -248,6 +248,7 @@ spirit:
         language_hint: 'Controls the language of Spirit responses'
     memory:
         title: 'Memory Explorer'
+        explore: 'Explore'
         nodes: 'nodes'
         relationships: 'relationships'
         reset_view: 'Default View'

@@ -86,7 +86,7 @@ class SpiritMemoryController extends AbstractController
 
         try {
             // Parse source_ref format: {projectId}:{filePath}:{fileName}
-            // Example: general:/spirit/Lori/memory:conversations.md
+            // Example: general:/spirit/Bob/memory:conversations.md
             $parts = explode(':', $sourceRef);
             if (count($parts) < 3) {
                 return new JsonResponse(['error' => 'Invalid source_ref format'], 400);
