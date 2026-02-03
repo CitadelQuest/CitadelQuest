@@ -55,7 +55,7 @@ class DatabaseVacuum {
                 // Show toast if significant space was saved (>1MB)
                 if (result.stats.space_saved_bytes > 1048576) {
                     if (window.toast) {
-                        window.toast.success(`Database optimized! Saved ${result.stats.space_saved}`);
+                        //window.toast.success(`Database optimized! Saved ${result.stats.space_saved}`);
                     }
                 }
                 

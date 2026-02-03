@@ -69,7 +69,7 @@ export class SettingsGeneralManager {
                 // Show success with space saved info
                 let message = this.translations.database_optimized;
                 if (result.stats && result.stats.space_saved_bytes > 0) {
-                    message += ` (${result.stats.space_saved} saved)`;
+                    message += ` (-${result.stats.space_saved})`;
                 }
                 this.showToast('success', message);
             } else {
