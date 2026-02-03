@@ -3,6 +3,7 @@
  */
 //import * as THREE from 'three';
 import { ProfileMemoryGraph } from './ProfileMemoryGraph.js';
+import * as bootstrap from 'bootstrap';
 
 export class SpiritManager {
     constructor(config) {
@@ -43,6 +44,137 @@ export class SpiritManager {
                 this.updateSpiritSettings();
             });
         }
+        
+        // Conversation item clicks - open Spirit Chat modal with conversation loaded
+        document.addEventListener('click', (e) => {
+            const conversationItem = e.target.closest('.conversation-item');
+            if (conversationItem) {
+                const conversationId = conversationItem.dataset.conversationId;
+                if (conversationId) {
+                    this.openConversation(conversationId);
+                }
+            }
+        });
+        
+        // New Conversation button in profile
+        const newConversationBtnProfile = document.getElementById('newConversationBtnProfile');
+        if (newConversationBtnProfile) {
+            newConversationBtnProfile.addEventListener('click', () => {
+                this.openSpiritChatModal();
+            });
+        }
+        
+        // Spirit icon click - open Spirit Chat modal
+        const spiritAvatar = document.getElementById('spiritChatAvatar');
+        if (spiritAvatar) {
+            spiritAvatar.addEventListener('click', () => {
+                this.openSpiritChat();
+            });
+        }
+    }
+    
+    /**
+     * Open Spirit Chat modal and load a specific conversation
+     */
+    openConversation(conversationId) {
+        if (!window.spiritChatManager) {
+            console.error('Spirit Chat Manager not initialized');
+            return;
+        }
+        
+        // Get current spirit ID
+        const spiritId = this.spirit?.id;
+        if (!spiritId) {
+            console.error('Spirit ID not available');
+            return;
+        }
+        
+        // Store selected spirit ID
+        localStorage.setItem('selectedSpiritId', spiritId);
+        
+        // Switch to the correct spirit first
+        window.spiritChatManager.switchSpirit(spiritId);
+        
+        // Open the modal
+        const spiritChatModal = document.getElementById('spiritChatModal');
+        if (spiritChatModal) {
+            const modal = new bootstrap.Modal(spiritChatModal);
+            modal.show();
+            
+            // Load conversation immediately after modal is shown (better UX - don't wait for list)
+            spiritChatModal.addEventListener('shown.bs.modal', () => {
+                window.spiritChatManager.loadConversation(conversationId);
+            }, { once: true });
+        }
+    }
+    
+    /**
+     * Open Spirit Chat modal (just chat, no new conversation)
+     */
+    openSpiritChat() {
+        // Get current spirit ID
+        const spiritId = this.spirit?.id;
+        if (!spiritId) {
+            console.error('Spirit ID not available');
+            return;
+        }
+        
+        // Store selected spirit ID
+        localStorage.setItem('selectedSpiritId', spiritId);
+        
+        // Switch to the correct spirit
+        if (window.spiritChatManager) {
+            window.spiritChatManager.switchSpirit(spiritId);
+        }
+        
+        const spiritChatModal = document.getElementById('spiritChatModal');
+        if (spiritChatModal) {
+            const modal = new bootstrap.Modal(spiritChatModal);
+            modal.show();
+        }
+    }
+    
+    /**
+     * Open Spirit Chat modal and New Conversation modal
+     */
+    openSpiritChatModal() {
+        // Get current spirit ID
+        const spiritId = this.spirit?.id;
+        if (!spiritId) {
+            console.error('Spirit ID not available');
+            return;
+        }
+        
+        // Store selected spirit ID
+        localStorage.setItem('selectedSpiritId', spiritId);
+        
+        // Switch to the correct spirit
+        if (window.spiritChatManager) {
+            window.spiritChatManager.switchSpirit(spiritId);
+        }
+        
+        const spiritChatModal = document.getElementById('spiritChatModal');
+        if (spiritChatModal) {
+            const modal = new bootstrap.Modal(spiritChatModal);
+            modal.show();
+            
+            // After Spirit Chat modal is shown, open New Conversation modal on top
+            spiritChatModal.addEventListener('shown.bs.modal', () => {
+                const newConversationModal = document.getElementById('newConversationModal');
+                if (newConversationModal) {
+                    const newConvModal = new bootstrap.Modal(newConversationModal);
+                    newConvModal.show();
+                    
+                    // Focus on title input when modal is shown
+                    newConversationModal.addEventListener('shown.bs.modal', () => {
+                        const conversationTitle = document.getElementById('conversationTitle');
+                        if (conversationTitle) {
+                            conversationTitle.focus();
+                        }
+                    }, { once: true });
+                }
+            }, { once: true });
+        }
     }
     
     /**
@@ -62,14 +194,7 @@ export class SpiritManager {
             
             this.spirit = await response.json();
             
-            // Load spirit settings
-            await this.loadSpiritSettings();
-            
             this.showSpirit();
-            this.loadInteractions();
-
-            // Load spirit chat conversations list
-            this.loadConversations();
             
         } catch (error) {
             console.error('Error loading spirit:', error);
@@ -89,28 +214,9 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
-            await this.loadSpiritSettings();
         } catch (error) {
             console.error('Error reloading spirit:', error);
             this.showError(this.translate('error.reloading_spirit', 'Failed to reload spirit'));
-        }
-    }
-    
-    /**
-     * Load the spirit's settings
-     */
-    async loadSpiritSettings() {
-        try {
-            const response = await fetch(this.apiEndpoints.settings.replace('{id}', this.spirit.id));
-            
-            if (!response.ok) {
-                throw new Error('Failed to load spirit settings');
-            }
-            
-            this.spirit.settings = await response.json();
-        } catch (error) {
-            console.error('Error loading spirit settings:', error);
-            this.spirit.settings = {};
         }
     }
     
@@ -141,50 +247,6 @@ export class SpiritManager {
         }
     }
 
-    /**
-     * Load the spirit's recent interactions
-     */
-    async loadInteractions() {
-        try {
-            let url = this.apiEndpoints.interactions;
-            if (this.spirit && this.spirit.id) {
-                url += `?spiritId=${this.spirit.id}`;
-            }
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error('Failed to load interactions');
-            }
-            
-            this.interactions = await response.json();
-            this.renderInteractions();
-            
-        } catch (error) {
-            console.error('Error loading interactions:', error);
-            this.showError(this.translate('error.loading_interactions', 'Failed to load interactions'));
-        }
-    }
-    
-    /**
-     * Load the spirit's conversations
-     */
-    async loadConversations() {
-        try {
-            const response = await fetch(this.apiEndpoints.conversations.replace('{id}', this.spirit.id));
-            
-            if (!response.ok) {
-                throw new Error('Failed to load conversations');
-            }
-            
-            this.conversations = await response.json();
-            this.renderConversations();
-            
-        } catch (error) {
-            console.error('Error loading conversations:', error);
-            this.showError(this.translate('error.loading_conversations', 'Failed to load conversations'));
-        }
-    }
-    
     /**
      * Show the spirit display and hide the creation form
      */
@@ -354,103 +416,8 @@ export class SpiritManager {
         }
     }
 
-    /**
-     * Render the spirit's recent interactions
-     */
-    renderInteractions() {
-        if (!this.interactionsContainer || !this.interactions) return;
-        
-        if (this.interactions.length === 0) {
-            this.interactionsContainer.innerHTML = `<p>${this.translate('spirit.no_interactions', 'No interactions recorded yet.')}</p>`;
-            return;
-        }
-        
-        const interactionsList = document.createElement('ul');
-        interactionsList.className = 'list-group bg-secondary bg-opacity-25';
-        
-        this.interactions.forEach(interaction => {
-            const item = document.createElement('li');
-            item.className = 'list-group-item small';
-            
-            const date = new Date(interaction.createdAt);
-            const formattedDate = date.toLocaleString();
-            
-            const header = document.createElement('div');
-            header.className = 'd-flex justify-content-between';
-            
-            const dateSpan = document.createElement('small');
-            dateSpan.className = 'text-muted';
-            dateSpan.textContent = formattedDate;
-            header.appendChild(dateSpan);
-            
-            const typeSpan = document.createElement('span');
-            typeSpan.className = '';
-            typeSpan.textContent = interaction.interactionType;
-            header.appendChild(typeSpan);
-            
-            const expGained = document.createElement('small');
-            expGained.className = 'text-success';
-            expGained.textContent = `+${interaction.experienceGained} XP`;
-            header.appendChild(expGained);
-            
-            item.appendChild(header);
-            
-            if (interaction.context) {
-                const context = document.createElement('p');
-                context.className = '';
-                context.textContent = interaction.context;
-                item.appendChild(context);
-            }
-            
-            interactionsList.appendChild(item);
-        });
-        
-        this.interactionsContainer.innerHTML = '';
-        this.interactionsContainer.appendChild(interactionsList);
-    }
 
     /**
-     * Render the conversations list
-     */
-    renderConversations() {
-        if (!this.conversationsList) return;
-
-        if (this.conversations.length === 0) {
-            this.conversationsList.innerHTML = '<div class="text-center">No conversations available</div>';
-            return;
-        }
-
-        const conversationsList = document.createElement('ul');
-        conversationsList.className = 'list-group';
-        
-        this.conversations.forEach(conversation => {
-            const item = document.createElement('li');
-            item.className = 'list-group-item';
-            
-            const date = new Date(conversation.createdAt);
-            const formattedDate = date.toLocaleString();
-
-            const messagesCount = conversation.messagesCount;
-            
-            item.innerHTML = `
-                <div class="cursor-pointer">
-                    <div><i class="mdi mdi-forum me-2 mt-1 text-cyber"></i> ${conversation.title}</div>
-                    <div class="float-end">
-                        <small class="text-muted me-2">${formattedDate}</small>
-                        <span class="badge bg-dark bg-opacity-50 text-cyber">${messagesCount}</span>
-                    </div>
-                </div>
-            `;
-
-            item.dataset.id = conversation.id;
-            item.addEventListener('click', async () => {
-                // Select this spirit in the dropdown before opening modal
-                if (this.spirit && window.spiritDropdownManager) {
-                    window.spiritDropdownManager.selectSpirit(this.spirit.id);
-                }
-
-                // Load conversation when modal is shown
-                document.getElementById('spiritChatModal').addEventListener('shown.bs.modal', async () => {
                     if (item.dataset.id) {
                         // wait for loading to finish
                         while (window.spiritChatManager.isLoadingConversations || window.spiritChatManager.isLoadingMessages) {

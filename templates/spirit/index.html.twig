@@ -28,7 +28,7 @@
                         <div class="col-md-6">
                             <div class="w-50 float-start">
                                 <div class="spirit-avatar-container big">
-                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary">
+                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary cursor-pointer" title="{{ 'spirit.chat.open'|trans|default('Open Spirit Chat') }}">
                                         <i class="mdi mdi-ghost spirit-detail-icon"></i>
                                     </div>
                                 </div>
@@ -78,14 +78,7 @@
                                     </small>
                                 </div>
                             </div>
-
-                            <h4>{{ 'spirit.spirit_detail.conversations'|trans }}</h4>
-                            <div id="conversations-list">
-                                <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
-                                </div>
-                                <span>{{ 'spirit.detail.loading_conversations'|trans }}</span>
-                            </div>
+                            
                         </div>
                         <div class="col-md-6">
                             <div class="mb-5">
@@ -115,18 +108,144 @@
                                     <button id="update-spirit-settings" class="btn btn-sm btn-cyber" disabled><i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}</button>
                                 </div>
                             </div>
-                            <hr>
-                            <h4 class="mt-4">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
-                            <div id="spirit-interactions">
-                                <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
-                                </div>
-                                <span>{{ 'spirit.detail.loading_interactions'|trans }}</span>
-                            </div>
                         </div>
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mt-2 pe-1">
+            <div class="glass-panel p-4">
+                <h4 class="">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
+                <div id="spirit-interactions" class="rounded">
+                    {% if interactions is defined and interactions|length > 0 %}
+                        <ul class="list-group list-group-flush bg-dark bg-opacity-25 rounded">
+                            {% for interaction in interactions %}
+                                <li class="list-group-item bg-transparent border-secondary border-opacity-25">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <small class="badge bg-success bg-opacity-50">+{{ interaction.experienceGained }} XP</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-secondary bg-opacity-50 me-2">{{ interaction.type }}</span>
+                                            {% if interaction.context %}
+                                                <small class="text-muted">{{ interaction.context }}</small>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-end">
+                                            <small class="text-muted" style="font-size: xx-small;">{{ interaction.createdAt }}</small>
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small">{{ 'spirit.no_interactions'|trans }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mt-2 ps-1">
+            <div class="glass-panel p-4">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div>
+                        <h4 class="d-inline-block mb-0">
+                            <i class="mdi mdi-forum-outline text-cyber me-2"></i>
+                            {{ 'spirit.spirit_detail.conversations'|trans }}
+                        </h4>
+                        <span class="text-secondary ms-2">({{ conversations|length }})</span>
+                    </div>
+                    <button id="newConversationBtnProfile" class="btn btn-sm btn-cyber" title="{{ 'spirit.chat.new_conversation'|trans }}">
+                        <i class="mdi mdi-message-plus"></i>
+                    </button>
+                </div>
+
+                <div id="conversations-list" class="rounded">
+                    {% if conversations is defined and conversations|length > 0 %}
+                        <ul class="list-group list-group-flush bg-dark bg-opacity-50 rounded">
+                            {% for conversation in conversations %}
+                                <li class="list-group-item bg-transparent border-secondary border-opacity-25 cursor-pointer conversation-item" data-conversation-id="{{ conversation.id }}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="w-100">
+                                            <i class="mdi mdi-message-outline me-2 text-cyber"></i><strong>{{ conversation.title }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ conversation.messagesCount }} {{ 'spirit.messages'|trans|default('messages') }}</small>
+                                        {# </div>
+                                        <div class="text-end"> #}
+                                            <small class="text-muted float-end">{{ conversation.lastInteraction }}</small>
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small">{{ 'spirit.no_conversations'|trans|default('No conversations yet') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# All Spirits List #}
+    <div class="row mt-5">
+        <div class="col-12 glass-panel p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>
+                    <a href="{{ path('spirits_index') }}">
+                        <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'spirits.title'|trans }}
+                    </a>
+                </h4>
+            </div>
+            <div class="row">
+                {% if allSpirits is defined and allSpirits|length > 0 %}
+                    {% for spirit in allSpirits %}
+                        {% set progression = spirit.progression %}
+                        {% set isPrimary = spirit.isPrimary %}
+                        {% set spiritColor = spirit.color %}
+                        
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 spirit-card glass-panel {{ isPrimary ? 'glass-panel-glow' : '' }}">
+                                <a href="{{ path('spirit_show', {id: spirit.id}) }}" >
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="spirit-list-icon me-2" style="background-color: {{ spiritColor }}21;">
+                                                <i class="mdi mdi-ghost" style="color: {{ spiritColor }};"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-0">{{ spirit.name }}</h6>
+                                                {% if isPrimary %}
+                                                    <small class="text-muted">{{ 'spirits.primary'|trans }}</small>
+                                                    <span class="badge bg-dark bg-opacity-25 ms-2 text-warning">★</span>
+                                                {% else %}
+                                                    <small class="text-muted">{{ 'spirits.spirit'|trans }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="">
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <small class="fw-bold">{{ 'spirits.level'|trans }} {{ progression.level|default(1) }}</small>
+                                                <small class="text-muted">{{ progression.experience|default(0) }} XP</small>
+                                            </div>
+                                            <div class="progress" style="height: 4px;">
+                                                <div class="progress-bar bg-cyber" role="progressbar" style="width: {{ progression.percentage|default(0) }}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-12 text-center text-secondary small py-3">
+                        <i class="mdi mdi-ghost-outline"></i>
+                        <p class="mt-1 mb-0">{{ 'spirits.no_spirits'|trans|default('No spirits yet') }}</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>

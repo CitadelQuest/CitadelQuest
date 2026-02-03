@@ -17,7 +17,8 @@ class SpiritController extends AbstractController
     public function __construct(
         private readonly SpiritService $spiritService,
         private readonly AiServiceModelService $aiServiceModelService,
-        private readonly AiGatewayService $aiGatewayService
+        private readonly AiGatewayService $aiGatewayService,
+        private readonly \App\Service\SpiritConversationService $spiritConversationService
     ) {}
 
     #[Route('', name: 'spirit_index')]
@@ -60,7 +61,8 @@ class SpiritController extends AbstractController
         if (!$gateway) {
             return $this->render('spirit/index.html.twig', [
                 'spiritId' => $id,
-                'aiModels' => []
+                'aiModels' => [],
+                'allSpirits' => []
             ]);
         }
         
@@ -76,9 +78,53 @@ class SpiritController extends AbstractController
             return !in_array($model->getId(), $imageModelIds);
         });
         
+        // Get all spirits for the spirits list section
+        $spirits = $this->spiritService->findAll();
+        $allSpirits = [];
+        foreach ($spirits as $spirit) {
+            $settings = $this->spiritService->getSpiritSettings($spirit->getId());
+            
+            // Extract spirit color from visualState
+            $spiritColor = '#95ec86'; // default
+            if (isset($settings['visualState'])) {
+                $visualState = json_decode($settings['visualState'], true);
+                if (isset($visualState['color'])) {
+                    $spiritColor = $visualState['color'];
+                }
+            }
+            
+            $spiritData = [
+                'id' => $spirit->getId(),
+                'name' => $spirit->getName(),
+                'isPrimary' => $this->spiritService->isPrimarySpirit($spirit->getId()),
+                'progression' => $this->spiritService->getLevelProgression($spirit->getId()),
+                'settings' => $settings,
+                'color' => $spiritColor
+            ];
+            $allSpirits[] = $spiritData;
+        }
+        
+        // Get interactions for this spirit
+        $interactions = $this->spiritService->getRecentInteractions($id, 10);
+        $interactionsData = [];
+        foreach ($interactions as $interaction) {
+            $interactionsData[] = [
+                'type' => $interaction->getInteractionType(),
+                'context' => $interaction->getContext(),
+                'experienceGained' => $interaction->getExperienceGained(),
+                'createdAt' => $interaction->getCreatedAt()->format('Y-m-d H:i:s')
+            ];
+        }
+        
+        // Get conversations for this spirit (returns array of arrays)
+        $conversationsData = $this->spiritConversationService->getConversationsBySpirit($id);
+        
         return $this->render('spirit/index.html.twig', [
             'spiritId' => $id,
-            'aiModels' => $textModels
+            'aiModels' => $textModels,
+            'allSpirits' => $allSpirits,
+            'interactions' => $interactionsData,
+            'conversations' => $conversationsData
         ]);
     }
 }
