@@ -25,27 +25,30 @@
                 
                 <div id="spirit-display" class="d-none">
                     <div class="row">
-                        <div class="col-md-5">
+                        <div class="col-md-6">
+                            <div class="w-50 float-start">
                                 <div class="spirit-avatar-container big">
                                     <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary">
                                         <i class="mdi mdi-ghost spirit-detail-icon"></i>
                                     </div>
                                 </div>
-                            <div class="text-center mt-5">
-                                <h3 id="spirit-name-display" class="mb-2">{{ 'spirit.name'|trans }}</h3>
-                                <div class="d-flex justify-content-center align-items-center">
-                                    <span class="badge bg-primary">{{ 'spirit.level'|trans }} <span id="spirit-level">1</span></span>
-                                </div>
                             </div>
-                            <div class="progress mt-3">
-                                <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                        role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
-                                        style="width: 0%">
+                            <div class="w-50 float-end">
+                                <div class="text-start">
+                                    <h3 id="spirit-name-display" class="mb-2">{{ 'spirit.name'|trans }}</h3>
+                                    <span class="badge bg-dark bg-opacity-25 text-cyber">{{ 'spirit.level'|trans }} <span id="spirit-level">1</span></span>                                    
                                 </div>
+                                <div class="progress mt-3">
+                                    <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                            role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                                            style="width: 0%">
+                                    </div>
+                                </div>
+                                <p class="text-start mt-1">
+                                    <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
+                                </p>
                             </div>
-                            <p class="text-center mt-1">
-                                <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
-                            </p>
+                            <div style="clear:both;"></div>
 
                             {# Memory Explorer Section #}
                             <div class="mt-4 mb-4">
@@ -66,8 +69,8 @@
                                     </div>
                                     <canvas id="profile-memory-canvas" class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <small class="text-secondary ms-2">
+                                <div class="d-flex justify-content-center align-items-center mt-2">
+                                    <small class="text-secondary">
                                         <i class="mdi mdi-circle-multiple"></i>
                                         <span id="profile-stats-nodes">0</span> {{ 'spirit.memory.nodes'|trans }} · 
                                         <i class="mdi mdi-link-variant"></i>
@@ -84,9 +87,8 @@
                                 <span>{{ 'spirit.detail.loading_conversations'|trans }}</span>
                             </div>
                         </div>
-                        <div class="col-md-7">
-                            <h4>{{ 'spirit.settings.title'|trans|default('Settings') }}</h4>
-                            <div class="mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-5">
                                 <div class="form-group mb-3">
                                     <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
                                     <select id="spirit-ai-model" class="form-select" onchange="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;">
@@ -99,7 +101,7 @@
                                     </select>
                                     <div class="form-text text-muted ms-2">{{ 'spirit.settings.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
                                     <textarea id="spirit-system-prompt" class="form-control" rows="6" 
                                         placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}" 
@@ -107,14 +109,14 @@
                                     <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center me-2 mt-2">
-                                    <button id="open-prompt-builder" class="btn btn-sm btn-outline-secondary" type="button">
+                                    <button id="open-prompt-builder" class="btn btn-sm btn-outline-secondary ms-2" type="button">
                                         <i class="mdi mdi-code-braces me-1"></i>{{ 'spirit.prompt_builder.button'|trans|default('Advanced Prompt Builder') }}
                                     </button>
                                     <button id="update-spirit-settings" class="btn btn-sm btn-cyber" disabled><i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}</button>
                                 </div>
                             </div>
                             <hr>
-                            <h4 class="mt-5">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
+                            <h4 class="mt-4">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
                             <div id="spirit-interactions">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                                     <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
