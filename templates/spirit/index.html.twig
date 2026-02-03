@@ -5,6 +5,7 @@
 {% block stylesheets %}
     {{ parent() }}
     {{ encore_entry_link_tags('spirit') }}
+    {{ encore_entry_link_tags('ai-model-selector') }}
 {% endblock %}
 
 {% block body %}
@@ -83,16 +84,23 @@
                         <div class="col-md-6">
                             <div class="glass-panel p-3 h-100">
                                 <div class="form-group mb-3">
-                                    <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
-                                    <select id="spirit-ai-model" class="form-select" onchange="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;">
-                                        <option value="">{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}</option>
-                                        {% for model in aiModels %}
-                                            <option value="{{ model.id }}" data-slug="{{ model.modelSlug }}" {% if spirit.settings.aiModel is defined and spirit.settings.aiModel == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text text-muted ms-2">{{ 'spirit.settings.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
+                                    <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-robot-outline me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
+                                    <input type="hidden" id="spirit-ai-model" value="{{ spirit.settings.aiModel ?? '' }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
+                                        <span id="spirit-ai-model-display">
+                                            {% if spirit.settings.aiModel is defined and spirit.settings.aiModel %}
+                                                {% for model in aiModels %}
+                                                    {% if model.id == spirit.settings.aiModel %}
+                                                        {{ model.modelName }}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                 </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
@@ -270,9 +278,37 @@
 
 {# System Prompt Builder Modal #}
 {% include 'spirit/_system_prompt_builder_modal.html.twig' %}
+
+{# AI Model Selector Modal #}
+{% include 'components/_ai_model_selector.html.twig' %}
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
     {{ encore_entry_script_tags('spirit') }}
+    {{ encore_entry_script_tags('ai-model-selector') }}
+    <script>
+        // Initialize AI Model Selector for Spirit
+        document.addEventListener('DOMContentLoaded', function() {
+            const spiritModelBtn = document.getElementById('spirit-ai-model-selector-btn');
+            const saveBtn = document.getElementById('update-spirit-settings');
+
+            if (spiritModelBtn) {
+                spiritModelBtn.addEventListener('click', function() {
+                    const currentModelId = document.getElementById('spirit-ai-model').value;
+                    window.aiModelSelector.open('primary', function(model) {
+                        // Update hidden input
+                        document.getElementById('spirit-ai-model').value = model.id;
+                        // Update display
+                        const displayText = model.modelName || '{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}';
+                        document.getElementById('spirit-ai-model-display').textContent = displayText;
+                        // Enable save button
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                        }
+                    }, currentModelId || null);
+                });
+            }
+        });
+    </script>
 {% endblock %}

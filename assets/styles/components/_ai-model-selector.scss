@@ -1,0 +1,164 @@
+// AI Model Selector Modal Styles
+@use '../colors' as colors;
+@use '../variables' as vars;
+@use '../mixins' as mixins;
+
+#aiModelSelectorModal {
+    .modal-content {
+        background: rgba(15, 15, 20, 0.95);
+        backdrop-filter: blur(10px);
+    }
+
+    * {
+        @include mixins.cyber-scrollbar;
+    }
+
+    .table {
+        color: colors.$light;
+        margin-bottom: 0;
+
+        thead {
+            th {
+                border-bottom: 2px solid colors.$cyber;
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                padding: 0.75rem;
+                background: rgba(10, 10, 15, 0.9);
+            }
+        }
+
+        tbody {
+            tr.model-row {
+                transition: all 0.2s ease;
+                border-bottom: 1px solid rgba(colors.$cyber, 0.1);
+
+                &:hover {
+                    background: rgba(colors.$cyber, 0.05);
+                    //transform: translateX(2px);
+                }
+
+                &.table-active {
+                    background: rgba(colors.$cyber, 0.15);
+                    border-left: 3px solid colors.$cyber;
+                }
+
+                td {
+                    padding: 0.75rem;
+                    vertical-align: middle;
+                }
+            }
+        }
+    }
+
+    .progress {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        .bg-cyber {
+            background: linear-gradient(90deg, rgba(colors.$cyber, 0.6), colors.$cyber);
+        }
+
+        .bg-info {
+            background: linear-gradient(90deg, rgba(colors.$info, 0.6), colors.$info);
+        }
+    }
+
+    .btn-select-model {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        
+        &:hover {
+            transform: scale(1.1);
+        }
+    }
+}
+
+#aiModelDetailsModal {
+    .modal-content {
+        background: rgba(15, 15, 20, 0.95);
+        backdrop-filter: blur(10px);
+    }
+
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(colors.$cyber, 0.2);
+    }
+}
+
+// Provider-specific styling
+.provider-anthropic {
+    border-left-color: #cc785c !important;
+}
+
+.provider-google {
+    border-left-color: #4285f4 !important;
+}
+
+.provider-other {
+    border-left-color: colors.$secondary !important;
+}
+
+// Search and filter bar
+#aiModelSelectorFilters {
+    background: rgba(10, 10, 15, 0.6);
+
+    .input-group-text {
+        color: colors.$cyber;
+    }
+
+    .form-control {
+        &:focus {
+            border-color: colors.$cyber;
+            box-shadow: 0 0 0 0.2rem rgba(colors.$cyber, 0.25);
+        }
+    }
+
+    .btn-group {
+        .btn-outline-secondary {
+            &:hover {
+                background: rgba(colors.$cyber, 0.1);
+                border-color: colors.$cyber;
+                color: colors.$cyber;
+            }
+
+            &.active {
+                background: colors.$cyber;
+                border-color: colors.$cyber;
+                color: colors.$dark;
+            }
+        }
+    }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    #aiModelSelectorModal {
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        .table {
+            font-size: 0.8rem;
+
+            td, th {
+                padding: 0.5rem 0.25rem;
+            }
+        }
+
+        #aiModelSelectorFilters {
+            .row {
+                flex-direction: column;
+            }
+
+            .btn-group {
+                font-size: 0.75rem;
+            }
+        }
+    }
+}

@@ -381,6 +381,7 @@ settings:
             primary: 'Primárny AI Model'
             secondary: 'AI Model pre generovanie/úpravu obrázkov'
             price_hint: 'názov modelu [kontextové okno] (cena vstupu / cena výstupu) v Kreditoch za milión tokenov'
+            select_hint: 'Kliknite pre porovnanie a výber najlepšieho modelu pre vaše potreby'
             update: 'Aktualizovať zoznam modelov'
             updating: 'Aktualizujem...'
             updated: 'Aktualizované!'
@@ -430,7 +431,28 @@ settings:
         success: 'Žiadosť o migráciu úspešne odoslaná'
         error_password: 'Neplatné heslo'
         error_contact: 'Kontakt nenájdený'
-        error_pending: 'Už máte čakajúcu žiadosť o migráciu'
+        error_pending: 'Už máte nevybavenú žiadosť o migráciu'
+
+ai_model_selector:
+    title: 'Vyberte AI Model'
+    select_model: 'Kliknite pre výber modelu...'
+    loading: 'Načítavam AI modely...'
+    search_placeholder: 'Hľadať modely...'
+    no_results: 'Neboli nájdené žiadne modely zodpovedajúce vašim kritériám.'
+    retry: 'Skúsiť znova'
+    footer_hint: 'Kliknutím na model zobrazíte detaily'
+    select_this_model: 'Vybrať tento model'
+    filter:
+        all: 'Všetko'
+        other: 'Ostatné'
+    table:
+        model: 'Model'
+        price: 'Cena'
+        context: 'Kontext'
+        modalities: 'I/O'
+        actions: 'Akcia'
+    details:
+        title: 'Detaily modelu'
 
 backup:
     title: 'Správa záloh'

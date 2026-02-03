@@ -320,20 +320,48 @@ export class SpiritManager {
         }
 
         if (this.aiModelSelect) {
-            // Set the selected option based on the spirit's AI model
-            const aiModel = settings.aiModel || '';
-            const options = this.aiModelSelect.options;
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].value === aiModel) {
-                    this.aiModelSelect.selectedIndex = i;
-                    break;
-                }
-            }
+            // Set the value of the hidden input (no longer a select dropdown)
+            const modelId = settings.aiModel || '';
+            this.aiModelSelect.value = modelId;
+            
+            // Update the display button text with model name
+            this.updateAiModelDisplay(modelId);
         }
 
         // Disable save button after loading
         if (this.updateSettingsBtn) {
             this.updateSettingsBtn.disabled = true;
+        }
+    }
+
+    /**
+     * Update AI model display button text
+     */
+    async updateAiModelDisplay(modelId) {
+        const displayElement = document.getElementById('spirit-ai-model-display');
+        if (!displayElement) return;
+        
+        if (!modelId) {
+            displayElement.textContent = this.translations.use_primary_model || 'Use Primary AI Model';
+            return;
+        }
+        
+        try {
+            // Fetch model info from API
+            const response = await fetch(`/api/ai/model/selector?type=primary`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (data.success && data.models) {
+                const model = data.models.find(m => m.id === modelId);
+                if (model) {
+                    displayElement.textContent = model.modelName;
+                } else {
+                    displayElement.textContent = this.translations.use_primary_model || 'Use Primary AI Model';
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching model info:', error);
         }
     }
 

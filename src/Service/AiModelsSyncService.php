@@ -282,8 +282,9 @@ class AiModelsSyncService
                     $updatedModel = $this->aiServiceModelService->updateModel(
                         $existingModel->getId(),
                         [
-                            'name' => $model['name'],
-                            'contextLength' => $model['context_length'],
+                            'modelName' => $model['name'],
+                            'modelSlug' => $modelSlug,
+                            'contextWindow' => $model['context_length'],
                             'maxInput' => $model['context_length'],
                             'maxOutput' => $maxOutputTokens,
                             'ppmInput' => $pricingInput,

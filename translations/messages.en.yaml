@@ -389,6 +389,7 @@ settings:
             primary: 'Primary AI Model'
             secondary: 'Image gen/edit AI Model'
             price_hint: 'model name [context window] (input price / output price) in Credits per million tokens'
+            select_hint: 'Click to compare and select the best model for your needs'
             update: 'Update Models List'
             updating: 'Updating...'
             updated: 'Updated!'
@@ -439,6 +440,27 @@ settings:
         error_password: 'Invalid password'
         error_contact: 'Contact not found'
         error_pending: 'You already have a pending migration request'
+
+ai_model_selector:
+    title: 'Select AI Model'
+    select_model: 'Click to select model...'
+    loading: 'Loading AI models...'
+    search_placeholder: 'Search models...'
+    no_results: 'No models found matching your criteria.'
+    retry: 'Retry'
+    footer_hint: 'Click on any model to see details'
+    select_this_model: 'Select This Model'
+    filter:
+        all: 'All'
+        other: 'Other'
+    table:
+        model: 'Model'
+        price: 'Price'
+        context: 'Context'
+        modalities: 'I/O'
+        actions: 'Action'
+    details:
+        title: 'Model Details'
 
 backup:
     title: 'Backup Management'

@@ -2,6 +2,11 @@
 
 {% block title %}{{ 'settings.ai.page_title'|trans|default('AI Services Settings') }}{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('ai-model-selector') }}
+{% endblock %}
+
 {% block body %}
 <div class="container mt-4">
     <div class="row">
@@ -46,26 +51,42 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}</label>
-                                    <select class="form-select" id="primary_model" name="primary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
-                                        {% for model in aiModels %}
-                                            <option value="{{ model.id }}" {% if settings['ai.primary_ai_service_model_id'] is defined and settings['ai.primary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
+                                    <input type="hidden" id="primary_model" name="primary_model" value="{{ settings['ai.primary_ai_service_model_id'] ?? '' }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="primary_model_selector_btn">
+                                        <span id="primary_model_display">
+                                            {% if settings['ai.primary_ai_service_model_id'] is defined %}
+                                                {% for model in aiModels %}
+                                                    {% if model.id == settings['ai.primary_ai_service_model_id'] %}
+                                                        {{ model.modelName }}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'ai_model_selector.select_model'|trans|default('Click to select model...') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
                                     <label for="secondary_model" class="form-label"><i class="mdi mdi-image-edit-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
-                                    <select class="form-select" id="secondary_model" name="secondary_model" onchange="let akuBtn = document.getElementById('save_ai_settings'); akuBtn.disabled = false;">
-                                        {% for model in aiImageModels %}
-                                            <option value="{{ model.id }}" {% if settings['ai.secondary_ai_service_model_id'] is defined and settings['ai.secondary_ai_service_model_id'] == model.id %}selected{% endif %}>
-                                                {{ model.modelName }} [{{ model.contextWindow|number_format(0, '.', ' ') }}] ({{ model.ppmInput|number_format(0, '.', ' ') }} / {{ model.ppmOutput|number_format(0, '.', ' ') }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.price_hint'|trans|default('model name [context window] (input price / output price) in Credits per million tokens') }}</div>
+                                    <input type="hidden" id="secondary_model" name="secondary_model" value="{{ settings['ai.secondary_ai_service_model_id'] ?? '' }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="secondary_model_selector_btn">
+                                        <span id="secondary_model_display">
+                                            {% if settings['ai.secondary_ai_service_model_id'] is defined %}
+                                                {% for model in aiImageModels %}
+                                                    {% if model.id == settings['ai.secondary_ai_service_model_id'] %}
+                                                        {{ model.modelName }}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'ai_model_selector.select_model'|trans|default('Click to select model...') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                 </div>
                             </div>
                         </div>
@@ -145,10 +166,14 @@
     </div>
 </div>
 
+{# Include AI Model Selector Modal #}
+{% include 'components/_ai_model_selector.html.twig' %}
+
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
+{{ encore_entry_script_tags('ai-model-selector') }}
 <script>
     /**
      * Open CQ AI Gateway with seamless login (no password required)
@@ -237,5 +262,42 @@
             btn.className = originalClass;
         });
     }
+
+    // Initialize AI Model Selector buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        const primaryBtn = document.getElementById('primary_model_selector_btn');
+        const secondaryBtn = document.getElementById('secondary_model_selector_btn');
+        const saveBtn = document.getElementById('save_ai_settings');
+
+        // Primary model selector
+        if (primaryBtn) {
+            primaryBtn.addEventListener('click', function() {
+                const currentModelId = document.getElementById('primary_model').value;
+                window.aiModelSelector.open('primary', function(model) {
+                    // Update hidden input
+                    document.getElementById('primary_model').value = model.id;
+                    // Update display
+                    document.getElementById('primary_model_display').textContent = model.modelName;
+                    // Enable save button
+                    saveBtn.disabled = false;
+                }, currentModelId);
+            });
+        }
+
+        // Secondary model selector (image models only)
+        if (secondaryBtn) {
+            secondaryBtn.addEventListener('click', function() {
+                const currentModelId = document.getElementById('secondary_model').value;
+                window.aiModelSelector.open('image', function(model) {
+                    // Update hidden input
+                    document.getElementById('secondary_model').value = model.id;
+                    // Update display
+                    document.getElementById('secondary_model_display').textContent = model.modelName;
+                    // Enable save button
+                    saveBtn.disabled = false;
+                }, currentModelId);
+            });
+        }
+    });
 </script>
 {% endblock %}
