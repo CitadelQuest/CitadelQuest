@@ -8,13 +8,13 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-4">
+<div class="container mt-3">
     <input type="hidden" id="spirit-id" value="{{ spiritId is defined ? spiritId : '' }}">
     <div class="glass-panel pt-4">
         {# <div class="text-white p-4">
             <h2 class="mb-0">{{ 'spirit.title'|trans }}</h2>
         </div> #}
-        <div class="px-4 pb-4 pt-1">
+        <div class="px-4 pb-4 pt-1 mb-2">
             <div id="spirit-container">
                 <div class="text-center mb-4" id="spirit-loading">
                     <div class="spinner-border text-primary" role="status">
@@ -51,7 +51,7 @@
                             <div style="clear:both;"></div>
 
                             {# Memory Explorer Section #}
-                            <div class="mt-4 mb-4">
+                            <div class="mt-4 mb-2 glass-panel p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h5 class="mb-0">
                                         <i class="mdi mdi-brain text-cyber me-2"></i>{{ 'spirit.memory.title'|trans }}
@@ -81,7 +81,7 @@
                             
                         </div>
                         <div class="col-md-6">
-                            <div class="mb-5">
+                            <div class="glass-panel p-3 h-100">
                                 <div class="form-group mb-3">
                                     <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
                                     <select id="spirit-ai-model" class="form-select" onchange="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;">
@@ -96,7 +96,7 @@
                                 </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
-                                    <textarea id="spirit-system-prompt" class="form-control" rows="6" 
+                                    <textarea id="spirit-system-prompt" class="form-control" rows="9" 
                                         placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}" 
                                         oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
                                     <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>
