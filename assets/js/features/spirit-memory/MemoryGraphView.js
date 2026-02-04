@@ -769,6 +769,189 @@ export class MemoryGraphView {
     }
 
     /**
+     * Add a new node to the graph dynamically (for real-time updates)
+     */
+    addNode(nodeData) {
+        if (!this.graphData) return;
+
+        // Check if node already exists
+        if (this.nodeMeshes.has(nodeData.id)) {
+            return;
+        }
+
+        // Add to graph data
+        this.graphData.nodes.push(nodeData);
+
+        // Add to layout engine
+        this.layoutEngine.addNode(nodeData);
+
+        // Create mesh with zero scale for entrance animation
+        const mesh = this.createNodeMesh(nodeData);
+        mesh.scale.set(0, 0, 0);
+        mesh.material.opacity = 0;
+        mesh.material.transparent = true;
+
+        this.nodeGroup.add(mesh);
+        this.nodeMeshes.set(nodeData.id, mesh);
+
+        // Animate entrance
+        this.animateNodeEntrance(nodeData.id);
+    }
+
+    /**
+     * Add a new edge to the graph dynamically
+     */
+    addEdge(edgeData) {
+        if (!this.graphData) return;
+
+        // Check if edge already exists
+        const exists = this.graphData.edges.some(e => e.id === edgeData.id);
+        if (exists) {
+            return;
+        }
+
+        // Add to graph data
+        this.graphData.edges.push(edgeData);
+
+        // Add to layout engine
+        this.layoutEngine.addLink(edgeData);
+
+        // Edge line will be created/updated on next tick
+        this.createEdgeLines(this.graphData.edges);
+    }
+
+    /**
+     * Animate node entrance with fade-in and scale-up
+     */
+    animateNodeEntrance(nodeId) {
+        const mesh = this.nodeMeshes.get(nodeId);
+        if (!mesh) return;
+
+        const duration = 500; // ms
+        const startTime = performance.now();
+
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Easing function (ease-out cubic)
+            const eased = 1 - Math.pow(1 - progress, 3);
+
+            // Scale up from 0 to 1
+            mesh.scale.set(eased, eased, eased);
+
+            // Fade in opacity
+            mesh.material.opacity = eased;
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                // Animation complete - add glow effect
+                this.glowNodeById(nodeId, true);
+                
+                // Remove glow after 2 seconds
+                setTimeout(() => {
+                    this.glowNodeById(nodeId, false);
+                }, 2000);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * Focus camera on a set of nodes (for new cluster visualization)
+     */
+    focusOnNodes(nodeIds) {
+        if (!nodeIds || nodeIds.length === 0) return;
+
+        const nodes = [];
+        nodeIds.forEach(id => {
+            const mesh = this.nodeMeshes.get(id);
+            if (mesh) {
+                nodes.push(mesh);
+            }
+        });
+
+        if (nodes.length === 0) return;
+
+        // Calculate bounding box of nodes
+        const box = new THREE.Box3();
+        nodes.forEach(mesh => {
+            box.expandByObject(mesh);
+        });
+
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        // Calculate camera distance based on box size
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = this.camera.fov * (Math.PI / 180);
+        const distance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5;
+
+        // Animate camera movement
+        this.animateCameraTo(center, distance);
+    }
+
+    /**
+     * Animate camera to target position
+     */
+    animateCameraTo(targetPosition, distance) {
+        const duration = 1000; // ms
+        const startTime = performance.now();
+        
+        const startPosition = this.camera.position.clone();
+        const startTarget = this.controls.target.clone();
+
+        const endPosition = new THREE.Vector3(
+            targetPosition.x,
+            targetPosition.y,
+            targetPosition.z + distance
+        );
+
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Easing function (ease-in-out)
+            const eased = progress < 0.5
+                ? 2 * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+            // Interpolate camera position
+            this.camera.position.lerpVectors(startPosition, endPosition, eased);
+            this.controls.target.lerpVectors(startTarget, targetPosition, eased);
+            this.controls.update();
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }
+
+    /**
+     * Get timestamp of last graph update (for delta queries)
+     */
+    getLastUpdateTimestamp() {
+        if (!this.graphData || !this.graphData.nodes || this.graphData.nodes.length === 0) {
+            return new Date().toISOString();
+        }
+
+        // Find most recent node creation time
+        const mostRecent = this.graphData.nodes.reduce((latest, node) => {
+            const nodeTime = new Date(node.createdAt);
+            return nodeTime > latest ? nodeTime : latest;
+        }, new Date(0));
+
+        return mostRecent.toISOString();
+    }
+
+    /**
      * Dispose of all resources
      */
     dispose() {

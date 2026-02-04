@@ -259,6 +259,109 @@ $panel-min-height: 500px;
     }
 }
 
+// Memory Extract Panel
+#memory-extract-panel {
+    .extraction-jobs-container {
+        max-height: 300px;
+        overflow-y: auto;
+        @include mix.cyber-scrollbar;
+    }
+
+    .extraction-job-item {
+        background: rgba(colors.$cyber, 0.05);
+        border-left: 2px solid colors.$cyber;
+        padding: 0.5rem;
+        border-radius: vars.$border-radius;
+        
+        .progress {
+            background-color: rgba(0, 0, 0, 0.3);
+            
+            .progress-bar {
+                transition: width vars.$duration-normal vars.$ease-standard;
+            }
+        }
+
+        .mdi-spin {
+            animation: spin 2s linear infinite;
+        }
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    // File selector
+    #extract-file-selector {
+        background-color: rgba(0, 0, 0, 0.3);
+        color: colors.$text-light;
+        border-color: rgba(colors.$cyber, 0.3);
+        
+        &:focus {
+            border-color: colors.$cyber;
+            box-shadow: 0 0 0 0.2rem rgba(colors.$cyber, 0.25);
+        }
+        
+        option {
+            background-color: #1a1a1a;
+            color: colors.$text-light;
+            padding: 0.5rem;
+            
+            &:hover, &:focus, &:checked {
+                background-color: rgba(colors.$cyber, 0.2);
+                color: colors.$cyber;
+            }
+        }
+    }
+
+    // Range slider
+    #extract-max-depth {
+        &::-webkit-slider-thumb {
+            background: colors.$cyber;
+            border: 2px solid colors.$cyber;
+            
+            &:hover {
+                background: darken(colors.$cyber, 10%);
+            }
+        }
+
+        &::-moz-range-thumb {
+            background: colors.$cyber;
+            border: 2px solid colors.$cyber;
+            
+            &:hover {
+                background: darken(colors.$cyber, 10%);
+            }
+        }
+    }
+
+    // Alert animations
+    #extract-alert {
+        animation: slideIn 0.3s vars.$ease-standard;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+}
+
+// Toggle button for extract panel
+#btn-toggle-extract-panel {
+    transition: all vars.$duration-quick vars.$ease-standard;
+    
+    &:hover {
+        background-color: rgba(colors.$cyber, 0.1);
+        border-color: colors.$cyber;
+    }
+}
+
 // 3D Node Labels - Global scope for both full explorer and profile preview
 // CSS2DRenderer creates overlay divs that need global styling
 .node-label {

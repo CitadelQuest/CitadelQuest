@@ -22,7 +22,8 @@ class UpdatesService
         private readonly CqChatMsgService $cqChatMsgService,
         private readonly CqContactService $cqContactService,
         private readonly SpiritMemoryJobService $spiritMemoryJobService,
-        private readonly AIToolMemoryService $aiToolMemoryService
+        private readonly AIToolMemoryService $aiToolMemoryService,
+        private readonly SpiritMemoryService $spiritMemoryService
     ) {
         $this->user = $security->getUser();
     }
@@ -315,6 +316,7 @@ class UpdatesService
         $result = [
             'active' => [],
             'completed' => [],
+            'graphDeltas' => [], // Delta updates per spiritId
             'processed' => false
         ];
 
@@ -340,17 +342,63 @@ class UpdatesService
                 }
             }
 
-            // Get active jobs for status display
+            // Track spirits with active jobs to fetch deltas
+            $spiritIdsWithActiveJobs = [];
+
+            // Get active jobs for status display with detailed progress info
             $activeJobs = $this->spiritMemoryJobService->getActiveJobs();
             foreach ($activeJobs as $job) {
+                $payload = $job->getPayload();
+                $spiritId = $job->getSpiritId();
+                
+                // Track this spirit
+                if (!in_array($spiritId, $spiritIdsWithActiveJobs)) {
+                    $spiritIdsWithActiveJobs[] = $spiritId;
+                }
+                
+                // Extract current block title being processed
+                $currentBlock = null;
+                if ($job->getType() === SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE && isset($payload['pending_blocks'])) {
+                    $pendingBlocks = $payload['pending_blocks'];
+                    if (!empty($pendingBlocks)) {
+                        $currentBlockData = $pendingBlocks[0] ?? null;
+                        if ($currentBlockData && isset($currentBlockData['title'])) {
+                            $currentBlock = $currentBlockData['title'];
+                        }
+                    }
+                }
+                
+                // Extract recently created node IDs from payload
+                $recentNodeIds = [];
+                if (isset($payload['extracted_node_ids']) && is_array($payload['extracted_node_ids'])) {
+                    // Get last 5 created nodes
+                    $recentNodeIds = array_slice($payload['extracted_node_ids'], -5);
+                }
+                
                 $result['active'][] = [
                     'id' => $job->getId(),
                     'type' => $job->getType(),
                     'status' => $job->getStatus(),
                     'progress' => $job->getProgress(),
                     'totalSteps' => $job->getTotalSteps(),
-                    'createdAt' => $job->getCreatedAt()->format('c')
+                    'createdAt' => $job->getCreatedAt()->format('c'),
+                    'currentBlock' => $currentBlock,
+                    'recentNodeIds' => $recentNodeIds,
+                    'spiritId' => $spiritId
                 ];
+            }
+            
+            // Fetch graph deltas for spirits with active jobs
+            foreach ($spiritIdsWithActiveJobs as $spiritId) {
+                try {
+                    $delta = $this->spiritMemoryService->getGraphDelta($spiritId, $since);
+                    if (!empty($delta['nodes']) || !empty($delta['edges'])) {
+                        $result['graphDeltas'][$spiritId] = $delta;
+                    }
+                } catch (\Exception $e) {
+                    // Don't fail the whole request for delta errors
+                    // Note: Silently continue - delta is optional enhancement
+                }
             }
 
             // Get recently completed jobs for notifications

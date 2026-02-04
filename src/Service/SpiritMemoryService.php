@@ -867,6 +867,77 @@ class SpiritMemoryService
         ];
     }
 
+    /**
+     * Get graph delta - nodes and edges created after a specific timestamp
+     * Used for incremental real-time updates in Memory Explorer
+     */
+    public function getGraphDelta(string $spiritId, string $since): array
+    {
+        $db = $this->getUserDb();
+
+        // Get nodes created after timestamp
+        $nodesResult = $db->executeQuery(
+            'SELECT * FROM spirit_memory_nodes 
+             WHERE spirit_id = ? AND is_active = 1 AND created_at > ?
+             ORDER BY created_at ASC',
+            [$spiritId, $since]
+        );
+
+        $nodes = [];
+        foreach ($nodesResult->fetchAllAssociative() as $row) {
+            $node = SpiritMemoryNode::fromArray($row);
+            $nodes[] = [
+                'id' => $node->getId(),
+                'content' => $node->getContent(),
+                'summary' => $node->getSummary(),
+                'category' => $node->getCategory(),
+                'importance' => $node->getImportance(),
+                'confidence' => $node->getConfidence(),
+                'createdAt' => $node->getCreatedAt()->format('Y-m-d H:i:s'),
+                'accessCount' => $node->getAccessCount(),
+                'tags' => $this->getTagsForMemory($node->getId()),
+                'sourceType' => $node->getSourceType(),
+                'sourceRef' => $node->getSourceRef(),
+                'sourceRange' => $node->getSourceRange()
+            ];
+        }
+
+        // Get edges created after timestamp OR connected to new nodes
+        // This handles both extraction (new nodes + edges) and relationship analysis (just new edges)
+        $edges = [];
+        $edgeParams = [$spiritId, $since];
+        $edgeQuery = "SELECT r.* FROM spirit_memory_relationships r
+                     JOIN spirit_memory_nodes n ON r.source_id = n.id
+                     WHERE n.spirit_id = ? AND r.created_at > ?";
+        
+        // If there are new nodes, also include edges connected to them (even if older)
+        $newNodeIds = array_column($nodes, 'id');
+        if (!empty($newNodeIds)) {
+            $placeholders = implode(',', array_fill(0, count($newNodeIds), '?'));
+            $edgeQuery .= " OR (r.source_id IN ({$placeholders}) OR r.target_id IN ({$placeholders}))";
+            $edgeParams = array_merge($edgeParams, $newNodeIds, $newNodeIds);
+        }
+        
+        $edgesResult = $db->executeQuery($edgeQuery, $edgeParams);
+
+        foreach ($edgesResult->fetchAllAssociative() as $row) {
+            $rel = SpiritMemoryRelationship::fromArray($row);
+            $edges[] = [
+                'id' => $rel->getId(),
+                'source' => $rel->getSourceId(),
+                'target' => $rel->getTargetId(),
+                'type' => $rel->getType(),
+                'strength' => $rel->getStrength(),
+                'context' => $rel->getContext()
+            ];
+        }
+
+        return [
+            'nodes' => $nodes,
+            'edges' => $edges
+        ];
+    }
+
     // ========================================
     // STATISTICS
     // ========================================

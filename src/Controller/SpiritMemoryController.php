@@ -6,6 +6,7 @@ use App\Service\SpiritService;
 use App\Service\SpiritMemoryService;
 use App\Service\ProjectFileService;
 use App\Service\AnnoService;
+use App\Service\AIToolMemoryService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,7 +22,8 @@ class SpiritMemoryController extends AbstractController
         private readonly SpiritService $spiritService,
         private readonly SpiritMemoryService $spiritMemoryService,
         private readonly ProjectFileService $projectFileService,
-        private readonly AnnoService $annoService
+        private readonly AnnoService $annoService,
+        private readonly AIToolMemoryService $aiToolMemoryService
     ) {}
 
     #[Route('/{spiritId}/memory', name: 'spirit_memory_explorer', methods: ['GET'])]
@@ -148,6 +150,83 @@ class SpiritMemoryController extends AbstractController
 
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Failed to read source: ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/{spiritId}/memory/extract-manual', name: 'spirit_memory_extract_manual_api', methods: ['POST'])]
+    public function extractManual(string $spiritId, Request $request): JsonResponse
+    {
+        $spirit = $this->spiritService->findById($spiritId);
+        
+        if (!$spirit) {
+            return new JsonResponse(['error' => 'Spirit not found'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        
+        if (!$data) {
+            return new JsonResponse(['error' => 'Invalid JSON payload'], 400);
+        }
+
+        try {
+            // Prepare arguments for memoryExtract AI Tool
+            $arguments = [
+                'spiritId' => $spiritId,
+                'sourceType' => $data['sourceType'] ?? 'file',
+                'sourceRef' => $data['sourceRef'] ?? null,
+                'content' => $data['content'] ?? null,
+                'maxDepth' => $data['maxDepth'] ?? 3,
+                'documentTitle' => $data['documentTitle'] ?? null
+            ];
+
+            // Validate required fields
+            if (!$arguments['sourceRef'] && !$arguments['content']) {
+                return new JsonResponse(['error' => 'Either sourceRef or content is required'], 400);
+            }
+
+            // Call memoryExtract AI Tool
+            $result = $this->aiToolMemoryService->memoryExtract($arguments);
+
+            return new JsonResponse($result);
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Extraction failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    #[Route('/{spiritId}/memory/graph/delta', name: 'spirit_memory_graph_delta_api', methods: ['GET'])]
+    public function getGraphDelta(string $spiritId, Request $request): JsonResponse
+    {
+        $spirit = $this->spiritService->findById($spiritId);
+        
+        if (!$spirit) {
+            return new JsonResponse(['error' => 'Spirit not found'], 404);
+        }
+
+        $since = $request->query->get('since');
+        
+        if (!$since) {
+            return new JsonResponse(['error' => 'since parameter is required (ISO 8601 timestamp)'], 400);
+        }
+
+        try {
+            // Convert ISO 8601 to DateTime
+            $sinceDateTime = new \DateTime($since);
+            $sinceFormatted = $sinceDateTime->format('Y-m-d H:i:s');
+
+            // Get nodes and edges created after the timestamp
+            $deltaData = $this->spiritMemoryService->getGraphDelta($spiritId, $sinceFormatted);
+
+            // Add current timestamp for next delta query
+            $deltaData['timestamp'] = (new \DateTime())->format('c');
+
+            return new JsonResponse($deltaData);
+
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Failed to get delta: ' . $e->getMessage()], 500);
         }
     }
 }

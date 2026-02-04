@@ -1,4 +1,6 @@
 import { MemoryGraphView } from './MemoryGraphView';
+import { MemoryExtractPanel } from './MemoryExtractPanel';
+import { updatesService } from '../../services/UpdatesService';
 import MarkdownIt from 'markdown-it';
 import * as bootstrap from 'bootstrap';
 
@@ -7,10 +9,15 @@ import * as bootstrap from 'bootstrap';
  * Orchestrates the graph visualization and UI interactions
  */
 class SpiritMemoryExplorer {
-    constructor() {
-        this.spiritId = document.getElementById('spirit-id')?.value;
+    constructor(spiritId) {
+        this.spiritId = spiritId;
         this.graphView = null;
         this.graphData = null;
+        this.extractPanel = null;
+        this.selectedNode = null;
+        this.manualPollingActive = false;
+        this.manualPollingTimeout = null;
+        
         this.md = new MarkdownIt({ html: false, breaks: true, linkify: true });
         
         // Filter state
@@ -44,11 +51,147 @@ class SpiritMemoryExplorer {
         this.graphView.setOnNodeHover((node) => this.onNodeHover(node));
         this.graphView.setOnNodeDeselect(() => this.hideNodeDetails());
 
+        // Initialize extract panel
+        this.extractPanel = new MemoryExtractPanel(this.spiritId);
+        
+        // Set callback for extraction start
+        this.extractPanel.onExtractionStart = () => this.startManualPolling();
+
+        // Register listener with global updates service (polling already started in app)
+        this.setupPolling();
+
         // Setup UI event listeners
         this.setupEventListeners();
 
         // Load graph data
         await this.loadGraphData();
+    }
+
+    setupPolling() {
+        // Register listener for memory job updates with global singleton
+        // Polling is already started globally in cq-chat-modal.js entry point
+        updatesService.addListener('memoryExplorer', async (updates) => {
+            if (updates.memoryJobs?.active?.length > 0) {
+                // Filter jobs for this spirit
+                const spiritJobs = updates.memoryJobs.active.filter(job => job.spiritId === this.spiritId);
+                
+                if (spiritJobs.length > 0) {
+                    // Update extract panel progress
+                    this.extractPanel.updateJobProgress(spiritJobs);
+                    
+                    // Apply graph delta if included in updates (no separate fetch needed!)
+                    if (updates.memoryJobs.graphDeltas && updates.memoryJobs.graphDeltas[this.spiritId]) {
+                        this.applyGraphDelta(updates.memoryJobs.graphDeltas[this.spiritId]);
+                    }
+                }
+            }
+
+            // Handle completed jobs
+            if (updates.memoryJobs?.completed?.length > 0) {
+                updates.memoryJobs.completed.forEach(job => {
+                    if (job.spiritId === this.spiritId) {
+                        this.extractPanel.removeCompletedJob(job.id);
+                        
+                        // Show notification
+                        if (job.status === 'completed') {
+                            window.toast?.success('Memory extraction completed!');
+                        } else if (job.status === 'failed') {
+                            window.toast?.error('Memory extraction failed: ' + (job.error || 'Unknown error'));
+                        }
+                        
+                        // Reload stats
+                        this.updateStats();
+                        
+                        // Check if all jobs for this spirit are done
+                        this.checkAndResumePolling(updates.memoryJobs.active);
+                    }
+                });
+            }
+            
+            // Also check on active job updates in case last job completes without separate completed event
+            if (this.manualPollingActive && updates.memoryJobs?.active) {
+                this.checkAndResumePolling(updates.memoryJobs.active);
+            }
+        });
+    }
+
+    /**
+     * Start manual polling loop during memory extraction
+     * Prevents request stacking by controlling fetch timing
+     */
+    startManualPolling() {
+        if (this.manualPollingActive) return;
+        
+        this.manualPollingActive = true;
+        console.log('🔄 Starting manual polling for memory extraction...');
+        
+        this.pollManually();
+    }
+    
+    /**
+     * Manual polling function - fetches updates and schedules next poll after response
+     */
+    async pollManually() {
+        if (!this.manualPollingActive) return;
+        
+        try {
+            // Fetch updates manually
+            const updates = await updatesService.getUpdates();
+            
+            // Process updates through normal listener mechanism
+            updatesService.notifyListeners(updates);
+            
+            // Schedule next poll after 2 seconds (faster during extraction for better UX)
+            this.manualPollingTimeout = setTimeout(() => this.pollManually(), 2000);
+            
+        } catch (error) {
+            console.error('Manual polling error:', error);
+            // Retry after 3 seconds on error
+            this.manualPollingTimeout = setTimeout(() => this.pollManually(), 3000);
+        }
+    }
+    
+    /**
+     * Check if all jobs for this spirit are complete and resume global polling
+     */
+    checkAndResumePolling(activeJobs) {
+        const spiritHasActiveJobs = activeJobs?.some(job => job.spiritId === this.spiritId);
+        
+        if (!spiritHasActiveJobs && this.manualPollingActive) {
+            // All jobs done - stop manual polling and resume global
+            this.manualPollingActive = false;
+            
+            if (this.manualPollingTimeout) {
+                clearTimeout(this.manualPollingTimeout);
+                this.manualPollingTimeout = null;
+            }
+            
+            console.log('✅ Memory extraction complete - resuming global polling');
+            updatesService.resume();
+        }
+    }
+
+    /**
+     * Apply graph delta updates (nodes and edges) to the 3D visualization
+     * Delta is now included in /api/updates response, no separate fetch needed
+     */
+    applyGraphDelta(delta) {
+        try {
+            // Add new nodes with animations (no camera movement for better UX)
+            if (delta.nodes && delta.nodes.length > 0) {
+                delta.nodes.forEach(node => this.graphView.addNode(node));
+            }
+
+            // Add new edges
+            if (delta.edges && delta.edges.length > 0) {
+                delta.edges.forEach(edge => {
+                    this.graphView.addEdge(edge);
+                });
+            }
+
+        } catch (error) {
+            console.error('Error applying graph delta:', error);
+        }
     }
 
     setupEventListeners() {
@@ -838,5 +981,19 @@ class SpiritMemoryExplorer {
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    new SpiritMemoryExplorer();
+    const spiritIdInput = document.getElementById('spirit-id');
+    const spiritId = spiritIdInput?.value;
+    
+    if (!spiritId) {
+        console.error('Spirit ID not found in DOM');
+        return;
+    }
+    
+    new SpiritMemoryExplorer(spiritId);
+    
+    // Hide page loading indicator
+    const loadingIndicator = document.getElementById('page-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.add('d-none');
+    }
 });

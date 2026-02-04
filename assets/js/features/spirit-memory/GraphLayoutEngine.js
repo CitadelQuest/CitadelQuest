@@ -230,6 +230,71 @@ export class GraphLayoutEngine {
     }
 
     /**
+     * Add a new node dynamically to the simulation
+     */
+    addNode(nodeData) {
+        // Give new nodes random initial positions to avoid stacking at origin
+        const spread = 100;
+        const node = {
+            id: nodeData.id,
+            importance: nodeData.importance || 0.5,
+            tags: nodeData.tags || [],
+            x: (Math.random() - 0.5) * spread,
+            y: (Math.random() - 0.5) * spread,
+            z: (Math.random() - 0.5) * spread,
+            vx: 0,
+            vy: 0,
+            vz: 0
+        };
+
+        this.nodes.push(node);
+        
+        // Update simulation with new nodes array and reheat strongly to spread nodes
+        if (this.simulation) {
+            this.simulation.nodes(this.nodes);
+            this.reheat(0.8);  // Strong reheat to push nodes apart
+        }
+        
+        return this;
+    }
+
+    /**
+     * Add a new link dynamically to the simulation
+     */
+    addLink(linkData) {
+        // Convert string IDs to node object references (required by d3-force)
+        const sourceNode = this.nodes.find(n => n.id === linkData.source);
+        const targetNode = this.nodes.find(n => n.id === linkData.target);
+        
+        if (!sourceNode) {
+            console.warn(`Cannot add link: source node not found: ${linkData.source}`);
+            return this;
+        }
+        
+        if (!targetNode) {
+            console.warn(`Cannot add link: target node not found: ${linkData.target}`);
+            return this;
+        }
+        
+        const link = {
+            source: sourceNode,  // Must be node object, not string ID
+            target: targetNode,  // Must be node object, not string ID
+            type: linkData.type || 'RELATES_TO',
+            strength: linkData.strength || 0.5
+        };
+
+        this.links.push(link);
+        
+        // Update simulation with new links array
+        if (this.simulation && this.simulation.force('link')) {
+            this.simulation.force('link').links(this.links);
+            this.reheat(0.5);
+        }
+        
+        return this;
+    }
+
+    /**
      * Dispose of resources
      */
     dispose() {

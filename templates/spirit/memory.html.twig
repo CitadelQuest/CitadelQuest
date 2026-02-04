@@ -261,6 +261,96 @@
             </div>
         </div>
     </div>
+    
+    {# Memory Extract Panel - Full Width Collapsible #}
+    <div class="row mt-3">
+        <div class="col-12">
+            <button id="btn-toggle-extract-panel" class="btn btn-sm btn-outline-cyber mb-2">
+                <i class="mdi mdi-chevron-down"></i> {{ 'spirit.memory.extract_panel.show'|trans }}
+            </button>
+            
+            <div id="memory-extract-panel" class="glass-panel p-3 d-none">
+                <h5 class="mb-3">
+                    <i class="mdi mdi-brain text-cyber me-2"></i>
+                    {{ 'spirit.memory.extract_panel.title'|trans }}
+                </h5>
+                
+                <div id="extract-alert" class="d-none"></div>
+                
+                <div class="row">
+                    {# Left Column - Extraction Form #}
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label small text-cyber">
+                                <i class="mdi mdi-file-document me-1"></i>
+                                {{ 'spirit.memory.extract_panel.select_file'|trans }}
+                            </label>
+                            <select id="extract-file-selector" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                <option value="">-- Select a file --</option>
+                                {# TODO: Populate from File Browser / Project Files #}
+                            </select>
+                            <div class="small text-secondary mt-1">
+                                Selected: <span id="extract-selected-file" class="text-cyber">None</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small text-cyber d-flex justify-content-between">
+                                <span>
+                                    <i class="mdi mdi-layers-triple me-1"></i>
+                                    {{ 'spirit.memory.extract_panel.max_depth'|trans }}
+                                </span>
+                                <span id="extract-max-depth-value" class="badge bg-cyber">3</span>
+                            </label>
+                            <input type="range" class="form-range" id="extract-max-depth" min="1" max="5" value="3">
+                            <div class="d-flex justify-content-between small text-secondary">
+                                <span>1 ({{ 'spirit.memory.extract_panel.depth_fast'|trans }})</span>
+                                <span>5 ({{ 'spirit.memory.extract_panel.depth_deep'|trans }})</span>
+                            </div>
+                        </div>
+                        
+                        <button id="btn-start-extraction" class="btn btn-sm btn-cyber w-100" disabled>
+                            <i class="mdi mdi-brain"></i> {{ 'spirit.memory.extract_panel.start_extraction'|trans }}
+                        </button>
+                    </div>
+                    
+                    {# Middle Column - Active Jobs #}
+                    <div class="col-md-6">
+                        <h6 class="small text-cyber mb-2">
+                            <i class="mdi mdi-progress-clock me-1"></i>
+                            {{ 'spirit.memory.extract_panel.active_jobs'|trans }}
+                        </h6>
+                        <div id="extract-jobs-list" class="extraction-jobs-container">
+                            <div class="text-secondary small text-center py-3">{{ 'spirit.memory.extract_panel.no_jobs'|trans }}</div>
+                        </div>
+                    </div>
+                    
+                    {# Right Column - Info/Instructions #}
+                    <div class="col-md-3">
+                        <div class="small text-secondary">
+                            <h6 class="small text-cyber mb-2">
+                                <i class="mdi mdi-information-outline me-1"></i>
+                                {{ 'spirit.memory.extract_panel.how_it_works'|trans }}
+                            </h6>
+                            <ul class="mb-0" style="font-size: 0.85rem;">
+                                <li>{{ 'spirit.memory.extract_panel.instruction_1'|trans }}</li>
+                                <li>{{ 'spirit.memory.extract_panel.instruction_2'|trans }}</li>
+                                <li>{{ 'spirit.memory.extract_panel.instruction_3'|trans }}</li>
+                                <li>{{ 'spirit.memory.extract_panel.instruction_4'|trans }}</li>
+                                <li>{{ 'spirit.memory.extract_panel.instruction_5'|trans }}</li>
+                            </ul>
+                            <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded">
+                                <div class="small">
+                                    <i class="mdi mdi-lightbulb-on-outline text-cyber me-1"></i>
+                                    {{ 'spirit.memory.extract_panel.tip'|trans }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {# Source Viewer Modal #}
@@ -306,6 +396,20 @@
                 'CONTRADICTS': '{{ 'spirit.memory.relationship_types.contradicts'|trans }}',
                 'REINFORCES': '{{ 'spirit.memory.relationship_types.reinforces'|trans }}',
                 'SUPERSEDES': '{{ 'spirit.memory.relationship_types.supersedes'|trans }}'
+            },
+            extract_panel: {
+                show: '{{ 'spirit.memory.extract_panel.show'|trans }}',
+                hide: '{{ 'spirit.memory.extract_panel.hide'|trans }}',
+                no_jobs: '{{ 'spirit.memory.extract_panel.no_jobs'|trans }}',
+                steps: '{{ 'spirit.memory.extract_panel.steps'|trans }}',
+                job_types: {
+                    extract_recursive: '{{ 'spirit.memory.extract_panel.job_types.extract_recursive'|trans }}',
+                    analyze_relationships: '{{ 'spirit.memory.extract_panel.job_types.analyze_relationships'|trans }}'
+                },
+                extraction_started: '{{ 'spirit.memory.extract_panel.extraction_started'|trans }}',
+                extraction_completed: '{{ 'spirit.memory.extract_panel.extraction_completed'|trans }}',
+                extraction_failed: '{{ 'spirit.memory.extract_panel.extraction_failed'|trans }}',
+                select_file_first: '{{ 'spirit.memory.extract_panel.select_file_first'|trans }}'
             }
         };
     </script>
