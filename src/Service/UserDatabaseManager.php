@@ -13,6 +13,12 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 class UserDatabaseManager
 {
     private string $databasesDir;
+    
+    /**
+     * Connection pool to reuse database connections and prevent "too many open files" error
+     * @var array<string, \Doctrine\DBAL\Connection>
+     */
+    private array $connectionPool = [];
 
     public function __construct(
         ParameterBagInterface $params
@@ -189,13 +195,33 @@ class UserDatabaseManager
             throw new \RuntimeException('User database file not found');
         }
 
+        // Check if connection already exists in pool
+        if (isset($this->connectionPool[$dbFullPath])) {
+            $connection = $this->connectionPool[$dbFullPath];
+            
+            // Verify connection is still alive, reconnect if needed
+            try {
+                $connection->executeQuery('SELECT 1');
+                return $connection;
+            } catch (\Exception $e) {
+                // Connection dead, remove from pool and create new one
+                unset($this->connectionPool[$dbFullPath]);
+            }
+        }
+
+        // Create new connection
         $configuration = new Configuration();
         $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
 
-        return DriverManager::getConnection([
+        $connection = DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
             'path' => $dbFullPath,
         ], $configuration);
+        
+        // Store in pool for reuse
+        $this->connectionPool[$dbFullPath] = $connection;
+
+        return $connection;
     }
 
     public function deleteUserDatabase(User $user): void
