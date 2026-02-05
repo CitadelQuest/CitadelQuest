@@ -5,10 +5,10 @@ import MarkdownIt from 'markdown-it';
 import * as bootstrap from 'bootstrap';
 
 /**
- * Spirit Memory Explorer - Main entry point
+ * CQ Memory Explorer - Main entry point
  * Orchestrates the graph visualization and UI interactions
  */
-class SpiritMemoryExplorer {
+class CQMemoryExplorer {
     constructor(spiritId) {
         this.spiritId = spiritId;
         this.graphView = null;
@@ -20,17 +20,19 @@ class SpiritMemoryExplorer {
         
         this.md = new MarkdownIt({ html: false, breaks: true, linkify: true });
         
+        // Pack management state
+        this.currentPackPath = this.spiritId ? '__legacy__' : null; // Legacy mode only with Spirit context
+        this.currentPackMetadata = null;
+        this.availablePacks = [];
+        this.availableLibraries = [];
+        this.memoryPath = null;
+        
         // Filter state
         this.hoverDebounceTimer = null;
         this.filters = {
             categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact']),
             relationships: new Set(['RELATES_TO', 'DERIVED_FROM', 'EVOLVED_INTO', 'PART_OF', 'CONTRADICTS', 'REINFORCES', 'SUPERSEDES'])
         };
-
-        if (!this.spiritId) {
-            console.error('Spirit ID not found');
-            return;
-        }
 
         this.loadFilterState();
         this.init();
@@ -54,17 +56,41 @@ class SpiritMemoryExplorer {
         // Initialize extract panel
         this.extractPanel = new MemoryExtractPanel(this.spiritId);
         
-        // Set callback for extraction start
+        // Set callbacks for extraction
         this.extractPanel.onExtractionStart = () => this.startManualPolling();
+        this.extractPanel.onExtractionComplete = () => this.updateStats();
+        this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
 
         // Register listener with global updates service (polling already started in app)
-        this.setupPolling();
+        if (this.spiritId) {
+            this.setupPolling();
+        }
 
         // Setup UI event listeners
         this.setupEventListeners();
 
-        // Load graph data
-        await this.loadGraphData();
+        // Setup pack selector
+        this.setupPackSelector();
+
+        // Initialize memory structure and load packs
+        await this.initializeSpiritMemory();
+        await this.loadPacks();
+
+        // Load graph data (from selected pack or legacy, skip if no context)
+        if (this.currentPackPath) {
+            await this.loadGraphData();
+        } else {
+            // No Spirit context and no pack selected - show empty state
+            const loadingEl = document.getElementById('memory-loading');
+            if (loadingEl) {
+                loadingEl.innerHTML = `
+                    <div class="text-secondary">
+                        <i class="mdi mdi-package-variant-plus" style="font-size: 3rem;"></i>
+                        <p class="mt-2">Select or create a memory pack to begin</p>
+                    </div>
+                `;
+            }
+        }
     }
 
     setupPolling() {
@@ -72,14 +98,14 @@ class SpiritMemoryExplorer {
         // Polling is already started globally in cq-chat-modal.js entry point
         updatesService.addListener('memoryExplorer', async (updates) => {
             if (updates.memoryJobs?.active?.length > 0) {
-                // Filter jobs for this spirit
+                // Filter jobs for this spirit (legacy jobs only - pack jobs handled separately)
                 const spiritJobs = updates.memoryJobs.active.filter(job => job.spiritId === this.spiritId);
                 
                 if (spiritJobs.length > 0) {
                     // Update extract panel progress
                     this.extractPanel.updateJobProgress(spiritJobs);
                     
-                    // Apply graph delta if included in updates (no separate fetch needed!)
+                    // Apply graph delta if included in updates
                     if (updates.memoryJobs.graphDeltas && updates.memoryJobs.graphDeltas[this.spiritId]) {
                         this.applyGraphDelta(updates.memoryJobs.graphDeltas[this.spiritId]);
                     }
@@ -253,14 +279,70 @@ class SpiritMemoryExplorer {
     async loadGraphData() {
         const loadingEl = document.getElementById('memory-loading');
         
+        // Show loading state
+        if (loadingEl) {
+            loadingEl.classList.remove('d-none');
+            loadingEl.innerHTML = `
+                <div class="spinner-border text-cyber" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-secondary">Loading memory graph...</p>
+            `;
+        }
+        
         try {
-            const response = await fetch(`/spirit/${this.spiritId}/memory/graph`);
+            let response;
+            
+            // Check if loading from a pack or legacy mode
+            if (this.currentPackPath && this.currentPackPath !== '__legacy__') {
+                // Check if it's a library or pack
+                if (this.currentPackPath.startsWith('lib:')) {
+                    // Load from library
+                    const libraryPath = this.currentPackPath.substring(4);
+                    response = await fetch('/api/memory/library/graph', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ libraryPath })
+                    });
+                } else {
+                    // Load from pack file - parse JSON encoded path+name
+                    const packData = JSON.parse(this.currentPackPath);
+                    response = await fetch('/api/memory/pack/open', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            projectId: this.projectId,
+                            path: packData.path,
+                            name: packData.name
+                        })
+                    });
+                }
+            } else if (this.spiritId) {
+                // Legacy mode - load from user database (requires Spirit context)
+                response = await fetch(`/memory/graph/${this.spiritId}`);
+            } else {
+                // No pack selected and no Spirit context - nothing to load
+                if (loadingEl) loadingEl.classList.add('d-none');
+                return;
+            }
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            this.graphData = await response.json();
+            const data = await response.json();
+            
+            // Normalize response format (pack API returns different structure)
+            if (this.currentPackPath && this.currentPackPath !== '__legacy__') {
+                this.graphData = {
+                    nodes: data.nodes || [],
+                    edges: data.edges || [],
+                    stats: data.stats || {}
+                };
+                this.currentPackMetadata = data.metadata || {};
+            } else {
+                this.graphData = data;
+            }
 
             // Update stats
             this.updateStats();
@@ -299,6 +381,39 @@ class SpiritMemoryExplorer {
         }
         if (edgesEl && this.graphData) {
             edgesEl.textContent = this.graphData.edges?.length || 0;
+        }
+        
+        // Update pack selector node count for current pack
+        this.updatePackSelectorNodeCount();
+    }
+    
+    updatePackSelectorNodeCount() {
+        const packSelector = document.getElementById('pack-selector');
+        if (!packSelector || !this.currentPackPath || this.currentPackPath === '__legacy__') {
+            return;
+        }
+        
+        const trans = window.memoryExplorerTranslations?.pack_selector || {};
+        const nodeCount = this.graphData?.nodes?.length || 0;
+        
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+            
+            // Find the pack in availablePacks and update its totalNodes
+            const pack = this.availablePacks?.find(p => p.path === packData.path && p.name === packData.name);
+            if (pack) {
+                pack.totalNodes = nodeCount;
+            }
+            
+            // Update the selected option text directly
+            const selectedOption = packSelector.options[packSelector.selectedIndex];
+            if (selectedOption && selectedOption.value === this.currentPackPath) {
+                const displayName = pack?.displayName || packData.name.replace('.cqmpack', '');
+                selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})`;
+                console.log('✅ Updated pack selector:', displayName, nodeCount);
+            }
+        } catch (e) {
+            console.error('Failed to update pack selector node count:', e);
         }
     }
 
@@ -673,7 +788,7 @@ class SpiritMemoryExplorer {
         bsModal.show();
 
         try {
-            const response = await fetch(`/spirit/${this.spiritId}/memory/source`, {
+            const response = await fetch(`/memory/source`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ source_ref: sourceRef, source_range: sourceRange })
@@ -879,7 +994,7 @@ class SpiritMemoryExplorer {
      * Load filter state from localStorage
      */
     loadFilterState() {
-        const stored = localStorage.getItem('spiritMemoryFilters');
+        const stored = localStorage.getItem('cqMemoryFilters');
         if (stored) {
             try {
                 const state = JSON.parse(stored);
@@ -902,7 +1017,7 @@ class SpiritMemoryExplorer {
             categories: Array.from(this.filters.categories),
             relationships: Array.from(this.filters.relationships)
         };
-        localStorage.setItem('spiritMemoryFilters', JSON.stringify(state));
+        localStorage.setItem('cqMemoryFilters', JSON.stringify(state));
     }
 
     /**
@@ -932,14 +1047,14 @@ class SpiritMemoryExplorer {
                 state[targetId] = target.classList.contains('show');
             }
         });
-        localStorage.setItem('spiritMemoryCollapsible', JSON.stringify(state));
+        localStorage.setItem('cqMemoryCollapsible', JSON.stringify(state));
     }
 
     /**
      * Load collapsible section state from localStorage
      */
     loadCollapsibleState() {
-        const stored = localStorage.getItem('spiritMemoryCollapsible');
+        const stored = localStorage.getItem('cqMemoryCollapsible');
         if (stored) {
             try {
                 const state = JSON.parse(stored);
@@ -977,19 +1092,306 @@ class SpiritMemoryExplorer {
             this.updateCompilation(this.graphView.selectedNode.userData);
         }
     }
+
+    // ========================================
+    // Pack Management
+    // ========================================
+
+    /**
+     * Setup pack selector event listeners
+     */
+    setupPackSelector() {
+        const packSelector = document.getElementById('pack-selector');
+        const createPackBtn = document.getElementById('btn-create-pack');
+        const confirmCreateBtn = document.getElementById('btn-confirm-create-pack');
+
+        if (packSelector) {
+            packSelector.addEventListener('change', (e) => this.onPackSelected(e.target.value));
+        }
+
+        if (createPackBtn) {
+            createPackBtn.addEventListener('click', () => this.showCreatePackModal());
+        }
+
+        if (confirmCreateBtn) {
+            confirmCreateBtn.addEventListener('click', () => this.createPack());
+        }
+    }
+
+    /**
+     * Load available packs for this Spirit
+     */
+    async loadPacks() {
+        const packSelector = document.getElementById('pack-selector');
+        if (!packSelector) return;
+
+        const trans = window.memoryExplorerTranslations?.pack_selector || {};
+
+        try {
+            // Get memory path - Spirit-specific or skip
+            if (this.spiritId) {
+                const pathResponse = await fetch(`/spirit/${this.spiritId}/memory/path`);
+                if (!pathResponse.ok) {
+                    throw new Error(`HTTP ${pathResponse.status}`);
+                }
+                const pathData = await pathResponse.json();
+                this.projectId = pathData.projectId || 'general';
+                this.memoryPath = pathData.memoryPath;
+                this.packsPath = pathData.packsPath;
+                this.rootLibraryName = pathData.rootLibraryName;
+                this.spiritNameSlug = pathData.spiritNameSlug;
+            } else {
+                // No Spirit context - scan entire general project for all packs
+                this.projectId = 'general';
+                this.memoryPath = '/';
+                this.packsPath = '/';
+            }
+
+            // List packs from memory path
+            const response = await fetch('/api/memory/pack/list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: this.projectId, path: this.memoryPath })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            this.availablePacks = data.packs || [];
+            this.availableLibraries = data.libraries || [];
+
+            // Build selector options
+            let html = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
+            
+            // Add legacy mode option only when Spirit context is available
+            if (this.spiritId) {
+                html += `<option value="__legacy__">${trans.legacy_mode || 'Legacy (user database)'}</option>`;
+            }
+            
+            // Add available packs
+            if (this.availablePacks.length > 0) {
+                html += '<optgroup label="Memory Packs">';
+                this.availablePacks.forEach(pack => {
+                    const nodeCount = pack.totalNodes || 0;
+                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})`;
+                    // Encode path and name as JSON for the value
+                    const packValue = JSON.stringify({ path: pack.path, name: pack.name });
+                    html += `<option value='${this.escapeHtml(packValue)}'>${this.escapeHtml(label)}</option>`;
+                });
+                html += '</optgroup>';
+            }
+
+            // Add libraries if any
+            if (this.availableLibraries.length > 0) {
+                html += '<optgroup label="Libraries">';
+                this.availableLibraries.forEach(lib => {
+                    const label = `📚 ${lib.name} (${lib.packCount} packs)`;
+                    html += `<option value="lib:${this.escapeHtml(lib.path)}">${this.escapeHtml(label)}</option>`;
+                });
+                html += '</optgroup>';
+            }
+
+            packSelector.innerHTML = html;
+
+            // Restore last selected pack from localStorage
+            const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
+            const lastPack = localStorage.getItem(storageKey);
+            if (lastPack === '__legacy__' && this.spiritId) {
+                packSelector.value = lastPack;
+                this.currentPackPath = lastPack;
+                this.extractPanel.setTargetPack(null, this.projectId);
+            } else if (lastPack && lastPack !== '__legacy__') {
+                // Try to find matching pack option
+                try {
+                    const lastPackData = JSON.parse(lastPack);
+                    const matchingPack = this.availablePacks.find(p => p.path === lastPackData.path && p.name === lastPackData.name);
+                    if (matchingPack) {
+                        packSelector.value = lastPack;
+                        this.currentPackPath = lastPack;
+                        // Set target pack for extraction
+                        this.extractPanel.setTargetPack({
+                            projectId: this.projectId,
+                            path: lastPackData.path,
+                            name: lastPackData.name
+                        }, this.projectId);
+                    } else {
+                        packSelector.value = '__legacy__';
+                        this.currentPackPath = '__legacy__';
+                        this.extractPanel.setTargetPack(null, this.projectId);
+                    }
+                } catch {
+                    packSelector.value = '__legacy__';
+                    this.currentPackPath = '__legacy__';
+                    this.extractPanel.setTargetPack(null, this.projectId);
+                }
+            } else if (this.spiritId) {
+                // Default to legacy mode if no pack selected and Spirit context available
+                packSelector.value = '__legacy__';
+                this.currentPackPath = '__legacy__';
+                this.extractPanel.setTargetPack(null, this.projectId);
+            } else {
+                // No Spirit context - no default selection
+                packSelector.value = '';
+                this.currentPackPath = null;
+                this.extractPanel.setTargetPack(null, this.projectId);
+            }
+
+        } catch (error) {
+            console.error('Failed to load packs:', error);
+            if (this.spiritId) {
+                packSelector.innerHTML = `<option value="__legacy__">${trans.legacy_mode || 'Legacy (user database)'}</option>`;
+                this.currentPackPath = '__legacy__';
+            } else {
+                packSelector.innerHTML = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
+                this.currentPackPath = null;
+            }
+        }
+    }
+
+    /**
+     * Handle pack selection change
+     */
+    async onPackSelected(packPath) {
+        if (!packPath) return;
+
+        this.currentPackPath = packPath;
+        const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
+        localStorage.setItem(storageKey, packPath);
+
+        // Clear current selection and panels
+        this.selectedNode = null;
+        this.hideNodeDetails();
+        
+        // Update extract panel's target pack
+        if (packPath === '__legacy__') {
+            // Legacy mode - disable pack extraction
+            this.extractPanel.setTargetPack(null, this.projectId);
+        } else if (!packPath.startsWith('lib:')) {
+            // Pack selected - parse JSON and set target
+            try {
+                const packData = JSON.parse(packPath);
+                this.extractPanel.setTargetPack({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name
+                }, this.projectId);
+            } catch (e) {
+                console.error('Failed to parse pack path:', e);
+                this.extractPanel.setTargetPack(null, this.projectId);
+            }
+        } else {
+            // Library selected - no direct extraction to libraries
+            this.extractPanel.setTargetPack(null, this.projectId);
+        }
+
+        // Reload graph data from selected pack
+        await this.loadGraphData();
+    }
+
+    /**
+     * Show create pack modal
+     */
+    showCreatePackModal() {
+        const modal = document.getElementById('createPackModal');
+        if (!modal) return;
+
+        // Clear form
+        const nameInput = document.getElementById('pack-name');
+        const descInput = document.getElementById('pack-description');
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+
+        // Show modal
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Create a new memory pack
+     */
+    async createPack() {
+        const nameInput = document.getElementById('pack-name');
+        const descInput = document.getElementById('pack-description');
+        const trans = window.memoryExplorerTranslations?.pack_selector || {};
+
+        const name = nameInput?.value?.trim();
+        const description = descInput?.value?.trim() || '';
+
+        if (!name) {
+            window.toast?.error('Pack name is required');
+            return;
+        }
+
+        if (!this.packsPath) {
+            window.toast?.error('Memory path not initialized');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/memory/pack/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    projectId: this.projectId,
+                    path: this.packsPath,
+                    name, 
+                    description 
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to create pack');
+            }
+
+            // Close modal
+            const modal = document.getElementById('createPackModal');
+            if (modal) {
+                bootstrap.Modal.getInstance(modal)?.hide();
+            }
+
+            // Show success message
+            window.toast?.success(trans.create_success || 'Pack created successfully');
+
+            // Reload packs list
+            await this.loadPacks();
+
+            // Select the newly created pack
+            const packSelector = document.getElementById('pack-selector');
+            if (packSelector && data.path && data.name) {
+                // Create the pack value JSON (same format as in loadPacks)
+                const packValue = JSON.stringify({ path: data.path, name: data.name });
+                packSelector.value = packValue;
+                
+                // Trigger pack selection to reload all UI panels
+                await this.onPackSelected(packValue);
+            }
+
+        } catch (error) {
+            console.error('Failed to create pack:', error);
+            window.toast?.error((trans.create_error || 'Failed to create pack') + ': ' + error.message);
+        }
+    }
+
+    /**
+     * Initialize Spirit's memory structure if needed
+     * Now just ensures the path exists via /spirit/{id}/memory/path
+     */
+    async initializeSpiritMemory() {
+        // Path initialization is now handled in loadPacks() via /spirit/{id}/memory/path
+        // This method is kept for compatibility but does nothing
+    }
 }
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     const spiritIdInput = document.getElementById('spirit-id');
-    const spiritId = spiritIdInput?.value;
+    const spiritId = spiritIdInput?.value || null;
     
-    if (!spiritId) {
-        console.error('Spirit ID not found in DOM');
-        return;
-    }
-    
-    new SpiritMemoryExplorer(spiritId);
+    new CQMemoryExplorer(spiritId);
     
     // Hide page loading indicator
     const loadingIndicator = document.getElementById('page-loading-indicator');

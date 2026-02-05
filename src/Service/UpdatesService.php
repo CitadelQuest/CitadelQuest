@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\User;
 use App\Entity\SpiritMemoryJob;
+use App\Entity\MemoryJob;
 use App\Service\UserDatabaseManager;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -23,7 +24,8 @@ class UpdatesService
         private readonly CqContactService $cqContactService,
         private readonly SpiritMemoryJobService $spiritMemoryJobService,
         private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly SpiritMemoryService $spiritMemoryService
+        private readonly SpiritMemoryService $spiritMemoryService,
+        private readonly CQMemoryPackService $packService
     ) {
         $this->user = $security->getUser();
     }
@@ -45,9 +47,9 @@ class UpdatesService
     /**
      * Get all updates since a specific timestamp
      * 
-     * @param string|null $since ISO 8601 timestamp
-     * @param string|null $openChatId Currently open chat ID for detailed message updates
-     * @return array Unified updates response
+     * @param string|null $since ISO 8601 timestamp (null = 1 minute ago)
+     * @param string|null $openChatId Currently open chat ID for detailed updates
+     * @return array Updates data
      */
     public function getUpdates(?string $since = null, ?string $openChatId = null): array
     {
@@ -310,29 +312,31 @@ class UpdatesService
     /**
      * Process pending memory extraction jobs and return status updates
      * Processes ONE job step per poll to avoid blocking
+     * 
+     * @param string $since Timestamp for delta queries
      */
     private function processMemoryJobs(string $since): array
     {
         $result = [
             'active' => [],
             'completed' => [],
-            'graphDeltas' => [], // Delta updates per spiritId
+            'graphDeltas' => [],
             'processed' => false
         ];
 
         try {
-            // Get jobs to process - both pending AND processing (to continue in-progress jobs)
+            // ========================================
+            // Process Legacy Spirit-based Jobs
+            // ========================================
             $jobsToProcess = $this->spiritMemoryJobService->getJobsToProcess(1);
             
             if (!empty($jobsToProcess)) {
                 $job = $jobsToProcess[0];
                 
-                // Start the job if it's pending
                 if ($job->isPending()) {
                     $this->spiritMemoryJobService->startJob($job);
                 }
                 
-                // Process one step based on job type
                 if ($job->getType() === SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE) {
                     $this->aiToolMemoryService->processExtractionJobStep($job);
                     $result['processed'] = true;
@@ -345,18 +349,16 @@ class UpdatesService
             // Track spirits with active jobs to fetch deltas
             $spiritIdsWithActiveJobs = [];
 
-            // Get active jobs for status display with detailed progress info
+            // Get active legacy jobs for status display
             $activeJobs = $this->spiritMemoryJobService->getActiveJobs();
             foreach ($activeJobs as $job) {
                 $payload = $job->getPayload();
                 $spiritId = $job->getSpiritId();
                 
-                // Track this spirit
                 if (!in_array($spiritId, $spiritIdsWithActiveJobs)) {
                     $spiritIdsWithActiveJobs[] = $spiritId;
                 }
                 
-                // Extract current block title being processed
                 $currentBlock = null;
                 if ($job->getType() === SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE && isset($payload['pending_blocks'])) {
                     $pendingBlocks = $payload['pending_blocks'];
@@ -368,10 +370,8 @@ class UpdatesService
                     }
                 }
                 
-                // Extract recently created node IDs from payload
                 $recentNodeIds = [];
                 if (isset($payload['extracted_node_ids']) && is_array($payload['extracted_node_ids'])) {
-                    // Get last 5 created nodes
                     $recentNodeIds = array_slice($payload['extracted_node_ids'], -5);
                 }
                 
@@ -396,12 +396,11 @@ class UpdatesService
                         $result['graphDeltas'][$spiritId] = $delta;
                     }
                 } catch (\Exception $e) {
-                    // Don't fail the whole request for delta errors
-                    // Note: Silently continue - delta is optional enhancement
+                    // Silently continue - delta is optional enhancement
                 }
             }
 
-            // Get recently completed jobs for notifications
+            // Get recently completed legacy jobs
             $completedJobs = $this->spiritMemoryJobService->getRecentlyCompletedJobs($since);
             foreach ($completedJobs as $job) {
                 $result['completed'][] = [
@@ -415,10 +414,95 @@ class UpdatesService
             }
 
         } catch (\Exception $e) {
-            // Don't fail the entire update request for job processing errors
             $result['error'] = $e->getMessage();
         }
 
         return $result;
+    }
+
+    /**
+     * Process pack-based memory jobs
+     */
+    private function processPackJobs(array &$result, string $since, array $packContext): void
+    {
+        try {
+            $this->packService->open($packContext['projectId'], $packContext['path'], $packContext['name']);
+            
+            // Get jobs to process from pack
+            $packJobs = $this->packService->getJobsToProcess(1);
+            
+            if (!empty($packJobs)) {
+                $job = $packJobs[0];
+                
+                // Start the job if pending
+                if ($job->isPending()) {
+                    $this->packService->startJob($job);
+                }
+                
+                // Process one step based on job type
+                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE) {
+                    $this->aiToolMemoryService->processPackExtractionJobStep($packContext, $job->getId());
+                    $result['processed'] = true;
+                } elseif ($job->getType() === MemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
+                    $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($packContext, $job->getId());
+                    $result['processed'] = true;
+                }
+            }
+            
+            // Get active pack jobs for status display
+            $activePackJobs = $this->packService->getActiveJobs();
+            foreach ($activePackJobs as $job) {
+                $payload = $job->getPayload();
+                
+                $currentBlock = null;
+                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE && isset($payload['pending_blocks'])) {
+                    $pendingBlocks = $payload['pending_blocks'];
+                    if (!empty($pendingBlocks)) {
+                        $currentBlockData = $pendingBlocks[0] ?? null;
+                        if ($currentBlockData && isset($currentBlockData['title'])) {
+                            $currentBlock = $currentBlockData['title'];
+                        }
+                    }
+                }
+                
+                $result['active'][] = [
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'createdAt' => $job->getCreatedAt()->format('c'),
+                    'currentBlock' => $currentBlock,
+                    'packContext' => $packContext
+                ];
+            }
+            
+            // Get graph delta from pack
+            $delta = $this->packService->getGraphDelta($since);
+            if (!empty($delta['nodes']) || !empty($delta['edges'])) {
+                $result['graphDeltas']['pack'] = $delta;
+            }
+            
+            // Get recently completed pack jobs
+            $completedPackJobs = $this->packService->getRecentlyCompletedJobs($since);
+            foreach ($completedPackJobs as $job) {
+                $result['completed'][] = [
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'result' => $job->getResult(),
+                    'error' => $job->getError(),
+                    'completedAt' => $job->getCompletedAt()?->format('c'),
+                    'packContext' => $packContext
+                ];
+            }
+            
+            $this->packService->close();
+            
+        } catch (\Exception $e) {
+            $this->packService->close();
+            // Don't fail the whole request, just log/note the error
+            $result['packError'] = $e->getMessage();
+        }
     }
 }

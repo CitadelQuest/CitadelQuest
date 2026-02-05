@@ -41,6 +41,29 @@ $panel-min-height: 500px;
         min-height: $panel-min-height;
     }
 
+    // File selector
+    #pack-selector {
+        background-color: rgba(0, 0, 0, 0.3);
+        color: colors.$text-light;
+        border-color: rgba(colors.$cyber, 0.3);
+        
+        &:focus {
+            border-color: colors.$cyber;
+            box-shadow: 0 0 0 0.2rem rgba(colors.$cyber, 0.25);
+        }
+        
+        option {
+            background-color: #1a1a1a;
+            color: colors.$text-light;
+            padding: 0.5rem;
+            
+            &:hover, &:focus, &:checked {
+                background-color: rgba(colors.$cyber, 0.2);
+                color: colors.$cyber;
+            }
+        }
+    }
+
     // Compilation Panel (Left)
     .compilation-panel {
         .compilation-selected {

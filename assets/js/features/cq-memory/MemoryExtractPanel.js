@@ -12,6 +12,14 @@ export class MemoryExtractPanel {
         this.activeJobs = new Map();
         this.isPanelVisible = false;
         
+        // Pack target for extraction (set by parent)
+        this.targetPack = null;
+        this.projectId = 'general';
+        
+        // Synchronous step processing
+        this.isProcessingSteps = false;
+        this.currentJobId = null;
+        
         this.init();
     }
 
@@ -78,11 +86,13 @@ export class MemoryExtractPanel {
     }
 
     savePanelState() {
-        localStorage.setItem(`spirit-${this.spiritId}-extract-panel-visible`, this.isPanelVisible);
+        const key = this.spiritId ? `cqMemory-${this.spiritId}-extract-panel-visible` : 'cqMemory-global-extract-panel-visible';
+        localStorage.setItem(key, this.isPanelVisible);
     }
 
     loadPanelState() {
-        const savedState = localStorage.getItem(`spirit-${this.spiritId}-extract-panel-visible`);
+        const key = this.spiritId ? `cqMemory-${this.spiritId}-extract-panel-visible` : 'cqMemory-global-extract-panel-visible';
+        const savedState = localStorage.getItem(key);
         if (savedState === 'true') {
             this.isPanelVisible = false;
             this.togglePanel();
@@ -109,6 +119,15 @@ export class MemoryExtractPanel {
         }
     }
 
+    /**
+     * Set the target pack for extraction
+     * Called by parent component when pack selection changes
+     */
+    setTargetPack(targetPack, projectId = 'general') {
+        this.targetPack = targetPack;
+        this.projectId = projectId;
+    }
+
     async startExtraction() {
         const fileSelector = document.getElementById('extract-file-selector');
         const depthSlider = document.getElementById('extract-max-depth');
@@ -117,6 +136,12 @@ export class MemoryExtractPanel {
         
         if (!fileSelector || !fileSelector.value) {
             this.showError(t.select_file_first || 'Please select a file first');
+            return;
+        }
+
+        // Validate pack target
+        if (!this.targetPack) {
+            this.showError(t.select_pack_first || 'Please select a Memory Pack first');
             return;
         }
 
@@ -133,10 +158,12 @@ export class MemoryExtractPanel {
         }
 
         try {
-            const response = await fetch(`/spirit/${this.spiritId}/memory/extract-manual`, {
+            // Use new pack-based extraction endpoint
+            const response = await fetch('/api/memory/pack/extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    targetPack: this.targetPack,
                     sourceType: 'document',
                     sourceRef: sourceRef,
                     maxDepth: maxDepth
@@ -156,22 +183,42 @@ export class MemoryExtractPanel {
                     .replace('{steps}', result.initialProgress?.totalSteps || '?');
                 this.showSuccess(msg);
                 
-                // Add job to tracking (first job is always extract_recursive)
+                this.currentJobId = result.jobId;
+                
+                // Add root node to graph immediately
+                if (result.rootNode && this.onGraphDelta) {
+                    console.log('📊 Adding root node to graph:', result.rootNode.id);
+                    this.onGraphDelta({
+                        nodes: [result.rootNode],
+                        edges: []
+                    });
+                }
+                
+                // Add job to tracking
                 this.addJobToList(result.jobId, {
                     type: result.initialProgress?.type || 'extract_recursive',
                     progress: result.initialProgress?.progress || 0,
                     totalSteps: result.initialProgress?.totalSteps || 0,
-                    status: 'pending'
+                    status: 'pending',
+                    packContext: this.targetPack
                 });
                 
-                // Notify parent component to start manual polling loop
+                // Start synchronous step processing
+                this.processStepsSequentially();
+                
+                // Notify parent component
                 if (this.onExtractionStart) {
                     this.onExtractionStart();
                 }
             } else if (result.success) {
-                // Direct extraction (small file) - resume polling
+                // Direct extraction (small file) - notify completion
                 this.showSuccess(t.extraction_completed || 'Extraction completed!');
                 updatesService.resume();
+                
+                // Notify parent to reload graph
+                if (this.onExtractionComplete) {
+                    this.onExtractionComplete(result);
+                }
             } else {
                 throw new Error(result.error || 'Unknown error');
             }
@@ -179,15 +226,101 @@ export class MemoryExtractPanel {
         } catch (error) {
             console.error('Extraction failed:', error);
             this.showError(error.message);
-            // Resume polling on error
             updatesService.resume();
         } finally {
-            // Re-enable button
             if (startBtn) {
                 startBtn.disabled = false;
                 startBtn.innerHTML = '<i class="mdi mdi-brain"></i> Start Extraction';
             }
         }
+    }
+
+    /**
+     * Process job steps sequentially - fetch one step, wait for response, apply to graph, repeat
+     */
+    async processStepsSequentially() {
+        if (this.isProcessingSteps || !this.targetPack) {
+            return;
+        }
+        
+        this.isProcessingSteps = true;
+        console.log('🔄 Starting synchronous step-by-step extraction...');
+        
+        try {
+            while (this.isProcessingSteps) {
+                // Fetch and process ONE step
+                const response = await fetch('/api/memory/pack/step', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: this.targetPack.projectId,
+                        path: this.targetPack.path,
+                        name: this.targetPack.name
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Step processing failed');
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Step processing failed');
+                }
+                
+                // Update job status
+                if (data.job) {
+                    this.activeJobs.set(data.job.id, data.job);
+                    this.renderJobsList();
+                }
+                
+                // Apply graph delta immediately
+                if (data.delta && this.onGraphDelta) {
+                    console.log('📊 Step delta:', {
+                        nodes: data.delta.nodes?.length || 0,
+                        edges: data.delta.edges?.length || 0
+                    });
+                    this.onGraphDelta(data.delta);
+                }
+                
+                // Check if more steps remain
+                if (!data.hasMoreSteps) {
+                    console.log('✅ All extraction steps complete');
+                    this.isProcessingSteps = false;
+                    
+                    // Resume global polling
+                    updatesService.resume();
+                    
+                    // Clear jobs after delay
+                    setTimeout(() => {
+                        this.activeJobs.clear();
+                        this.renderJobsList();
+                        if (this.onExtractionComplete) {
+                            this.onExtractionComplete();
+                        }
+                    }, 2000);
+                    
+                    break;
+                }
+                
+                // Small delay between steps for UI responsiveness
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+        } catch (error) {
+            console.error('Step processing error:', error);
+            this.isProcessingSteps = false;
+            this.showError('Extraction failed: ' + error.message);
+            updatesService.resume();
+        }
+    }
+    
+    /**
+     * Stop step processing
+     */
+    stopStepProcessing() {
+        this.isProcessingSteps = false;
     }
 
     addJobToList(jobId, jobData) {
@@ -196,7 +329,7 @@ export class MemoryExtractPanel {
     }
 
     updateJobProgress(jobs) {
-        // Update active jobs with new progress data
+        // Update active jobs with new progress data (legacy spirit jobs only)
         jobs.forEach(job => {
             if (job.spiritId === this.spiritId) {
                 this.activeJobs.set(job.id, job);

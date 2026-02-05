@@ -28,6 +28,8 @@ class ProjectFileService
         'application/zip', 'application/x-rar-compressed', 'application/x-tar', 'application/gzip',
         // Data
         'application/json', 'application/xml',
+        // Database (for CQ Memory Packs)
+        'application/x-sqlite3', 'application/vnd.sqlite3',
         // Audio
         'audio/mpeg', 'audio/ogg', 'audio/wav',
         // Video
@@ -363,6 +365,79 @@ class ProjectFileService
         );
         
         // Create initial version
+        $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
+        
+        return $file;
+    }
+    
+    /**
+     * Register an existing file in the database without writing to filesystem
+     * Used when the file was created externally (e.g., SQLite databases)
+     */
+    public function registerExistingFile(string $projectId, string $path, string $name, ?string $mimeType = null): ProjectFile
+    {
+        // Normalize and validate path
+        $path = $this->normalizePath($path);
+        if (!$this->validatePath($path)) {
+            throw new \InvalidArgumentException('Invalid path');
+        }
+
+        // Check if already registered
+        $exists = $this->findByPathAndName($projectId, $path, $name);
+        if ($exists) {
+            return $exists; // Already registered, return existing record
+        }
+        
+        // Get absolute path and verify file exists
+        $absolutePath = $this->getAbsoluteFilePath($projectId, $path, $name);
+        if (!file_exists($absolutePath)) {
+            throw new \InvalidArgumentException('File does not exist on filesystem: ' . $absolutePath);
+        }
+        
+        // Get file info
+        $extension = pathinfo($name, PATHINFO_EXTENSION);
+        $type = $extension ?: 'file';
+        $size = filesize($absolutePath);
+        
+        // Determine mime type if not provided
+        if (!$mimeType) {
+            $mimeType = mime_content_type($absolutePath) ?: 'application/octet-stream';
+        }
+        
+        // Ensure parent directories are registered
+        $this->ensureParentDirectoriesExist($projectId, $path);
+        
+        // Create file record in database
+        $file = new ProjectFile(
+            $projectId,
+            $path,
+            $name,
+            $type,
+            false,
+            $mimeType,
+            $size
+        );
+        
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement(
+            'INSERT INTO project_file (id, project_id, path, name, type, mime_type, size, is_directory, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $file->getId(),
+                $file->getProjectId(),
+                $file->getPath(),
+                $file->getName(),
+                $file->getType(),
+                $file->getMimeType(),
+                $file->getSize(),
+                $file->isDirectory() ? 1 : 0,
+                $file->getCreatedAt()->format('Y-m-d H:i:s'),
+                $file->getUpdatedAt()->format('Y-m-d H:i:s')
+            ]
+        );
+        
+        // Create initial version
+        $content = file_get_contents($absolutePath);
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
         
         return $file;

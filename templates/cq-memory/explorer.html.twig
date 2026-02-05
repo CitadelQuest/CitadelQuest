@@ -1,28 +1,36 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'spirit.memory.title'|trans }} - {{ spirit.name }}{% endblock %}
+{% block title %}{{ 'spirit.memory.title'|trans }}{% if spirit %} - {{ spirit.name }}{% endif %}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
-    {{ encore_entry_link_tags('spirit-memory') }}
+    {{ encore_entry_link_tags('cq-memory') }}
 {% endblock %}
 
 {% block body %}
 <div class="container-fluid memory-explorer">
+    {% if spiritId %}
     <input type="hidden" id="spirit-id" value="{{ spiritId }}">
     <input type="hidden" id="spirit-name" value="{{ spirit.name }}">
+    {% endif %}
     
     <div class="row">
         <div class="col-12">
             <div class="glass-panel mb-3">
                 <div class="d-flex justify-content-between align-items-center p-3">
                     <div class="d-flex align-items-center">
+                        {% if spirit %}
                         <a href="{{ path('spirit_show', {id: spiritId}) }}" class="btn btn-sm btn-outline-secondary me-3">
                             <i class="mdi mdi-arrow-left"></i>
                         </a>
+                        {% else %}
+                        <a href="{{ path('app_dashboard') }}" class="btn btn-sm btn-outline-secondary me-3">
+                            <i class="mdi mdi-arrow-left"></i>
+                        </a>
+                        {% endif %}
                         <h4 class="mb-0">
                             <i class="mdi mdi-brain text-cyber me-2"></i>
-                            {{ 'spirit.memory.title'|trans }} - {{ spirit.name }}
+                            {{ 'spirit.memory.title'|trans }}{% if spirit %} - {{ spirit.name }}{% endif %}
                         </h4>
                     </div>
                     <div class="d-flex align-items-center gap-2">
@@ -466,5 +474,5 @@
             }
         };
     </script>
-    {{ encore_entry_script_tags('spirit-memory') }}
+    {{ encore_entry_script_tags('cq-memory') }}
 {% endblock %}

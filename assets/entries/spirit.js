@@ -1,6 +1,6 @@
 import { SpiritManager } from '../js/features/spirit/components/SpiritManager.js';
 import { SpiritPromptBuilder } from '../js/features/spirit/components/SpiritPromptBuilder.js';
-import '../styles/features/spirit-memory.scss';
+import '../styles/features/cq-memory.scss';
 
 // Initialize spirit manager when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

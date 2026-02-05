@@ -4,6 +4,8 @@ namespace App\Service;
 
 use App\Entity\SpiritMemoryNode;
 use App\Entity\SpiritMemoryJob;
+use App\Entity\MemoryNode;
+use App\Entity\MemoryJob;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -43,7 +45,8 @@ class AIToolMemoryService
         private readonly SpiritMemoryJobService $spiritMemoryJobService,
         private readonly AnnoService $annoService,
         private readonly NotificationService $notificationService,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly CQMemoryPackService $packService
     ) {
         $this->user = $security->getUser();
     }
@@ -2236,5 +2239,774 @@ PROMPT;
         ]);
 
         return $job;
+    }
+
+    // ========================================
+    // PACK-BASED EXTRACTION (No Spirit Context)
+    // ========================================
+
+    /**
+     * Extract memories from content and store in a Memory Pack
+     * 
+     * This is the pack-focused extraction - no Spirit context required.
+     * All nodes, relationships, and jobs are stored in the target pack file.
+     * 
+     * @param array $arguments [
+     *   'targetPack' => ['projectId' => string, 'path' => string, 'name' => string],
+     *   'sourceType' => string (document|url|etc),
+     *   'sourceRef' => string (projectId:path:filename format),
+     *   'content' => string (optional, if not using sourceRef),
+     *   'maxDepth' => int (default 3)
+     * ]
+     */
+    public function memoryExtractToPack(array $arguments): array
+    {
+        try {
+            $targetPack = $arguments['targetPack'];
+            $sourceType = $arguments['sourceType'] ?? 'document';
+            $sourceRef = $arguments['sourceRef'] ?? null;
+            $maxDepth = $arguments['maxDepth'] ?? 3;
+
+            // Try to auto-load content if not provided
+            $content = $arguments['content'] ?? null;
+            $loadResult = null;
+            
+            if (empty($content) && $sourceType && $sourceRef) {
+                $loadResult = $this->loadContentFromSource($sourceType, $sourceRef);
+                if (!$loadResult['success']) {
+                    return $loadResult;
+                }
+                $content = $loadResult['content'];
+            }
+
+            if (empty($content)) {
+                return [
+                    'success' => false,
+                    'error' => 'Content is required. Either provide content directly, or specify sourceType and sourceRef.'
+                ];
+            }
+
+            // Determine document title
+            $documentTitle = $arguments['documentTitle'] ?? $sourceRef ?? 'Untitled Document';
+            if (isset($loadResult['fileName'])) {
+                $documentTitle = $loadResult['fileName'];
+            } elseif (isset($loadResult['title'])) {
+                $documentTitle = $loadResult['title'];
+            }
+
+            // Get content length for deciding extraction strategy
+            $contentLength = is_string($content) ? strlen($content) : 0;
+            $useRecursiveExtraction = $contentLength > 5000 && $maxDepth > 1;
+
+            if ($useRecursiveExtraction) {
+                // Start async recursive extraction job in pack
+                $job = $this->startPackRecursiveExtractionJob(
+                    $targetPack,
+                    $content,
+                    $sourceType,
+                    $sourceRef ?? 'direct-content',
+                    $documentTitle,
+                    $maxDepth
+                );
+
+                $this->logger->info('Started pack recursive extraction job', [
+                    'jobId' => $job->getId(),
+                    'packName' => $targetPack['name'],
+                    'contentLength' => $contentLength,
+                    'maxDepth' => $maxDepth
+                ]);
+
+                // Get root node to return to frontend
+                $rootNodeId = $job->getPayload()['root_node_id'] ?? null;
+                $rootNodeData = null;
+                if ($rootNodeId) {
+                    $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+                    $rootNode = $this->packService->findNodeById($rootNodeId);
+                    if ($rootNode) {
+                        $rootNodeData = [
+                            'id' => $rootNode->getId(),
+                            'content' => $rootNode->getContent(),
+                            'summary' => $rootNode->getSummary(),
+                            'category' => $rootNode->getCategory(),
+                            'importance' => $rootNode->getImportance(),
+                            'confidence' => $rootNode->getConfidence(),
+                            'createdAt' => $rootNode->getCreatedAt()->format('Y-m-d H:i:s'),
+                            'accessCount' => $rootNode->getAccessCount(),
+                            'tags' => $this->packService->getTagsForNode($rootNode->getId()),
+                            'sourceType' => $rootNode->getSourceType(),
+                            'sourceRef' => $rootNode->getSourceRef(),
+                            'sourceRange' => $rootNode->getSourceRange()
+                        ];
+                    }
+                    $this->packService->close();
+                }
+
+                return [
+                    'success' => true,
+                    'async' => true,
+                    'jobId' => $job->getId(),
+                    'targetPack' => $targetPack,
+                    'message' => "Recursive extraction started for large document ({$contentLength} chars). " .
+                        "Processing will continue in background. Poll /api/memory/pack/jobs for progress.",
+                    'initialProgress' => [
+                        'progress' => $job->getProgress(),
+                        'totalSteps' => $job->getTotalSteps(),
+                        'type' => $job->getType()
+                    ],
+                    'rootNode' => $rootNodeData
+                ];
+            }
+
+            // For smaller documents, use direct extraction
+            return $this->directExtractToPack($targetPack, $content, $sourceType, $sourceRef, $documentTitle);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error extracting to pack', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'error' => 'Error extracting memories: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Direct (synchronous) extraction to pack for smaller documents
+     */
+    private function directExtractToPack(
+        array $targetPack,
+        string|array $content,
+        string $sourceType,
+        ?string $sourceRef,
+        string $documentTitle
+    ): array {
+        try {
+            // Get AI model
+            $aiServiceModel = $this->getExtractionModel();
+            if (!$aiServiceModel) {
+                return [
+                    'success' => false,
+                    'error' => 'No AI service model configured for Memory Extractor'
+                ];
+            }
+
+            // Build extraction request
+            $systemPrompt = $this->buildMemoryExtractorSystemPrompt();
+            $userMessage = $this->buildMemoryExtractorUserMessage([
+                'content' => $content,
+                'sourceType' => $sourceType,
+                'sourceRef' => $sourceRef
+            ]);
+
+            $messages = [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $userMessage]
+            ];
+
+            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+                $aiServiceModel->getId(),
+                $messages,
+                null,
+                0.3
+            );
+
+            $userLocale = $this->settingsService->getUserLocale();
+            $aiServiceResponse = $this->aiGatewayService->sendRequest(
+                $aiServiceRequest,
+                'memoryExtractToPack - Memory Extraction Sub-Agent',
+                $userLocale['lang'],
+                'general'
+            );
+
+            $extractedMemories = $this->parseMemoryExtractorResponse($aiServiceResponse);
+
+            if ($extractedMemories === null) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to parse Memory Extractor response'
+                ];
+            }
+
+            // Open pack and store memories
+            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+            $storedMemories = [];
+            $documentSummaryNode = null;
+
+            // Create document summary node if we have multiple memories
+            if (count($extractedMemories) > 1 && $sourceRef) {
+                $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
+                if ($summaryContent) {
+                    $documentSummaryNode = $this->packService->storeNode(
+                        $summaryContent,
+                        MemoryNode::CATEGORY_KNOWLEDGE,
+                        0.8,
+                        "Document: {$documentTitle}",
+                        'document_summary',
+                        $sourceRef,
+                        ['document', 'summary', $sourceType]
+                    );
+                }
+            }
+
+            // Store each extracted memory
+            foreach ($extractedMemories as $memoryData) {
+                try {
+                    $node = $this->packService->storeNode(
+                        $memoryData['content'],
+                        $memoryData['category'] ?? 'knowledge',
+                        $memoryData['importance'] ?? 0.5,
+                        $memoryData['summary'] ?? null,
+                        $sourceType,
+                        $sourceRef,
+                        $memoryData['tags'] ?? []
+                    );
+
+                    // Create PART_OF relationship to document summary
+                    if ($documentSummaryNode) {
+                        $this->packService->createRelationship(
+                            $node->getId(),
+                            $documentSummaryNode->getId(),
+                            MemoryNode::RELATION_PART_OF,
+                            0.9,
+                            "Extracted from document: " . ($sourceRef ?? 'unknown')
+                        );
+                    }
+
+                    $storedMemories[] = [
+                        'id' => $node->getId(),
+                        'content' => $node->getContent(),
+                        'summary' => $node->getSummary(),
+                        'category' => $node->getCategory(),
+                        'importance' => $node->getImportance(),
+                        'tags' => $memoryData['tags'] ?? []
+                    ];
+                } catch (\Exception $e) {
+                    $this->logger->warning('Failed to store extracted memory in pack', [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            $this->packService->close();
+
+            // Send notification
+            if ($this->user) {
+                $this->notificationService->createNotification(
+                    $this->user,
+                    '📚 Memory Extraction Complete',
+                    'Extracted ' . count($storedMemories) . ' memories to pack: ' . $targetPack['name'],
+                    'success'
+                );
+            }
+
+            return [
+                'success' => true,
+                'extractedCount' => count($extractedMemories),
+                'storedCount' => count($storedMemories),
+                'memories' => $storedMemories,
+                'targetPack' => $targetPack,
+                'documentSummary' => $documentSummaryNode ? [
+                    'id' => $documentSummaryNode->getId(),
+                    'content' => $documentSummaryNode->getContent()
+                ] : null,
+                'message' => 'Successfully extracted and stored ' . count($storedMemories) . ' memories to pack.'
+            ];
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            throw $e;
+        }
+    }
+
+    /**
+     * Start a recursive extraction job that stores to a Pack
+     */
+    public function startPackRecursiveExtractionJob(
+        array $targetPack,
+        string $content,
+        string $sourceType,
+        string $sourceRef,
+        string $documentTitle,
+        int $maxDepth = 3
+    ): MemoryJob {
+        // Open pack
+        $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+        // Get AI model
+        $aiServiceModel = $this->getExtractionModel();
+
+        // Create initial document summary node
+        $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
+        if (!$summaryContent) {
+            $summaryContent = "Document: {$documentTitle}";
+        }
+
+        $totalLines = count(explode("\n", $content));
+
+        // Extract initial content blocks
+        $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1);
+
+        $documentTags = array_merge(
+            ['document', 'root', 'summary'],
+            $blocks['document_tags'] ?? []
+        );
+
+        $rootNode = $this->packService->storeNode(
+            $summaryContent,
+            MemoryNode::CATEGORY_KNOWLEDGE,
+            0.9,
+            "Document: {$documentTitle}",
+            'document_summary',
+            $sourceRef,
+            $documentTags,
+            null,
+            '1:' . $totalLines
+        );
+
+        $pendingBlocks = [];
+        if ($blocks && !empty($blocks['blocks'])) {
+            foreach ($blocks['blocks'] as $block) {
+                $block['parent_node_id'] = $rootNode->getId();
+                $block['depth'] = 1;
+                $pendingBlocks[] = $block;
+            }
+        } else {
+            $pendingBlocks[] = [
+                'title' => $documentTitle,
+                'summary' => substr($content, 0, 100),
+                'start_line' => 1,
+                'end_line' => $totalLines,
+                'is_leaf' => true,
+                'content' => $content,
+                'parent_node_id' => $rootNode->getId(),
+                'depth' => 1,
+                'tags' => []
+            ];
+        }
+
+        // Create the job in pack's memory_jobs table
+        $job = $this->packService->createJob(
+            MemoryJob::TYPE_EXTRACT_RECURSIVE,
+            [
+                'target_pack' => $targetPack,
+                'source_type' => $sourceType,
+                'source_ref' => $sourceRef,
+                'document_title' => $documentTitle,
+                'max_depth' => $maxDepth,
+                'root_node_id' => $rootNode->getId(),
+                'pending_blocks' => $pendingBlocks,
+                'processed_count' => 1,
+                'current_depth' => 1,
+                'extracted_node_ids' => [$rootNode->getId()]
+            ]
+        );
+
+        $this->packService->updateJobProgress($job->getId(), 1, 1 + count($pendingBlocks));
+        $this->packService->startJob($job->getId());
+
+        $this->logger->info('Started pack recursive extraction job', [
+            'jobId' => $job->getId(),
+            'packName' => $targetPack['name'],
+            'sourceRef' => $sourceRef,
+            'initialBlocks' => count($pendingBlocks)
+        ]);
+
+        // Close pack - polling endpoint will reopen it for processing
+        $this->packService->close();
+
+        return $job;
+    }
+
+    /**
+     * Process a single step of a pack extraction job
+     * Called during polling
+     */
+    public function processPackExtractionJobStep(array $targetPack, string $jobId): bool
+    {
+        try {
+            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+            
+            $job = $this->packService->findJobById($jobId);
+            if (!$job) {
+                $this->packService->close();
+                return true; // Job not found, consider done
+            }
+
+            if ($job->getStatus() === MemoryJob::STATUS_COMPLETED || $job->getStatus() === MemoryJob::STATUS_FAILED) {
+                $this->packService->close();
+                return true; // Already done
+            }
+
+            $payload = $job->getPayload();
+            
+            // Get AI model
+            $aiServiceModel = $this->getExtractionModel();
+            if (!$aiServiceModel) {
+                $this->packService->failJob($jobId, 'No AI model available');
+                $this->packService->close();
+                return true;
+            }
+
+            $pendingBlocks = $payload['pending_blocks'] ?? [];
+            $maxDepth = $payload['max_depth'] ?? 3;
+            $processedCount = $payload['processed_count'] ?? 0;
+
+            // If no pending blocks, extraction is done
+            if (empty($pendingBlocks)) {
+                $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
+                
+                $this->packService->completeJob($jobId, [
+                    'total_memories' => $processedCount,
+                    'message' => "Extraction complete. Created {$processedCount} memory nodes."
+                ]);
+
+                // Create relationship analysis job
+                if (!empty($extractedNodeIds)) {
+                    $analysisJob = $this->packService->createJob(
+                        MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
+                        [
+                            'target_pack' => $targetPack,
+                            'pending_node_ids' => $extractedNodeIds,
+                            'processed_count' => 0,
+                            'relationships_created' => 0,
+                            'source_job_id' => $jobId,
+                            'document_title' => $payload['document_title'] ?? null
+                        ]
+                    );
+                    $this->packService->updateJobProgress($analysisJob->getId(), 0, count($extractedNodeIds));
+                }
+
+                $this->packService->close();
+                return true;
+            }
+
+            // Process ONE block per step
+            $block = array_shift($pendingBlocks);
+            $blockContent = $block['content'];
+            $blockTitle = $block['title'];
+            $parentNodeId = $block['parent_node_id'] ?? null;
+            $sourceRef = $payload['source_ref'];
+            $sourceType = $payload['source_type'];
+            $blockDepth = $block['depth'] ?? 1;
+
+            // Generate summary for this block
+            $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel);
+            if (!$summaryContent) {
+                $summaryContent = $block['summary'] ?? "Section: {$blockTitle}";
+            }
+
+            $sourceRange = $block['start_line'] . ':' . $block['end_line'];
+            
+            $blockTags = array_merge(
+                ['document', 'section', 'depth-' . $blockDepth],
+                $block['tags'] ?? []
+            );
+
+            $summaryNode = $this->packService->storeNode(
+                $summaryContent,
+                MemoryNode::CATEGORY_KNOWLEDGE,
+                0.8,
+                "Section: {$blockTitle}",
+                $sourceType,
+                $sourceRef,
+                $blockTags,
+                null,
+                $sourceRange
+            );
+
+            // Create PART_OF relationship to parent
+            if ($parentNodeId) {
+                $this->packService->createRelationship(
+                    $summaryNode->getId(),
+                    $parentNodeId,
+                    MemoryNode::RELATION_PART_OF,
+                    0.9,
+                    "Child section of parent document/section"
+                );
+            }
+
+            $processedCount++;
+            
+            $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
+            $extractedNodeIds[] = $summaryNode->getId();
+
+            // If not a leaf and not at max depth, extract sub-blocks
+            $blockLines = count(explode("\n", $blockContent));
+            if (!$block['is_leaf'] && $blockDepth < $maxDepth && $blockLines > 30) {
+                $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line']);
+                
+                if ($subBlocks && count($subBlocks['blocks']) > 1) {
+                    foreach ($subBlocks['blocks'] as $subBlock) {
+                        $subBlock['parent_node_id'] = $summaryNode->getId();
+                        $subBlock['depth'] = $blockDepth + 1;
+                        $pendingBlocks[] = $subBlock;
+                    }
+                }
+            }
+
+            // Update job payload
+            $payload['pending_blocks'] = $pendingBlocks;
+            $payload['processed_count'] = $processedCount;
+            $payload['extracted_node_ids'] = $extractedNodeIds;
+            $payload['current_block_title'] = $blockTitle;
+            
+            // Update job in pack DB
+            $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingBlocks));
+            
+            // Update payload by recreating job update
+            $db = $this->getPackConnection();
+            $db->executeStatement(
+                'UPDATE memory_jobs SET payload = ? WHERE id = ?',
+                [json_encode($payload), $jobId]
+            );
+
+            $this->packService->close();
+
+            $this->logger->info('Processed pack extraction job step', [
+                'jobId' => $jobId,
+                'blockTitle' => $blockTitle,
+                'processedCount' => $processedCount,
+                'pendingCount' => count($pendingBlocks)
+            ]);
+
+            return empty($pendingBlocks);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error processing pack extraction job step', [
+                'jobId' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            try {
+                $this->packService->failJob($jobId, $e->getMessage());
+            } catch (\Exception $e2) {
+                // Ignore
+            }
+            $this->packService->close();
+            return true;
+        }
+    }
+
+    /**
+     * Get pack database connection (for internal use)
+     */
+    private function getPackConnection()
+    {
+        $reflection = new \ReflectionClass($this->packService);
+        $method = $reflection->getMethod('getConnection');
+        $method->setAccessible(true);
+        return $method->invoke($this->packService);
+    }
+
+    /**
+     * Process a single step of pack relationship analysis job
+     */
+    public function processPackRelationshipAnalysisJobStep(array $targetPack, string $jobId): bool
+    {
+        try {
+            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+            
+            $job = $this->packService->findJobById($jobId);
+            if (!$job || $job->getStatus() === MemoryJob::STATUS_COMPLETED || $job->getStatus() === MemoryJob::STATUS_FAILED) {
+                $this->packService->close();
+                return true;
+            }
+
+            $payload = $job->getPayload();
+            $pendingNodeIds = $payload['pending_node_ids'] ?? [];
+            $processedCount = $payload['processed_count'] ?? 0;
+            $relationshipsCreated = $payload['relationships_created'] ?? 0;
+
+            if (empty($pendingNodeIds)) {
+                $this->packService->completeJob($jobId, [
+                    'nodes_analyzed' => $processedCount,
+                    'relationships_created' => $relationshipsCreated,
+                    'message' => "Relationship analysis complete. Analyzed {$processedCount} nodes, created {$relationshipsCreated} relationships."
+                ]);
+                $this->packService->close();
+                return true;
+            }
+
+            // Process ONE node per step
+            $nodeId = array_shift($pendingNodeIds);
+            $newRelationships = 0;
+
+            try {
+                $result = $this->analyzePackNodeRelationships($nodeId);
+                if ($result['success'] ?? false) {
+                    $newRelationships = $result['relationshipsCreated'] ?? 0;
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('Failed to analyze relationships for pack node', [
+                    'nodeId' => $nodeId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            $processedCount++;
+            $relationshipsCreated += $newRelationships;
+
+            // Update job
+            $payload['pending_node_ids'] = $pendingNodeIds;
+            $payload['processed_count'] = $processedCount;
+            $payload['relationships_created'] = $relationshipsCreated;
+            
+            $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingNodeIds));
+            
+            $db = $this->getPackConnection();
+            $db->executeStatement(
+                'UPDATE memory_jobs SET payload = ? WHERE id = ?',
+                [json_encode($payload), $jobId]
+            );
+
+            $this->packService->close();
+            return empty($pendingNodeIds);
+
+        } catch (\Exception $e) {
+            $this->logger->error('Error processing pack relationship analysis job step', [
+                'jobId' => $jobId,
+                'error' => $e->getMessage()
+            ]);
+            try {
+                $this->packService->failJob($jobId, $e->getMessage());
+            } catch (\Exception $e2) {}
+            $this->packService->close();
+            return true;
+        }
+    }
+
+    /**
+     * Analyze relationships for a node within a pack (pack must be open)
+     */
+    private function analyzePackNodeRelationships(string $nodeId): array
+    {
+        // Get the node
+        $node = $this->packService->findNodeById($nodeId);
+        if (!$node) {
+            return ['success' => false, 'error' => 'Node not found'];
+        }
+
+        // Get all other active nodes for comparison
+        $allNodes = $this->packService->findAllNodes(true);
+        $existingMemories = [];
+        
+        foreach ($allNodes as $existingNode) {
+            if ($existingNode->getId() === $nodeId) continue;
+            if (count($existingMemories) >= 50) break;
+            
+            $existingMemories[] = [
+                'id' => $existingNode->getId(),
+                'content' => $existingNode->getContent(),
+                'summary' => $existingNode->getSummary(),
+                'category' => $existingNode->getCategory(),
+                'importance' => $existingNode->getImportance(),
+                'tags' => $this->packService->getTagsForNode($existingNode->getId())
+            ];
+        }
+
+        if (empty($existingMemories)) {
+            return ['success' => true, 'relationshipsCreated' => 0];
+        }
+
+        // Get AI model
+        $aiServiceModel = $this->getExtractionModel();
+        if (!$aiServiceModel) {
+            return ['success' => false, 'error' => 'No AI model'];
+        }
+
+        // Build and send relationship analysis request
+        $systemPrompt = $this->buildRelationshipAnalyzerSystemPrompt();
+        
+        // Build user message manually since we have MemoryNode not SpiritMemoryNode
+        $message = "## NEW MEMORY TO ANALYZE\n\n";
+        $message .= "**ID**: " . $node->getId() . "\n";
+        $message .= "**Category**: " . $node->getCategory() . "\n";
+        $message .= "**Content**: " . $node->getContent() . "\n";
+        if ($node->getSummary()) {
+            $message .= "**Summary**: " . $node->getSummary() . "\n";
+        }
+        $tags = $this->packService->getTagsForNode($node->getId());
+        if (!empty($tags)) {
+            $message .= "**Tags**: " . implode(', ', $tags) . "\n";
+        }
+        $message .= "\n---\n\n## EXISTING MEMORIES TO COMPARE AGAINST\n\n";
+        
+        foreach ($existingMemories as $index => $mem) {
+            $message .= "### Memory " . ($index + 1) . "\n";
+            $message .= "**ID**: " . $mem['id'] . "\n";
+            $message .= "**Category**: " . $mem['category'] . "\n";
+            $message .= "**Content**: " . $mem['content'] . "\n";
+            if (!empty($mem['summary'])) {
+                $message .= "**Summary**: " . $mem['summary'] . "\n";
+            }
+            if (!empty($mem['tags'])) {
+                $message .= "**Tags**: " . implode(', ', $mem['tags']) . "\n";
+            }
+            $message .= "\n";
+        }
+        $message .= "---\n\nAnalyze and respond with ONLY the JSON object.";
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $message]
+        ];
+
+        $userLocale = $this->settingsService->getUserLocale();
+        $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+            $aiServiceModel->getId(),
+            $messages,
+            null,
+            0.3
+        );
+
+        $aiServiceResponse = $this->aiGatewayService->sendRequest(
+            $aiServiceRequest,
+            'Pack Relationship Analyzer Sub-Agent',
+            $userLocale['lang'],
+            'general'
+        );
+
+        $analysisResult = $this->parseRelationshipAnalyzerResponse($aiServiceResponse);
+        if (!$analysisResult) {
+            return ['success' => false, 'error' => 'Failed to parse response'];
+        }
+
+        // Create relationships
+        $createdCount = 0;
+        $relationships = $analysisResult['relationships'] ?? [];
+
+        foreach ($relationships as $rel) {
+            if (!isset($rel['existingMemoryId']) || !isset($rel['type'])) continue;
+
+            $type = strtoupper($rel['type']);
+            $validTypes = [
+                MemoryNode::RELATION_RELATES_TO,
+                MemoryNode::RELATION_DERIVED_FROM,
+                MemoryNode::RELATION_EVOLVED_INTO,
+                MemoryNode::RELATION_PART_OF,
+                MemoryNode::RELATION_CONTRADICTS,
+                MemoryNode::RELATION_REINFORCES,
+                MemoryNode::RELATION_SUPERSEDES
+            ];
+
+            if (!in_array($type, $validTypes)) continue;
+
+            try {
+                $this->packService->createRelationship(
+                    $nodeId,
+                    $rel['existingMemoryId'],
+                    $type,
+                    $rel['strength'] ?? 0.8,
+                    $rel['context'] ?? null
+                );
+                $createdCount++;
+            } catch (\Exception $e) {
+                // Ignore duplicate relationship errors
+            }
+        }
+
+        return [
+            'success' => true,
+            'relationshipsCreated' => $createdCount
+        ];
     }
 }

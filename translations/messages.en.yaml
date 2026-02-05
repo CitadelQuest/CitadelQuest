@@ -307,6 +307,19 @@ spirit:
             extraction_completed: 'Extraction completed!'
             extraction_failed: 'Extraction failed: {error}'
             select_file_first: 'Please select a file first'
+        pack_selector:
+            loading: 'Loading packs...'
+            select_pack: 'Select a pack'
+            no_packs: 'No packs found'
+            legacy_mode: 'Legacy (user database)'
+            create_new: 'Create new pack'
+            create_title: 'Create Memory Pack'
+            pack_name: 'Pack Name'
+            pack_description: 'Description'
+            create_button: 'Create Pack'
+            create_success: 'Pack created successfully'
+            create_error: 'Failed to create pack'
+            nodes: 'nodes'
 
 spirits:
     title: 'Spirits'

@@ -1,4 +1,4 @@
-import { MemoryGraphView } from '../../spirit-memory/MemoryGraphView';
+import { MemoryGraphView } from '../../cq-memory/MemoryGraphView';
 
 /**
  * ProfileMemoryGraph - Compact memory visualization for Spirit profile page
@@ -57,7 +57,7 @@ export class ProfileMemoryGraph {
         const loadingEl = document.getElementById('profile-memory-loading');
         
         try {
-            const response = await fetch(`/spirit/${this.spiritId}/memory/graph`);
+            const response = await fetch(`/memory/graph/${this.spiritId}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
