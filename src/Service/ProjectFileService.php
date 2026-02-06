@@ -805,6 +805,8 @@ class ProjectFileService
         // txt, json, csv, xml, html, php, js, css, md
         if ($file->getMimeType() === 'text/plain' || 
             strpos($file->getMimeType(), 'text/') === 0 || 
+            $file->getMimeType() === 'application/json' ||
+            $file->getMimeType() === 'application/xml' ||
             $file->getType() === 'txt' || 
             $file->getType() === 'json' || 
             $file->getType() === 'csv' || 

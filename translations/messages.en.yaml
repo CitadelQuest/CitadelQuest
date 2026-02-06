@@ -307,6 +307,16 @@ spirit:
             extraction_completed: 'Extraction completed!'
             extraction_failed: 'Extraction failed: {error}'
             select_file_first: 'Please select a file first'
+        library_selector:
+            all_packs: 'All Packs'
+            create_new: 'Create new library'
+            create_title: 'Create Memory Library'
+            library_name: 'Library Name'
+            library_description: 'Description'
+            create_button: 'Create Library'
+            create_success: 'Library created successfully'
+            create_error: 'Failed to create library'
+            name_required: 'Library name is required'
         pack_selector:
             loading: 'Loading packs...'
             select_pack: 'Select a pack'

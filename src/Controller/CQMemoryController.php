@@ -34,6 +34,7 @@ class CQMemoryController extends AbstractController
     public function memoryExplorer(Request $request): Response
     {
         $spiritId = $request->query->get('spirit');
+        $libPath = $request->query->get('lib');
         $spirit = null;
 
         if ($spiritId) {
@@ -45,7 +46,8 @@ class CQMemoryController extends AbstractController
 
         return $this->render('cq-memory/explorer.html.twig', [
             'spirit' => $spirit,
-            'spiritId' => $spiritId
+            'spiritId' => $spiritId,
+            'libPath' => $libPath
         ]);
     }
 

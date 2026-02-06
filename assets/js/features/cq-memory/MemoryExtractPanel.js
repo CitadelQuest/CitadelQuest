@@ -215,7 +215,49 @@ export class MemoryExtractPanel {
                 this.showSuccess(t.extraction_completed || 'Extraction completed!');
                 updatesService.resume();
                 
-                // Notify parent to reload graph
+                // Build graph delta from extraction result and push to 3D scene
+                if (this.onGraphDelta && result.memories) {
+                    const nodes = [];
+                    const edges = [];
+                    
+                    // Add document summary node
+                    if (result.documentSummary) {
+                        nodes.push({
+                            id: result.documentSummary.id,
+                            content: result.documentSummary.content,
+                            summary: 'Document Summary',
+                            category: 'knowledge',
+                            importance: 0.8,
+                            tags: ['document', 'summary']
+                        });
+                    }
+                    
+                    // Add extracted memory nodes + PART_OF edges
+                    for (const mem of result.memories) {
+                        nodes.push({
+                            id: mem.id,
+                            content: mem.content,
+                            summary: mem.summary || '',
+                            category: mem.category || 'knowledge',
+                            importance: mem.importance || 0.5,
+                            tags: mem.tags || []
+                        });
+                        
+                        if (result.documentSummary) {
+                            edges.push({
+                                id: `rel-${mem.id}`,
+                                source: mem.id,
+                                target: result.documentSummary.id,
+                                type: 'part_of',
+                                strength: 0.9
+                            });
+                        }
+                    }
+                    
+                    this.onGraphDelta({ nodes, edges });
+                }
+                
+                // Notify parent to reload full graph (edges, stats)
                 if (this.onExtractionComplete) {
                     this.onExtractionComplete(result);
                 }

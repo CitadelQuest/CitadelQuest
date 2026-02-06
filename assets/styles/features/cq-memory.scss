@@ -7,7 +7,7 @@
 // Category Colors
 $category-conversation: #4a9eff;
 $category-knowledge: #4aff9e;
-$category-preference: #9e4aff;
+$category-preference: #aa67f7;
 $category-thought: #ff9e4a;
 $category-fact: #4affff;
 
@@ -15,7 +15,7 @@ $category-fact: #4affff;
 $rel-relates-to: #ffffff;
 $rel-derived-from: #ffff00;
 $rel-evolved-into: #00ffff;
-$rel-part-of: #00ff00;
+$rel-part-of: #8dff8d;
 $rel-contradicts: #ff0000;
 $rel-reinforces: #0088ff;
 $rel-supersedes: #ff8800;
@@ -41,7 +41,9 @@ $panel-min-height: 500px;
         min-height: $panel-min-height;
     }
 
-    // File selector
+    // Library selector
+    #library-selector,
+    // Pack selector
     #pack-selector {
         background-color: rgba(0, 0, 0, 0.3);
         color: colors.$text-light;

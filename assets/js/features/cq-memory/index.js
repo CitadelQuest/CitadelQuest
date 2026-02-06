@@ -27,6 +27,10 @@ class CQMemoryExplorer {
         this.availableLibraries = [];
         this.memoryPath = null;
         
+        // Library selector state
+        this.selectedLibrary = null; // { path, name } of selected library
+        this.libraryPacks = []; // Packs belonging to selected library
+        
         // Filter state
         this.hoverDebounceTimer = null;
         this.filters = {
@@ -58,7 +62,7 @@ class CQMemoryExplorer {
         
         // Set callbacks for extraction
         this.extractPanel.onExtractionStart = () => this.startManualPolling();
-        this.extractPanel.onExtractionComplete = () => this.updateStats();
+        this.extractPanel.onExtractionComplete = () => { this.loadGraphData(); this.updateStats(); };
         this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
 
         // Register listener with global updates service (polling already started in app)
@@ -69,11 +73,13 @@ class CQMemoryExplorer {
         // Setup UI event listeners
         this.setupEventListeners();
 
-        // Setup pack selector
+        // Setup library and pack selectors
+        this.setupLibrarySelector();
         this.setupPackSelector();
 
-        // Initialize memory structure and load packs
+        // Initialize memory structure, load libraries, then load packs
         await this.initializeSpiritMemory();
+        await this.loadLibraries();
         await this.loadPacks();
 
         // Load graph data (from selected pack or legacy, skip if no context)
@@ -1094,8 +1100,29 @@ class CQMemoryExplorer {
     }
 
     // ========================================
-    // Pack Management
+    // Library & Pack Management
     // ========================================
+
+    /**
+     * Setup library selector event listeners
+     */
+    setupLibrarySelector() {
+        const librarySelector = document.getElementById('library-selector');
+        const createLibBtn = document.getElementById('btn-create-library');
+        const confirmCreateLibBtn = document.getElementById('btn-confirm-create-library');
+
+        if (librarySelector) {
+            librarySelector.addEventListener('change', (e) => this.onLibrarySelected(e.target.value));
+        }
+
+        if (createLibBtn) {
+            createLibBtn.addEventListener('click', () => this.showCreateLibraryModal());
+        }
+
+        if (confirmCreateLibBtn) {
+            confirmCreateLibBtn.addEventListener('click', () => this.createLibrary());
+        }
+    }
 
     /**
      * Setup pack selector event listeners
@@ -1119,16 +1146,14 @@ class CQMemoryExplorer {
     }
 
     /**
-     * Load available packs for this Spirit
+     * Load available libraries for the project
      */
-    async loadPacks() {
-        const packSelector = document.getElementById('pack-selector');
-        if (!packSelector) return;
-
-        const trans = window.memoryExplorerTranslations?.pack_selector || {};
+    async loadLibraries() {
+        const librarySelector = document.getElementById('library-selector');
+        if (!librarySelector) return;
 
         try {
-            // Get memory path - Spirit-specific or skip
+            // Get memory path - Spirit-specific or project root
             if (this.spiritId) {
                 const pathResponse = await fetch(`/spirit/${this.spiritId}/memory/path`);
                 if (!pathResponse.ok) {
@@ -1141,17 +1166,18 @@ class CQMemoryExplorer {
                 this.rootLibraryName = pathData.rootLibraryName;
                 this.spiritNameSlug = pathData.spiritNameSlug;
             } else {
-                // No Spirit context - scan entire general project for all packs
+                // No Spirit context - organized under /memory/
                 this.projectId = 'general';
-                this.memoryPath = '/';
-                this.packsPath = '/';
+                this.memoryPath = '/memory';
+                this.libsPath = '/memory/libs';
+                this.packsPath = '/memory/packs';
             }
 
-            // List packs from memory path
+            // List all libraries from project root (always recursive from /)
             const response = await fetch('/api/memory/pack/list', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projectId: this.projectId, path: this.memoryPath })
+                body: JSON.stringify({ projectId: this.projectId, path: '/' })
             });
             
             if (!response.ok) {
@@ -1159,38 +1185,269 @@ class CQMemoryExplorer {
             }
 
             const data = await response.json();
-            this.availablePacks = data.packs || [];
             this.availableLibraries = data.libraries || [];
+            this.availablePacks = data.packs || [];
+
+            // Build library selector options
+            const trans = window.memoryExplorerTranslations?.library_selector || {};
+            let html = `<option value="">${trans.all_packs || 'All Packs'}</option>`;
+            
+            if (this.availableLibraries.length > 0) {
+                this.availableLibraries.forEach(lib => {
+                    const libValue = JSON.stringify({ path: lib.path, name: lib.name });
+                    const label = `${lib.displayName || lib.name} (${lib.packCount} packs)`;
+                    html += `<option value='${this.escapeHtml(libValue)}'>${this.escapeHtml(label)}</option>`;
+                });
+            }
+
+            librarySelector.innerHTML = html;
+
+            // Check for ?lib= URL param for pre-selection
+            const libPathInput = document.getElementById('lib-path');
+            const libPathParam = libPathInput?.value || null;
+            
+            if (libPathParam) {
+                // Try to match the lib path param to an available library
+                // Format: /spirit/{slug}/memory/{slug}.cqmlib or path:name
+                const matchingLib = this.findLibraryByPath(libPathParam);
+                if (matchingLib) {
+                    const libValue = JSON.stringify({ path: matchingLib.path, name: matchingLib.name });
+                    librarySelector.value = libValue;
+                    this.selectedLibrary = matchingLib;
+                    // Pre-load library packs so loadPacks() can filter
+                    await this.loadLibraryPacks(matchingLib.path, matchingLib.name);
+                }
+            } else {
+                // Restore from localStorage
+                const storageKey = this.spiritId ? `cqMemoryLib_${this.spiritId}` : 'cqMemoryLib_global';
+                const lastLib = localStorage.getItem(storageKey);
+                if (lastLib) {
+                    try {
+                        const lastLibData = JSON.parse(lastLib);
+                        const matchingLib = this.availableLibraries.find(
+                            l => l.path === lastLibData.path && l.name === lastLibData.name
+                        );
+                        if (matchingLib) {
+                            librarySelector.value = lastLib;
+                            this.selectedLibrary = matchingLib;
+                            // Pre-load library packs so loadPacks() can filter
+                            await this.loadLibraryPacks(matchingLib.path, matchingLib.name);
+                        }
+                    } catch { /* ignore */ }
+                }
+            }
+
+        } catch (error) {
+            console.error('Failed to load libraries:', error);
+        }
+    }
+
+    /**
+     * Find a library by its file path (for ?lib= URL param matching)
+     * Supports formats: "/spirit/slug/memory/slug.cqmlib" or "path:name"
+     */
+    findLibraryByPath(libPath) {
+        // Try exact path:name match first
+        if (libPath.includes(':')) {
+            const [path, name] = libPath.split(':');
+            return this.availableLibraries.find(l => l.path === path && l.name === name);
+        }
+        // Try matching as full file path (e.g. /spirit/slug/memory/slug.cqmlib)
+        const dirPath = libPath.substring(0, libPath.lastIndexOf('/')) || '/';
+        const fileName = libPath.substring(libPath.lastIndexOf('/') + 1);
+        return this.availableLibraries.find(l => l.path === dirPath && l.name === fileName)
+            || this.availableLibraries.find(l => l.name === fileName);
+    }
+
+    /**
+     * Handle library selection change
+     */
+    async onLibrarySelected(value) {
+        const storageKey = this.spiritId ? `cqMemoryLib_${this.spiritId}` : 'cqMemoryLib_global';
+
+        if (!value) {
+            // "All Packs" selected - clear library filter
+            this.selectedLibrary = null;
+            this.libraryPacks = [];
+            localStorage.removeItem(storageKey);
+        } else {
+            try {
+                const libData = JSON.parse(value);
+                this.selectedLibrary = this.availableLibraries.find(
+                    l => l.path === libData.path && l.name === libData.name
+                ) || libData;
+                localStorage.setItem(storageKey, value);
+                
+                // Fetch library contents to get its pack list
+                await this.loadLibraryPacks(libData.path, libData.name);
+            } catch (e) {
+                console.error('Failed to parse library value:', e);
+                this.selectedLibrary = null;
+                this.libraryPacks = [];
+            }
+        }
+
+        // Reload pack selector with filtered packs
+        await this.loadPacks();
+
+        // Auto-select first pack or clear
+        const packSelector = document.getElementById('pack-selector');
+        if (packSelector && packSelector.options.length > 1) {
+            // Select first real option (skip placeholder)
+            packSelector.selectedIndex = 1;
+            await this.onPackSelected(packSelector.value);
+        } else if (!this.currentPackPath) {
+            // Show empty state
+            await this.loadGraphData();
+        }
+    }
+
+    /**
+     * Load packs belonging to a specific library
+     */
+    async loadLibraryPacks(libPath, libName) {
+        try {
+            const response = await fetch('/api/memory/library/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: libPath,
+                    name: libName
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            // Library packs have relative paths - resolve them relative to library dir
+            this.libraryPacks = (data.library?.packs || []).map(p => ({
+                ...p,
+                _libRelative: true,
+                _libPath: libPath
+            }));
+        } catch (error) {
+            console.error('Failed to load library packs:', error);
+            this.libraryPacks = [];
+        }
+    }
+
+    /**
+     * Show create library modal
+     */
+    showCreateLibraryModal() {
+        const modal = document.getElementById('createLibraryModal');
+        if (!modal) return;
+
+        // Clear form
+        const nameInput = document.getElementById('library-name');
+        const descInput = document.getElementById('library-description');
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Create a new memory library
+     */
+    async createLibrary() {
+        const nameInput = document.getElementById('library-name');
+        const descInput = document.getElementById('library-description');
+        const trans = window.memoryExplorerTranslations?.library_selector || {};
+
+        const name = nameInput?.value?.trim();
+        const description = descInput?.value?.trim() || '';
+
+        if (!name) {
+            window.toast?.error(trans.name_required || 'Library name is required');
+            return;
+        }
+
+        // Use libsPath for non-Spirit, memoryPath for Spirit context
+        const libPath = this.libsPath || this.memoryPath || '/memory/libs';
+
+        try {
+            const response = await fetch('/api/memory/library/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: libPath,
+                    name,
+                    description
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to create library');
+            }
+
+            // Close modal
+            const modal = document.getElementById('createLibraryModal');
+            if (modal) {
+                bootstrap.Modal.getInstance(modal)?.hide();
+            }
+
+            window.toast?.success(trans.create_success || 'Library created successfully');
+
+            // Reload libraries list
+            await this.loadLibraries();
+
+            // Select the newly created library
+            const librarySelector = document.getElementById('library-selector');
+            if (librarySelector && data.path && data.name) {
+                const libValue = JSON.stringify({ path: data.path, name: data.name });
+                librarySelector.value = libValue;
+                await this.onLibrarySelected(libValue);
+            }
+
+        } catch (error) {
+            console.error('Failed to create library:', error);
+            window.toast?.error((trans.create_error || 'Failed to create library') + ': ' + error.message);
+        }
+    }
+
+    /**
+     * Load available packs (filtered by selected library if any)
+     */
+    async loadPacks() {
+        const packSelector = document.getElementById('pack-selector');
+        if (!packSelector) return;
+
+        const trans = window.memoryExplorerTranslations?.pack_selector || {};
+
+        try {
+            let packsToShow;
+
+            if (this.selectedLibrary) {
+                // Library selected - show only packs from that library
+                // Match library pack paths against available project packs
+                packsToShow = this.resolveLibraryPacks();
+            } else {
+                // No library filter - show all project packs
+                packsToShow = this.availablePacks;
+            }
 
             // Build selector options
             let html = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
             
-            // Add legacy mode option only when Spirit context is available
-            if (this.spiritId) {
+            // Add legacy mode option only when Spirit context is available and no library filter
+            if (this.spiritId && !this.selectedLibrary) {
                 html += `<option value="__legacy__">${trans.legacy_mode || 'Legacy (user database)'}</option>`;
             }
             
             // Add available packs
-            if (this.availablePacks.length > 0) {
-                html += '<optgroup label="Memory Packs">';
-                this.availablePacks.forEach(pack => {
+            if (packsToShow.length > 0) {
+                packsToShow.forEach(pack => {
                     const nodeCount = pack.totalNodes || 0;
                     const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})`;
-                    // Encode path and name as JSON for the value
                     const packValue = JSON.stringify({ path: pack.path, name: pack.name });
                     html += `<option value='${this.escapeHtml(packValue)}'>${this.escapeHtml(label)}</option>`;
                 });
-                html += '</optgroup>';
-            }
-
-            // Add libraries if any
-            if (this.availableLibraries.length > 0) {
-                html += '<optgroup label="Libraries">';
-                this.availableLibraries.forEach(lib => {
-                    const label = `📚 ${lib.name} (${lib.packCount} packs)`;
-                    html += `<option value="lib:${this.escapeHtml(lib.path)}">${this.escapeHtml(label)}</option>`;
-                });
-                html += '</optgroup>';
             }
 
             packSelector.innerHTML = html;
@@ -1198,7 +1455,7 @@ class CQMemoryExplorer {
             // Restore last selected pack from localStorage
             const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
             const lastPack = localStorage.getItem(storageKey);
-            if (lastPack === '__legacy__' && this.spiritId) {
+            if (lastPack === '__legacy__' && this.spiritId && !this.selectedLibrary) {
                 packSelector.value = lastPack;
                 this.currentPackPath = lastPack;
                 this.extractPanel.setTargetPack(null, this.projectId);
@@ -1206,33 +1463,41 @@ class CQMemoryExplorer {
                 // Try to find matching pack option
                 try {
                     const lastPackData = JSON.parse(lastPack);
-                    const matchingPack = this.availablePacks.find(p => p.path === lastPackData.path && p.name === lastPackData.name);
+                    const matchingPack = packsToShow.find(p => p.path === lastPackData.path && p.name === lastPackData.name);
                     if (matchingPack) {
                         packSelector.value = lastPack;
                         this.currentPackPath = lastPack;
-                        // Set target pack for extraction
                         this.extractPanel.setTargetPack({
                             projectId: this.projectId,
                             path: lastPackData.path,
                             name: lastPackData.name
                         }, this.projectId);
-                    } else {
+                    } else if (this.spiritId && !this.selectedLibrary) {
                         packSelector.value = '__legacy__';
                         this.currentPackPath = '__legacy__';
                         this.extractPanel.setTargetPack(null, this.projectId);
+                    } else {
+                        packSelector.value = '';
+                        this.currentPackPath = null;
+                        this.extractPanel.setTargetPack(null, this.projectId);
                     }
                 } catch {
-                    packSelector.value = '__legacy__';
-                    this.currentPackPath = '__legacy__';
+                    if (this.spiritId && !this.selectedLibrary) {
+                        packSelector.value = '__legacy__';
+                        this.currentPackPath = '__legacy__';
+                    } else {
+                        packSelector.value = '';
+                        this.currentPackPath = null;
+                    }
                     this.extractPanel.setTargetPack(null, this.projectId);
                 }
-            } else if (this.spiritId) {
+            } else if (this.spiritId && !this.selectedLibrary) {
                 // Default to legacy mode if no pack selected and Spirit context available
                 packSelector.value = '__legacy__';
                 this.currentPackPath = '__legacy__';
                 this.extractPanel.setTargetPack(null, this.projectId);
             } else {
-                // No Spirit context - no default selection
+                // No Spirit context or library selected - no default selection
                 packSelector.value = '';
                 this.currentPackPath = null;
                 this.extractPanel.setTargetPack(null, this.projectId);
@@ -1248,6 +1513,48 @@ class CQMemoryExplorer {
                 this.currentPackPath = null;
             }
         }
+    }
+
+    /**
+     * Resolve library pack references to actual project packs
+     * Library stores relative paths like "packs/session.cqmpack"
+     * We need to match them against availablePacks which have absolute project paths
+     */
+    resolveLibraryPacks() {
+        if (!this.libraryPacks.length) return [];
+        
+        const resolved = [];
+        const libPath = this.selectedLibrary?.path || '/';
+        
+        for (const libPack of this.libraryPacks) {
+            if (!(libPack.enabled ?? true)) continue;
+            
+            const packRefPath = libPack.path;
+            let fullPackDir, packName;
+            
+            if (packRefPath.startsWith('/')) {
+                // Absolute path (e.g. /memory/packs/PackPack.cqmpack)
+                fullPackDir = packRefPath.substring(0, packRefPath.lastIndexOf('/')) || '/';
+                packName = packRefPath.substring(packRefPath.lastIndexOf('/') + 1);
+            } else {
+                // Relative path (e.g. packs/session.cqmpack) — resolve relative to library dir
+                const packDir = packRefPath.includes('/') ? packRefPath.substring(0, packRefPath.lastIndexOf('/')) : '.';
+                packName = packRefPath.includes('/') ? packRefPath.substring(packRefPath.lastIndexOf('/') + 1) : packRefPath;
+                
+                fullPackDir = libPath;
+                if (packDir !== '.') {
+                    fullPackDir = libPath.replace(/\/$/, '') + '/' + packDir.replace(/^\//, '');
+                }
+            }
+            
+            // Find matching project pack
+            const match = this.availablePacks.find(p => p.path === fullPackDir && p.name === packName);
+            if (match) {
+                resolved.push(match);
+            }
+        }
+        
+        return resolved;
     }
 
     /**
@@ -1268,7 +1575,7 @@ class CQMemoryExplorer {
         if (packPath === '__legacy__') {
             // Legacy mode - disable pack extraction
             this.extractPanel.setTargetPack(null, this.projectId);
-        } else if (!packPath.startsWith('lib:')) {
+        } else {
             // Pack selected - parse JSON and set target
             try {
                 const packData = JSON.parse(packPath);
@@ -1281,9 +1588,6 @@ class CQMemoryExplorer {
                 console.error('Failed to parse pack path:', e);
                 this.extractPanel.setTargetPack(null, this.projectId);
             }
-        } else {
-            // Library selected - no direct extraction to libraries
-            this.extractPanel.setTargetPack(null, this.projectId);
         }
 
         // Reload graph data from selected pack
@@ -1353,8 +1657,35 @@ class CQMemoryExplorer {
                 bootstrap.Modal.getInstance(modal)?.hide();
             }
 
+            // If a library is selected, auto-add the new pack to it
+            if (this.selectedLibrary && data.path && data.name) {
+                try {
+                    const addResponse = await fetch('/api/memory/library/add-pack', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: this.projectId,
+                            libraryPath: this.selectedLibrary.path,
+                            libraryName: this.selectedLibrary.name,
+                            packPath: data.path,
+                            packName: data.name
+                        })
+                    });
+                    const addData = await addResponse.json();
+                    if (addData.success) {
+                        // Reload library packs so the filter is up to date
+                        await this.loadLibraryPacks(this.selectedLibrary.path, this.selectedLibrary.name);
+                    }
+                } catch (e) {
+                    console.warn('Failed to auto-add pack to library:', e);
+                }
+            }
+
             // Show success message
             window.toast?.success(trans.create_success || 'Pack created successfully');
+
+            // Reload libraries to update pack counts in dropdown
+            await this.loadLibraries();
 
             // Reload packs list
             await this.loadPacks();

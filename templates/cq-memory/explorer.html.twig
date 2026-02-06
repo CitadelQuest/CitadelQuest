@@ -13,6 +13,9 @@
     <input type="hidden" id="spirit-id" value="{{ spiritId }}">
     <input type="hidden" id="spirit-name" value="{{ spirit.name }}">
     {% endif %}
+    {% if libPath %}
+    <input type="hidden" id="lib-path" value="{{ libPath }}">
+    {% endif %}
     
     <div class="row">
         <div class="col-12">
@@ -34,6 +37,18 @@
                         </h4>
                     </div>
                     <div class="d-flex align-items-center gap-2">
+                        {# Library Selector #}
+                        <div class="d-flex align-items-center me-2">
+                            <label class="form-label small text-secondary mb-0 me-2 d-none d-md-inline">
+                                <i class="mdi mdi-bookshelf"></i>
+                            </label>
+                            <select id="library-selector" class="form-select form-select-sm bg-dark text-light border-secondary" style="min-width: 160px;">
+                                <option value="">{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}</option>
+                            </select>
+                            <button id="btn-create-library" class="btn btn-sm btn-outline-cyber ms-1" title="{{ 'spirit.memory.library_selector.create_new'|trans|default('Create new library') }}">
+                                <i class="mdi mdi-plus"></i>
+                            </button>
+                        </div>
                         {# Pack Selector #}
                         <div class="d-flex align-items-center me-3">
                             <label class="form-label small text-secondary mb-0 me-2 d-none d-md-inline">
@@ -374,6 +389,37 @@
     </div>
 </div>
 
+{# Create Library Modal #}
+<div class="modal fade" id="createLibraryModal" tabindex="-1" aria-labelledby="createLibraryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="createLibraryModalLabel">
+                    <i class="mdi mdi-bookshelf text-cyber me-2"></i>
+                    {{ 'spirit.memory.library_selector.create_title'|trans|default('Create Memory Library') }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="library-name" class="form-label">{{ 'spirit.memory.library_selector.library_name'|trans|default('Library Name') }}</label>
+                    <input type="text" class="form-control bg-dark text-light border-secondary" id="library-name" placeholder="e.g., Research Notes">
+                </div>
+                <div class="mb-3">
+                    <label for="library-description" class="form-label">{{ 'spirit.memory.library_selector.library_description'|trans|default('Description') }} <small class="text-secondary">({{ 'ui.optional'|trans|default('optional') }})</small></label>
+                    <textarea class="form-control bg-dark text-light border-secondary" id="library-description" rows="2" placeholder="What kind of memory packs will this library group?"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
+                <button type="button" class="btn btn-cyber" id="btn-confirm-create-library">
+                    <i class="mdi mdi-plus me-1"></i>{{ 'spirit.memory.library_selector.create_button'|trans|default('Create Library') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# Create Pack Modal #}
 <div class="modal fade" id="createPackModal" tabindex="-1" aria-labelledby="createPackModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -462,6 +508,12 @@
                 extraction_completed: '{{ 'spirit.memory.extract_panel.extraction_completed'|trans }}',
                 extraction_failed: '{{ 'spirit.memory.extract_panel.extraction_failed'|trans }}',
                 select_file_first: '{{ 'spirit.memory.extract_panel.select_file_first'|trans }}'
+            },
+            library_selector: {
+                all_packs: '{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}',
+                create_success: '{{ 'spirit.memory.library_selector.create_success'|trans|default('Library created successfully') }}',
+                create_error: '{{ 'spirit.memory.library_selector.create_error'|trans|default('Failed to create library') }}',
+                name_required: '{{ 'spirit.memory.library_selector.name_required'|trans|default('Library name is required') }}'
             },
             pack_selector: {
                 select_pack: '{{ 'spirit.memory.pack_selector.select_pack'|trans|default('Select a pack') }}',

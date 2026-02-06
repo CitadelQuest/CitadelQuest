@@ -68,6 +68,16 @@ class CQMemoryPackService
             throw new \RuntimeException("Pack file already exists: {$name}");
         }
         
+        // Ensure parent directory path exists via ProjectFileService (filesystem + DB)
+        $pathParts = explode('/', trim($path, '/'));
+        $currentPath = '/';
+        foreach ($pathParts as $part) {
+            if (!$this->projectFileService->findByPathAndName($projectId, $currentPath, $part)) {
+                $this->projectFileService->createDirectory($projectId, $currentPath, $part);
+            }
+            $currentPath = rtrim($currentPath, '/') . '/' . $part;
+        }
+        
         // Get absolute path for SQLite
         $absolutePath = $this->getAbsolutePath($projectId, $path, $name);
         
