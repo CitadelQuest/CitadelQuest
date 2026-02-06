@@ -2753,12 +2753,8 @@ PROMPT;
             // Update job in pack DB
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingBlocks));
             
-            // Update payload by recreating job update
-            $db = $this->getPackConnection();
-            $db->executeStatement(
-                'UPDATE memory_jobs SET payload = ? WHERE id = ?',
-                [json_encode($payload), $jobId]
-            );
+            // Update payload
+            $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
 
@@ -2786,16 +2782,6 @@ PROMPT;
         }
     }
 
-    /**
-     * Get pack database connection (for internal use)
-     */
-    private function getPackConnection()
-    {
-        $reflection = new \ReflectionClass($this->packService);
-        $method = $reflection->getMethod('getConnection');
-        $method->setAccessible(true);
-        return $method->invoke($this->packService);
-    }
 
     /**
      * Process a single step of pack relationship analysis job
@@ -2852,11 +2838,8 @@ PROMPT;
             
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingNodeIds));
             
-            $db = $this->getPackConnection();
-            $db->executeStatement(
-                'UPDATE memory_jobs SET payload = ? WHERE id = ?',
-                [json_encode($payload), $jobId]
-            );
+            // Update payload
+            $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
             return empty($pendingNodeIds);

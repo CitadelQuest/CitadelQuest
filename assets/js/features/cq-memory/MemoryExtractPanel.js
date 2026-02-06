@@ -187,7 +187,6 @@ export class MemoryExtractPanel {
                 
                 // Add root node to graph immediately
                 if (result.rootNode && this.onGraphDelta) {
-                    console.log('📊 Adding root node to graph:', result.rootNode.id);
                     this.onGraphDelta({
                         nodes: [result.rootNode],
                         edges: []
@@ -286,8 +285,6 @@ export class MemoryExtractPanel {
         }
         
         this.isProcessingSteps = true;
-        console.log('🔄 Starting synchronous step-by-step extraction...');
-        
         try {
             while (this.isProcessingSteps) {
                 // Fetch and process ONE step
@@ -319,16 +316,11 @@ export class MemoryExtractPanel {
                 
                 // Apply graph delta immediately
                 if (data.delta && this.onGraphDelta) {
-                    console.log('📊 Step delta:', {
-                        nodes: data.delta.nodes?.length || 0,
-                        edges: data.delta.edges?.length || 0
-                    });
                     this.onGraphDelta(data.delta);
                 }
                 
                 // Check if more steps remain
                 if (!data.hasMoreSteps) {
-                    console.log('✅ All extraction steps complete');
                     this.isProcessingSteps = false;
                     
                     // Resume global polling

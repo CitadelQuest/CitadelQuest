@@ -4,7 +4,6 @@ namespace App\Service;
 
 use App\Entity\User;
 use App\Entity\SpiritMemoryJob;
-use App\Entity\MemoryJob;
 use App\Service\UserDatabaseManager;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -24,8 +23,7 @@ class UpdatesService
         private readonly CqContactService $cqContactService,
         private readonly SpiritMemoryJobService $spiritMemoryJobService,
         private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly SpiritMemoryService $spiritMemoryService,
-        private readonly CQMemoryPackService $packService
+        private readonly SpiritMemoryService $spiritMemoryService
     ) {
         $this->user = $security->getUser();
     }
@@ -418,91 +416,5 @@ class UpdatesService
         }
 
         return $result;
-    }
-
-    /**
-     * Process pack-based memory jobs
-     */
-    private function processPackJobs(array &$result, string $since, array $packContext): void
-    {
-        try {
-            $this->packService->open($packContext['projectId'], $packContext['path'], $packContext['name']);
-            
-            // Get jobs to process from pack
-            $packJobs = $this->packService->getJobsToProcess(1);
-            
-            if (!empty($packJobs)) {
-                $job = $packJobs[0];
-                
-                // Start the job if pending
-                if ($job->isPending()) {
-                    $this->packService->startJob($job);
-                }
-                
-                // Process one step based on job type
-                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE) {
-                    $this->aiToolMemoryService->processPackExtractionJobStep($packContext, $job->getId());
-                    $result['processed'] = true;
-                } elseif ($job->getType() === MemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
-                    $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($packContext, $job->getId());
-                    $result['processed'] = true;
-                }
-            }
-            
-            // Get active pack jobs for status display
-            $activePackJobs = $this->packService->getActiveJobs();
-            foreach ($activePackJobs as $job) {
-                $payload = $job->getPayload();
-                
-                $currentBlock = null;
-                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE && isset($payload['pending_blocks'])) {
-                    $pendingBlocks = $payload['pending_blocks'];
-                    if (!empty($pendingBlocks)) {
-                        $currentBlockData = $pendingBlocks[0] ?? null;
-                        if ($currentBlockData && isset($currentBlockData['title'])) {
-                            $currentBlock = $currentBlockData['title'];
-                        }
-                    }
-                }
-                
-                $result['active'][] = [
-                    'id' => $job->getId(),
-                    'type' => $job->getType(),
-                    'status' => $job->getStatus(),
-                    'progress' => $job->getProgress(),
-                    'totalSteps' => $job->getTotalSteps(),
-                    'createdAt' => $job->getCreatedAt()->format('c'),
-                    'currentBlock' => $currentBlock,
-                    'packContext' => $packContext
-                ];
-            }
-            
-            // Get graph delta from pack
-            $delta = $this->packService->getGraphDelta($since);
-            if (!empty($delta['nodes']) || !empty($delta['edges'])) {
-                $result['graphDeltas']['pack'] = $delta;
-            }
-            
-            // Get recently completed pack jobs
-            $completedPackJobs = $this->packService->getRecentlyCompletedJobs($since);
-            foreach ($completedPackJobs as $job) {
-                $result['completed'][] = [
-                    'id' => $job->getId(),
-                    'type' => $job->getType(),
-                    'status' => $job->getStatus(),
-                    'result' => $job->getResult(),
-                    'error' => $job->getError(),
-                    'completedAt' => $job->getCompletedAt()?->format('c'),
-                    'packContext' => $packContext
-                ];
-            }
-            
-            $this->packService->close();
-            
-        } catch (\Exception $e) {
-            $this->packService->close();
-            // Don't fail the whole request, just log/note the error
-            $result['packError'] = $e->getMessage();
-        }
     }
 }

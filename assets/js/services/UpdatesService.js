@@ -71,8 +71,6 @@ export class UpdatesService {
         this.pausedInterval = interval;
         this.pausedGetCurrentChatId = getCurrentChatId;
 
-        console.log('🔄 Starting unified updates polling...');
-        
         // Poll immediately on start (don't wait for first interval)
         const pollFunction = async () => {
             try {

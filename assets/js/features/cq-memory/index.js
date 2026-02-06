@@ -62,7 +62,7 @@ class CQMemoryExplorer {
         
         // Set callbacks for extraction
         this.extractPanel.onExtractionStart = () => this.startManualPolling();
-        this.extractPanel.onExtractionComplete = () => { this.loadGraphData(); this.updateStats(); };
+        this.extractPanel.onExtractionComplete = () => { this.loadGraphData(); };
         this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
 
         // Register listener with global updates service (polling already started in app)
@@ -155,8 +155,6 @@ class CQMemoryExplorer {
         if (this.manualPollingActive) return;
         
         this.manualPollingActive = true;
-        console.log('🔄 Starting manual polling for memory extraction...');
-        
         this.pollManually();
     }
     
@@ -416,7 +414,6 @@ class CQMemoryExplorer {
             if (selectedOption && selectedOption.value === this.currentPackPath) {
                 const displayName = pack?.displayName || packData.name.replace('.cqmpack', '');
                 selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})`;
-                console.log('✅ Updated pack selector:', displayName, nodeCount);
             }
         } catch (e) {
             console.error('Failed to update pack selector node count:', e);
