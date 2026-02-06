@@ -3,18 +3,15 @@
 namespace App\Controller;
 
 use App\Service\SpiritService;
-use App\Service\CQMemoryPackService;
 use App\Service\ProjectFileService;
 use App\Service\AnnoService;
 use App\Service\AIToolMemoryService;
-use App\Service\CQMemoryLibraryService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 #[Route('/memory')]
 #[IsGranted('ROLE_USER')]
@@ -22,12 +19,9 @@ class CQMemoryController extends AbstractController
 {
     public function __construct(
         private readonly SpiritService $spiritService,
-        private readonly CQMemoryPackService $packService,
         private readonly ProjectFileService $projectFileService,
         private readonly AnnoService $annoService,
-        private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly CQMemoryLibraryService $libraryService,
-        private readonly SluggerInterface $slugger
+        private readonly AIToolMemoryService $aiToolMemoryService
     ) {}
 
     #[Route('', name: 'cq_memory_explorer', methods: ['GET'])]
@@ -49,42 +43,6 @@ class CQMemoryController extends AbstractController
             'spiritId' => $spiritId,
             'libPath' => $libPath
         ]);
-    }
-
-    #[Route('/graph/{spiritId}', name: 'cq_memory_graph_api', methods: ['GET'])]
-    public function getGraphData(string $spiritId): JsonResponse
-    {
-        $spirit = $this->spiritService->findById($spiritId);
-        
-        if (!$spirit) {
-            return new JsonResponse(['error' => 'Spirit not found'], 404);
-        }
-
-        // Open Spirit's root memory pack
-        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
-        $graphData = $this->packService->getGraphData();
-        $this->packService->close();
-
-        return new JsonResponse($graphData);
-    }
-
-    #[Route('/stats/{spiritId}', name: 'cq_memory_stats_api', methods: ['GET'])]
-    public function getStats(string $spiritId): JsonResponse
-    {
-        $spirit = $this->spiritService->findById($spiritId);
-        
-        if (!$spirit) {
-            return new JsonResponse(['error' => 'Spirit not found'], 404);
-        }
-
-        // Open Spirit's root memory pack
-        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
-        $stats = $this->packService->getStats();
-        $this->packService->close();
-
-        return new JsonResponse($stats);
     }
 
     #[Route('/source', name: 'cq_memory_source_api', methods: ['POST'])]
@@ -209,39 +167,4 @@ class CQMemoryController extends AbstractController
         }
     }
 
-    #[Route('/delta/{spiritId}', name: 'cq_memory_graph_delta_api', methods: ['GET'])]
-    public function getGraphDelta(string $spiritId, Request $request): JsonResponse
-    {
-        $spirit = $this->spiritService->findById($spiritId);
-        
-        if (!$spirit) {
-            return new JsonResponse(['error' => 'Spirit not found'], 404);
-        }
-
-        $since = $request->query->get('since');
-        
-        if (!$since) {
-            return new JsonResponse(['error' => 'since parameter is required (ISO 8601 timestamp)'], 400);
-        }
-
-        try {
-            // Convert ISO 8601 to DateTime
-            $sinceDateTime = new \DateTime($since);
-            $sinceFormatted = $sinceDateTime->format('Y-m-d H:i:s');
-
-            // Open Spirit's root memory pack and get delta
-            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-            $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
-            $deltaData = $this->packService->getGraphDelta($sinceFormatted);
-            $this->packService->close();
-
-            // Add current timestamp for next delta query
-            $deltaData['timestamp'] = (new \DateTime())->format('c');
-
-            return new JsonResponse($deltaData);
-
-        } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'Failed to get delta: ' . $e->getMessage()], 500);
-        }
-    }
 }

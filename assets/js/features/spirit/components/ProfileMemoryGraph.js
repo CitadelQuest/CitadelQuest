@@ -57,13 +57,34 @@ export class ProfileMemoryGraph {
         const loadingEl = document.getElementById('profile-memory-loading');
         
         try {
-            const response = await fetch(`/memory/graph/${this.spiritId}`);
+            // Get Spirit's root pack info
+            const initResponse = await fetch(`/spirit/${this.spiritId}/memory/init`);
+            if (!initResponse.ok) {
+                throw new Error(`HTTP ${initResponse.status}`);
+            }
+            const initData = await initResponse.json();
+
+            // Load graph from Spirit's root pack
+            const response = await fetch('/api/memory/pack/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: initData.projectId,
+                    path: initData.packsPath,
+                    name: initData.rootPackName
+                })
+            });
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
 
-            this.graphData = await response.json();
+            const data = await response.json();
+            this.graphData = {
+                nodes: data.nodes || [],
+                edges: data.edges || [],
+                stats: data.stats || {}
+            };
 
             // Update stats
             this.updateStats();
