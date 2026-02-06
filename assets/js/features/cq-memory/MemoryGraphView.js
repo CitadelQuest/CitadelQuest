@@ -459,14 +459,15 @@ export class MemoryGraphView {
         // Clear existing
         this.clearGraph();
 
-        if (!data.nodes || data.nodes.length === 0) {
-            console.log('No nodes to display');
+        // Always initialize layout engine (even if empty) so dynamic addNode/addEdge works
+        const nodes = data.nodes || [];
+        const edges = data.edges || [];
+        this.layoutEngine.initialize(nodes, edges);
+        this.layoutEngine.setOnTick((nodes, links) => this.updatePositions(nodes, links));
+
+        if (nodes.length === 0) {
             return;
         }
-
-        // Initialize layout engine
-        this.layoutEngine.initialize(data.nodes, data.edges);
-        this.layoutEngine.setOnTick((nodes, links) => this.updatePositions(nodes, links));
 
         // Create node meshes
         data.nodes.forEach(node => {

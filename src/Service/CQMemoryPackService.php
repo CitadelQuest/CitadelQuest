@@ -503,6 +503,148 @@ class CQMemoryPackService
         return $nodes;
     }
     
+    /**
+     * Scored recall with recency × importance × relevance weighting
+     * 
+     * Replicates the scoring logic from SpiritMemoryService::recall()
+     * but operates on the currently open pack (no spiritId needed).
+     */
+    public function recall(
+        string $query,
+        ?string $category = null,
+        array $tags = [],
+        int $limit = 10,
+        bool $includeRelated = true,
+        float $recencyWeight = 0.2,
+        float $importanceWeight = 0.4,
+        float $relevanceWeight = 0.4
+    ): array {
+        $db = $this->getConnection();
+        
+        $sql = "SELECT *, 
+                (CASE WHEN content LIKE ? OR summary LIKE ? THEN 1.0 ELSE 0.0 END) as relevance_score
+                FROM memory_nodes 
+                WHERE is_active = 1";
+        $params = ["%{$query}%", "%{$query}%"];
+        
+        if ($category) {
+            $sql .= " AND category = ?";
+            $params[] = $category;
+        }
+        
+        if (!empty($tags)) {
+            $placeholders = implode(',', array_fill(0, count($tags), '?'));
+            $sql .= " AND id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
+            $params = array_merge($params, $tags);
+        }
+        
+        $sql .= " ORDER BY relevance_score DESC, importance DESC, created_at DESC LIMIT ?";
+        $params[] = $limit * 2;
+        
+        $result = $db->executeQuery($sql, $params);
+        $rows = $result->fetchAllAssociative();
+        
+        $scoredResults = [];
+        $now = new \DateTime();
+        
+        foreach ($rows as $row) {
+            $node = MemoryNode::fromArray($row);
+            
+            $daysSinceCreation = max(1, $now->diff($node->getCreatedAt())->days);
+            $recencyScore = 1.0 / (1 + log($daysSinceCreation));
+            
+            $relevanceScore = (float)$row['relevance_score'];
+            $importanceScore = $node->getImportance();
+            
+            $finalScore = ($relevanceScore * $relevanceWeight) +
+                          ($importanceScore * $importanceWeight) +
+                          ($recencyScore * $recencyWeight);
+            
+            $scoredResults[] = [
+                'node' => $node,
+                'score' => $finalScore,
+                'tags' => $this->getTagsForNode($node->getId())
+            ];
+            
+            $this->incrementAccessCount($node->getId());
+        }
+        
+        usort($scoredResults, fn($a, $b) => $b['score'] <=> $a['score']);
+        $scoredResults = array_slice($scoredResults, 0, $limit);
+        
+        if ($includeRelated && !empty($scoredResults)) {
+            $relatedMemories = [];
+            foreach ($scoredResults as $result) {
+                $related = $this->getRelatedNodes($result['node']->getId(), 2);
+                foreach ($related as $rel) {
+                    $relId = $rel->getId();
+                    if (!isset($relatedMemories[$relId])) {
+                        $relatedMemories[$relId] = [
+                            'node' => $rel,
+                            'score' => 0,
+                            'tags' => $this->getTagsForNode($relId),
+                            'isRelated' => true
+                        ];
+                    }
+                }
+            }
+            foreach ($relatedMemories as $relId => $relData) {
+                $alreadyIncluded = false;
+                foreach ($scoredResults as $sr) {
+                    if ($sr['node']->getId() === $relId) {
+                        $alreadyIncluded = true;
+                        break;
+                    }
+                }
+                if (!$alreadyIncluded) {
+                    $scoredResults[] = $relData;
+                }
+            }
+        }
+        
+        return $scoredResults;
+    }
+    
+    /**
+     * Get distinct categories used in this pack
+     */
+    public function getCategories(): array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery(
+            'SELECT DISTINCT category FROM memory_nodes WHERE is_active = 1 ORDER BY category'
+        );
+        
+        return array_column($result->fetchAllAssociative(), 'category');
+    }
+    
+    /**
+     * Check if memories have already been extracted from a specific source
+     */
+    public function hasExtractedFromSource(string $sourceType, string $sourceRef): ?array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery(
+            "SELECT COUNT(*) as count, MAX(created_at) as last_extracted 
+             FROM memory_nodes 
+             WHERE source_type = ? AND source_ref = ? AND is_active = 1",
+            [$sourceType, $sourceRef]
+        );
+        
+        $row = $result->fetchAssociative();
+        
+        if ($row && (int)$row['count'] > 0) {
+            return [
+                'count' => (int)$row['count'],
+                'lastExtracted' => $row['last_extracted']
+            ];
+        }
+        
+        return null;
+    }
+    
     public function updateNode(string $nodeId, string $newContent, ?string $reason = null): MemoryNode
     {
         $db = $this->getConnection();

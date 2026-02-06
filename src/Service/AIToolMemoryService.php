@@ -52,7 +52,31 @@ class AIToolMemoryService
     }
 
     /**
-     * Store a new memory in the Spirit's knowledge graph
+     * Open Spirit's root memory pack for operations
+     * 
+     * @return array Pack info with projectId, packsPath, rootPackName
+     * @throws \RuntimeException if Spirit not found or pack cannot be opened
+     */
+    private function openSpiritPack(string $spiritId): array
+    {
+        $spirit = $this->spiritService->findById($spiritId);
+        if (!$spirit) {
+            throw new \RuntimeException('Spirit not found');
+        }
+        
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        
+        $this->packService->open(
+            $memoryInfo['projectId'],
+            $memoryInfo['packsPath'],
+            $memoryInfo['rootPackName']
+        );
+        
+        return $memoryInfo;
+    }
+
+    /**
+     * Store a new memory in the Spirit's memory pack
      */
     public function memoryStore(array $arguments): array
     {
@@ -73,7 +97,7 @@ class AIToolMemoryService
             }
 
             // Validate category
-            $validCategories = SpiritMemoryNode::getValidCategories();
+            $validCategories = MemoryNode::getValidCategories();
             if (!in_array($arguments['category'], $validCategories)) {
                 return [
                     'success' => false,
@@ -81,7 +105,7 @@ class AIToolMemoryService
                 ];
             }
 
-            // Get the Spirit ID (use primary spirit if not specified)
+            // Get the Spirit ID
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
                 return [
@@ -100,11 +124,12 @@ class AIToolMemoryService
             }
             
             $relatesTo = $arguments['relatesTo'] ?? null;
-            $analyzeRelationships = $arguments['analyzeRelationships'] ?? true; // Default: auto-analyze
+            $analyzeRelationships = $arguments['analyzeRelationships'] ?? true;
 
-            // Store the memory
-            $memory = $this->spiritMemoryService->store(
-                $spiritId,
+            // Open Spirit's root pack and store the memory
+            $this->openSpiritPack($spiritId);
+            
+            $memory = $this->packService->storeNode(
                 $arguments['content'],
                 $arguments['category'],
                 $importance,
@@ -120,13 +145,16 @@ class AIToolMemoryService
                 'category' => $arguments['category']
             ]);
 
-            // Auto-analyze relationships if enabled
+            // Auto-analyze relationships if enabled (pack is already open)
             $relationshipAnalysis = null;
             if ($analyzeRelationships) {
                 $relationshipAnalysis = $this->memoryAnalyzeRelationships([
-                    'memoryId' => $memory->getId()
+                    'memoryId' => $memory->getId(),
+                    '_packAlreadyOpen' => true
                 ]);
             }
+
+            $this->packService->close();
 
             return [
                 'success' => true,
@@ -140,6 +168,7 @@ class AIToolMemoryService
             ];
 
         } catch (\Exception $e) {
+            $this->packService->close();
             $this->logger->error('Error storing memory', ['error' => $e->getMessage()]);
             return [
                 'success' => false,
@@ -149,7 +178,7 @@ class AIToolMemoryService
     }
 
     /**
-     * Recall memories from the Spirit's knowledge graph
+     * Recall memories from the Spirit's memory pack
      */
     public function memoryRecall(array $arguments): array
     {
@@ -180,15 +209,18 @@ class AIToolMemoryService
             $limit = isset($arguments['limit']) ? (int)$arguments['limit'] : 10;
             $includeRelated = $arguments['includeRelated'] ?? true;
 
-            // Recall memories
-            $results = $this->spiritMemoryService->recall(
-                $spiritId,
+            // Open Spirit's root pack and recall memories
+            $this->openSpiritPack($spiritId);
+            
+            $results = $this->packService->recall(
                 $arguments['query'],
                 $category,
                 $tags,
                 $limit,
                 $includeRelated
             );
+            
+            $this->packService->close();
 
             // Format results for AI consumption
             $memories = [];
@@ -218,6 +250,7 @@ class AIToolMemoryService
             ];
 
         } catch (\Exception $e) {
+            $this->packService->close();
             $this->logger->error('Error recalling memories', ['error' => $e->getMessage()]);
             return [
                 'success' => false,
@@ -247,14 +280,21 @@ class AIToolMemoryService
                 ];
             }
 
+            $spiritId = $arguments['spiritId'] ?? null;
+            if (!$spiritId) {
+                return ['success' => false, 'error' => 'No Spirit found'];
+            }
+
             $reason = $arguments['reason'] ?? null;
 
-            // Update the memory
-            $newMemory = $this->spiritMemoryService->update(
+            // Open Spirit's pack, update, close
+            $this->openSpiritPack($spiritId);
+            $newMemory = $this->packService->updateNode(
                 $arguments['memoryId'],
                 $arguments['newContent'],
                 $reason
             );
+            $this->packService->close();
 
             $this->logger->info('Memory updated via AI tool', [
                 'oldMemoryId' => $arguments['memoryId'],
@@ -270,6 +310,7 @@ class AIToolMemoryService
             ];
 
         } catch (\Exception $e) {
+            $this->packService->close();
             $this->logger->error('Error updating memory', ['error' => $e->getMessage()]);
             return [
                 'success' => false,
@@ -292,13 +333,20 @@ class AIToolMemoryService
                 ];
             }
 
+            $spiritId = $arguments['spiritId'] ?? null;
+            if (!$spiritId) {
+                return ['success' => false, 'error' => 'No Spirit found'];
+            }
+
             $reason = $arguments['reason'] ?? null;
 
-            // Forget the memory
-            $success = $this->spiritMemoryService->forget(
+            // Open Spirit's pack, forget, close
+            $this->openSpiritPack($spiritId);
+            $success = $this->packService->forgetNode(
                 $arguments['memoryId'],
                 $reason
             );
+            $this->packService->close();
 
             if (!$success) {
                 return [
@@ -319,6 +367,7 @@ class AIToolMemoryService
             ];
 
         } catch (\Exception $e) {
+            $this->packService->close();
             $this->logger->error('Error forgetting memory', ['error' => $e->getMessage()]);
             return [
                 'success' => false,
@@ -1040,6 +1089,8 @@ PROMPT;
      */
     public function memoryAnalyzeRelationships(array $arguments): array
     {
+        $packOpenedHere = false;
+        
         try {
             // Validate required arguments
             if (!isset($arguments['memoryId']) || empty($arguments['memoryId'])) {
@@ -1052,34 +1103,43 @@ PROMPT;
             $memoryId = $arguments['memoryId'];
             $maxComparisons = $arguments['maxComparisons'] ?? 50;
 
-            // Get the memory to analyze
-            $memory = $this->spiritMemoryService->findById($memoryId);
+            // Open Spirit's pack if not already open (when called from memoryStore, pack is already open)
+            if (empty($arguments['_packAlreadyOpen'])) {
+                $spiritId = $arguments['spiritId'] ?? null;
+                if (!$spiritId) {
+                    return [
+                        'success' => false,
+                        'error' => 'spiritId is required when pack is not already open'
+                    ];
+                }
+                $this->openSpiritPack($spiritId);
+                $packOpenedHere = true;
+            }
+
+            // Get the memory to analyze from the pack
+            $memory = $this->packService->findNodeById($memoryId);
             if (!$memory) {
+                if ($packOpenedHere) $this->packService->close();
                 return [
                     'success' => false,
                     'error' => "Memory not found: {$memoryId}"
                 ];
             }
 
-            $spiritId = $memory->getSpiritId();
-
             // Determine which categories to compare against
             $categoriesToCompare = $arguments['categories'] ?? null;
             if (!$categoriesToCompare) {
-                // Get all categories for this spirit
-                $categoriesToCompare = $this->spiritMemoryService->getCategories($spiritId);
+                $categoriesToCompare = $this->packService->getCategories();
             }
 
             // Collect existing memories to compare against
             $existingMemories = [];
             foreach ($categoriesToCompare as $category) {
-                $categoryMemories = $this->spiritMemoryService->findByCategory($spiritId, $category);
+                $categoryMemories = $this->packService->findByCategory($category);
                 foreach ($categoryMemories as $existingMemory) {
-                    // Skip the memory we're analyzing
                     if ($existingMemory->getId() === $memoryId) {
                         continue;
                     }
-                    // Limit per category
                     if (count($existingMemories) >= $maxComparisons * count($categoriesToCompare)) {
                         break 2;
                     }
@@ -1089,13 +1149,14 @@ PROMPT;
                         'summary' => $existingMemory->getSummary(),
                         'category' => $existingMemory->getCategory(),
                         'importance' => $existingMemory->getImportance(),
-                        'tags' => $this->spiritMemoryService->getTagsForMemory($existingMemory->getId())
+                        'tags' => $this->packService->getTagsForNode($existingMemory->getId())
                     ];
                 }
             }
 
             // If no existing memories to compare, nothing to do
             if (empty($existingMemories)) {
+                if ($packOpenedHere) $this->packService->close();
                 return [
                     'success' => true,
                     'message' => 'No existing memories to compare against',
@@ -1108,13 +1169,13 @@ PROMPT;
             $aiServiceModel = null;
             $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
             if ($gateway) {
-                // Try fast models first for efficiency
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
                 if (!$aiServiceModel) {
                     $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
                 }
             }
             if (!$aiServiceModel) {
+                if ($packOpenedHere) $this->packService->close();
                 return [
                     'success' => false,
                     'error' => 'No AI service model configured for Relationship Analyzer'
@@ -1160,6 +1221,7 @@ PROMPT;
                     'memoryId' => $memoryId,
                     'response' => $this->extractResponseContent($aiServiceResponse)
                 ]);
+                if ($packOpenedHere) $this->packService->close();
                 return [
                     'success' => false,
                     'error' => 'Failed to parse relationship analysis response'
@@ -1171,7 +1233,6 @@ PROMPT;
             $relationships = $analysisResult['relationships'] ?? [];
 
             foreach ($relationships as $rel) {
-                // Validate relationship data
                 if (!isset($rel['existingMemoryId']) || !isset($rel['type'])) {
                     continue;
                 }
@@ -1182,15 +1243,7 @@ PROMPT;
                 $context = $rel['context'] ?? null;
 
                 // Validate relationship type
-                $validTypes = [
-                    SpiritMemoryNode::RELATION_RELATES_TO,
-                    SpiritMemoryNode::RELATION_DERIVED_FROM,
-                    SpiritMemoryNode::RELATION_EVOLVED_INTO,
-                    SpiritMemoryNode::RELATION_PART_OF,
-                    SpiritMemoryNode::RELATION_CONTRADICTS,
-                    SpiritMemoryNode::RELATION_REINFORCES,
-                    SpiritMemoryNode::RELATION_SUPERSEDES
-                ];
+                $validTypes = MemoryNode::getValidRelationTypes();
 
                 if (!in_array($type, $validTypes)) {
                     $this->logger->warning('Invalid relationship type from analyzer', [
@@ -1201,13 +1254,13 @@ PROMPT;
                 }
 
                 // Check if relationship already exists
-                if ($this->spiritMemoryService->relationshipExists($memoryId, $existingMemoryId, $type)) {
+                if ($this->packService->relationshipExists($memoryId, $existingMemoryId, $type)) {
                     continue;
                 }
 
                 // Create the relationship
                 try {
-                    $relationship = $this->spiritMemoryService->createRelationship(
+                    $relationship = $this->packService->createRelationship(
                         $memoryId,
                         $existingMemoryId,
                         $type,
@@ -1233,28 +1286,13 @@ PROMPT;
                 }
             }
 
-            // Log consolidation action
-            if (!empty($createdRelationships)) {
-                $this->spiritMemoryService->logConsolidation(
-                    $spiritId,
-                    'analyze_relationships',
-                    array_column($createdRelationships, 'id'),
-                    [
-                        'memoryId' => $memoryId,
-                        'memoriesCompared' => count($existingMemories),
-                        'relationshipsDetected' => count($relationships),
-                        'relationshipsCreated' => count($createdRelationships),
-                        'analysis' => $analysisResult['analysis'] ?? null
-                    ]
-                );
-            }
-
             $this->logger->info('Memory relationships analyzed', [
                 'memoryId' => $memoryId,
-                'spiritId' => $spiritId,
                 'memoriesCompared' => count($existingMemories),
                 'relationshipsCreated' => count($createdRelationships)
             ]);
+
+            if ($packOpenedHere) $this->packService->close();
 
             return [
                 'success' => true,
@@ -1267,6 +1305,7 @@ PROMPT;
             ];
 
         } catch (\Exception $e) {
+            if ($packOpenedHere) $this->packService->close();
             $this->logger->error('Error analyzing memory relationships', [
                 'error' => $e->getMessage(),
                 'arguments' => $arguments
@@ -1356,7 +1395,7 @@ PROMPT;
     /**
      * Build the user message for the Relationship Analyzer
      */
-    private function buildRelationshipAnalyzerUserMessage(SpiritMemoryNode $newMemory, array $existingMemories): string
+    private function buildRelationshipAnalyzerUserMessage(MemoryNode $newMemory, array $existingMemories): string
     {
         $message = "## NEW MEMORY TO ANALYZE\n\n";
         $message .= "**ID**: " . $newMemory->getId() . "\n";
@@ -1365,7 +1404,7 @@ PROMPT;
         if ($newMemory->getSummary()) {
             $message .= "**Summary**: " . $newMemory->getSummary() . "\n";
         }
-        $tags = $this->spiritMemoryService->getTagsForMemory($newMemory->getId());
+        $tags = $this->packService->getTagsForNode($newMemory->getId());
         if (!empty($tags)) {
             $message .= "**Tags**: " . implode(', ', $tags) . "\n";
         }
@@ -2817,7 +2856,10 @@ PROMPT;
             $newRelationships = 0;
 
             try {
-                $result = $this->analyzePackNodeRelationships($nodeId);
+                $result = $this->memoryAnalyzeRelationships([
+                    'memoryId' => $nodeId,
+                    '_packAlreadyOpen' => true
+                ]);
                 if ($result['success'] ?? false) {
                     $newRelationships = $result['relationshipsCreated'] ?? 0;
                 }
@@ -2855,141 +2897,5 @@ PROMPT;
             $this->packService->close();
             return true;
         }
-    }
-
-    /**
-     * Analyze relationships for a node within a pack (pack must be open)
-     */
-    private function analyzePackNodeRelationships(string $nodeId): array
-    {
-        // Get the node
-        $node = $this->packService->findNodeById($nodeId);
-        if (!$node) {
-            return ['success' => false, 'error' => 'Node not found'];
-        }
-
-        // Get all other active nodes for comparison
-        $allNodes = $this->packService->findAllNodes(true);
-        $existingMemories = [];
-        
-        foreach ($allNodes as $existingNode) {
-            if ($existingNode->getId() === $nodeId) continue;
-            if (count($existingMemories) >= 50) break;
-            
-            $existingMemories[] = [
-                'id' => $existingNode->getId(),
-                'content' => $existingNode->getContent(),
-                'summary' => $existingNode->getSummary(),
-                'category' => $existingNode->getCategory(),
-                'importance' => $existingNode->getImportance(),
-                'tags' => $this->packService->getTagsForNode($existingNode->getId())
-            ];
-        }
-
-        if (empty($existingMemories)) {
-            return ['success' => true, 'relationshipsCreated' => 0];
-        }
-
-        // Get AI model
-        $aiServiceModel = $this->getExtractionModel();
-        if (!$aiServiceModel) {
-            return ['success' => false, 'error' => 'No AI model'];
-        }
-
-        // Build and send relationship analysis request
-        $systemPrompt = $this->buildRelationshipAnalyzerSystemPrompt();
-        
-        // Build user message manually since we have MemoryNode not SpiritMemoryNode
-        $message = "## NEW MEMORY TO ANALYZE\n\n";
-        $message .= "**ID**: " . $node->getId() . "\n";
-        $message .= "**Category**: " . $node->getCategory() . "\n";
-        $message .= "**Content**: " . $node->getContent() . "\n";
-        if ($node->getSummary()) {
-            $message .= "**Summary**: " . $node->getSummary() . "\n";
-        }
-        $tags = $this->packService->getTagsForNode($node->getId());
-        if (!empty($tags)) {
-            $message .= "**Tags**: " . implode(', ', $tags) . "\n";
-        }
-        $message .= "\n---\n\n## EXISTING MEMORIES TO COMPARE AGAINST\n\n";
-        
-        foreach ($existingMemories as $index => $mem) {
-            $message .= "### Memory " . ($index + 1) . "\n";
-            $message .= "**ID**: " . $mem['id'] . "\n";
-            $message .= "**Category**: " . $mem['category'] . "\n";
-            $message .= "**Content**: " . $mem['content'] . "\n";
-            if (!empty($mem['summary'])) {
-                $message .= "**Summary**: " . $mem['summary'] . "\n";
-            }
-            if (!empty($mem['tags'])) {
-                $message .= "**Tags**: " . implode(', ', $mem['tags']) . "\n";
-            }
-            $message .= "\n";
-        }
-        $message .= "---\n\nAnalyze and respond with ONLY the JSON object.";
-
-        $messages = [
-            ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $message]
-        ];
-
-        $userLocale = $this->settingsService->getUserLocale();
-        $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-            $aiServiceModel->getId(),
-            $messages,
-            null,
-            0.3
-        );
-
-        $aiServiceResponse = $this->aiGatewayService->sendRequest(
-            $aiServiceRequest,
-            'Pack Relationship Analyzer Sub-Agent',
-            $userLocale['lang'],
-            'general'
-        );
-
-        $analysisResult = $this->parseRelationshipAnalyzerResponse($aiServiceResponse);
-        if (!$analysisResult) {
-            return ['success' => false, 'error' => 'Failed to parse response'];
-        }
-
-        // Create relationships
-        $createdCount = 0;
-        $relationships = $analysisResult['relationships'] ?? [];
-
-        foreach ($relationships as $rel) {
-            if (!isset($rel['existingMemoryId']) || !isset($rel['type'])) continue;
-
-            $type = strtoupper($rel['type']);
-            $validTypes = [
-                MemoryNode::RELATION_RELATES_TO,
-                MemoryNode::RELATION_DERIVED_FROM,
-                MemoryNode::RELATION_EVOLVED_INTO,
-                MemoryNode::RELATION_PART_OF,
-                MemoryNode::RELATION_CONTRADICTS,
-                MemoryNode::RELATION_REINFORCES,
-                MemoryNode::RELATION_SUPERSEDES
-            ];
-
-            if (!in_array($type, $validTypes)) continue;
-
-            try {
-                $this->packService->createRelationship(
-                    $nodeId,
-                    $rel['existingMemoryId'],
-                    $type,
-                    $rel['strength'] ?? 0.8,
-                    $rel['context'] ?? null
-                );
-                $createdCount++;
-            } catch (\Exception $e) {
-                // Ignore duplicate relationship errors
-            }
-        }
-
-        return [
-            'success' => true,
-            'relationshipsCreated' => $createdCount
-        ];
     }
 }
