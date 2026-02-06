@@ -21,7 +21,7 @@ class CQMemoryExplorer {
         this.md = new MarkdownIt({ html: false, breaks: true, linkify: true });
         
         // Pack management state
-        this.currentPackPath = this.spiritId ? '__legacy__' : null; // Legacy mode only with Spirit context
+        this.currentPackPath = null;
         this.currentPackMetadata = null;
         this.availablePacks = [];
         this.availableLibraries = [];
@@ -81,7 +81,7 @@ class CQMemoryExplorer {
         await this.loadLibraries();
         await this.loadPacks();
 
-        // Load graph data (from selected pack or legacy, skip if no context)
+        // Load graph data (from selected pack, skip if no context)
         if (this.currentPackPath) {
             await this.loadGraphData();
         } else {
@@ -103,7 +103,7 @@ class CQMemoryExplorer {
         // Polling is already started globally in cq-chat-modal.js entry point
         updatesService.addListener('memoryExplorer', async (updates) => {
             if (updates.memoryJobs?.active?.length > 0) {
-                // Filter jobs for this spirit (legacy jobs only - pack jobs handled separately)
+                // Filter jobs for this spirit
                 const spiritJobs = updates.memoryJobs.active.filter(job => job.spiritId === this.spiritId);
                 
                 if (spiritJobs.length > 0) {
@@ -296,8 +296,8 @@ class CQMemoryExplorer {
         try {
             let response;
             
-            // Check if loading from a pack or legacy mode
-            if (this.currentPackPath && this.currentPackPath !== '__legacy__') {
+            // Check if loading from a pack
+            if (this.currentPackPath) {
                 // Check if it's a library or pack
                 if (this.currentPackPath.startsWith('lib:')) {
                     // Load from library
@@ -320,9 +320,6 @@ class CQMemoryExplorer {
                         })
                     });
                 }
-            } else if (this.spiritId) {
-                // Legacy mode - load from user database (requires Spirit context)
-                response = await fetch(`/memory/graph/${this.spiritId}`);
             } else {
                 // No pack selected and no Spirit context - nothing to load
                 if (loadingEl) loadingEl.classList.add('d-none');
@@ -335,17 +332,13 @@ class CQMemoryExplorer {
 
             const data = await response.json();
             
-            // Normalize response format (pack API returns different structure)
-            if (this.currentPackPath && this.currentPackPath !== '__legacy__') {
-                this.graphData = {
-                    nodes: data.nodes || [],
-                    edges: data.edges || [],
-                    stats: data.stats || {}
-                };
-                this.currentPackMetadata = data.metadata || {};
-            } else {
-                this.graphData = data;
-            }
+            // Normalize response format
+            this.graphData = {
+                nodes: data.nodes || [],
+                edges: data.edges || [],
+                stats: data.stats || {}
+            };
+            this.currentPackMetadata = data.metadata || {};
 
             // Update stats
             this.updateStats();
@@ -392,7 +385,7 @@ class CQMemoryExplorer {
     
     updatePackSelectorNodeCount() {
         const packSelector = document.getElementById('pack-selector');
-        if (!packSelector || !this.currentPackPath || this.currentPackPath === '__legacy__') {
+        if (!packSelector || !this.currentPackPath) {
             return;
         }
         
@@ -1160,6 +1153,7 @@ class CQMemoryExplorer {
                 this.memoryPath = pathData.memoryPath;
                 this.packsPath = pathData.packsPath;
                 this.rootLibraryName = pathData.rootLibraryName;
+                this.rootPackName = pathData.rootPackName;
                 this.spiritNameSlug = pathData.spiritNameSlug;
             } else {
                 // No Spirit context - organized under /memory/
@@ -1431,11 +1425,6 @@ class CQMemoryExplorer {
             // Build selector options
             let html = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
             
-            // Add legacy mode option only when Spirit context is available and no library filter
-            if (this.spiritId && !this.selectedLibrary) {
-                html += `<option value="__legacy__">${trans.legacy_mode || 'Legacy (user database)'}</option>`;
-            }
-            
             // Add available packs
             if (packsToShow.length > 0) {
                 packsToShow.forEach(pack => {
@@ -1451,11 +1440,9 @@ class CQMemoryExplorer {
             // Restore last selected pack from localStorage
             const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
             const lastPack = localStorage.getItem(storageKey);
-            if (lastPack === '__legacy__' && this.spiritId && !this.selectedLibrary) {
-                packSelector.value = lastPack;
-                this.currentPackPath = lastPack;
-                this.extractPanel.setTargetPack(null, this.projectId);
-            } else if (lastPack && lastPack !== '__legacy__') {
+            let selectedPack = false;
+
+            if (lastPack) {
                 // Try to find matching pack option
                 try {
                     const lastPackData = JSON.parse(lastPack);
@@ -1468,32 +1455,29 @@ class CQMemoryExplorer {
                             path: lastPackData.path,
                             name: lastPackData.name
                         }, this.projectId);
-                    } else if (this.spiritId && !this.selectedLibrary) {
-                        packSelector.value = '__legacy__';
-                        this.currentPackPath = '__legacy__';
-                        this.extractPanel.setTargetPack(null, this.projectId);
-                    } else {
-                        packSelector.value = '';
-                        this.currentPackPath = null;
-                        this.extractPanel.setTargetPack(null, this.projectId);
+                        selectedPack = true;
                     }
-                } catch {
-                    if (this.spiritId && !this.selectedLibrary) {
-                        packSelector.value = '__legacy__';
-                        this.currentPackPath = '__legacy__';
-                    } else {
-                        packSelector.value = '';
-                        this.currentPackPath = null;
-                    }
-                    this.extractPanel.setTargetPack(null, this.projectId);
+                } catch { /* ignore */ }
+            }
+
+            // Auto-select Spirit's root pack if no pack was restored
+            if (!selectedPack && this.spiritId && this.packsPath && this.rootPackName && !this.selectedLibrary) {
+                const rootPack = packsToShow.find(p => p.path === this.packsPath && p.name === this.rootPackName);
+                if (rootPack) {
+                    const rootPackValue = JSON.stringify({ path: rootPack.path, name: rootPack.name });
+                    packSelector.value = rootPackValue;
+                    this.currentPackPath = rootPackValue;
+                    this.extractPanel.setTargetPack({
+                        projectId: this.projectId,
+                        path: rootPack.path,
+                        name: rootPack.name
+                    }, this.projectId);
+                    localStorage.setItem(storageKey, rootPackValue);
+                    selectedPack = true;
                 }
-            } else if (this.spiritId && !this.selectedLibrary) {
-                // Default to legacy mode if no pack selected and Spirit context available
-                packSelector.value = '__legacy__';
-                this.currentPackPath = '__legacy__';
-                this.extractPanel.setTargetPack(null, this.projectId);
-            } else {
-                // No Spirit context or library selected - no default selection
+            }
+
+            if (!selectedPack) {
                 packSelector.value = '';
                 this.currentPackPath = null;
                 this.extractPanel.setTargetPack(null, this.projectId);
@@ -1501,13 +1485,8 @@ class CQMemoryExplorer {
 
         } catch (error) {
             console.error('Failed to load packs:', error);
-            if (this.spiritId) {
-                packSelector.innerHTML = `<option value="__legacy__">${trans.legacy_mode || 'Legacy (user database)'}</option>`;
-                this.currentPackPath = '__legacy__';
-            } else {
-                packSelector.innerHTML = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
-                this.currentPackPath = null;
-            }
+            packSelector.innerHTML = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
+            this.currentPackPath = null;
         }
     }
 
@@ -1568,22 +1547,16 @@ class CQMemoryExplorer {
         this.hideNodeDetails();
         
         // Update extract panel's target pack
-        if (packPath === '__legacy__') {
-            // Legacy mode - disable pack extraction
+        try {
+            const packData = JSON.parse(packPath);
+            this.extractPanel.setTargetPack({
+                projectId: this.projectId,
+                path: packData.path,
+                name: packData.name
+            }, this.projectId);
+        } catch (e) {
+            console.error('Failed to parse pack path:', e);
             this.extractPanel.setTargetPack(null, this.projectId);
-        } else {
-            // Pack selected - parse JSON and set target
-            try {
-                const packData = JSON.parse(packPath);
-                this.extractPanel.setTargetPack({
-                    projectId: this.projectId,
-                    path: packData.path,
-                    name: packData.name
-                }, this.projectId);
-            } catch (e) {
-                console.error('Failed to parse pack path:', e);
-                this.extractPanel.setTargetPack(null, this.projectId);
-            }
         }
 
         // Reload graph data from selected pack

@@ -363,7 +363,7 @@ export class MemoryExtractPanel {
     }
 
     updateJobProgress(jobs) {
-        // Update active jobs with new progress data (legacy spirit jobs only)
+        // Update active jobs with new progress data
         jobs.forEach(job => {
             if (job.spiritId === this.spiritId) {
                 this.activeJobs.set(job.id, job);

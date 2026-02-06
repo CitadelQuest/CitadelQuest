@@ -3,7 +3,7 @@
 namespace App\Controller;
 
 use App\Service\SpiritService;
-use App\Service\SpiritMemoryService;
+use App\Service\CQMemoryPackService;
 use App\Service\ProjectFileService;
 use App\Service\AnnoService;
 use App\Service\AIToolMemoryService;
@@ -22,7 +22,7 @@ class CQMemoryController extends AbstractController
 {
     public function __construct(
         private readonly SpiritService $spiritService,
-        private readonly SpiritMemoryService $spiritMemoryService,
+        private readonly CQMemoryPackService $packService,
         private readonly ProjectFileService $projectFileService,
         private readonly AnnoService $annoService,
         private readonly AIToolMemoryService $aiToolMemoryService,
@@ -60,7 +60,11 @@ class CQMemoryController extends AbstractController
             return new JsonResponse(['error' => 'Spirit not found'], 404);
         }
 
-        $graphData = $this->spiritMemoryService->getGraphData($spiritId);
+        // Open Spirit's root memory pack
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+        $graphData = $this->packService->getGraphData();
+        $this->packService->close();
 
         return new JsonResponse($graphData);
     }
@@ -74,7 +78,11 @@ class CQMemoryController extends AbstractController
             return new JsonResponse(['error' => 'Spirit not found'], 404);
         }
 
-        $stats = $this->spiritMemoryService->getStats($spiritId);
+        // Open Spirit's root memory pack
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+        $stats = $this->packService->getStats();
+        $this->packService->close();
 
         return new JsonResponse($stats);
     }
@@ -221,8 +229,11 @@ class CQMemoryController extends AbstractController
             $sinceDateTime = new \DateTime($since);
             $sinceFormatted = $sinceDateTime->format('Y-m-d H:i:s');
 
-            // Get nodes and edges created after the timestamp
-            $deltaData = $this->spiritMemoryService->getGraphDelta($spiritId, $sinceFormatted);
+            // Open Spirit's root memory pack and get delta
+            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+            $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+            $deltaData = $this->packService->getGraphDelta($sinceFormatted);
+            $this->packService->close();
 
             // Add current timestamp for next delta query
             $deltaData['timestamp'] = (new \DateTime())->format('c');
