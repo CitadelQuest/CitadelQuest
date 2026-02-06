@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
  * Service for managing CQ Memory Library (.cqmlib) JSON files
  * 
  * A CQ Memory Library is a JSON file that references multiple Memory Packs,
- * allowing organized collections of knowledge for Spirits.
+ * allowing organized collections of knowledge.
  * 
  * All file operations use ProjectFileService with projectId + relativePath + name.
  */
@@ -28,19 +28,10 @@ class CQMemoryLibraryService
     ) {}
     
     /**
-     * Get the memory directory relative path for a Spirit
-     * Returns relative path like: /spirit/{spiritNameSlug}/memory
-     */
-    public function getSpiritMemoryPath(string $spiritNameSlug): string
-    {
-        return "/spirit/{$spiritNameSlug}/memory";
-    }
-    
-    /**
      * Create a new memory library file
      * 
      * @param string $projectId Project ID
-     * @param string $path Directory path (e.g., '/spirit/memory')
+     * @param string $path Directory path (e.g., '/memory/libs')
      * @param string $name Library filename (without extension)
      * @param array $options Optional library options
      */
@@ -412,92 +403,6 @@ class CQMemoryLibraryService
                 'packCount' => count($packSources)
             ],
             'packs' => $packSources
-        ];
-    }
-    
-    /**
-     * Create Spirit's root library and initial session pack
-     * 
-     * @param string $projectId Project ID
-     * @param string $spiritNameSlug Spirit name slug
-     */
-    public function initializeSpiritMemory(string $projectId, string $spiritNameSlug): array
-    {
-        $memoryPath = $this->getSpiritMemoryPath($spiritNameSlug);
-        $packsPath = $memoryPath . '/packs';
-        
-        // Ensure directories exist via ProjectFileService
-        $spiritDir = '/spirit/' . $spiritNameSlug;
-        
-        // Create directory structure via ProjectFileService (handles both filesystem and database)
-        if (!$this->projectFileService->findByPathAndName($projectId, '/', 'spirit')) {
-            $this->projectFileService->createDirectory($projectId, '/', 'spirit');
-        }
-        if (!$this->projectFileService->findByPathAndName($projectId, '/spirit', $spiritNameSlug)) {
-            $this->projectFileService->createDirectory($projectId, '/spirit', $spiritNameSlug);
-        }
-        if (!$this->projectFileService->findByPathAndName($projectId, $spiritDir, 'memory')) {
-            $this->projectFileService->createDirectory($projectId, $spiritDir, 'memory');
-        }
-        if (!$this->projectFileService->findByPathAndName($projectId, $memoryPath, 'packs')) {
-            $this->projectFileService->createDirectory($projectId, $memoryPath, 'packs');
-        }
-        
-        // Create root library
-        $rootLibraryName = $spiritNameSlug . '.' . self::FILE_EXTENSION;
-        
-        if (!$this->projectFileService->findByPathAndName($projectId, $memoryPath, $rootLibraryName)) {
-            $this->createLibrary($projectId, $memoryPath, $rootLibraryName, [
-                'name' => "{$spiritNameSlug} Memory Library",
-                'description' => "Root memory library for Spirit: {$spiritNameSlug}"
-            ]);
-        }
-        
-        // Create initial session pack
-        $sessionPackName = "session-" . date('Y-m-d') . '.' . CQMemoryPackService::FILE_EXTENSION;
-        
-        if (!$this->projectFileService->findByPathAndName($projectId, $packsPath, $sessionPackName)) {
-            $this->packService->create($projectId, $packsPath, $sessionPackName, [
-                'name' => "Session " . date('Y-m-d'),
-                'description' => "Memories from session on " . date('Y-m-d')
-            ]);
-            $this->packService->close();
-            
-            // Add to root library
-            $this->addPackToLibrary($projectId, $memoryPath, $rootLibraryName, $packsPath, $sessionPackName, [
-                'priority' => 1,
-                'tags' => ['session', 'current']
-            ]);
-        }
-        
-        return [
-            'memoryPath' => $memoryPath,
-            'rootLibraryPath' => $memoryPath,
-            'rootLibraryName' => $rootLibraryName,
-            'currentPackPath' => $packsPath,
-            'currentPackName' => $sessionPackName
-        ];
-    }
-    
-    /**
-     * Get or create current session pack for a Spirit
-     */
-    public function getCurrentSessionPack(string $projectId, string $spiritNameSlug): array
-    {
-        $memoryPath = $this->getSpiritMemoryPath($spiritNameSlug);
-        $packsPath = $memoryPath . '/packs';
-        
-        // Check if today's session pack exists
-        $sessionPackName = "session-" . date('Y-m-d') . '.' . CQMemoryPackService::FILE_EXTENSION;
-        
-        if (!$this->projectFileService->findByPathAndName($projectId, $packsPath, $sessionPackName)) {
-            // Initialize Spirit memory if not already done
-            $this->initializeSpiritMemory($projectId, $spiritNameSlug);
-        }
-        
-        return [
-            'path' => $packsPath,
-            'name' => $sessionPackName
         ];
     }
 }

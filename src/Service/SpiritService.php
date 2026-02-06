@@ -25,6 +25,8 @@ class SpiritService
         private LoggerInterface $logger,
         private SluggerInterface $slugger,
         private ProjectFileService $projectFileService,
+        private CQMemoryPackService $packService,
+        private CQMemoryLibraryService $libraryService,
     ) {}
     
     /**
@@ -110,11 +112,105 @@ class SpiritService
             return null;
         }
 
-        return Spirit::fromArray($data);
+        $spirit = Spirit::fromArray($data);
+        
+        // Ensure Spirit's CQ Memory Library + Pack files exist
+        $this->initSpiritMemory($spirit);
+
+        return $spirit;
     }
     public function findById(string $id): ?Spirit
     {
         return $this->getSpirit($id);
+    }
+
+    /**
+     * Initialize Spirit's CQ Memory infrastructure (root library + root pack)
+     * 
+     * Ensures the following convention-based structure exists:
+     *   /spirit/{slug}/memory/{slug}.cqmlib        (root library)
+     *   /spirit/{slug}/memory/packs/{slug}.cqmpack  (root pack)
+     * 
+     * Idempotent — safe to call on every getSpirit() call.
+     * 
+     * @return array Memory path info: projectId, memoryPath, packsPath, rootLibraryName, rootPackName
+     */
+    public function initSpiritMemory(Spirit $spirit): array
+    {
+        $projectId = 'general';
+        $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
+        
+        $memoryPath = '/spirit/' . $spiritNameSlug . '/memory';
+        $packsPath = $memoryPath . '/packs';
+        $rootLibraryName = $spiritNameSlug . '.' . CQMemoryLibraryService::FILE_EXTENSION;
+        $rootPackName = $spiritNameSlug . '.' . CQMemoryPackService::FILE_EXTENSION;
+        
+        try {
+            // Ensure directory structure exists via ProjectFileService
+            $dirs = [
+                ['/', 'spirit'],
+                ['/spirit', $spiritNameSlug],
+                ['/spirit/' . $spiritNameSlug, 'memory'],
+                [$memoryPath, 'packs'],
+            ];
+            
+            foreach ($dirs as [$parentPath, $dirName]) {
+                if (!$this->projectFileService->findByPathAndName($projectId, $parentPath, $dirName)) {
+                    $this->projectFileService->createDirectory($projectId, $parentPath, $dirName);
+                }
+            }
+            
+            // Create root pack if it doesn't exist
+            if (!$this->projectFileService->findByPathAndName($projectId, $packsPath, $rootPackName)) {
+                $this->packService->create($projectId, $packsPath, $rootPackName, [
+                    'name' => $spirit->getName() . ' Memory',
+                    'description' => 'Root memory pack for Spirit ' . $spirit->getName(),
+                ]);
+                
+                $this->logger->info('Created root memory pack for Spirit', [
+                    'spiritId' => $spirit->getId(),
+                    'pack' => $packsPath . '/' . $rootPackName,
+                ]);
+            }
+            
+            // Create root library if it doesn't exist
+            if (!$this->projectFileService->findByPathAndName($projectId, $memoryPath, $rootLibraryName)) {
+                $this->libraryService->createLibrary($projectId, $memoryPath, $rootLibraryName, [
+                    'name' => $spirit->getName() . ' Memory Library',
+                    'description' => 'Root memory library for Spirit ' . $spirit->getName(),
+                ]);
+                
+                // Add root pack to the library
+                $this->libraryService->addPackToLibrary(
+                    $projectId,
+                    $memoryPath,
+                    $rootLibraryName,
+                    $packsPath,
+                    $rootPackName,
+                    ['name' => $spirit->getName() . ' Memory']
+                );
+                
+                $this->logger->info('Created root memory library for Spirit', [
+                    'spiritId' => $spirit->getId(),
+                    'library' => $memoryPath . '/' . $rootLibraryName,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Non-fatal — Spirit works without memory infrastructure
+            $this->logger->warning('Failed to initialize Spirit memory', [
+                'spiritId' => $spirit->getId(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+        
+        return [
+            'projectId' => $projectId,
+            'memoryPath' => $memoryPath,
+            'packsPath' => $packsPath,
+            'rootLibraryName' => $rootLibraryName,
+            'rootPackName' => $rootPackName,
+            'spiritNameSlug' => $spiritNameSlug,
+        ];
     }
     
     /**

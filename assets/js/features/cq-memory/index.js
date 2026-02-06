@@ -78,7 +78,6 @@ class CQMemoryExplorer {
         this.setupPackSelector();
 
         // Initialize memory structure, load libraries, then load packs
-        await this.initializeSpiritMemory();
         await this.loadLibraries();
         await this.loadPacks();
 
@@ -1152,7 +1151,7 @@ class CQMemoryExplorer {
         try {
             // Get memory path - Spirit-specific or project root
             if (this.spiritId) {
-                const pathResponse = await fetch(`/spirit/${this.spiritId}/memory/path`);
+                const pathResponse = await fetch(`/spirit/${this.spiritId}/memory/init`);
                 if (!pathResponse.ok) {
                     throw new Error(`HTTP ${pathResponse.status}`);
                 }
@@ -1702,15 +1701,6 @@ class CQMemoryExplorer {
             console.error('Failed to create pack:', error);
             window.toast?.error((trans.create_error || 'Failed to create pack') + ': ' + error.message);
         }
-    }
-
-    /**
-     * Initialize Spirit's memory structure if needed
-     * Now just ensures the path exists via /spirit/{id}/memory/path
-     */
-    async initializeSpiritMemory() {
-        // Path initialization is now handled in loadPacks() via /spirit/{id}/memory/path
-        // This method is kept for compatibility but does nothing
     }
 }
 
