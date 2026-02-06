@@ -2,8 +2,6 @@
 
 namespace App\Service;
 
-use App\Entity\SpiritMemoryNode;
-use App\Entity\SpiritMemoryJob;
 use App\Entity\MemoryNode;
 use App\Entity\MemoryJob;
 use Psr\Log\LoggerInterface;
@@ -32,7 +30,6 @@ class AIToolMemoryService
     private $user;
     
     public function __construct(
-        private readonly SpiritMemoryService $spiritMemoryService,
         private readonly SpiritService $spiritService,
         private readonly AiGatewayService $aiGatewayService,
         private readonly AiServiceRequestService $aiServiceRequestService,
@@ -42,7 +39,6 @@ class AIToolMemoryService
         private readonly AIToolWebService $aiToolWebService,
         private readonly LoggerInterface $logger,
         private readonly SettingsService $settingsService,
-        private readonly SpiritMemoryJobService $spiritMemoryJobService,
         private readonly AnnoService $annoService,
         private readonly NotificationService $notificationService,
         private readonly Security $security,
@@ -73,6 +69,26 @@ class AIToolMemoryService
         );
         
         return $memoryInfo;
+    }
+
+    /**
+     * Build targetPack array for a Spirit (without opening the pack)
+     * Used to delegate to pack-based methods like memoryExtractToPack()
+     */
+    public function getSpiritTargetPack(string $spiritId): array
+    {
+        $spirit = $this->spiritService->findById($spiritId);
+        if (!$spirit) {
+            throw new \RuntimeException('Spirit not found');
+        }
+        
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        
+        return [
+            'projectId' => $memoryInfo['projectId'],
+            'path' => $memoryInfo['packsPath'],
+            'name' => $memoryInfo['rootPackName']
+        ];
     }
 
     /**
@@ -404,7 +420,7 @@ class AIToolMemoryService
     public function memoryExtract(array $arguments): array
     {
         try {
-            // Get the Spirit ID first (needed for duplicate check)
+            // Get the Spirit ID (required for Spirit context)
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
                 return [
@@ -417,9 +433,15 @@ class AIToolMemoryService
             $sourceRef = $arguments['sourceRef'] ?? null;
             $force = $arguments['force'] ?? false;
 
-            // Check for duplicate extraction (if sourceType and sourceRef provided)
+            // Build targetPack from Spirit context
+            $targetPack = $this->getSpiritTargetPack($spiritId);
+
+            // Check for duplicate extraction in the pack
             if ($sourceType && $sourceRef && !$force) {
-                $existing = $this->spiritMemoryService->hasExtractedFromSource($spiritId, $sourceType, $sourceRef);
+                $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+                $existing = $this->packService->hasExtractedFromSource($sourceType, $sourceRef);
+                $this->packService->close();
+
                 if ($existing) {
                     return [
                         'success' => true,
@@ -431,314 +453,29 @@ class AIToolMemoryService
                 }
             }
 
-            // Try to auto-load content if not provided but sourceType+sourceRef are
-            $content = $arguments['content'] ?? null;
-            
-            if (empty($content) && $sourceType && $sourceRef) {
-                $loadResult = $this->loadContentFromSource($sourceType, $sourceRef);
-                if (!$loadResult['success']) {
-                    return $loadResult;
-                }
-                $content = $loadResult['content'];
-                
-                // Add loaded info to context
-                if (!isset($arguments['context'])) {
-                    $arguments['context'] = '';
-                }
-                $arguments['context'] .= ($arguments['context'] ? "\n" : '') . 
-                    "Content auto-loaded from {$sourceType}: {$sourceRef}";
-            }
-
-            // Validate we have content now
-            if (empty($content)) {
-                return [
-                    'success' => false,
-                    'error' => 'Content is required. Either provide content directly, or specify sourceType and sourceRef to auto-load.'
-                ];
-            }
-            
-            // Store content in arguments for the user message builder
-            $arguments['content'] = $content;
-
-            // Get extraction parameters
-            $maxDepth = $arguments['maxDepth'] ?? 3;
-            
-            // Determine document title
-            $documentTitle = $sourceRef ?? 'Untitled Document';
-            if (isset($loadResult['fileName'])) {
-                $documentTitle = $loadResult['fileName'];
-            } elseif (isset($loadResult['title'])) {
-                $documentTitle = $loadResult['title'];
-            }
-
-            // For large text documents (>5KB) or when maxDepth > 1, use recursive extraction with async jobs
-            // Binary files (array content) skip recursive extraction - AI parses them directly
-            $contentLength = is_string($content) ? strlen($content) : 0;
-            $useRecursiveExtraction = $contentLength > 5000 && $maxDepth > 1;
-
-            if ($useRecursiveExtraction) {
-                // Start async recursive extraction job
-                $job = $this->startRecursiveExtractionJob(
-                    $spiritId,
-                    $content,
-                    $sourceType ?? 'derived',
-                    $sourceRef ?? 'direct-content',
-                    $documentTitle,
-                    $maxDepth
-                );
-
-                $this->logger->info('Started recursive memory extraction job', [
-                    'jobId' => $job->getId(),
-                    'spiritId' => $spiritId,
-                    'contentLength' => $contentLength,
-                    'maxDepth' => $maxDepth
-                ]);
-
-                return [
-                    'success' => true,
-                    'async' => true,
-                    'jobId' => $job->getId(),
-                    'message' => "Recursive extraction started for large document ({$contentLength} chars). " .
-                        "Processing will continue in background. Check job status for progress.",
-                    'initialProgress' => [
-                        'progress' => $job->getProgress(),
-                        'totalSteps' => $job->getTotalSteps()
-                    ]
-                ];
-            }
-
-            // For smaller documents, use direct extraction (original behavior)
-            // Get AI model for the Memory Extractor Sub-Agent
-            $aiServiceModel = $this->getExtractionModel();
-            if (!$aiServiceModel) {
-                return [
-                    'success' => false,
-                    'error' => 'No AI service model configured for Memory Extractor'
-                ];
-            }
-
-            // Build the system prompt for the Memory Extractor
-            $systemPrompt = $this->buildMemoryExtractorSystemPrompt();
-            
-            // Build user message with the content
-            $userMessage = $this->buildMemoryExtractorUserMessage($arguments);
-            
-            // Create messages array
-            $messages = [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage]
-            ];
-            
-            // Create AI service request
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-                $aiServiceModel->getId(),
-                $messages,
-                null,
-                0.3, // Low temperature for consistent extraction
-                null,
-                []
-            );
-
-            // Get user locale
-            $userLocale = $this->settingsService->getUserLocale();
-            
-            // Send request to AI service
-            $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                $aiServiceRequest, 
-                'memoryExtract AI Tool - Memory Extraction Sub-Agent', 
-                $userLocale['lang'], 
-                'general'
-            );
-            
-            // Parse the JSON response
-            $extractedMemories = $this->parseMemoryExtractorResponse($aiServiceResponse);
-            
-            // If parsing failed, retry once with error feedback
-            if ($extractedMemories === null) {
-                $failedContent = $this->extractResponseContent($aiServiceResponse);
-                
-                // Build retry messages with error feedback
-                $retryMessages = $messages;
-                $retryMessages[] = ['role' => 'assistant', 'content' => $failedContent];
-                $retryMessages[] = ['role' => 'user', 'content' => 
-                    "Your response was not valid JSON and could not be parsed. " .
-                    "Please respond with ONLY a valid JSON object - no markdown code blocks, no explanation text. " .
-                    "The JSON must contain 'memories' as an array. Start directly with { and end with }."
-                ];
-                
-                // Create retry request
-                $retryAiServiceRequest = $this->aiServiceRequestService->createRequest(
-                    $aiServiceModel->getId(),
-                    $retryMessages,
-                    null,
-                    0.2, // Even lower temperature for retry
-                    null,
-                    []
-                );
-                
-                // Send retry request
-                $retryResponse = $this->aiGatewayService->sendRequest(
-                    $retryAiServiceRequest,
-                    'memoryExtract AI Tool - Memory Extraction (Retry)',
-                    $userLocale['lang'],
-                    'general'
-                );
-                
-                $extractedMemories = $this->parseMemoryExtractorResponse($retryResponse);
-                
-                if ($extractedMemories === null) {
-                    return [
-                        'success' => false,
-                        'error' => 'Failed to parse Memory Extractor response after retry. The AI did not return valid JSON.'
-                    ];
-                }
-            }
-
-            // Store each extracted memory
-            $storedMemories = [];
-            $sourceType = $arguments['sourceType'] ?? 'derived';
-            $sourceRef = $arguments['sourceRef'] ?? null;
-            $createDocumentSummary = $arguments['createDocumentSummary'] ?? true;
-            $analyzeRelationships = true;//$arguments['analyzeRelationships'] ?? false; // Default off for batch extract
-
-            // Create document summary node if enabled and we have multiple memories
-            $documentSummaryNode = null;
-            if ($createDocumentSummary && count($extractedMemories) > 1 && $sourceRef) {
-                try {
-                    // Build a summary of the entire document using AI
-                    $documentTitle = $sourceRef;
-                    if (isset($loadResult['fileName'])) {
-                        $documentTitle = $loadResult['fileName'];
-                    } elseif (isset($loadResult['title'])) {
-                        $documentTitle = $loadResult['title'];
-                    }
-                    
-                    // Generate AI summary of the document content
-                    $documentSummaryContent = $this->generateDocumentSummary(
-                        $content,
-                        $documentTitle,
-                        $aiServiceModel
-                    );
-                    
-                    if ($documentSummaryContent) {
-                        $documentSummaryNode = $this->spiritMemoryService->store(
-                            $spiritId,
-                            $documentSummaryContent,
-                            SpiritMemoryNode::CATEGORY_KNOWLEDGE,
-                            0.8, // Document summaries are important for navigation
-                            "Document: {$documentTitle}",
-                            'document_summary',
-                            $sourceRef,
-                            ['document', 'summary', $sourceType]
-                        );
-                        
-                        $this->logger->info('Document summary node created', [
-                            'documentSummaryId' => $documentSummaryNode->getId(),
-                            'sourceRef' => $sourceRef
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to create document summary node', [
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-
-            foreach ($extractedMemories as $memoryData) {
-                try {
-                    $memory = $this->spiritMemoryService->store(
-                        $spiritId,
-                        $memoryData['content'],
-                        $memoryData['category'] ?? 'knowledge',
-                        $memoryData['importance'] ?? 0.5,
-                        $memoryData['summary'] ?? null,
-                        $sourceType,
-                        $sourceRef,
-                        $memoryData['tags'] ?? []
-                    );
-
-                    // Create PART_OF relationship to document summary if it exists
-                    if ($documentSummaryNode) {
-                        try {
-                            $this->spiritMemoryService->createRelationship(
-                                $memory->getId(),
-                                $documentSummaryNode->getId(),
-                                SpiritMemoryNode::RELATION_PART_OF,
-                                0.9,
-                                "Extracted from document: " . ($sourceRef ?? 'unknown')
-                            );
-                        } catch (\Exception $e) {
-                            $this->logger->warning('Failed to create PART_OF relationship', [
-                                'memoryId' => $memory->getId(),
-                                'documentSummaryId' => $documentSummaryNode->getId(),
-                                'error' => $e->getMessage()
-                            ]);
-                        }
-                    }
-
-                    // Optionally analyze relationships for each extracted memory
-                    $relationshipAnalysis = null;
-                    if ($analyzeRelationships) {
-                        $relationshipAnalysis = $this->memoryAnalyzeRelationships([
-                            'memoryId' => $memory->getId()
-                        ]);
-                    }
-
-                    $storedMemories[] = [
-                        'id' => $memory->getId(),
-                        'content' => $memory->getContent(),
-                        'summary' => $memory->getSummary(),
-                        'category' => $memory->getCategory(),
-                        'importance' => $memory->getImportance(),
-                        'tags' => $memoryData['tags'] ?? [],
-                        'relationshipAnalysis' => $relationshipAnalysis
-                    ];
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to store extracted memory', [
-                        'error' => $e->getMessage(),
-                        'content' => substr($memoryData['content'] ?? '', 0, 100)
-                    ]);
-                }
-            }
-
-            $this->logger->info('Memories extracted via AI tool', [
-                'spiritId' => $spiritId,
-                'extractedCount' => count($extractedMemories),
-                'storedCount' => count($storedMemories),
-                'documentSummaryId' => $documentSummaryNode?->getId()
+            // Delegate to pack-based extraction (single source of truth)
+            $result = $this->memoryExtractToPack([
+                'targetPack' => $targetPack,
+                'sourceType' => $sourceType ?? 'derived',
+                'sourceRef' => $sourceRef,
+                'content' => $arguments['content'] ?? null,
+                'maxDepth' => $arguments['maxDepth'] ?? 3,
+                'documentTitle' => $arguments['documentTitle'] ?? null,
             ]);
 
-            // Send notification for synchronous extraction (includes relationship analysis)
-            if ($this->user) {
+            // Send notification on synchronous completion
+            if (($result['success'] ?? false) && !($result['async'] ?? false) && $this->user) {
                 $docName = $sourceRef ?? 'content';
-                $totalRelationships = 0;
-                foreach ($storedMemories as $mem) {
-                    if (isset($mem['relationshipAnalysis']['relationshipsCreated'])) {
-                        $totalRelationships += $mem['relationshipAnalysis']['relationshipsCreated'];
-                    }
-                }
+                $count = $result['storedCount'] ?? 0;
                 $this->notificationService->createNotification(
                     $this->user,
                     '📚 Memory Extraction Complete<br/>' . $docName,
-                    'Extraction complete. Created ' . count($storedMemories) . ' memory nodes. ' .
-                    'Analyzed relationships, created ' . $totalRelationships . ' connections.',
+                    'Extraction complete. Created ' . $count . ' memory nodes.',
                     'success'
                 );
             }
 
-            return [
-                'success' => true,
-                'extractedCount' => count($extractedMemories),
-                'storedCount' => count($storedMemories),
-                'memories' => $storedMemories,
-                'documentSummary' => $documentSummaryNode ? [
-                    'id' => $documentSummaryNode->getId(),
-                    'content' => $documentSummaryNode->getContent(),
-                    'summary' => $documentSummaryNode->getSummary()
-                ] : null,
-                'message' => 'Successfully extracted and stored ' . count($storedMemories) . ' memories from the provided content.' .
-                    ($documentSummaryNode ? ' Document summary node created with PART_OF relationships.' : '')
-            ];
+            return $result;
 
         } catch (\Exception $e) {
             $this->logger->error('Error extracting memories', ['error' => $e->getMessage()]);
@@ -1921,241 +1658,9 @@ PROMPT;
         return implode("\n", $numberedLines);
     }
 
-    /**
-     * Process a single step of recursive extraction job
-     * Called by UpdatesService during polling
-     * 
-     * @param SpiritMemoryJob $job The job to process
-     * @return bool True if job completed, false if more steps needed
-     */
-    public function processExtractionJobStep(SpiritMemoryJob $job): bool
-    {
-        try {
-            $payload = $job->getPayload();
-            $spiritId = $job->getSpiritId();
-            
-            // Get AI model
-            $aiServiceModel = $this->getExtractionModel();
-            if (!$aiServiceModel) {
-                $this->spiritMemoryJobService->failJob($job, 'No AI model available');
-                return true;
-            }
-
-            // Check current state
-            $pendingBlocks = $payload['pending_blocks'] ?? [];
-            $currentDepth = $payload['current_depth'] ?? 0;
-            $maxDepth = $payload['max_depth'] ?? 3;
-            $processedCount = $payload['processed_count'] ?? 0;
-
-            // If no pending blocks, extraction is done - start relationship analysis job
-            if (empty($pendingBlocks)) {
-                $rootNodeId = $payload['root_node_id'] ?? null;
-                $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
-                
-                // Complete extraction job
-                $this->spiritMemoryJobService->completeJob($job, [
-                    'total_memories' => $processedCount,
-                    'message' => "Extraction complete. Created {$processedCount} memory nodes. Starting relationship analysis..."
-                ]);
-                
-                // Create follow-up job for relationship analysis on all extracted nodes
-                if (!empty($extractedNodeIds)) {
-                    $this->spiritMemoryJobService->create(
-                        $spiritId,
-                        SpiritMemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
-                        [
-                            'pending_node_ids' => $extractedNodeIds,
-                            'processed_count' => 0,
-                            'relationships_created' => 0,
-                            'source_job_id' => $job->getId(),
-                            'document_title' => $payload['document_title'] ?? null,
-                        ],
-                        count($extractedNodeIds)
-                    );
-                    
-                    $this->logger->info('Created relationship analysis job for extracted nodes', [
-                        'nodeCount' => count($extractedNodeIds),
-                        'sourceJobId' => $job->getId()
-                    ]);
-                }
-                
-                return true;
-            }
-
-            // Process ONE block per step
-            $block = array_shift($pendingBlocks);
-            $blockContent = $block['content'];
-            $blockTitle = $block['title'];
-            $parentNodeId = $block['parent_node_id'] ?? null;
-            $sourceRef = $payload['source_ref'];
-            $sourceType = $payload['source_type'];
-            $blockDepth = $block['depth'] ?? $currentDepth;
-
-            // Create summary node for this block
-            $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel);
-            if (!$summaryContent) {
-                $summaryContent = $block['summary'] ?? "Section: {$blockTitle}";
-            }
-
-            $sourceRange = $block['start_line'] . ':' . $block['end_line'];
-            
-            // Combine structural tags with content-related tags from AI
-            $blockTags = array_merge(
-                ['document', 'section', 'depth-' . $blockDepth],
-                $block['tags'] ?? []
-            );
-            
-            $summaryNode = $this->spiritMemoryService->store(
-                $spiritId,
-                $summaryContent,
-                SpiritMemoryNode::CATEGORY_KNOWLEDGE,
-                0.8,
-                "Section: {$blockTitle}",
-                $sourceType,
-                $sourceRef,
-                $blockTags,
-                null,
-                $sourceRange
-            );
-
-            // Create PART_OF relationship to parent
-            if ($parentNodeId) {
-                $this->spiritMemoryService->createRelationship(
-                    $summaryNode->getId(),
-                    $parentNodeId,
-                    SpiritMemoryNode::RELATION_PART_OF,
-                    0.9,
-                    "Child section of parent document/section"
-                );
-            }
-
-            $processedCount++;
-            
-            // Track extracted node IDs for relationship analysis
-            $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
-            $extractedNodeIds[] = $summaryNode->getId();
-
-            // If not a leaf and not at max depth, extract sub-blocks
-            $blockLines = count(explode("\n", $blockContent));
-            if (!$block['is_leaf'] && $blockDepth < $maxDepth && $blockLines > 30) {
-                // Pass the parent block's start_line as offset for nested extraction
-                $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line']);
-                
-                if ($subBlocks && count($subBlocks['blocks']) > 1) {
-                    // Add sub-blocks to pending queue
-                    foreach ($subBlocks['blocks'] as $subBlock) {
-                        // Line numbers are already absolute (offset was passed to extractContentBlocks)
-                        $subBlock['parent_node_id'] = $summaryNode->getId();
-                        $subBlock['depth'] = $blockDepth + 1;
-                        $pendingBlocks[] = $subBlock;
-                    }
-                }
-            }
-
-            // Update job payload
-            $payload['pending_blocks'] = $pendingBlocks;
-            $payload['processed_count'] = $processedCount;
-            $payload['extracted_node_ids'] = $extractedNodeIds;
-            $job->setPayload($payload);
-            $job->setProgress($processedCount);
-            $job->setTotalSteps($processedCount + count($pendingBlocks));
-            $this->spiritMemoryJobService->update($job);
-
-            $this->logger->info('Processed extraction job step', [
-                'jobId' => $job->getId(),
-                'blockTitle' => $blockTitle,
-                'processedCount' => $processedCount,
-                'pendingCount' => count($pendingBlocks)
-            ]);
-
-            return empty($pendingBlocks);
-
-        } catch (\Exception $e) {
-            $this->logger->error('Error processing extraction job step', [
-                'jobId' => $job->getId(),
-                'error' => $e->getMessage()
-            ]);
-            $this->spiritMemoryJobService->failJob($job, $e->getMessage());
-            return true;
-        }
-    }
-
-    /**
-     * Process one step of a relationship analysis job
-     * Analyzes relationships for ONE memory node per step
-     */
-    public function processRelationshipAnalysisJobStep(SpiritMemoryJob $job): bool
-    {
-        try {
-            $payload = $job->getPayload();
-            $spiritId = $job->getSpiritId();
-
-            // Mark as processing if pending
-            if ($job->getStatus() === SpiritMemoryJob::STATUS_PENDING) {
-                $this->spiritMemoryJobService->startJob($job);
-            }
-
-            // Check current state
-            $pendingNodeIds = $payload['pending_node_ids'] ?? [];
-            $processedCount = $payload['processed_count'] ?? 0;
-            $relationshipsCreated = $payload['relationships_created'] ?? 0;
-
-            // If no pending nodes, we're done
-            if (empty($pendingNodeIds)) {
-                $this->spiritMemoryJobService->completeJob($job, [
-                    'nodes_analyzed' => $processedCount,
-                    'relationships_created' => $relationshipsCreated,
-                    'message' => "Relationship analysis complete. Analyzed {$processedCount} nodes, created {$relationshipsCreated} relationships."
-                ]);
-                return true;
-            }
-
-            // Process ONE node per step
-            $nodeId = array_shift($pendingNodeIds);
-            $newRelationships = 0;
-
-            try {
-                $result = $this->memoryAnalyzeRelationships(['memoryId' => $nodeId]);
-                if ($result['success'] ?? false) {
-                    $newRelationships = $result['relationshipsCreated'] ?? 0;
-                }
-            } catch (\Exception $e) {
-                $this->logger->warning('Failed to analyze relationships for node', [
-                    'nodeId' => $nodeId,
-                    'error' => $e->getMessage()
-                ]);
-            }
-
-            $processedCount++;
-            $relationshipsCreated += $newRelationships;
-
-            // Update job payload
-            $payload['pending_node_ids'] = $pendingNodeIds;
-            $payload['processed_count'] = $processedCount;
-            $payload['relationships_created'] = $relationshipsCreated;
-            $job->setPayload($payload);
-            $job->setProgress($processedCount);
-            $this->spiritMemoryJobService->update($job);
-
-            $this->logger->info('Processed relationship analysis job step', [
-                'jobId' => $job->getId(),
-                'nodeId' => $nodeId,
-                'newRelationships' => $newRelationships,
-                'processedCount' => $processedCount,
-                'pendingCount' => count($pendingNodeIds)
-            ]);
-
-            return empty($pendingNodeIds);
-
-        } catch (\Exception $e) {
-            $this->logger->error('Error processing relationship analysis job step', [
-                'jobId' => $job->getId(),
-                'error' => $e->getMessage()
-            ]);
-            $this->spiritMemoryJobService->failJob($job, $e->getMessage());
-            return true;
-        }
-    }
+    // Legacy processExtractionJobStep and processRelationshipAnalysisJobStep removed
+    // All extraction/analysis now uses pack-based methods:
+    //   processPackExtractionJobStep() and processPackRelationshipAnalysisJobStep()
 
     /**
      * Get the AI model for extraction operations
@@ -2175,119 +1680,17 @@ PROMPT;
         return $model;
     }
 
-    /**
-     * Start a recursive extraction job
-     * 
-     * @param string $spiritId Spirit ID
-     * @param string $content Content to extract
-     * @param string $sourceType Source type
-     * @param string $sourceRef Source reference
-     * @param int $maxDepth Maximum recursion depth
-     * @return SpiritMemoryJob The created job
-     */
-    public function startRecursiveExtractionJob(
-        string $spiritId,
-        string $content,
-        string $sourceType,
-        string $sourceRef,
-        string $documentTitle,
-        int $maxDepth = 3
-    ): SpiritMemoryJob {
-        // Get AI model
-        $aiServiceModel = $this->getExtractionModel();
-        
-        // Create initial document summary node
-        $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
-        if (!$summaryContent) {
-            $summaryContent = "Document: {$documentTitle}";
-        }
-
-        // Calculate total lines for the document
-        $totalLines = count(explode("\n", $content));
-
-        // Extract initial content blocks first to get document_tags
-        $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1);
-        
-        // Combine structural tags with document-level content tags
-        $documentTags = array_merge(
-            ['document', 'root', 'summary'],
-            $blocks['document_tags'] ?? []
-        );
-
-        $rootNode = $this->spiritMemoryService->store(
-            $spiritId,
-            $summaryContent,
-            SpiritMemoryNode::CATEGORY_KNOWLEDGE,
-            0.9,
-            "Document: {$documentTitle}",
-            'document_summary',
-            $sourceRef,
-            $documentTags,
-            null,
-            '1:' . $totalLines  // Line range for whole document
-        );
-
-        $pendingBlocks = [];
-        if ($blocks && !empty($blocks['blocks'])) {
-            foreach ($blocks['blocks'] as $block) {
-                $block['parent_node_id'] = $rootNode->getId();
-                $block['depth'] = 1;
-                $pendingBlocks[] = $block;
-            }
-        } else {
-            // If no blocks extracted, treat whole content as single leaf
-            $pendingBlocks[] = [
-                'title' => $documentTitle,
-                'summary' => substr($content, 0, 100),
-                'start_line' => 1,
-                'end_line' => $totalLines,
-                'is_leaf' => true,
-                'content' => $content,
-                'parent_node_id' => $rootNode->getId(),
-                'depth' => 1,
-                'tags' => []
-            ];
-        }
-
-        // Create the job
-        $job = $this->spiritMemoryJobService->create(
-            $spiritId,
-            SpiritMemoryJob::TYPE_EXTRACT_RECURSIVE,
-            [
-                'source_type' => $sourceType,
-                'source_ref' => $sourceRef,
-                'document_title' => $documentTitle,
-                'max_depth' => $maxDepth,
-                'root_node_id' => $rootNode->getId(),
-                'pending_blocks' => $pendingBlocks,
-                'processed_count' => 1, // Root node already created
-                'current_depth' => 1,
-                'extracted_node_ids' => [$rootNode->getId()] // Track for relationship analysis
-            ]
-        );
-
-        $job->setTotalSteps(1 + count($pendingBlocks));
-        $job->setProgress(1);
-        $this->spiritMemoryJobService->update($job);
-
-        $this->logger->info('Started recursive extraction job', [
-            'jobId' => $job->getId(),
-            'spiritId' => $spiritId,
-            'sourceRef' => $sourceRef,
-            'initialBlocks' => count($pendingBlocks)
-        ]);
-
-        return $job;
-    }
+    // Legacy startRecursiveExtractionJob removed
+    // All extraction now uses startPackRecursiveExtractionJob()
 
     // ========================================
-    // PACK-BASED EXTRACTION (No Spirit Context)
+    // PACK-BASED EXTRACTION (Single Source of Truth)
     // ========================================
 
     /**
      * Extract memories from content and store in a Memory Pack
      * 
-     * This is the pack-focused extraction - no Spirit context required.
+     * Single source of truth for all extraction - both Spirit and non-Spirit contexts.
      * All nodes, relationships, and jobs are stored in the target pack file.
      * 
      * @param array $arguments [
