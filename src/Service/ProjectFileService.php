@@ -436,9 +436,9 @@ class ProjectFileService
             ]
         );
         
-        // Create initial version
-        $content = file_get_contents($absolutePath);
-        $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
+        // Create initial version (use size+mtime hash to avoid reading large binary files like .cqmpack)
+        $hash = hash('sha256', $size . ':' . filemtime($absolutePath));
+        $this->createFileVersion($file->getId(), $file->getSize(), $hash);
         
         return $file;
     }

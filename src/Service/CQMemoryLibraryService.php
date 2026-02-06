@@ -286,12 +286,6 @@ class CQMemoryLibraryService
                         'name' => $file->getName(),
                         'error' => $e->getMessage()
                     ]);
-                    // DEBUG: include error in output
-                    $packs[] = [
-                        'path' => $path,
-                        'name' => $file->getName(),
-                        'error' => $e->getMessage()
-                    ];
                 }
             }
         }

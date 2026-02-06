@@ -55,31 +55,11 @@ class CQMemoryPackApiController extends AbstractController
                 'libraries' => $libraries,
                 'projectId' => $projectId,
                 'path' => $path,
-                'debug_files' => $this->getDebugFiles($projectId, $path)
             ]);
 
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Failed to list packs: ' . $e->getMessage()], 500);
         }
-    }
-    
-    private function getDebugFiles(string $projectId, string $path): array
-    {
-        $result = [];
-        $files = $this->projectFileService->listFiles($projectId, $path);
-        foreach ($files as $f) {
-            $item = [
-                'name' => $f->getName(),
-                'path' => $f->getPath(),
-                'isDir' => $f->isDirectory()
-            ];
-            if ($f->isDirectory()) {
-                $subPath = rtrim($path, '/') . '/' . $f->getName();
-                $item['children'] = $this->getDebugFiles($projectId, $subPath);
-            }
-            $result[] = $item;
-        }
-        return $result;
     }
 
     /**
