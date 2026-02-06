@@ -37,7 +37,7 @@ class SpiritConversationService
         private readonly ProjectFileService $projectFileService,
         private readonly AiToolService $aiToolService,
         private readonly AIToolCallService $aiToolCallService,
-        private readonly SpiritMemoryService $spiritMemoryService,
+        private readonly CQMemoryPackService $packService,
         private readonly LoggerInterface $logger,
         private readonly AnnoService $annoService,
         private readonly SluggerInterface $slugger
@@ -1276,8 +1276,11 @@ class SpiritConversationService
         // migration from single-spirit memory files to multi-spirit memory files
         $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
         
-        // Check if legacy memory has been migrated to v3
-        $migrationStatus = $this->spiritMemoryService->isLegacyMemoryMigrated($spirit->getId());
+        // Check if legacy memory has been migrated to v3 (via pack)
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+        $migrationStatus = $this->packService->isLegacyMemoryMigrated();
+        $this->packService->close();
         $isFullyMigrated = $migrationStatus['allMigrated'];
         
         // Build the memory section based on migration status
@@ -1583,9 +1586,18 @@ class SpiritConversationService
         
         $config = $this->getPromptConfig($spirit->getId());
         
-        // Get Spirit Memory v3 stats
-        $memoryStats = $this->spiritMemoryService->getMemoryStats($spirit->getId());
-        $migrationStatus = $this->spiritMemoryService->isLegacyMemoryMigrated($spirit->getId());
+        // Get Spirit Memory stats from pack
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+        $packStats = $this->packService->getStats();
+        $migrationStatus = $this->packService->isLegacyMemoryMigrated();
+        $this->packService->close();
+        $memoryStats = [
+            'totalMemories' => $packStats['totalNodes'],
+            'categories' => $packStats['categoryCounts'],
+            'tagsCount' => $packStats['tagsCount'],
+            'relationshipsCount' => $packStats['totalRelationships']
+        ];
         
         // Build sections data
         $sections = [

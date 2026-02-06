@@ -1097,6 +1097,50 @@ class CQMemoryPackService
         ];
     }
     
+    /**
+     * Check if legacy memory files have been migrated (extracted) into this pack
+     * Looks for nodes with source_type = 'legacy_memory' and source_ref containing legacy file names
+     *
+     * @return array ['migrated' => bool, 'files' => [...], 'allMigrated' => bool]
+     */
+    public function isLegacyMemoryMigrated(): array
+    {
+        $db = $this->getConnection();
+
+        $result = $db->executeQuery(
+            "SELECT DISTINCT source_ref FROM memory_nodes 
+             WHERE source_type = 'legacy_memory' AND is_active = 1"
+        );
+
+        $sourceRefs = array_column($result->fetchAllAssociative(), 'source_ref');
+
+        $files = [
+            'conversations' => false,
+            'inner-thoughts' => false,
+            'knowledge-base' => false
+        ];
+
+        foreach ($sourceRefs as $ref) {
+            if (strpos($ref, 'conversations.md') !== false) {
+                $files['conversations'] = true;
+            }
+            if (strpos($ref, 'inner-thoughts.md') !== false) {
+                $files['inner-thoughts'] = true;
+            }
+            if (strpos($ref, 'knowledge-base.md') !== false) {
+                $files['knowledge-base'] = true;
+            }
+        }
+
+        $migrated = $files['conversations'] || $files['inner-thoughts'] || $files['knowledge-base'];
+
+        return [
+            'migrated' => $migrated,
+            'files' => $files,
+            'allMigrated' => $files['conversations'] && $files['inner-thoughts'] && $files['knowledge-base']
+        ];
+    }
+
     public function getGraphData(): array
     {
         $nodes = $this->findAllNodes(true);
