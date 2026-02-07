@@ -6,6 +6,7 @@ use App\Service\SpiritService;
 use App\Service\ProjectFileService;
 use App\Service\AnnoService;
 use App\Service\AIToolMemoryService;
+use App\Service\CQMemoryPackService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,7 +22,8 @@ class CQMemoryController extends AbstractController
         private readonly SpiritService $spiritService,
         private readonly ProjectFileService $projectFileService,
         private readonly AnnoService $annoService,
-        private readonly AIToolMemoryService $aiToolMemoryService
+        private readonly AIToolMemoryService $aiToolMemoryService,
+        private readonly CQMemoryPackService $packService
     ) {}
 
     #[Route('', name: 'cq_memory_explorer', methods: ['GET'])]
@@ -51,49 +53,73 @@ class CQMemoryController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $sourceRef = $data['source_ref'] ?? null;
         $sourceRange = $data['source_range'] ?? null;
+        $sourceType = $data['source_type'] ?? null;
+        $packProjectId = $data['pack_project_id'] ?? null;
+        $packPath = $data['pack_path'] ?? null;
+        $packName = $data['pack_name'] ?? null;
 
         if (!$sourceRef) {
             return new JsonResponse(['error' => 'source_ref is required'], 400);
         }
 
         try {
-            // Parse source_ref format: {projectId}:{filePath}:{fileName}
-            // Example: general:/spirit/Bob/memory:conversations.md
-            $parts = explode(':', $sourceRef);
-            if (count($parts) < 3) {
-                return new JsonResponse(['error' => 'Invalid source_ref format'], 400);
-            }
-            
-            $projectId = $parts[0];
-            $filePath = $parts[1];
-            $fileName = $parts[2];
+            $content = null;
+            $filename = $sourceRef;
 
-            // Get file using findByPathAndName
-            $file = $this->projectFileService->findByPathAndName($projectId, $filePath, $fileName);
-            if (!$file) {
-                return new JsonResponse(['error' => 'Source file not found'], 404);
-            }
+            // Strategy 1: Try loading from pack's memory_sources table
+            if ($packProjectId && $packPath && $packName) {
+                try {
+                    $this->packService->open($packProjectId, $packPath, $packName);
+                    $source = $sourceType 
+                        ? $this->packService->getSource($sourceRef, $sourceType)
+                        : null;
+                    // Fall back to any source_type match (e.g. document_summary nodes referencing url/derived sources)
+                    if (!$source) {
+                        $source = $this->packService->getSourceByRef($sourceRef);
+                    }
+                    $this->packService->close();
 
-            // Check if this is a PDF file - use AnnoService to get parsed content
-            $isPdf = str_ends_with(strtolower($fileName), '.pdf');
-            if ($isPdf) {
-                $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $fileName, $projectId, false);
-                if ($annoData) {
-                    $content = $this->annoService->getTextContent($annoData);
-                } else {
-                    return new JsonResponse(['error' => 'PDF annotation not found - file needs to be processed first'], 404);
+                    if ($source) {
+                        $content = $source['content'];
+                        $filename = $source['title'] ?? $sourceRef;
+                    }
+                } catch (\Exception $e) {
+                    $this->packService->close();
                 }
-            } else {
-                // Get content using getFileContent
-                $content = $this->projectFileService->getFileContent($file->getId());
-                
-                // If it's JSON (like .anno files), use AnnoService to extract text
-                if (str_ends_with($fileName, '.anno')) {
-                    $annoData = json_decode($content, true);
-                    if ($annoData) {
-                        $content = $this->annoService->getTextContent($annoData);
+            }
+
+            // Strategy 2: Fall back to filesystem for document source_ref format
+            if ($content === null) {
+                $parts = explode(':', $sourceRef);
+                if (count($parts) >= 3) {
+                    $projectId = $parts[0];
+                    $filePath = $parts[1];
+                    $fileName = $parts[2];
+
+                    $file = $this->projectFileService->findByPathAndName($projectId, $filePath, $fileName);
+                    if ($file) {
+                        $isPdf = str_ends_with(strtolower($fileName), '.pdf');
+                        if ($isPdf) {
+                            $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $fileName, $projectId, false);
+                            if ($annoData) {
+                                $content = $this->annoService->getTextContent($annoData);
+                            }
+                        } else {
+                            $content = $this->projectFileService->getFileContent($file->getId());
+                            if (str_ends_with($fileName, '.anno')) {
+                                $annoData = json_decode($content, true);
+                                if ($annoData) {
+                                    $content = $this->annoService->getTextContent($annoData);
+                                }
+                            }
+                        }
+                        $filename = $fileName;
                     }
                 }
+            }
+
+            if ($content === null) {
+                return new JsonResponse(['error' => 'Source content not found'], 404);
             }
 
             // Apply line range if specified (format: "start:end" like "1:213")
@@ -107,9 +133,6 @@ class CQMemoryController extends AbstractController
                 
                 $content = implode("\n", array_slice($lines, $startLine, $endLine - $startLine));
             }
-
-            // Use fileName from parsed source_ref
-            $filename = $fileName;
 
             return new JsonResponse([
                 'content' => $content,

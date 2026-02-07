@@ -139,9 +139,38 @@ class CQMemoryPackService
             throw new \RuntimeException("Invalid pack file: {$e->getMessage()}");
         }
         
+        // Migrate: ensure memory_sources table exists for older packs
+        $this->migrateSchema();
+        
         $this->logger->info('Opened memory pack', ['projectId' => $projectId, 'path' => $path, 'name' => $name]);
         
         return true;
+    }
+    
+    /**
+     * Apply schema migrations for older pack files
+     */
+    private function migrateSchema(): void
+    {
+        $db = $this->getConnection();
+        
+        // Check if memory_sources table exists
+        $result = $db->executeQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_sources'"
+        );
+        if (!$result->fetchAssociative()) {
+            $db->executeStatement("
+                CREATE TABLE IF NOT EXISTS memory_sources (
+                    source_ref TEXT NOT NULL,
+                    source_type TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    title TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (source_ref, source_type)
+                )
+            ");
+            $this->logger->info('Migrated pack: added memory_sources table');
+        }
     }
     
     /**
@@ -279,6 +308,18 @@ class CQMemoryPackService
             )
         ");
         
+        // Source content storage (original content used for extraction)
+        $db->executeStatement("
+            CREATE TABLE IF NOT EXISTS memory_sources (
+                source_ref TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                title TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (source_ref, source_type)
+            )
+        ");
+        
         // Consolidation log
         $db->executeStatement("
             CREATE TABLE IF NOT EXISTS memory_consolidation_log (
@@ -352,6 +393,56 @@ class CQMemoryPackService
         }
         
         return $metadata;
+    }
+    
+    // ========================================
+    // Source Content Operations
+    // ========================================
+    
+    /**
+     * Store original source content used for extraction
+     * Uses INSERT OR REPLACE so re-extractions update the stored content
+     */
+    public function storeSource(string $sourceRef, string $sourceType, string $content, ?string $title = null): void
+    {
+        $db = $this->getConnection();
+        
+        $db->executeStatement(
+            'INSERT OR REPLACE INTO memory_sources (source_ref, source_type, content, title, created_at) VALUES (?, ?, ?, ?, ?)',
+            [$sourceRef, $sourceType, $content, $title, date('Y-m-d H:i:s')]
+        );
+    }
+    
+    /**
+     * Get stored source content by source_ref and source_type
+     */
+    public function getSource(string $sourceRef, string $sourceType): ?array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery(
+            'SELECT * FROM memory_sources WHERE source_ref = ? AND source_type = ?',
+            [$sourceRef, $sourceType]
+        );
+        
+        $row = $result->fetchAssociative();
+        return $row ?: null;
+    }
+    
+    /**
+     * Get stored source content by source_ref only (any source_type)
+     */
+    public function getSourceByRef(string $sourceRef): ?array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery(
+            'SELECT * FROM memory_sources WHERE source_ref = ? LIMIT 1',
+            [$sourceRef]
+        );
+        
+        $row = $result->fetchAssociative();
+        return $row ?: null;
     }
     
     // ========================================

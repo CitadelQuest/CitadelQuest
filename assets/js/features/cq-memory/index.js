@@ -587,10 +587,12 @@ class CQMemoryExplorer {
             const sourceRange = node.sourceRange;
             const memoryTitle = node.summary || '(no summary)';
             
+            const sourceType = node.sourceType;
             const showSourceBtn = sourceRef ? `
                 <button class="btn btn-sm btn-outline-secondary show-source-btn py-0 px-1 ms-2" 
                         data-source-ref="${this.escapeHtml(sourceRef)}" 
                         data-source-range="${sourceRange || ''}"
+                        data-source-type="${sourceType || ''}"
                         data-memory-title="${this.escapeHtml(memoryTitle)}"
                         title="Show source">
                     <i class="mdi mdi-file-find-outline"></i>
@@ -714,8 +716,9 @@ class CQMemoryExplorer {
                 e.preventDefault();
                 const sourceRef = btn.dataset.sourceRef;
                 const sourceRange = btn.dataset.sourceRange;
+                const sourceType = btn.dataset.sourceType;
                 const memoryTitle = btn.dataset.memoryTitle;
-                await this.showSourceContent(sourceRef, sourceRange, memoryTitle);
+                await this.showSourceContent(sourceRef, sourceRange, memoryTitle, sourceType);
             });
         });
         
@@ -762,7 +765,7 @@ class CQMemoryExplorer {
     /**
      * Fetch and display source content in modal
      */
-    async showSourceContent(sourceRef, sourceRange, memoryTitle) {
+    async showSourceContent(sourceRef, sourceRange, memoryTitle, sourceType) {
         const modal = document.getElementById('sourceViewerModal');
         const modalTitle = document.getElementById('sourceViewerModalLabel');
         const fileEl = document.getElementById('source-viewer-file');
@@ -786,10 +789,29 @@ class CQMemoryExplorer {
         bsModal.show();
 
         try {
+            // Build request body with pack context for source lookup
+            const requestBody = { 
+                source_ref: sourceRef, 
+                source_range: sourceRange,
+                source_type: sourceType || null
+            };
+
+            // Add pack context if we have a current pack selected
+            if (this.currentPackPath && !this.currentPackPath.startsWith('lib:')) {
+                try {
+                    const packData = JSON.parse(this.currentPackPath);
+                    requestBody.pack_project_id = this.projectId;
+                    requestBody.pack_path = packData.path;
+                    requestBody.pack_name = packData.name;
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+
             const response = await fetch(`/memory/source`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source_ref: sourceRef, source_range: sourceRange })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {
@@ -917,11 +939,13 @@ class CQMemoryExplorer {
             // Show source button if source_ref exists
             const sourceRef = group.node.sourceRef;
             const sourceRange = group.node.sourceRange;
+            const sourceType = group.node.sourceType;
             const memoryTitle = group.node.summary || '(no summary)';
             const showSourceBtn = sourceRef ? `
                 <button class="btn btn-sm btn-outline-secondary show-source-btn py-0 px-1 ms-2" 
                         data-source-ref="${this.escapeHtml(sourceRef)}" 
                         data-source-range="${sourceRange || ''}"
+                        data-source-type="${sourceType || ''}"
                         data-memory-title="${this.escapeHtml(memoryTitle)}"
                         title="Show source">
                     <i class="mdi mdi-file-find-outline"></i>

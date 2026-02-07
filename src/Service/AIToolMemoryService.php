@@ -487,6 +487,38 @@ class AIToolMemoryService
     }
 
     /**
+     * Detect obfuscated or missing data in content and build a contextual warning
+     * to inject into user messages, preventing AI hallucination.
+     * 
+     * Returns empty string if no issues detected.
+     */
+    private function buildDataIntegrityWarning(string|array $content): string
+    {
+        $text = is_string($content) ? $content : ($content['text'] ?? '');
+        if (empty($text)) {
+            return '';
+        }
+
+        $warnings = [];
+
+        // Detect Cloudflare email obfuscation
+        if (preg_match('/\[email\s*protected\]/i', $text) || preg_match('/\[email&#160;protected\]/i', $text)) {
+            $warnings[] = 'This content contains Cloudflare-obfuscated email(s) shown as "[email protected]". The real email address is NOT available. Do NOT guess or invent any email address — use "[email protected]" exactly as-is, or omit it entirely.';
+        }
+
+        // Detect /cdn-cgi/l/email-protection patterns (Cloudflare encoded emails in links)
+        if (str_contains($text, '/cdn-cgi/l/email-protection')) {
+            $warnings[] = 'This content contains Cloudflare email protection links (/cdn-cgi/l/email-protection). These are encrypted — the real email is NOT decodable from this data. Do NOT attempt to guess the email address.';
+        }
+
+        if (empty($warnings)) {
+            return '';
+        }
+
+        return "\n\n⚠️ **DATA INTEGRITY WARNING** ⚠️\n" . implode("\n", $warnings) . "\nAny data you output MUST match the source exactly. Fabricated data is unacceptable.\n";
+    }
+
+    /**
      * Build the system prompt for the Memory Extractor LLM
      */
     private function buildMemoryExtractorSystemPrompt(): string
@@ -562,6 +594,11 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 4. Use specific, searchable tags (2-5 tags per memory)
 5. If no meaningful memories can be extracted, return empty memories array
 6. Quality over quantity - fewer good memories is better than many trivial ones
+
+## Data Integrity (CRITICAL):
+- NEVER fabricate, guess, or hallucinate any information. Every piece of data you extract MUST come directly from the provided source content.
+- If specific data (email addresses, phone numbers, prices, names, dates) is missing, obfuscated, or unclear in the source — do NOT invent it. Omit it or note it as unavailable. Wrong data is worse than no data.
+- Web content may contain Cloudflare-obfuscated emails (e.g. `[email protected]`). Never guess the real address. Information in extracted memories must be 100% coherent with the source.
 <clean_system_prompt>
 PROMPT;
     }
@@ -587,6 +624,12 @@ PROMPT;
                 $message .= "**Additional Context**: " . $arguments['context'] . "\n";
             }
             
+            // Inject contextual warning if content has obfuscated data
+            $dataWarning = $this->buildDataIntegrityWarning($arguments['content']);
+            if ($dataWarning) {
+                $message .= $dataWarning . "\n";
+            }
+
             $message .= "\n---\n\n";
             $message .= "**Content to analyze**:\n\n";
             $message .= $arguments['content'];
@@ -665,6 +708,10 @@ You are a Document Summarizer. Your task is to create a comprehensive yet concis
 - Keep the summary between 100-300 words depending on document complexity
 - Write in the same language as the original content
 
+## Data Integrity (CRITICAL):
+- NEVER fabricate, guess, or hallucinate any information. Every detail in your summary MUST come from the source content.
+- If data like email addresses is obfuscated (e.g. `[email protected]`), do NOT invent the real address. Use the obfuscated form or omit it.
+
 ## Output:
 Respond with ONLY the summary text, no formatting, no headers, no explanations.
 PROMPT;
@@ -674,6 +721,11 @@ PROMPT;
                 // String content - include directly in message
                 $userMessageContent = "Summarize the following document:\n\n";
                 $userMessageContent .= "**Document Title**: {$documentTitle}\n\n";
+                // Inject contextual warning if content has obfuscated data
+                $dataWarning = $this->buildDataIntegrityWarning($content);
+                if ($dataWarning) {
+                    $userMessageContent .= $dataWarning . "\n";
+                }
                 $userMessageContent .= "---\n\n";
                 $userMessageContent .= $content;
                 $userMessageContent .= "\n\n---\n\n";
@@ -1469,6 +1521,11 @@ PROMPT;
             $userMessage = "Split the following content into logical sections/blocks:\n\n";
             $userMessage .= "**Document Title**: {$documentTitle}\n\n";
             $userMessage .= "**Total Lines**: {$totalLines} (lines {$startLineOffset} to " . ($startLineOffset + $totalLines - 1) . ")\n\n";
+            // Inject contextual warning if content has obfuscated data
+            $dataWarning = $this->buildDataIntegrityWarning($content);
+            if ($dataWarning) {
+                $userMessage .= $dataWarning . "\n";
+            }
             $userMessage .= "---\n\n";
             $userMessage .= $contentWithLineNumbers;
             $userMessage .= "\n\n---\n\n";
@@ -1568,6 +1625,10 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 5. Minimum 2 blocks, maximum 9 blocks (sections)
 6. If content is too small or atomic, return single block with is_leaf=true
 7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "january-2026")
+
+## Data Integrity (CRITICAL):
+- NEVER fabricate, guess, or hallucinate any information in titles, summaries, or tags.
+- If data like email addresses is obfuscated (e.g. `[email protected]`), do NOT invent the real address.
 PROMPT;
     }
 
@@ -1728,6 +1789,11 @@ PROMPT;
                 ];
             }
 
+            // Generate sourceRef for text input if not provided
+            if (empty($sourceRef) && $sourceType === 'derived') {
+                $sourceRef = 'text-input:' . date('Y-m-d_H:i:s');
+            }
+
             // Determine document title
             $documentTitle = $arguments['documentTitle'] ?? $sourceRef ?? 'Untitled Document';
             if (isset($loadResult['fileName'])) {
@@ -1735,6 +1801,9 @@ PROMPT;
             } elseif (isset($loadResult['title'])) {
                 $documentTitle = $loadResult['title'];
             }
+
+            // Store original source content in the pack for portability
+            $sourceContentToStore = is_string($content) ? $content : null;
 
             // Get content length for deciding extraction strategy
             $contentLength = is_string($content) ? strlen($content) : 0;
@@ -1748,7 +1817,8 @@ PROMPT;
                     $sourceType,
                     $sourceRef ?? 'direct-content',
                     $documentTitle,
-                    $maxDepth
+                    $maxDepth,
+                    $sourceContentToStore
                 );
 
                 $this->logger->info('Started pack recursive extraction job', [
@@ -1800,7 +1870,7 @@ PROMPT;
             }
 
             // For smaller documents, use direct extraction
-            return $this->directExtractToPack($targetPack, $content, $sourceType, $sourceRef, $documentTitle);
+            return $this->directExtractToPack($targetPack, $content, $sourceType, $sourceRef, $documentTitle, $sourceContentToStore);
 
         } catch (\Exception $e) {
             $this->logger->error('Error extracting to pack', ['error' => $e->getMessage()]);
@@ -1819,7 +1889,8 @@ PROMPT;
         string|array $content,
         string $sourceType,
         ?string $sourceRef,
-        string $documentTitle
+        string $documentTitle,
+        ?string $sourceContentToStore = null
     ): array {
         try {
             // Get AI model
@@ -1870,6 +1941,11 @@ PROMPT;
 
             // Open pack and store memories
             $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+            // Store original source content in the pack for portability
+            if ($sourceContentToStore && $sourceRef) {
+                $this->packService->storeSource($sourceRef, $sourceType, $sourceContentToStore, $documentTitle);
+            }
 
             $storedMemories = [];
             $documentSummaryNode = null;
@@ -2012,10 +2088,16 @@ PROMPT;
         string $sourceType,
         string $sourceRef,
         string $documentTitle,
-        int $maxDepth = 3
+        int $maxDepth = 3,
+        ?string $sourceContentToStore = null
     ): MemoryJob {
         // Open pack
         $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+        // Store original source content in the pack for portability
+        if ($sourceContentToStore && $sourceRef) {
+            $this->packService->storeSource($sourceRef, $sourceType, $sourceContentToStore, $documentTitle);
+        }
 
         // Get AI model
         $aiServiceModel = $this->getExtractionModel();
