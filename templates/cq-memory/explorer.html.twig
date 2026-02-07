@@ -139,8 +139,6 @@
 
                     {# Extraction Tab #}
                     <div class="tab-pane fade" id="panel-extraction" role="tabpanel" aria-labelledby="tab-extraction">
-                        <div id="extract-alert" class="d-none"></div>
-                        
                         {# Source type selector pills #}
                         <div class="mb-3">
                             <label class="form-label small text-cyber mb-2">
@@ -210,6 +208,8 @@
                         <button id="btn-start-extraction" class="btn btn-sm btn-cyber w-100 mb-4" disabled>
                             <i class="mdi mdi-excavator"></i> {{ 'spirit.memory.extract_panel.start_extraction'|trans }}
                         </button>
+
+                        <div id="extract-alert" class="d-none"></div>
 
                         <h6 class="small text-cyber mb-2">
                             <i class="mdi mdi-progress-clock me-1"></i>
