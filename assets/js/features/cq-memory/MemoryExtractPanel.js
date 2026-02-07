@@ -85,9 +85,9 @@ export class MemoryExtractPanel {
             }
         }
 
-        // Enable start button
+        // Enable start button only if no active jobs
         const startBtn = document.getElementById('btn-start-extraction');
-        if (startBtn) {
+        if (startBtn && !this.isProcessingSteps && this.activeJobs.size === 0) {
             startBtn.disabled = false;
         }
     }
@@ -243,8 +243,11 @@ export class MemoryExtractPanel {
             updatesService.resume();
         } finally {
             if (startBtn) {
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<i class="mdi mdi-brain"></i> Start Extraction';
+                // Restore button label but keep disabled if async jobs are running
+                startBtn.innerHTML = '<i class="mdi mdi-excavator"></i> Start Extraction';
+                if (!this.isProcessingSteps && this.activeJobs.size === 0) {
+                    startBtn.disabled = false;
+                }
             }
         }
     }
@@ -299,10 +302,11 @@ export class MemoryExtractPanel {
                     // Resume global polling
                     updatesService.resume();
                     
-                    // Clear jobs after delay
+                    // Clear jobs after delay and re-enable extraction button
                     setTimeout(() => {
                         this.activeJobs.clear();
                         this.renderJobsList();
+                        this.enableStartButton();
                         if (this.onExtractionComplete) {
                             this.onExtractionComplete();
                         }
@@ -319,6 +323,7 @@ export class MemoryExtractPanel {
             console.error('Step processing error:', error);
             this.isProcessingSteps = false;
             this.showError('Extraction failed: ' + error.message);
+            this.enableStartButton();
             updatesService.resume();
         }
     }
@@ -328,6 +333,17 @@ export class MemoryExtractPanel {
      */
     stopStepProcessing() {
         this.isProcessingSteps = false;
+    }
+
+    /**
+     * Re-enable extraction start button (called when all jobs finish)
+     */
+    enableStartButton() {
+        const startBtn = document.getElementById('btn-start-extraction');
+        const fileSelector = document.getElementById('extract-file-selector');
+        if (startBtn && fileSelector?.value) {
+            startBtn.disabled = false;
+        }
     }
 
     addJobToList(jobId, jobData) {

@@ -61,7 +61,10 @@ class CQMemoryExplorer {
         this.extractPanel = new MemoryExtractPanel(this.spiritId);
         
         // Set callbacks for extraction
-        this.extractPanel.onExtractionStart = () => this.startManualPolling();
+        this.extractPanel.onExtractionStart = () => {
+            // No manual polling — processStepsSequentially() handles all steps.
+            // Manual polling would race with step processing, causing missing nodes in 3D.
+        };
         this.extractPanel.onExtractionComplete = () => { this.loadGraphData(); };
         this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
 
