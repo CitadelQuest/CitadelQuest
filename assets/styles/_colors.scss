@@ -8,13 +8,19 @@ $primary: $cyber;
 $primary-rgb: $cyber-rgb;
 $primary-dark: darken($primary, 20%);
 $secondary: #6c757d;
+$secondary-rgb: 108, 117, 125;
 $success: #0b8a4e;
-$info: #1d9bf0;
+$success-rgb: 11, 138, 78;
+$info: #6bb5ff;
+$info-rgb: 107, 181, 255;
 $warning: #ffc107;
+$warning-rgb: 255, 193, 7;
 $danger: #dc3545;
+$danger-rgb: 220, 53, 69;
 $light: #f8f9fa;
+$light-rgb: 248, 249, 250;
 $dark: #212529;
-
+$dark-rgb: 33, 37, 41;
 
 
 // Body Colors
@@ -60,9 +66,6 @@ $text-on-cyber: $body-bg;
     --primary: #{$primary};
     --primary-rgb: #{$primary-rgb};
     --primary-dark: #{$primary-dark};
-    --bs-primary: #{$primary};
-    --bs-primary-rgb: #{$primary-rgb};
-    --bs-primary-dark: #{$primary-dark};
     --secondary: #{$secondary};
     --success: #{$success};
     --info: #{$info};
@@ -78,4 +81,22 @@ $text-on-cyber: $body-bg;
     --tertiary-bg: #{$tertiary-bg};
     --border-color: #{$border-color};
     --surface-dark: #{$surface-dark};
+
+    --bs-info: #{$info};
+    --bs-info-rgb: #{$info-rgb};
+    --bs-warning: #{$warning};
+    --bs-warning-rgb: #{$warning-rgb};
+    --bs-danger: #{$danger};
+    --bs-danger-rgb: #{$danger-rgb};
+    --bs-success: #{$success};
+    --bs-success-rgb: #{$success-rgb};
+    --bs-primary: #{$primary};
+    --bs-primary-rgb: #{$primary-rgb};
+    --bs-primary-dark: #{$primary-dark};
+    --bs-secondary: #{$secondary};
+    --bs-secondary-rgb: #{$secondary-rgb};
+    --bs-light: #{$light};
+    --bs-light-rgb: #{$light-rgb};
+    --bs-dark: #{$dark};
+    --bs-dark-rgb: #{$dark-rgb};
 }

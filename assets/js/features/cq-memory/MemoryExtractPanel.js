@@ -30,14 +30,6 @@ export class MemoryExtractPanel {
     }
 
     setupEventListeners() {
-        // Toggle panel visibility
-        const toggleBtn = document.getElementById('btn-toggle-extract-panel');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.togglePanel();
-            });
-        }
-
         // File browser file selection
         const fileSelector = document.getElementById('extract-file-selector');
         if (fileSelector) {
@@ -65,38 +57,19 @@ export class MemoryExtractPanel {
     }
 
     togglePanel() {
-        const panel = document.getElementById('memory-extract-panel');
-        const toggleBtn = document.getElementById('btn-toggle-extract-panel');
-        
-        if (!panel || !toggleBtn) return;
-
-        this.isPanelVisible = !this.isPanelVisible;
-        
-        const t = window.memoryExplorerTranslations?.extract_panel || {};
-        
-        if (this.isPanelVisible) {
-            panel.classList.remove('d-none');
-            toggleBtn.innerHTML = `<i class="mdi mdi-chevron-up"></i> ${t.hide || 'Hide Memory Extraction Panel'}`;
-        } else {
-            panel.classList.add('d-none');
-            toggleBtn.innerHTML = `<i class="mdi mdi-chevron-down"></i> ${t.show || 'Show Memory Extraction Panel'}`;
+        // Panel is now always visible in its tab - switch to extraction tab
+        const tabEl = document.getElementById('tab-extraction');
+        if (tabEl) {
+            tabEl.click();
         }
-
-        this.savePanelState();
     }
 
     savePanelState() {
-        const key = this.spiritId ? `cqMemory-${this.spiritId}-extract-panel-visible` : 'cqMemory-global-extract-panel-visible';
-        localStorage.setItem(key, this.isPanelVisible);
+        // No-op: panel is now a tab, always available
     }
 
     loadPanelState() {
-        const key = this.spiritId ? `cqMemory-${this.spiritId}-extract-panel-visible` : 'cqMemory-global-extract-panel-visible';
-        const savedState = localStorage.getItem(key);
-        if (savedState === 'true') {
-            this.isPanelVisible = false;
-            this.togglePanel();
-        }
+        // No-op: panel is now a tab, always available
     }
 
     onFileSelected(sourceRef) {

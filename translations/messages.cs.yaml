@@ -400,7 +400,11 @@ dashboard:
     files_description: 'Procházej a spravuj své soubory'
     settings_description: 'Nakonfiguruj svůj CitadelQuest'
     backup_description: 'Vytvoř a obnov zálohy'
+    memory_description: 'Prozkoumej a spravuj své znalostní grafy'
     admin_description: 'Administrace Citadely'
+
+cq_memory:
+    page_title: 'CQ Paměť'
 
 settings:
     page_title: 'Nastavení'

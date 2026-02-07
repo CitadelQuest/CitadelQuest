@@ -400,7 +400,11 @@ dashboard:
     files_description: 'Browse and manage your files'
     settings_description: 'Configure your CitadelQuest'
     backup_description: 'Create and restore backups'
+    memory_description: 'Explore and manage your knowledge graphs'
     admin_description: 'Citadel administration'
+
+cq_memory:
+    page_title: 'CQ Memory'
 
 settings:
     page_title: 'User Settings'

@@ -98,9 +98,35 @@
                             <a href="{{ path('spirits_index') }}" class="text-decoration-none">
                                 <div class="card glass-panel h-100 glass-panel-glow">
                                     <div class="card-body text-center">
-                                        <i class="mdi mdi-ghost fs-1 text-light opacity-50 mb-2"></i>
+                                        <i class="mdi mdi-ghost fs-1 text-light opacity-75 mb-2"></i>
                                         <h6 class="text-light">{{ 'spirits.title'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.spirits_description'|trans|default('Manage your AI Spirit companions') }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- CQ Memory -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('cq_memory_explorer') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-graph fs-1 text-info opacity-75 mb-2"></i>
+                                        <h6 class="text-light">{{ 'cq_memory.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.memory_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- File Browser -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_file_browser') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-folder-file opacity-75 fs-1 text-warning mb-2"></i>
+                                        <h6 class="text-light">{{ 'file_browser.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.files_description'|trans }}</small>
                                     </div>
                                 </div>
                             </a>
@@ -120,19 +146,6 @@
                                               style="font-size: 0.75rem;">
                                             0
                                         </span>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-
-                        <!-- File Browser -->
-                        <div class="col-12 col-md-6 col-lg-4">
-                            <a href="{{ path('app_file_browser') }}" class="text-decoration-none">
-                                <div class="card glass-panel h-100 glass-panel-glow">
-                                    <div class="card-body text-center">
-                                        <i class="mdi mdi-folder-file opacity-75 fs-1 text-warning mb-2"></i>
-                                        <h6 class="text-light">{{ 'file_browser.page_title'|trans }}</h6>
-                                        <small class="text-muted">{{ 'dashboard.files_description'|trans }}</small>
                                     </div>
                                 </div>
                             </a>

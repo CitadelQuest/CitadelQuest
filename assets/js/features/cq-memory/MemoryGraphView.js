@@ -161,6 +161,13 @@ export class MemoryGraphView {
         this.container.addEventListener('mousedown', (e) => this.onMouseDown(e));
         this.container.addEventListener('mouseup', (e) => this.onMouseUp(e));
         window.addEventListener('resize', () => this.onResize());
+
+        // Prevent overlay interactions from propagating to the 3D canvas
+        this.container.querySelectorAll('.graph-overlay').forEach(overlay => {
+            overlay.addEventListener('mousedown', (e) => e.stopPropagation());
+            overlay.addEventListener('mouseup', (e) => e.stopPropagation());
+            overlay.addEventListener('mousemove', (e) => e.stopPropagation());
+        });
     }
 
     /**

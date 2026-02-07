@@ -392,7 +392,11 @@ dashboard:
     files_description: 'Prezeraj a spravuj svoje súbory'
     settings_description: 'Nakonfiguruj svoj CitadelQuest'
     backup_description: 'Vytvor a obnov zálohy'
+    memory_description: 'Objavuj a spravuj svoje znalostné grafy'
     admin_description: 'Administrácia Citadely'
+
+cq_memory:
+    page_title: 'CQ Pamäť'
 
 settings:
     page_title: 'Nastavenia'
