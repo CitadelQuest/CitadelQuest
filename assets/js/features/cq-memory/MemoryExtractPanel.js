@@ -252,10 +252,13 @@ export class MemoryExtractPanel {
                             nodes.push({
                                 id: result.documentSummary.id,
                                 content: result.documentSummary.content,
-                                summary: 'Document Summary',
-                                category: 'knowledge',
-                                importance: 0.8,
-                                tags: ['document', 'summary']
+                                summary: result.documentSummary.summary || 'Document Summary',
+                                category: result.documentSummary.category || 'knowledge',
+                                importance: result.documentSummary.importance || 0.8,
+                                tags: result.documentSummary.tags || ['document', 'summary'],
+                                sourceType: result.documentSummary.sourceType,
+                                sourceRef: result.documentSummary.sourceRef,
+                                createdAt: result.documentSummary.createdAt
                             });
                         }
                         for (const mem of result.memories) {
@@ -272,7 +275,7 @@ export class MemoryExtractPanel {
                                     id: `rel-${mem.id}`,
                                     source: mem.id,
                                     target: result.documentSummary.id,
-                                    type: 'part_of',
+                                    type: 'PART_OF',
                                     strength: 0.9
                                 });
                             }
@@ -312,10 +315,13 @@ export class MemoryExtractPanel {
                         nodes.push({
                             id: result.documentSummary.id,
                             content: result.documentSummary.content,
-                            summary: 'Document Summary',
-                            category: 'knowledge',
-                            importance: 0.8,
-                            tags: ['document', 'summary']
+                            summary: result.documentSummary.summary || 'Document Summary',
+                            category: result.documentSummary.category || 'knowledge',
+                            importance: result.documentSummary.importance || 0.8,
+                            tags: result.documentSummary.tags || ['document', 'summary'],
+                            sourceType: result.documentSummary.sourceType,
+                            sourceRef: result.documentSummary.sourceRef,
+                            createdAt: result.documentSummary.createdAt
                         });
                     }
                     
@@ -335,7 +341,7 @@ export class MemoryExtractPanel {
                                 id: `rel-${mem.id}`,
                                 source: mem.id,
                                 target: result.documentSummary.id,
-                                type: 'part_of',
+                                type: 'PART_OF',
                                 strength: 0.9
                             });
                         }

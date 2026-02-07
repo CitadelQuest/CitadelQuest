@@ -271,6 +271,13 @@ spirit:
             reinforces: 'Posilňuje'
             supersedes: 'Nahrádza'
         source_viewer: 'Zobraziť zdroj'
+        delete_node:
+            title: 'Zmazať Uzol Pamäte'
+            confirm: 'Zmazať tento uzol pamäte?'
+            children_warning: 'Tento uzol má potomkov — všetky podradené uzly prepojené vzťahom PART_OF budú tiež zmazané.'
+            irreversible: 'Túto akciu nie je možné vrátiť späť.'
+            success: 'Uzol úspešne zmazaný'
+            error: 'Nepodarilo sa zmazať uzol'
         extract_panel:
             show: 'Zobraziť Panel Extrakcie Pamäte'
             hide: 'Skryť Panel Extrakcie Pamäte'

@@ -813,6 +813,53 @@ class CQMemoryPackService
         return true;
     }
     
+    /**
+     * Delete a node and all its PART_OF descendant children (not parents/root).
+     * Children are nodes where: child.source_id -> node.id with type PART_OF
+     * Returns array of all deleted node IDs (including the target node).
+     */
+    public function deleteNodeWithChildren(string $nodeId): array
+    {
+        $db = $this->getConnection();
+        $deletedIds = [];
+        
+        // Collect all descendant node IDs via PART_OF relationships (BFS)
+        $queue = [$nodeId];
+        $visited = [$nodeId => true];
+        
+        while (!empty($queue)) {
+            $currentId = array_shift($queue);
+            $deletedIds[] = $currentId;
+            
+            // Find children: nodes that have PART_OF relationship pointing TO currentId
+            // In extraction flow: child (source_id) -> parent (target_id) with type PART_OF
+            $children = $db->executeQuery(
+                'SELECT source_id FROM memory_relationships WHERE target_id = ? AND type = ?',
+                [$currentId, MemoryNode::RELATION_PART_OF]
+            )->fetchAllAssociative();
+            
+            foreach ($children as $child) {
+                $childId = $child['source_id'];
+                if (!isset($visited[$childId])) {
+                    $visited[$childId] = true;
+                    $queue[] = $childId;
+                }
+            }
+        }
+        
+        // Delete all collected nodes, their tags and relationships
+        foreach ($deletedIds as $id) {
+            $this->deleteNode($id);
+        }
+        
+        $this->logger->info('Deleted node with children', [
+            'rootNodeId' => $nodeId,
+            'totalDeleted' => count($deletedIds)
+        ]);
+        
+        return $deletedIds;
+    }
+    
     public function incrementAccessCount(string $nodeId): void
     {
         $db = $this->getConnection();

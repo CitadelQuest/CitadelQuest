@@ -279,6 +279,13 @@ spirit:
             reinforces: 'Posiluje'
             supersedes: 'Nahrazuje'
         source_viewer: 'Zobrazit zdroj'
+        delete_node:
+            title: 'Smazat Uzel Paměti'
+            confirm: 'Smazat tento uzel paměti?'
+            children_warning: 'Tento uzel má potomky — všechny podřízené uzly propojené vztahem PART_OF budou také smazány.'
+            irreversible: 'Tuto akci nelze vrátit zpět.'
+            success: 'Uzel úspěšně smazán'
+            error: 'Nepodařilo se smazat uzel'
         extract_panel:
             show: 'Zobrazit Panel Extrakce Paměti'
             hide: 'Skrýt Panel Extrakce Paměti'

@@ -621,6 +621,41 @@
     </div>
 </div>
 
+{# Delete Node Confirmation Modal #}
+<div class="modal fade" id="deleteNodeModal" tabindex="-1" aria-labelledby="deleteNodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-white" id="deleteNodeModalLabel">
+                    <i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.delete_node.title'|trans|default('Delete Memory Node') }}
+                </span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-alert-triangle text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'spirit.memory.delete_node.confirm'|trans|default('Delete this memory node?') }}</p>
+                <div id="deleteNodeInfo" class="text-center mb-2">
+                    <span id="deleteNodeSummary" class="fw-bold text-cyber"></span>
+                </div>
+                <p id="deleteNodeChildrenWarning" class="text-warning small text-center d-none">
+                    <i class="mdi mdi-alert me-1"></i>{{ 'spirit.memory.delete_node.children_warning'|trans|default('This node has children — all descendant nodes connected via PART_OF relationships will also be deleted.') }}
+                </p>
+                <p class="text-muted small text-center">{{ 'spirit.memory.delete_node.irreversible'|trans|default('This action cannot be undone.') }}</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" id="btn-confirm-delete-node">
+                    <i class="mdi mdi-delete me-1"></i>{{ 'ui.delete'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# Source Viewer Modal #}
 <div class="modal fade" id="sourceViewerModal" tabindex="-1" aria-labelledby="sourceViewerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">

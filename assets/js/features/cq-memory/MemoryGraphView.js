@@ -828,6 +828,56 @@ export class MemoryGraphView {
     }
 
     /**
+     * Remove nodes and their connected edges from the 3D scene
+     * @param {Array} nodeIds - Array of node IDs to remove
+     */
+    removeNodes(nodeIds) {
+        if (!this.graphData || !nodeIds || nodeIds.length === 0) return;
+
+        const idSet = new Set(nodeIds);
+
+        // Remove node meshes from scene
+        for (const nodeId of nodeIds) {
+            const mesh = this.nodeMeshes.get(nodeId);
+            if (mesh) {
+                mesh.geometry.dispose();
+                mesh.material.dispose();
+                this.nodeGroup.remove(mesh);
+                this.nodeMeshes.delete(nodeId);
+            }
+        }
+
+        // Remove edges connected to deleted nodes
+        this.graphData.edges = this.graphData.edges.filter(e => !idSet.has(e.source) && !idSet.has(e.target));
+
+        // Remove nodes from graph data
+        this.graphData.nodes = this.graphData.nodes.filter(n => !idSet.has(n.id));
+
+        // Update layout engine
+        this.layoutEngine.removeNodes(idSet);
+
+        // Recreate edge lines from remaining edges
+        // Clear existing edge lines first
+        while (this.edgeGroup.children.length > 0) {
+            const line = this.edgeGroup.children[0];
+            line.geometry.dispose();
+            line.material.dispose();
+            this.edgeGroup.remove(line);
+        }
+        this.edgeLines = [];
+        this.createEdgeLines(this.graphData.edges);
+
+        // Clear selection if selected node was deleted
+        if (this.selectedNode && idSet.has(this.selectedNode.id)) {
+            this.selectedNode = null;
+            if (this.onNodeDeselect) this.onNodeDeselect();
+        }
+        if (this.hoveredNode && idSet.has(this.hoveredNode.id)) {
+            this.hoveredNode = null;
+        }
+    }
+
+    /**
      * Animate node entrance with fade-in and scale-up
      */
     animateNodeEntrance(nodeId) {

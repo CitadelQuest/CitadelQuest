@@ -351,6 +351,48 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
+     * Delete a memory node and its PART_OF children from a pack
+     */
+    #[Route('/pack/node/delete', name: 'api_memory_pack_node_delete', methods: ['POST'])]
+    public function deleteNode(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+        $nodeId = $data['nodeId'] ?? null;
+
+        if (!$path || !$name || !$nodeId) {
+            return new JsonResponse(['error' => 'path, name and nodeId are required'], 400);
+        }
+
+        try {
+            $this->packService->open($projectId, $path, $name);
+            
+            // Verify node exists
+            $node = $this->packService->findNodeById($nodeId);
+            if (!$node) {
+                $this->packService->close();
+                return new JsonResponse(['error' => 'Node not found'], 404);
+            }
+            
+            $deletedIds = $this->packService->deleteNodeWithChildren($nodeId);
+            $this->packService->close();
+
+            return new JsonResponse([
+                'success' => true,
+                'deletedNodeIds' => $deletedIds,
+                'deletedCount' => count($deletedIds),
+                'message' => 'Deleted ' . count($deletedIds) . ' node(s)'
+            ]);
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            return new JsonResponse(['error' => 'Failed to delete node: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Process one job step synchronously
      * Returns the nodes and edges created in this step for immediate graph update
      */

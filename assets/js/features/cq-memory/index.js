@@ -53,9 +53,9 @@ class CQMemoryExplorer {
         this.graphView = new MemoryGraphView(container);
         
         // Set callbacks
-        this.graphView.setOnNodeSelect((node) => this.showNodeDetails(node));
+        this.graphView.setOnNodeSelect((node) => { this.selectedNode = node; this.showNodeDetails(node); });
         this.graphView.setOnNodeHover((node) => this.onNodeHover(node));
-        this.graphView.setOnNodeDeselect(() => this.hideNodeDetails());
+        this.graphView.setOnNodeDeselect(() => { this.selectedNode = null; this.hideNodeDetails(); });
 
         // Initialize extract panel
         this.extractPanel = new MemoryExtractPanel(this.spiritId);
@@ -280,6 +280,20 @@ class CQMemoryExplorer {
 
         // Load collapsible state
         this.loadCollapsibleState();
+
+        // Delete key listener for selected node
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' && this.selectedNode && !this.isModalOpen()) {
+                e.preventDefault();
+                this.showDeleteNodeModal();
+            }
+        });
+
+        // Confirm delete node button
+        const confirmDeleteNodeBtn = document.getElementById('btn-confirm-delete-node');
+        if (confirmDeleteNodeBtn) {
+            confirmDeleteNodeBtn.addEventListener('click', () => this.deleteSelectedNode());
+        }
     }
 
     async loadGraphData() {
@@ -1788,6 +1802,104 @@ class CQMemoryExplorer {
         } catch (error) {
             console.error('Failed to delete pack:', error);
             window.toast?.error('Failed to delete pack: ' + error.message);
+        }
+    }
+
+    /**
+     * Check if any Bootstrap modal is currently open
+     */
+    isModalOpen() {
+        return document.querySelector('.modal.show') !== null;
+    }
+
+    /**
+     * Check if a node has PART_OF children in the current graph data
+     */
+    hasPartOfChildren(nodeId) {
+        if (!this.graphData?.edges) return false;
+        return this.graphData.edges.some(e => e.target === nodeId && e.type === 'PART_OF');
+    }
+
+    /**
+     * Show delete node confirmation modal for the selected node
+     */
+    showDeleteNodeModal() {
+        if (!this.selectedNode) {
+            window.toast?.warning('Select a node first');
+            return;
+        }
+
+        // Update modal with node info
+        const summaryEl = document.getElementById('deleteNodeSummary');
+        if (summaryEl) {
+            summaryEl.textContent = this.selectedNode.summary || this.selectedNode.id;
+        }
+
+        // Show/hide children warning
+        const childrenWarning = document.getElementById('deleteNodeChildrenWarning');
+        if (childrenWarning) {
+            if (this.hasPartOfChildren(this.selectedNode.id)) {
+                childrenWarning.classList.remove('d-none');
+            } else {
+                childrenWarning.classList.add('d-none');
+            }
+        }
+
+        const modal = document.getElementById('deleteNodeModal');
+        if (!modal) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Delete the selected node and its PART_OF children via API
+     */
+    async deleteSelectedNode() {
+        if (!this.selectedNode || !this.currentPackPath) return;
+
+        const nodeId = this.selectedNode.id;
+        const nodeSummary = this.selectedNode.summary || nodeId;
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+
+            const response = await fetch('/api/memory/pack/node/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name,
+                    nodeId: nodeId
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to delete node');
+            }
+
+            // Close modal
+            const modal = document.getElementById('deleteNodeModal');
+            if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+
+            // Remove deleted nodes from 3D scene
+            if (data.deletedNodeIds && this.graphView) {
+                this.graphView.removeNodes(data.deletedNodeIds);
+            }
+
+            // Clear selection
+            this.selectedNode = null;
+            this.hideNodeDetails();
+
+            // Update stats
+            this.updateStats();
+
+            window.toast?.success(`Deleted ${data.deletedCount} node(s): ${nodeSummary}`);
+
+        } catch (error) {
+            console.error('Failed to delete node:', error);
+            window.toast?.error('Failed to delete node: ' + error.message);
         }
     }
 

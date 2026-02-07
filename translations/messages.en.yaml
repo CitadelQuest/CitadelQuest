@@ -279,6 +279,13 @@ spirit:
             reinforces: 'Reinforces'
             supersedes: 'Supersedes'
         source_viewer: 'Source Viewer'
+        delete_node:
+            title: 'Delete Memory Node'
+            confirm: 'Delete this memory node?'
+            children_warning: 'This node has children — all descendant nodes connected via PART_OF relationships will also be deleted.'
+            irreversible: 'This action cannot be undone.'
+            success: 'Node deleted successfully'
+            error: 'Failed to delete node'
         extract_panel:
             show: 'Show Memory Extraction Panel'
             hide: 'Hide Memory Extraction Panel'

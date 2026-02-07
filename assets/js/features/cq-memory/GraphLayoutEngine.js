@@ -295,6 +295,35 @@ export class GraphLayoutEngine {
     }
 
     /**
+     * Remove nodes and their connected links from the simulation
+     * @param {Set|Array} nodeIds - IDs of nodes to remove
+     */
+    removeNodes(nodeIds) {
+        const idSet = nodeIds instanceof Set ? nodeIds : new Set(nodeIds);
+        
+        // Remove links connected to any of the removed nodes
+        this.links = this.links.filter(link => {
+            const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+            const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+            return !idSet.has(sourceId) && !idSet.has(targetId);
+        });
+        
+        // Remove nodes
+        this.nodes = this.nodes.filter(n => !idSet.has(n.id));
+        
+        // Update simulation
+        if (this.simulation) {
+            this.simulation.nodes(this.nodes);
+            if (this.simulation.force('link')) {
+                this.simulation.force('link').links(this.links);
+            }
+            this.reheat(0.3);
+        }
+        
+        return this;
+    }
+
+    /**
      * Dispose of resources
      */
     dispose() {

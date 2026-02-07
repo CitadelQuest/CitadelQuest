@@ -1995,7 +1995,7 @@ PROMPT;
                         'summary' => $node->getSummary(),
                         'category' => $node->getCategory(),
                         'importance' => $node->getImportance(),
-                        'tags' => $memoryData['tags'] ?? []
+                        'tags' => $this->packService->getTagsForNode($node->getId())
                     ];
                 } catch (\Exception $e) {
                     $this->logger->warning('Failed to store extracted memory in pack', [
@@ -2024,6 +2024,19 @@ PROMPT;
                 $this->packService->updateJobProgress($analysisJob->getId(), 0, count($extractedNodeIds));
             }
 
+            // Build document summary data BEFORE closing pack (needs DB connection for tags)
+            $documentSummaryData = $documentSummaryNode ? [
+                'id' => $documentSummaryNode->getId(),
+                'content' => $documentSummaryNode->getContent(),
+                'summary' => $documentSummaryNode->getSummary(),
+                'category' => $documentSummaryNode->getCategory(),
+                'importance' => $documentSummaryNode->getImportance(),
+                'tags' => $this->packService->getTagsForNode($documentSummaryNode->getId()),
+                'sourceType' => $documentSummaryNode->getSourceType(),
+                'sourceRef' => $documentSummaryNode->getSourceRef(),
+                'createdAt' => $documentSummaryNode->getCreatedAt()->format('Y-m-d H:i:s')
+            ] : null;
+
             $this->packService->close();
 
             // Send notification
@@ -2046,10 +2059,7 @@ PROMPT;
                     'extractedCount' => count($extractedMemories),
                     'storedCount' => count($storedMemories),
                     'memories' => $storedMemories,
-                    'documentSummary' => $documentSummaryNode ? [
-                        'id' => $documentSummaryNode->getId(),
-                        'content' => $documentSummaryNode->getContent()
-                    ] : null,
+                    'documentSummary' => $documentSummaryData,
                     'initialProgress' => [
                         'progress' => 0,
                         'totalSteps' => count($extractedNodeIds),
@@ -2065,10 +2075,7 @@ PROMPT;
                 'storedCount' => count($storedMemories),
                 'memories' => $storedMemories,
                 'targetPack' => $targetPack,
-                'documentSummary' => $documentSummaryNode ? [
-                    'id' => $documentSummaryNode->getId(),
-                    'content' => $documentSummaryNode->getContent()
-                ] : null,
+                'documentSummary' => $documentSummaryData,
                 'message' => 'Successfully extracted and stored ' . count($storedMemories) . ' memories to pack.'
             ];
 
