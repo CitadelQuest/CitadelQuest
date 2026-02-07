@@ -491,8 +491,8 @@ class CQMemoryPackService
             ]
         );
         
-        // Add tags
-        foreach ($tags as $tag) {
+        // Add tags (deduplicate first)
+        foreach (array_unique($tags) as $tag) {
             $this->addTag($node->getId(), $tag);
         }
         
@@ -932,6 +932,16 @@ class CQMemoryPackService
     public function addTag(string $nodeId, string $tag): MemoryTag
     {
         $db = $this->getConnection();
+        
+        // Skip if this exact tag already exists for this node
+        $existing = $db->executeQuery(
+            'SELECT id FROM memory_tags WHERE memory_id = ? AND tag = ?',
+            [$nodeId, $tag]
+        )->fetchAssociative();
+        
+        if ($existing) {
+            return new MemoryTag($nodeId, $tag);
+        }
         
         $tagEntity = new MemoryTag($nodeId, $tag);
         

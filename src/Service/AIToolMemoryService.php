@@ -1960,7 +1960,7 @@ PROMPT;
                         "Document: {$documentTitle}",
                         'document_summary',
                         $sourceRef ?? 'direct-content',
-                        ['document', 'summary', $sourceType]
+                        ['document', 'root', 'summary', $sourceType]
                     );
                 }
             }
@@ -1975,7 +1975,7 @@ PROMPT;
                         $memoryData['summary'] ?? null,
                         $sourceType,
                         $sourceRef,
-                        $memoryData['tags'] ?? []
+                        array_merge(['depth-1'], $memoryData['tags'] ?? [])
                     );
 
                     // Create PART_OF relationship to document summary
