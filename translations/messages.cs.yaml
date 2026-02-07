@@ -274,7 +274,6 @@ spirit:
         relationship_types:
             relates_to: 'Souvisí s'
             derived_from: 'Odvozeno z'
-            evolved_into: 'Vyvinulo se do'
             part_of: 'Součást'
             contradicts: 'Protiřečí'
             reinforces: 'Posiluje'

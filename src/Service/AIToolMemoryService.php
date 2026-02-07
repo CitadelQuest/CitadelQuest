@@ -322,7 +322,7 @@ class AIToolMemoryService
                 'oldMemoryId' => $arguments['memoryId'],
                 'newMemoryId' => $newMemory->getId(),
                 'summary' => $newMemory->getSummary(),
-                'message' => 'Memory updated successfully. Old memory preserved with EVOLVED_INTO relationship.'
+                'message' => 'Memory updated successfully. New memory SUPERSEDES old one.'
             ];
 
         } catch (\Exception $e) {
@@ -1122,7 +1122,6 @@ and identify meaningful relationships to EXISTING memories.
 - PART_OF: New memory is a detail, subset, or component of existing broader memory
 - DERIVED_FROM: New memory was learned, inferred, or evolved from existing memory
 - SUPERSEDES: New memory replaces or updates existing memory with newer information
-- EVOLVED_INTO: Existing memory concept has evolved/transformed into new understanding
 
 ## Detection Guidelines:
 

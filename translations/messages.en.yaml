@@ -274,7 +274,6 @@ spirit:
         relationship_types:
             relates_to: 'Relates to'
             derived_from: 'Derived from'
-            evolved_into: 'Evolved into'
             part_of: 'Part of'
             contradicts: 'Contradicts'
             reinforces: 'Reinforces'

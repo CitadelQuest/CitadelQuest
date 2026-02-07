@@ -14,7 +14,6 @@ $category-fact: #4affff;
 // Relationship Colors
 $rel-relates-to: #ffffff;
 $rel-derived-from: #ffff00;
-$rel-evolved-into: #00ffff;
 $rel-part-of: #8dff8d;
 $rel-contradicts: #ff0000;
 $rel-reinforces: #0088ff;
@@ -289,7 +288,6 @@ $panel-min-height: 500px;
         .relationship-type {
             &.relates-to { color: $rel-relates-to; }
             &.derived-from { color: $rel-derived-from; }
-            &.evolved-into { color: $rel-evolved-into; }
             &.part-of { color: $rel-part-of; }
             &.contradicts { color: $rel-contradicts; }
             &.reinforces { color: $rel-reinforces; }
@@ -358,7 +356,6 @@ $panel-min-height: 500px;
         .rel-color {
             &.relates-to { color: $rel-relates-to; }
             &.derived-from { color: $rel-derived-from; }
-            &.evolved-into { color: $rel-evolved-into; }
             &.part-of { color: $rel-part-of; }
             &.contradicts { color: $rel-contradicts; }
             &.reinforces { color: $rel-reinforces; }

@@ -25,12 +25,10 @@ class MemoryNode implements JsonSerializable
     private ?string $sourceRef;
     private ?string $sourceRange;
     private bool $isActive;
-    private ?string $supersededBy;
 
     // Relationship types as constants
     public const RELATION_RELATES_TO = 'RELATES_TO';
     public const RELATION_DERIVED_FROM = 'DERIVED_FROM';
-    public const RELATION_EVOLVED_INTO = 'EVOLVED_INTO';
     public const RELATION_PART_OF = 'PART_OF';
     public const RELATION_CONTRADICTS = 'CONTRADICTS';
     public const RELATION_REINFORCES = 'REINFORCES';
@@ -62,7 +60,6 @@ class MemoryNode implements JsonSerializable
         $this->sourceRef = null;
         $this->sourceRange = null;
         $this->isActive = true;
-        $this->supersededBy = null;
     }
 
     // Getters
@@ -129,11 +126,6 @@ class MemoryNode implements JsonSerializable
     public function isActive(): bool
     {
         return $this->isActive;
-    }
-
-    public function getSupersededBy(): ?string
-    {
-        return $this->supersededBy;
     }
 
     // Setters
@@ -215,12 +207,6 @@ class MemoryNode implements JsonSerializable
         return $this;
     }
 
-    public function setSupersededBy(?string $supersededBy): self
-    {
-        $this->supersededBy = $supersededBy;
-        return $this;
-    }
-
     // Utility methods
     public function incrementAccessCount(): self
     {
@@ -251,7 +237,6 @@ class MemoryNode implements JsonSerializable
             'sourceRef' => $this->sourceRef,
             'sourceRange' => $this->sourceRange,
             'isActive' => $this->isActive,
-            'supersededBy' => $this->supersededBy,
         ];
     }
 
@@ -277,7 +262,6 @@ class MemoryNode implements JsonSerializable
         $node->setSourceRef($data['source_ref'] ?? null);
         $node->setSourceRange($data['source_range'] ?? null);
         $node->setIsActive((bool)($data['is_active'] ?? true));
-        $node->setSupersededBy($data['superseded_by'] ?? null);
 
         return $node;
     }
@@ -298,7 +282,6 @@ class MemoryNode implements JsonSerializable
         return [
             self::RELATION_RELATES_TO,
             self::RELATION_DERIVED_FROM,
-            self::RELATION_EVOLVED_INTO,
             self::RELATION_PART_OF,
             self::RELATION_CONTRADICTS,
             self::RELATION_REINFORCES,

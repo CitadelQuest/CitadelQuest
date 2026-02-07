@@ -35,7 +35,7 @@ class CQMemoryExplorer {
         this.hoverDebounceTimer = null;
         this.filters = {
             categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact']),
-            relationships: new Set(['RELATES_TO', 'DERIVED_FROM', 'EVOLVED_INTO', 'PART_OF', 'CONTRADICTS', 'REINFORCES', 'SUPERSEDES'])
+            relationships: new Set(['RELATES_TO', 'DERIVED_FROM', 'PART_OF', 'CONTRADICTS', 'REINFORCES', 'SUPERSEDES'])
         };
 
         this.loadFilterState();
@@ -551,7 +551,6 @@ class CQMemoryExplorer {
         const colors = {
             RELATES_TO: '#ffffff',
             DERIVED_FROM: '#ffff00',
-            EVOLVED_INTO: '#00ffff',
             PART_OF: '#00ff00',
             CONTRADICTS: '#ff0000',
             REINFORCES: '#0088ff',

@@ -251,9 +251,7 @@ class CQMemoryPackService
                 source_type TEXT,
                 source_ref TEXT,
                 source_range TEXT,
-                is_active INTEGER DEFAULT 1,
-                superseded_by TEXT,
-                FOREIGN KEY (superseded_by) REFERENCES memory_nodes(id)
+                is_active INTEGER DEFAULT 1
             )
         ");
         
@@ -474,8 +472,8 @@ class CQMemoryPackService
         
         $db->executeStatement(
             'INSERT INTO memory_nodes 
-            (id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, source_range, is_active, superseded_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, source_range, is_active) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $node->getId(),
                 $node->getContent(),
@@ -489,8 +487,7 @@ class CQMemoryPackService
                 $node->getSourceType(),
                 $node->getSourceRef(),
                 $node->getSourceRange(),
-                1,
-                null
+                1
             ]
         );
         
@@ -756,19 +753,13 @@ class CQMemoryPackService
             $this->getTagsForNode($nodeId)
         );
         
-        // Create EVOLVED_INTO relationship
+        // Create SUPERSEDES relationship (new node supersedes old)
         $this->createRelationship(
-            $oldNode->getId(),
             $newNode->getId(),
-            MemoryNode::RELATION_EVOLVED_INTO,
+            $oldNode->getId(),
+            MemoryNode::RELATION_SUPERSEDES,
             1.0,
             $reason
-        );
-        
-        // Mark old node as superseded
-        $db->executeStatement(
-            'UPDATE memory_nodes SET superseded_by = ? WHERE id = ?',
-            [$newNode->getId(), $oldNode->getId()]
         );
         
         // Log consolidation action

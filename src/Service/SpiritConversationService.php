@@ -1320,7 +1320,7 @@ class SpiritConversationService
                     </tool>
                     <tool name=\"memoryUpdate\">
                         Update existing memories when information changes.
-                        Preserves history with EVOLVED_INTO relationships.
+                        Creates new node that SUPERSEDES the old one.
                     </tool>
                     <tool name=\"memoryForget\">
                         Mark memories as forgotten (soft delete) when they become irrelevant.
@@ -1407,7 +1407,7 @@ class SpiritConversationService
                         </tool>
                         <tool name=\"memoryUpdate\">
                             Update existing memories when information changes.
-                            Preserves history with EVOLVED_INTO relationships.
+                            Creates new node that SUPERSEDES the old one.
                         </tool>
                         <tool name=\"memoryForget\">
                             Mark memories as forgotten (soft delete) when they become irrelevant.
