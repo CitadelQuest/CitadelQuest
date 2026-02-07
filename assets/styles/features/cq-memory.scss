@@ -81,6 +81,31 @@ $panel-min-height: 500px;
             background: colors.$dark;
             color: colors.$text-light;
         }
+
+        // Extraction source type pills
+        .extract-source-tabs {
+            gap: 0.25rem;
+
+            .nav-link {
+                color: rgba(colors.$secondary, 0.7);
+                background: rgba(colors.$dark, 0.5);
+                border: 1px solid rgba(colors.$secondary, 0.2);
+                border-radius: vars.$border-radius;
+                font-size: 0.7rem;
+                padding: 0.25rem 0.5rem;
+
+                &:hover {
+                    color: colors.$cyber;
+                    border-color: rgba(colors.$cyber, 0.3);
+                }
+
+                &.active {
+                    color: colors.$cyber;
+                    background: rgba(colors.$cyber, 0.1);
+                    border-color: rgba(colors.$cyber, 0.4);
+                }
+            }
+        }
     }
 
     // Graph Container

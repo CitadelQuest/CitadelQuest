@@ -288,10 +288,40 @@ class AIToolWebService
         $html = preg_replace('/<noscript[^>]*>.*?<\/noscript>/is', '', $html);
         $html = preg_replace('/<!--.*?-->/s', '', $html);
         
-        // Remove common non-content elements (but keep their text for AI to filter)
-        // We'll let the AI decide what's important
+        // Convert <a> and <img> to markdown before stripping tags
+        // so href/src/alt info survives into the plain text
+        $html = preg_replace_callback(
+            '/<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is',
+            function ($m) {
+                $href = trim($m[1]);
+                $text = trim(strip_tags($m[2]));
+                // Skip empty anchors, javascript: and # links
+                if (!$text || !$href || str_starts_with($href, '#') || str_starts_with($href, 'javascript:')) {
+                    return $text;
+                }
+                return "[$text]($href)";
+            },
+            $html
+        );
+        $html = preg_replace_callback(
+            '/<img\s[^>]*>/is',
+            function ($m) {
+                $tag = $m[0];
+                $src = '';
+                $alt = '';
+                if (preg_match('/src=["\']([^"\']+)["\']/i', $tag, $s)) {
+                    $src = trim($s[1]);
+                }
+                if (preg_match('/alt=["\']([^"\']*?)["\']/i', $tag, $a)) {
+                    $alt = trim($a[1]);
+                }
+                if (!$src) return '';
+                return "![" . ($alt ?: 'image') . "]($src)";
+            },
+            $html
+        );
         
-        // Convert to text
+        // Convert to text (all remaining tags stripped)
         $text = strip_tags($html);
         
         // Clean up whitespace

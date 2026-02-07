@@ -20,6 +20,9 @@ export class MemoryExtractPanel {
         this.isProcessingSteps = false;
         this.currentJobId = null;
         
+        // Active source type: 'file', 'url', 'text'
+        this.activeSourceType = 'file';
+        
         this.init();
     }
 
@@ -30,11 +33,35 @@ export class MemoryExtractPanel {
     }
 
     setupEventListeners() {
+        // Source type tab switching
+        document.querySelectorAll('.extract-source-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', (e) => {
+                this.activeSourceType = e.target.id.replace('source-tab-', '');
+                this.updateStartButtonState();
+            });
+        });
+
         // File browser file selection
         const fileSelector = document.getElementById('extract-file-selector');
         if (fileSelector) {
             fileSelector.addEventListener('change', (e) => {
                 this.onFileSelected(e.target.value);
+            });
+        }
+
+        // URL input
+        const urlInput = document.getElementById('extract-url-input');
+        if (urlInput) {
+            urlInput.addEventListener('input', () => this.updateStartButtonState());
+        }
+
+        // Text input + character count
+        const textInput = document.getElementById('extract-text-input');
+        if (textInput) {
+            textInput.addEventListener('input', () => {
+                const charCount = document.getElementById('extract-text-charcount');
+                if (charCount) charCount.textContent = textInput.value.length;
+                this.updateStartButtonState();
             });
         }
 
@@ -85,11 +112,38 @@ export class MemoryExtractPanel {
             }
         }
 
-        // Enable start button only if no active jobs
-        const startBtn = document.getElementById('btn-start-extraction');
-        if (startBtn && !this.isProcessingSteps && this.activeJobs.size === 0) {
-            startBtn.disabled = false;
+        this.updateStartButtonState();
+    }
+
+    /**
+     * Check if the current source type has valid input
+     */
+    hasValidSourceInput() {
+        switch (this.activeSourceType) {
+            case 'file':
+                return !!document.getElementById('extract-file-selector')?.value;
+            case 'url': {
+                const url = document.getElementById('extract-url-input')?.value?.trim();
+                return url && (url.startsWith('http://') || url.startsWith('https://'));
+            }
+            case 'text':
+                return (document.getElementById('extract-text-input')?.value?.trim().length || 0) > 0;
+            default:
+                return false;
         }
+    }
+
+    /**
+     * Update start button enabled/disabled based on current source input and job state
+     */
+    updateStartButtonState() {
+        const startBtn = document.getElementById('btn-start-extraction');
+        if (!startBtn) return;
+        if (this.isProcessingSteps || this.activeJobs.size > 0) {
+            startBtn.disabled = true;
+            return;
+        }
+        startBtn.disabled = !this.hasValidSourceInput();
     }
 
     /**
@@ -101,14 +155,46 @@ export class MemoryExtractPanel {
         this.projectId = projectId;
     }
 
+    /**
+     * Build extraction request body based on active source type
+     */
+    getExtractionParams(maxDepth) {
+        const params = {
+            targetPack: this.targetPack,
+            maxDepth: maxDepth
+        };
+
+        switch (this.activeSourceType) {
+            case 'file':
+                params.sourceType = 'document';
+                params.sourceRef = document.getElementById('extract-file-selector')?.value;
+                break;
+            case 'url':
+                params.sourceType = 'url';
+                params.sourceRef = document.getElementById('extract-url-input')?.value?.trim();
+                break;
+            case 'text':
+                params.sourceType = 'derived';
+                params.content = document.getElementById('extract-text-input')?.value?.trim();
+                params.documentTitle = 'Text Input';
+                break;
+        }
+
+        return params;
+    }
+
     async startExtraction() {
-        const fileSelector = document.getElementById('extract-file-selector');
         const depthSlider = document.getElementById('extract-max-depth');
         const startBtn = document.getElementById('btn-start-extraction');
         const t = window.memoryExplorerTranslations?.extract_panel || {};
         
-        if (!fileSelector || !fileSelector.value) {
-            this.showError(t.select_file_first || 'Please select a file first');
+        if (!this.hasValidSourceInput()) {
+            const msgs = {
+                file: t.select_file_first || 'Please select a file first',
+                url: t.enter_url_first || 'Please enter a valid URL',
+                text: t.enter_text_first || 'Please enter some text'
+            };
+            this.showError(msgs[this.activeSourceType] || 'Please provide input');
             return;
         }
 
@@ -118,8 +204,8 @@ export class MemoryExtractPanel {
             return;
         }
 
-        const sourceRef = fileSelector.value;
         const maxDepth = depthSlider ? parseInt(depthSlider.value) : 3;
+        const extractionParams = this.getExtractionParams(maxDepth);
 
         // Pause global polling BEFORE fetch to prevent pile-up
         updatesService.pause();
@@ -131,16 +217,11 @@ export class MemoryExtractPanel {
         }
 
         try {
-            // Use new pack-based extraction endpoint
+            // Use pack-based extraction endpoint
             const response = await fetch('/api/memory/pack/extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetPack: this.targetPack,
-                    sourceType: 'document',
-                    sourceRef: sourceRef,
-                    maxDepth: maxDepth
-                })
+                body: JSON.stringify(extractionParams)
             });
 
             if (!response.ok) {
@@ -158,12 +239,46 @@ export class MemoryExtractPanel {
                 
                 this.currentJobId = result.jobId;
                 
-                // Add root node to graph immediately
-                if (result.rootNode && this.onGraphDelta) {
-                    this.onGraphDelta({
-                        nodes: [result.rootNode],
-                        edges: []
-                    });
+                // Add nodes to graph immediately
+                if (this.onGraphDelta) {
+                    if (result.rootNode) {
+                        // Recursive extraction: single root node
+                        this.onGraphDelta({ nodes: [result.rootNode], edges: [] });
+                    } else if (result.memories) {
+                        // Direct extraction + relationship analysis: all nodes at once
+                        const nodes = [];
+                        const edges = [];
+                        if (result.documentSummary) {
+                            nodes.push({
+                                id: result.documentSummary.id,
+                                content: result.documentSummary.content,
+                                summary: 'Document Summary',
+                                category: 'knowledge',
+                                importance: 0.8,
+                                tags: ['document', 'summary']
+                            });
+                        }
+                        for (const mem of result.memories) {
+                            nodes.push({
+                                id: mem.id,
+                                content: mem.content,
+                                summary: mem.summary || '',
+                                category: mem.category || 'knowledge',
+                                importance: mem.importance || 0.5,
+                                tags: mem.tags || []
+                            });
+                            if (result.documentSummary) {
+                                edges.push({
+                                    id: `rel-${mem.id}`,
+                                    source: mem.id,
+                                    target: result.documentSummary.id,
+                                    type: 'part_of',
+                                    strength: 0.9
+                                });
+                            }
+                        }
+                        this.onGraphDelta({ nodes, edges });
+                    }
                 }
                 
                 // Add job to tracking
@@ -340,8 +455,7 @@ export class MemoryExtractPanel {
      */
     enableStartButton() {
         const startBtn = document.getElementById('btn-start-extraction');
-        const fileSelector = document.getElementById('extract-file-selector');
-        if (startBtn && fileSelector?.value) {
+        if (startBtn && this.hasValidSourceInput()) {
             startBtn.disabled = false;
         }
     }

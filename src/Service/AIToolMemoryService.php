@@ -1875,7 +1875,7 @@ PROMPT;
             $documentSummaryNode = null;
 
             // Create document summary node if we have multiple memories
-            if (count($extractedMemories) > 1 && $sourceRef) {
+            if (count($extractedMemories) > 1) {
                 $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
                 if ($summaryContent) {
                     $documentSummaryNode = $this->packService->storeNode(
@@ -1884,7 +1884,7 @@ PROMPT;
                         0.8,
                         "Document: {$documentTitle}",
                         'document_summary',
-                        $sourceRef,
+                        $sourceRef ?? 'direct-content',
                         ['document', 'summary', $sourceType]
                     );
                 }
@@ -1929,6 +1929,26 @@ PROMPT;
                 }
             }
 
+            // Create relationship analysis job (same as recursive path)
+            $extractedNodeIds = array_column($storedMemories, 'id');
+            if ($documentSummaryNode) {
+                $extractedNodeIds[] = $documentSummaryNode->getId();
+            }
+            $analysisJob = null;
+            if (!empty($extractedNodeIds) && count($extractedNodeIds) > 1) {
+                $analysisJob = $this->packService->createJob(
+                    MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
+                    [
+                        'target_pack' => $targetPack,
+                        'pending_node_ids' => $extractedNodeIds,
+                        'processed_count' => 0,
+                        'relationships_created' => 0,
+                        'document_title' => $documentTitle
+                    ]
+                );
+                $this->packService->updateJobProgress($analysisJob->getId(), 0, count($extractedNodeIds));
+            }
+
             $this->packService->close();
 
             // Send notification
@@ -1939,6 +1959,29 @@ PROMPT;
                     'Extracted ' . count($storedMemories) . ' memories to pack: ' . $targetPack['name'],
                     'success'
                 );
+            }
+
+            // If relationship analysis job was created, return async-like response
+            if ($analysisJob) {
+                return [
+                    'success' => true,
+                    'async' => true,
+                    'jobId' => $analysisJob->getId(),
+                    'targetPack' => $targetPack,
+                    'extractedCount' => count($extractedMemories),
+                    'storedCount' => count($storedMemories),
+                    'memories' => $storedMemories,
+                    'documentSummary' => $documentSummaryNode ? [
+                        'id' => $documentSummaryNode->getId(),
+                        'content' => $documentSummaryNode->getContent()
+                    ] : null,
+                    'initialProgress' => [
+                        'progress' => 0,
+                        'totalSteps' => count($extractedNodeIds),
+                        'type' => MemoryJob::TYPE_ANALYZE_RELATIONSHIPS
+                    ],
+                    'message' => 'Extracted ' . count($storedMemories) . ' memories. Analyzing relationships...'
+                ];
             }
 
             return [

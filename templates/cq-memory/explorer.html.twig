@@ -141,16 +141,54 @@
                     <div class="tab-pane fade" id="panel-extraction" role="tabpanel" aria-labelledby="tab-extraction">
                         <div id="extract-alert" class="d-none"></div>
                         
+                        {# Source type selector pills #}
                         <div class="mb-3">
-                            <label class="form-label small text-cyber">
-                                <i class="mdi mdi-file-document me-1"></i>
-                                {{ 'spirit.memory.extract_panel.select_file'|trans }}
+                            <label class="form-label small text-cyber mb-2">
+                                <i class="mdi mdi-database-import me-1"></i>
+                                {{ 'spirit.memory.extract_panel.source_type'|trans }}
                             </label>
-                            <select id="extract-file-selector" class="form-select form-select-sm bg-dark text-light border-secondary">
-                                <option value="">-- Select a file --</option>
-                            </select>
-                            <div class="small text-secondary mt-1">
-                                Selected: <span id="extract-selected-file" class="text-cyber">None</span>
+                            <ul class="nav nav-pills extract-source-tabs mb-2" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active px-2 py-1 small" id="source-tab-file" data-bs-toggle="pill" data-bs-target="#source-panel-file" type="button" role="tab">
+                                        <i class="mdi mdi-file-document me-1"></i>{{ 'spirit.memory.extract_panel.source_file'|trans }}
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link px-2 py-1 small" id="source-tab-url" data-bs-toggle="pill" data-bs-target="#source-panel-url" type="button" role="tab">
+                                        <i class="mdi mdi-web me-1"></i>{{ 'spirit.memory.extract_panel.source_url'|trans }}
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link px-2 py-1 small" id="source-tab-text" data-bs-toggle="pill" data-bs-target="#source-panel-text" type="button" role="tab">
+                                        <i class="mdi mdi-text-box me-1"></i>{{ 'spirit.memory.extract_panel.source_text'|trans }}
+                                    </button>
+                                </li>
+                            </ul>
+                            <div class="tab-content">
+                                {# File source panel #}
+                                <div class="tab-pane fade show active" id="source-panel-file" role="tabpanel">
+                                    <select id="extract-file-selector" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                        <option value="">-- {{ 'spirit.memory.extract_panel.select_file'|trans }} --</option>
+                                    </select>
+                                    <div class="small text-secondary mt-1">
+                                        {{ 'spirit.memory.extract_panel.selected'|trans }}: <span id="extract-selected-file" class="text-cyber">None</span>
+                                    </div>
+                                </div>
+                                {# URL source panel #}
+                                <div class="tab-pane fade" id="source-panel-url" role="tabpanel">
+                                    <input type="url" id="extract-url-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="https://example.com/article">
+                                    <div class="small text-secondary mt-1">
+                                        <i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.memory.extract_panel.url_hint'|trans }}
+                                    </div>
+                                </div>
+                                {# Text source panel #}
+                                <div class="tab-pane fade" id="source-panel-text" role="tabpanel">
+                                    <textarea id="extract-text-input" class="form-control form-control-sm bg-dark text-light border-secondary" rows="4" placeholder="{{ 'spirit.memory.extract_panel.text_placeholder'|trans }}"></textarea>
+                                    <div class="small text-secondary mt-1 d-flex justify-content-between">
+                                        <span><i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.memory.extract_panel.text_hint'|trans }}</span>
+                                        <span id="extract-text-charcount" class="text-cyber">0</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
