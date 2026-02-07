@@ -1099,17 +1099,32 @@ class CQMemoryExplorer {
         const librarySelector = document.getElementById('library-selector');
         const createLibBtn = document.getElementById('btn-create-library');
         const confirmCreateLibBtn = document.getElementById('btn-confirm-create-library');
+        const detailsLibBtn = document.getElementById('btn-library-details');
+        const deleteLibBtn = document.getElementById('btn-delete-library');
+        const confirmDeleteLibBtn = document.getElementById('btn-confirm-delete-library');
 
         if (librarySelector) {
             librarySelector.addEventListener('change', (e) => this.onLibrarySelected(e.target.value));
         }
 
         if (createLibBtn) {
-            createLibBtn.addEventListener('click', () => this.showCreateLibraryModal());
+            createLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showCreateLibraryModal(); });
         }
 
         if (confirmCreateLibBtn) {
             confirmCreateLibBtn.addEventListener('click', () => this.createLibrary());
+        }
+
+        if (detailsLibBtn) {
+            detailsLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showLibraryDetails(); });
+        }
+
+        if (deleteLibBtn) {
+            deleteLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showDeleteLibraryModal(); });
+        }
+
+        if (confirmDeleteLibBtn) {
+            confirmDeleteLibBtn.addEventListener('click', () => this.deleteLibrary());
         }
     }
 
@@ -1120,17 +1135,42 @@ class CQMemoryExplorer {
         const packSelector = document.getElementById('pack-selector');
         const createPackBtn = document.getElementById('btn-create-pack');
         const confirmCreateBtn = document.getElementById('btn-confirm-create-pack');
+        const detailsPackBtn = document.getElementById('btn-pack-details');
+        const removePackFromLibBtn = document.getElementById('btn-remove-pack-from-lib');
+        const deletePackBtn = document.getElementById('btn-delete-pack');
+        const confirmRemovePackFromLibBtn = document.getElementById('btn-confirm-remove-pack-from-lib');
+        const confirmDeletePackBtn = document.getElementById('btn-confirm-delete-pack');
 
         if (packSelector) {
             packSelector.addEventListener('change', (e) => this.onPackSelected(e.target.value));
         }
 
         if (createPackBtn) {
-            createPackBtn.addEventListener('click', () => this.showCreatePackModal());
+            createPackBtn.addEventListener('click', (e) => { e.preventDefault(); this.showCreatePackModal(); });
         }
 
         if (confirmCreateBtn) {
             confirmCreateBtn.addEventListener('click', () => this.createPack());
+        }
+
+        if (detailsPackBtn) {
+            detailsPackBtn.addEventListener('click', (e) => { e.preventDefault(); this.showPackDetails(); });
+        }
+
+        if (removePackFromLibBtn) {
+            removePackFromLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showRemovePackFromLibModal(); });
+        }
+
+        if (deletePackBtn) {
+            deletePackBtn.addEventListener('click', (e) => { e.preventDefault(); this.showDeletePackModal(); });
+        }
+
+        if (confirmRemovePackFromLibBtn) {
+            confirmRemovePackFromLibBtn.addEventListener('click', () => this.removePackFromLibrary());
+        }
+
+        if (confirmDeletePackBtn) {
+            confirmDeletePackBtn.addEventListener('click', () => this.deletePack());
         }
     }
 
@@ -1398,6 +1438,330 @@ class CQMemoryExplorer {
         } catch (error) {
             console.error('Failed to create library:', error);
             window.toast?.error((trans.create_error || 'Failed to create library') + ': ' + error.message);
+        }
+    }
+
+    /**
+     * Show library details modal
+     */
+    async showLibraryDetails() {
+        if (!this.selectedLibrary) {
+            window.toast?.warning('Select a library first');
+            return;
+        }
+
+        const contentEl = document.getElementById('libraryDetailsContent');
+        if (!contentEl) return;
+
+        contentEl.innerHTML = '<div class="text-center py-3"><i class="mdi mdi-loading mdi-spin text-cyber fs-3"></i></div>';
+
+        const modal = document.getElementById('libraryDetailsModal');
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+
+        try {
+            const response = await fetch('/api/memory/library/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: this.selectedLibrary.path,
+                    name: this.selectedLibrary.name
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const lib = data.library || {};
+            const packs = lib.packs || [];
+
+            contentEl.innerHTML = `
+                <div class="mb-3">
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-label-outline me-2 text-cyber"></i>Name:</strong>
+                    <span class="ms-3">${this.escapeHtml(lib.name || this.selectedLibrary.displayName || this.selectedLibrary.name)}</span></p>
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-text me-2 text-cyber"></i>Description:</strong>
+                    <span class="ms-3">${this.escapeHtml(lib.description || '(none)')}</span></p>
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-folder-outline me-2 text-cyber"></i>Path:</strong>
+                    <span class="ms-3 text-secondary small">${this.escapeHtml(this.selectedLibrary.path + '/' + this.selectedLibrary.name)}</span></p>
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-package-variant me-2 text-cyber"></i>Packs:</strong>
+                    <span class="ms-3">${packs.length}</span></p>
+                </div>
+                ${packs.length > 0 ? `
+                <h6 class="mb-2"><i class="mdi mdi-package-variant-closed me-1 text-cyber"></i>Packs in this library:</h6>
+                <ul class="list-unstyled ms-2">
+                    ${packs.map(p => `<li class="mb-1 small">
+                        <i class="mdi mdi-package-variant text-secondary me-1"></i>
+                        ${this.escapeHtml(p.displayName || p.name || p.path)}
+                        ${(p.enabled ?? true) ? '' : '<span class="badge bg-secondary ms-1">disabled</span>'}
+                    </li>`).join('')}
+                </ul>` : ''}
+            `;
+        } catch (error) {
+            console.error('Failed to load library details:', error);
+            contentEl.innerHTML = `<div class="alert alert-danger"><i class="mdi mdi-alert me-2"></i>Failed to load library details: ${this.escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    /**
+     * Show delete library confirmation modal
+     */
+    showDeleteLibraryModal() {
+        if (!this.selectedLibrary) {
+            window.toast?.warning('Select a library first');
+            return;
+        }
+
+        const modal = document.getElementById('deleteLibraryModal');
+        if (!modal) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Delete the selected library
+     */
+    async deleteLibrary() {
+        if (!this.selectedLibrary) return;
+
+        try {
+            const response = await fetch('/api/memory/library/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: this.selectedLibrary.path,
+                    name: this.selectedLibrary.name
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to delete library');
+            }
+
+            // Close modal
+            const modal = document.getElementById('deleteLibraryModal');
+            if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+
+            window.toast?.success('Library deleted successfully');
+
+            // Clear selection and reload
+            this.selectedLibrary = null;
+            this.libraryPacks = [];
+            const storageKey = this.spiritId ? `cqMemoryLib_${this.spiritId}` : 'cqMemoryLib_global';
+            localStorage.removeItem(storageKey);
+
+            await this.loadLibraries();
+            const librarySelector = document.getElementById('library-selector');
+            if (librarySelector) librarySelector.value = '';
+            await this.loadPacks();
+
+        } catch (error) {
+            console.error('Failed to delete library:', error);
+            window.toast?.error('Failed to delete library: ' + error.message);
+        }
+    }
+
+    /**
+     * Show pack details modal
+     */
+    async showPackDetails() {
+        if (!this.currentPackPath) {
+            window.toast?.warning('Select a pack first');
+            return;
+        }
+
+        const contentEl = document.getElementById('packDetailsContent');
+        if (!contentEl) return;
+
+        contentEl.innerHTML = '<div class="text-center py-3"><i class="mdi mdi-loading mdi-spin text-cyber fs-3"></i></div>';
+
+        const modal = document.getElementById('packDetailsModal');
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+            const response = await fetch('/api/memory/pack/metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const meta = data.metadata || {};
+            const stats = data.stats || {};
+
+            contentEl.innerHTML = `
+                <div class="mb-3">
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-label-outline me-2 text-cyber"></i>Name:</strong>
+                    <span class="ms-3">${this.escapeHtml(meta.name || packData.name)}</span></p>
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-text me-2 text-cyber"></i>Description:</strong>
+                    <span class="ms-3">${this.escapeHtml(meta.description || '(none)')}</span></p>
+                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-folder-outline me-2 text-cyber"></i>Path:</strong>
+                    <span class="ms-3 text-secondary small">${this.escapeHtml(packData.path + '/' + packData.name)}</span></p>
+                </div>
+                <h6 class="mb-2"><i class="mdi mdi-chart-bar me-1 text-cyber"></i>Statistics:</h6>
+                <div class="row text-center mb-2">
+                    <div class="col-4">
+                        <div class="glass-panel p-2">
+                            <div class="fs-4 text-cyber">${stats.totalNodes || 0}</div>
+                            <small class="text-secondary">Nodes</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="glass-panel p-2">
+                            <div class="fs-4 text-cyber">${stats.totalRelationships || 0}</div>
+                            <small class="text-secondary">Relationships</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="glass-panel p-2">
+                            <div class="fs-4 text-cyber">${stats.tagsCount || 0}</div>
+                            <small class="text-secondary">Tags</small>
+                        </div>
+                    </div>
+                </div>
+                ${meta.created_at ? `<p class="small text-secondary mt-2"><i class="mdi mdi-clock-outline me-1"></i>Created: ${this.escapeHtml(meta.created_at)}</p>` : ''}
+            `;
+        } catch (error) {
+            console.error('Failed to load pack details:', error);
+            contentEl.innerHTML = `<div class="alert alert-danger"><i class="mdi mdi-alert me-2"></i>Failed to load pack details: ${this.escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    /**
+     * Show remove pack from library confirmation modal
+     */
+    showRemovePackFromLibModal() {
+        if (!this.currentPackPath) {
+            window.toast?.warning('Select a pack first');
+            return;
+        }
+        if (!this.selectedLibrary) {
+            window.toast?.warning('No library selected — this pack is not in a library');
+            return;
+        }
+
+        const modal = document.getElementById('removePackFromLibModal');
+        if (!modal) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Remove the selected pack from the current library
+     */
+    async removePackFromLibrary() {
+        if (!this.currentPackPath || !this.selectedLibrary) return;
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+
+            const response = await fetch('/api/memory/library/remove-pack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    libraryPath: this.selectedLibrary.path,
+                    libraryName: this.selectedLibrary.name,
+                    packPath: packData.path + '/' + packData.name
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to remove pack from library');
+            }
+
+            // Close modal
+            const modal = document.getElementById('removePackFromLibModal');
+            if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+
+            window.toast?.success('Pack removed from library');
+
+            // Clear current selection and graph
+            this.currentPackPath = null;
+            this.selectedNode = null;
+            this.hideNodeDetails();
+            if (this.graphView) this.graphView.clearGraph();
+
+            // Reload library packs and refresh pack list
+            await this.loadLibraryPacks(this.selectedLibrary.path, this.selectedLibrary.name);
+            await this.loadLibraries();
+            await this.loadPacks();
+
+        } catch (error) {
+            console.error('Failed to remove pack from library:', error);
+            window.toast?.error('Failed to remove pack: ' + error.message);
+        }
+    }
+
+    /**
+     * Show delete pack confirmation modal
+     */
+    showDeletePackModal() {
+        if (!this.currentPackPath) {
+            window.toast?.warning('Select a pack first');
+            return;
+        }
+
+        const modal = document.getElementById('deletePackModal');
+        if (!modal) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Delete the selected pack
+     */
+    async deletePack() {
+        if (!this.currentPackPath) return;
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+
+            const response = await fetch('/api/memory/pack/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to delete pack');
+            }
+
+            // Close modal
+            const modal = document.getElementById('deletePackModal');
+            if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+
+            window.toast?.success('Pack deleted successfully');
+
+            // Clear selection and graph
+            this.currentPackPath = null;
+            this.selectedNode = null;
+            this.hideNodeDetails();
+            if (this.graphView) this.graphView.clearGraph();
+            const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
+            localStorage.removeItem(storageKey);
+
+            // Reload everything
+            await this.loadLibraries();
+            await this.loadPacks();
+
+        } catch (error) {
+            console.error('Failed to delete pack:', error);
+            window.toast?.error('Failed to delete pack: ' + error.message);
         }
     }
 

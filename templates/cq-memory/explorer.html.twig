@@ -45,9 +45,17 @@
                             <select id="library-selector" class="form-select form-select-sm bg-dark text-light border-secondary" style="min-width: 160px;">
                                 <option value="">{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}</option>
                             </select>
-                            <button id="btn-create-library" class="btn btn-sm btn-outline-cyber ms-1" title="{{ 'spirit.memory.library_selector.create_new'|trans|default('Create new library') }}">
-                                <i class="mdi mdi-plus"></i>
-                            </button>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-sm btn-outline-cyber dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'spirit.memory.library_selector.menu'|trans|default('Library options') }}">
+                                    <i class="mdi mdi-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#" id="btn-create-library"><i class="mdi mdi-plus me-2 text-cyber"></i>{{ 'spirit.memory.library_selector.create_new'|trans|default('Create new library') }}</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-library-details"><i class="mdi mdi-information-outline me-2 text-cyber"></i>{{ 'spirit.memory.library_selector.details'|trans|default('Details') }}</a></li>
+                                    <li><a class="dropdown-item text-danger" href="#" id="btn-delete-library"><i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.library_selector.delete'|trans|default('Delete') }}</a></li>
+                                </ul>
+                            </div>
                         </div>
                         {# Pack Selector #}
                         <div class="d-flex align-items-center me-3">
@@ -57,17 +65,26 @@
                             <select id="pack-selector" class="form-select form-select-sm bg-dark text-light border-secondary" style="min-width: 180px;">
                                 <option value="">-- {{ 'spirit.memory.pack_selector.loading'|trans|default('Loading packs...') }} --</option>
                             </select>
-                            <button id="btn-create-pack" class="btn btn-sm btn-outline-cyber ms-1" title="{{ 'spirit.memory.pack_selector.create_new'|trans|default('Create new pack') }}">
-                                <i class="mdi mdi-plus"></i>
-                            </button>
+                            <div class="dropdown ms-1">
+                                <button class="btn btn-sm btn-outline-cyber dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'spirit.memory.pack_selector.menu'|trans|default('Pack options') }}">
+                                    <i class="mdi mdi-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#" id="btn-create-pack"><i class="mdi mdi-plus me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.create_new'|trans|default('Create new pack') }}</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-pack-details"><i class="mdi mdi-information-outline me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.details'|trans|default('Details') }}</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-remove-pack-from-lib"><i class="mdi mdi-book-remove-outline me-2 text-warning"></i>{{ 'spirit.memory.pack_selector.remove_from_lib'|trans|default('Remove from Library') }}</a></li>
+                                    <li><a class="dropdown-item text-danger" href="#" id="btn-delete-pack"><i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.pack_selector.delete'|trans|default('Delete') }}</a></li>
+                                </ul>
+                            </div>
                         </div>
                         
                         <div id="memory-stats" class="d-flex flex-column gap-1 me-3">
-                            <span class="badge bg-secondary opacity-75">
+                            <span class="badge bg-secondary bg-opacity-50 opacity-50">
                                 <i class="mdi mdi-circle-multiple text-cyber opacity-50"></i>
                                 <span id="stats-nodes">0</span>x {{ 'spirit.memory.nodes'|trans }}
                             </span>
-                            <span class="badge bg-secondary opacity-75">
+                            <span class="badge bg-secondary bg-opacity-50 opacity-50">
                                 <i class="mdi mdi-link-variant text-cyber opacity-50"></i>
                                 <span id="stats-edges">0</span>x {{ 'spirit.memory.relationships'|trans }}
                             </span>
@@ -443,6 +460,131 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'ui.cancel'|trans }}</button>
                 <button type="button" class="btn btn-cyber" id="btn-confirm-create-pack">
                     <i class="mdi mdi-plus me-1"></i>{{ 'spirit.memory.pack_selector.create_button'|trans|default('Create Pack') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Library Details Modal #}
+<div class="modal fade" id="libraryDetailsModal" tabindex="-1" aria-labelledby="libraryDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title" id="libraryDetailsModalLabel">
+                    <i class="mdi mdi-bookshelf text-cyber me-2"></i>{{ 'spirit.memory.library_selector.details_title'|trans|default('Library Details') }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="libraryDetailsContent">
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal"><i class="mdi mdi-close me-1"></i>{{ 'ui.close'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Delete Library Confirmation Modal #}
+<div class="modal fade" id="deleteLibraryModal" tabindex="-1" aria-labelledby="deleteLibraryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-white" id="deleteLibraryModalLabel">
+                    <i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.library_selector.delete_title'|trans|default('Delete Library') }}
+                </span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-alert-triangle text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'spirit.memory.library_selector.delete_confirm'|trans|default('Are you sure you want to delete this library?') }}</p>
+                <p class="text-muted small text-center">{{ 'spirit.memory.library_selector.delete_info'|trans|default('This will only remove the library file (.cqmlib). Memory packs referenced by this library will NOT be deleted.') }}</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" id="btn-confirm-delete-library">
+                    <i class="mdi mdi-delete me-1"></i>{{ 'ui.delete'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Pack Details Modal #}
+<div class="modal fade" id="packDetailsModal" tabindex="-1" aria-labelledby="packDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title" id="packDetailsModalLabel">
+                    <i class="mdi mdi-package-variant text-cyber me-2"></i>{{ 'spirit.memory.pack_selector.details_title'|trans|default('Pack Details') }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="packDetailsContent">
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal"><i class="mdi mdi-close me-1"></i>{{ 'ui.close'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Remove Pack from Library Confirmation Modal #}
+<div class="modal fade" id="removePackFromLibModal" tabindex="-1" aria-labelledby="removePackFromLibModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-warning">
+                <span class="modal-title text-dark" id="removePackFromLibModalLabel">
+                    <i class="mdi mdi-book-remove-outline me-2"></i>{{ 'spirit.memory.pack_selector.remove_from_lib_title'|trans|default('Remove Pack from Library') }}
+                </span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-book-remove text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'spirit.memory.pack_selector.remove_from_lib_confirm'|trans|default('Remove this pack from the current library?') }}</p>
+                <p class="text-muted small text-center">{{ 'spirit.memory.pack_selector.remove_from_lib_info'|trans|default('The pack file will NOT be deleted — it will only be unlinked from this library.') }}</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-warning" id="btn-confirm-remove-pack-from-lib">
+                    <i class="mdi mdi-book-remove-outline me-1"></i>{{ 'spirit.memory.pack_selector.remove_from_lib_button'|trans|default('Remove from Library') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Delete Pack Confirmation Modal #}
+<div class="modal fade" id="deletePackModal" tabindex="-1" aria-labelledby="deletePackModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-white" id="deletePackModalLabel">
+                    <i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.pack_selector.delete_title'|trans|default('Delete Memory Pack') }}
+                </span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-alert-triangle text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'spirit.memory.pack_selector.delete_confirm'|trans|default('Are you sure you want to delete this memory pack?') }}</p>
+                <p class="text-danger small text-center fw-bold">{{ 'spirit.memory.pack_selector.delete_warning'|trans|default('This action is irreversible! All memory nodes and relationships in this pack will be permanently lost.') }}</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" id="btn-confirm-delete-pack">
+                    <i class="mdi mdi-delete me-1"></i>{{ 'ui.delete'|trans }}
                 </button>
             </div>
         </div>

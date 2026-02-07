@@ -26,6 +26,11 @@ $panel-min-height: 500px;
 
 // Memory Explorer Container
 .memory-explorer {
+    // Top toolbar must sit above the 3D scene for dropdown menus
+    > .row:first-child .glass-panel {
+        position: relative;
+        z-index: 20;
+    }
     // Panels
     .memory-panel {
         height: $panel-height;
