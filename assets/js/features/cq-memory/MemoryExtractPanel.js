@@ -20,8 +20,11 @@ export class MemoryExtractPanel {
         this.isProcessingSteps = false;
         this.currentJobId = null;
         
-        // Active source type: 'file', 'url', 'text'
+        // Active source type: 'file', 'url', 'text', 'conversation'
         this.activeSourceType = 'file';
+        
+        // Conversation source data (cached after first load)
+        this.conversationData = null;
         
         this.init();
     }
@@ -37,6 +40,10 @@ export class MemoryExtractPanel {
         document.querySelectorAll('.extract-source-tabs .nav-link').forEach(tab => {
             tab.addEventListener('shown.bs.tab', (e) => {
                 this.activeSourceType = e.target.id.replace('source-tab-', '');
+                // Lazy-load conversations when conversation tab is first activated
+                if (this.activeSourceType === 'conversation' && !this.conversationData) {
+                    this.loadConversations();
+                }
                 this.updateStartButtonState();
             });
         });
@@ -61,6 +68,22 @@ export class MemoryExtractPanel {
             textInput.addEventListener('input', () => {
                 const charCount = document.getElementById('extract-text-charcount');
                 if (charCount) charCount.textContent = textInput.value.length;
+                this.updateStartButtonState();
+            });
+        }
+
+        // Spirit selector (for conversation source)
+        const spiritSelector = document.getElementById('extract-spirit-selector');
+        if (spiritSelector) {
+            spiritSelector.addEventListener('change', (e) => {
+                this.onSpiritSelected(e.target.value);
+            });
+        }
+
+        // Conversation selector
+        const convSelector = document.getElementById('extract-conversation-selector');
+        if (convSelector) {
+            convSelector.addEventListener('change', () => {
                 this.updateStartButtonState();
             });
         }
@@ -128,6 +151,8 @@ export class MemoryExtractPanel {
             }
             case 'text':
                 return (document.getElementById('extract-text-input')?.value?.trim().length || 0) > 0;
+            case 'conversation':
+                return !!document.getElementById('extract-conversation-selector')?.value;
             default:
                 return false;
         }
@@ -178,6 +203,16 @@ export class MemoryExtractPanel {
                 params.content = document.getElementById('extract-text-input')?.value?.trim();
                 params.documentTitle = 'Text Input';
                 break;
+            case 'conversation': {
+                const convId = document.getElementById('extract-conversation-selector')?.value;
+                params.sourceType = 'conversation';
+                params.sourceRef = `conversation:${convId}`;
+                // Get conversation title for documentTitle
+                const convSelector = document.getElementById('extract-conversation-selector');
+                const selectedOption = convSelector?.options[convSelector.selectedIndex];
+                params.documentTitle = selectedOption?.textContent?.trim() || 'Spirit Conversation';
+                break;
+            }
         }
 
         return params;
@@ -192,7 +227,8 @@ export class MemoryExtractPanel {
             const msgs = {
                 file: t.select_file_first || 'Please select a file first',
                 url: t.enter_url_first || 'Please enter a valid URL',
-                text: t.enter_text_first || 'Please enter some text'
+                text: t.enter_text_first || 'Please enter some text',
+                conversation: t.select_conversation_first || 'Please select a conversation first'
             };
             this.showError(msgs[this.activeSourceType] || 'Please provide input');
             return;
@@ -578,6 +614,84 @@ export class MemoryExtractPanel {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         alertDiv.classList.remove('d-none');
+    }
+
+    /**
+     * Load spirits and their conversations for the conversation source type
+     * Data is fetched once and cached for subsequent Spirit selector changes
+     */
+    async loadConversations() {
+        const spiritSelector = document.getElementById('extract-spirit-selector');
+        if (!spiritSelector) return;
+
+        try {
+            const response = await fetch('/memory/conversations');
+            if (!response.ok) {
+                console.error('Failed to load conversations');
+                return;
+            }
+
+            const data = await response.json();
+            if (!data.spirits) {
+                console.error('Invalid conversations response');
+                return;
+            }
+
+            this.conversationData = data.spirits;
+
+            // Populate spirit selector
+            if (this.conversationData.length === 0) {
+                const t = window.memoryExplorerTranslations?.extract_panel || {};
+                spiritSelector.innerHTML = `<option value="">${t.no_spirits || '-- No Spirits found --'}</option>`;
+                return;
+            }
+
+            const t = window.memoryExplorerTranslations?.extract_panel || {};
+            let options = `<option value="">-- ${t.select_spirit || 'Select Spirit'} --</option>`;
+            for (const spirit of this.conversationData) {
+                const convCount = spirit.conversations.length;
+                options += `<option value="${spirit.id}">${spirit.name} (${convCount})</option>`;
+            }
+            spiritSelector.innerHTML = options;
+
+        } catch (error) {
+            console.error('Error loading conversations:', error);
+        }
+    }
+
+    /**
+     * Handle Spirit selection change - populate conversation selector
+     */
+    onSpiritSelected(spiritId) {
+        const convSelector = document.getElementById('extract-conversation-selector');
+        if (!convSelector) return;
+
+        const t = window.memoryExplorerTranslations?.extract_panel || {};
+
+        if (!spiritId || !this.conversationData) {
+            convSelector.innerHTML = `<option value="">-- ${t.select_conversation || 'Select Conversation'} --</option>`;
+            convSelector.disabled = true;
+            this.updateStartButtonState();
+            return;
+        }
+
+        // Find conversations for the selected spirit
+        const spirit = this.conversationData.find(s => s.id === spiritId);
+        if (!spirit || spirit.conversations.length === 0) {
+            convSelector.innerHTML = `<option value="">${t.no_conversations || '-- No conversations --'}</option>`;
+            convSelector.disabled = true;
+            this.updateStartButtonState();
+            return;
+        }
+
+        // Populate conversation selector (already ordered by last_interaction DESC from backend)
+        let options = `<option value="">-- ${t.select_conversation || 'Select Conversation'} --</option>`;
+        for (const conv of spirit.conversations) {
+            options += `<option value="${conv.id}">${conv.title} (${conv.lastInteraction})</option>`;
+        }
+        convSelector.innerHTML = options;
+        convSelector.disabled = false;
+        this.updateStartButtonState();
     }
 
     async loadProjectFiles() {

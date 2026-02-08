@@ -36,6 +36,7 @@ class AIToolMemoryService
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly ProjectFileService $projectFileService,
         private readonly SpiritConversationMessageService $spiritConversationMessageService,
+        private readonly UserDatabaseManager $userDatabaseManager,
         private readonly AIToolWebService $aiToolWebService,
         private readonly LoggerInterface $logger,
         private readonly SettingsService $settingsService,
@@ -632,7 +633,7 @@ PROMPT;
 
             $message .= "\n---\n\n";
             $message .= "**Content to analyze**:\n\n";
-            $message .= $arguments['content'];
+            $message .= $this->addLineNumbers($arguments['content']);
             $message .= "\n\n---\n\n";
             $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
             
@@ -727,7 +728,7 @@ PROMPT;
                     $userMessageContent .= $dataWarning . "\n";
                 }
                 $userMessageContent .= "---\n\n";
-                $userMessageContent .= $content;
+                $userMessageContent .= $this->addLineNumbers($content);
                 $userMessageContent .= "\n\n---\n\n";
                 $userMessageContent .= "Provide a comprehensive summary of this document.";
             } else {
@@ -1277,6 +1278,7 @@ PROMPT;
                     return $this->loadFromProjectFile($sourceRef);
                     
                 case 'spirit_conversation':
+                case 'conversation':
                     return $this->loadFromConversation($sourceRef);
                     
                 case 'url':
@@ -1396,48 +1398,122 @@ PROMPT;
 
     /**
      * Load content from a spirit conversation
-     * Format: conversation ID
+     * Format: conversation ID (raw or prefixed with "conversation:")
+     * 
+     * Filters out:
+     * - First user message (system_prompt injected as first user message)
+     * - tool_result type messages (raw tool output)
+     * - tool_use type messages (assistant tool call metadata)
+     * - frontendData keys inside content arrays
+     * 
+     * Adds metadata header with conversation title, spirit name, timestamps
      */
     private function loadFromConversation(string $conversationId): array
     {
         try {
+            // Strip "conversation:" prefix if present (GUI sends this format)
+            if (str_starts_with($conversationId, 'conversation:')) {
+                $conversationId = substr($conversationId, strlen('conversation:'));
+            }
+
+            // Load conversation metadata directly (avoid circular dependency with SpiritConversationService)
+            $db = $this->userDatabaseManager->getDatabaseConnection($this->user);
+            $convData = $db->executeQuery(
+                'SELECT id, spirit_id, title, created_at, last_interaction FROM spirit_conversation WHERE id = ?',
+                [$conversationId]
+            )->fetchAssociative();
+
+            if (!$convData) {
+                return [
+                    'success' => false,
+                    'error' => "Conversation not found: {$conversationId}"
+                ];
+            }
+
             $messages = $this->spiritConversationMessageService->getMessagesByConversation($conversationId);
             
             if (empty($messages)) {
                 return [
                     'success' => false,
-                    'error' => "Conversation not found or has no messages: {$conversationId}"
+                    'error' => "Conversation has no messages: {$conversationId}"
                 ];
             }
-            
-            // Build conversation transcript
+
+            // Get spirit name for metadata
+            $spirit = $this->spiritService->findById($convData['spirit_id']);
+            $spiritName = $spirit ? $spirit->getName() : 'Spirit';
+
+            // Build metadata header
+            $header = [];
+            $header[] = '=== Spirit Conversation: "' . $convData['title'] . '" ===';
+            $header[] = 'Spirit: ' . $spiritName 
+                . ' | Created: ' . $convData['created_at'] 
+                . ' | Last: ' . $convData['last_interaction'];
+            $header[] = '---';
+
+            // Build filtered conversation transcript
             $transcript = [];
-            
+            $isFirstUserMessage = true;
+            $keptCount = 0;
+
             foreach ($messages as $msg) {
                 $role = $msg->getRole();
-                $content = $msg->getContent();
-                
-                // Handle array content (multimodal)
-                if (is_array($content)) {
-                    $textParts = [];
-                    foreach ($content as $part) {
-                        if (isset($part['type']) && $part['type'] === 'text') {
-                            $textParts[] = $part['text'];
-                        }
-                    }
-                    $content = implode("\n", $textParts);
-                } elseif (!is_string($content)) {
-                    $content = json_encode($content);
+                $type = $msg->getType();
+
+                // Skip tool_result messages (raw tool output JSON)
+                if ($type === 'tool_result') {
+                    continue;
                 }
-                
-                $transcript[] = "[{$role}]: {$content}";
+
+                // Skip tool_use messages (assistant tool call metadata)
+                if ($type === 'tool_use') {
+                    continue;
+                }
+
+                // Skip tool role messages entirely
+                if ($role === 'tool') {
+                    continue;
+                }
+
+                // Skip the first user message (system_prompt injected as first user message)
+                if ($role === 'user' && $isFirstUserMessage) {
+                    $isFirstUserMessage = false;
+                    continue;
+                }
+                if ($role === 'user') {
+                    $isFirstUserMessage = false;
+                }
+
+                // Extract text content, filtering out frontendData
+                $content = $msg->getContent();
+                $textContent = $this->extractTextFromMessageContent($content);
+
+                if (empty(trim($textContent))) {
+                    continue;
+                }
+
+                // Format role label
+                $roleLabel = $role === 'user' ? 'User' : $spiritName;
+                $transcript[] = "[{$roleLabel}]: {$textContent}";
+                $keptCount++;
             }
-            
+
+            if (empty($transcript)) {
+                return [
+                    'success' => false,
+                    'error' => "No extractable messages in conversation: {$conversationId}"
+                ];
+            }
+
+            // Combine header + transcript
+            $fullContent = implode("\n", $header) . "\n" . implode("\n\n", $transcript);
+
             return [
                 'success' => true,
-                'content' => implode("\n\n", $transcript),
+                'content' => $fullContent,
                 'conversationId' => $conversationId,
-                'messageCount' => count($messages)
+                'messageCount' => $keptCount,
+                'title' => $convData['title']
             ];
             
         } catch (\Exception $e) {
@@ -1446,6 +1522,67 @@ PROMPT;
                 'error' => 'Error loading conversation: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Extract text content from a message content array, filtering out frontendData
+     * 
+     * Message content can be:
+     * - A simple string (wrapped in array as single element)
+     * - An array of content parts (multimodal: text, image_url, etc.)
+     * - An array with frontendData keys to filter out
+     */
+    private function extractTextFromMessageContent(array $content): string
+    {
+        // Check if content is a simple string wrapped in the message's content array
+        // Messages store content as JSON arrays; a plain text message is stored as the raw string
+        // but getContent() returns it decoded - could be a string in an array or nested parts
+        
+        // If content has numeric keys, it's an array of parts (multimodal content)
+        if (isset($content[0])) {
+            $textParts = [];
+            foreach ($content as $part) {
+                if (!is_array($part)) {
+                    // Simple string element
+                    $textParts[] = (string)$part;
+                    continue;
+                }
+                // Skip frontendData parts
+                if (isset($part['frontendData'])) {
+                    continue;
+                }
+                // Extract text from typed content parts
+                if (isset($part['type']) && $part['type'] === 'text' && isset($part['text'])) {
+                    $textParts[] = $part['text'];
+                }
+            }
+            return implode("\n", $textParts);
+        }
+
+        // Associative array - could be a single content object
+        // Filter out frontendData key
+        if (isset($content['frontendData'])) {
+            unset($content['frontendData']);
+        }
+
+        // If it has a 'text' key, use that
+        if (isset($content['text'])) {
+            return $content['text'];
+        }
+
+        // If it has a 'content' key (nested), extract from it
+        if (isset($content['content']) && is_string($content['content'])) {
+            return $content['content'];
+        }
+
+        // Fallback: try to get any string value
+        foreach ($content as $key => $value) {
+            if (is_string($value) && !empty($value) && $key !== 'role' && $key !== 'type') {
+                return $value;
+            }
+        }
+
+        return '';
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Service\SpiritService;
+use App\Service\SpiritConversationService;
 use App\Service\ProjectFileService;
 use App\Service\AnnoService;
 use App\Service\AIToolMemoryService;
@@ -20,6 +21,7 @@ class CQMemoryController extends AbstractController
 {
     public function __construct(
         private readonly SpiritService $spiritService,
+        private readonly SpiritConversationService $spiritConversationService,
         private readonly ProjectFileService $projectFileService,
         private readonly AnnoService $annoService,
         private readonly AIToolMemoryService $aiToolMemoryService,
@@ -143,6 +145,39 @@ class CQMemoryController extends AbstractController
 
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Failed to read source: ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/conversations', name: 'cq_memory_conversations_api', methods: ['GET'])]
+    public function getConversations(): JsonResponse
+    {
+        try {
+            $spirits = $this->spiritService->findAll();
+            $result = [];
+
+            foreach ($spirits as $spirit) {
+                $conversations = $this->spiritConversationService->getConversationsBySpirit($spirit->getId());
+                $convList = [];
+                foreach ($conversations as $conv) {
+                    $convList[] = [
+                        'id' => $conv['id'],
+                        'title' => $conv['title'],
+                        'lastInteraction' => $conv['lastInteraction'],
+                        'createdAt' => $conv['createdAt'],
+                    ];
+                }
+
+                $result[] = [
+                    'id' => $spirit->getId(),
+                    'name' => $spirit->getName(),
+                    'conversations' => $convList,
+                ];
+            }
+
+            return new JsonResponse(['spirits' => $result]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Failed to load conversations: ' . $e->getMessage()], 500);
         }
     }
 

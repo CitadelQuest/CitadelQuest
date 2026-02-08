@@ -161,6 +161,11 @@
                                         <i class="mdi mdi-text-box me-1"></i>{{ 'spirit.memory.extract_panel.source_text'|trans }}
                                     </button>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link px-2 py-1 small" id="source-tab-conversation" data-bs-toggle="pill" data-bs-target="#source-panel-conversation" type="button" role="tab">
+                                        <i class="mdi mdi-forum me-1"></i>{{ 'spirit.memory.extract_panel.source_conversation'|trans }}
+                                    </button>
+                                </li>
                             </ul>
                             <div class="tab-content">
                                 {# File source panel #}
@@ -187,6 +192,18 @@
                                         <span id="extract-text-charcount" class="text-cyber">0</span>
                                     </div>
                                 </div>
+                                {# Conversation source panel #}
+                                <div class="tab-pane fade" id="source-panel-conversation" role="tabpanel">
+                                    <select id="extract-spirit-selector" class="form-select form-select-sm bg-dark text-light border-secondary mb-2">
+                                        <option value="">-- {{ 'spirit.memory.extract_panel.select_spirit'|trans }} --</option>
+                                    </select>
+                                    <select id="extract-conversation-selector" class="form-select form-select-sm bg-dark text-light border-secondary" disabled>
+                                        <option value="">-- {{ 'spirit.memory.extract_panel.select_conversation'|trans }} --</option>
+                                    </select>
+                                    <div class="small text-secondary mt-1">
+                                        <i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.memory.extract_panel.conversation_hint'|trans }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
@@ -208,13 +225,13 @@
                         <button id="btn-start-extraction" class="btn btn-sm btn-cyber w-100 mb-4" disabled>
                             <i class="mdi mdi-excavator"></i> {{ 'spirit.memory.extract_panel.start_extraction'|trans }}
                         </button>
-
-                        <div id="extract-alert" class="d-none"></div>
-
                         <h6 class="small text-cyber mb-2">
                             <i class="mdi mdi-progress-clock me-1"></i>
                             {{ 'spirit.memory.extract_panel.active_jobs'|trans }}
                         </h6>
+
+                        <div id="extract-alert" class="d-none"></div>
+
                         <div id="extract-jobs-list" class="extraction-jobs-container mb-3">
                             <div class="text-secondary small text-center py-3">{{ 'spirit.memory.extract_panel.no_jobs'|trans }}</div>
                         </div>
@@ -711,7 +728,12 @@
                 extraction_started: '{{ 'spirit.memory.extract_panel.extraction_started'|trans }}',
                 extraction_completed: '{{ 'spirit.memory.extract_panel.extraction_completed'|trans }}',
                 extraction_failed: '{{ 'spirit.memory.extract_panel.extraction_failed'|trans }}',
-                select_file_first: '{{ 'spirit.memory.extract_panel.select_file_first'|trans }}'
+                select_file_first: '{{ 'spirit.memory.extract_panel.select_file_first'|trans }}',
+                select_spirit: '{{ 'spirit.memory.extract_panel.select_spirit'|trans }}',
+                select_conversation: '{{ 'spirit.memory.extract_panel.select_conversation'|trans }}',
+                no_spirits: '{{ 'spirit.memory.extract_panel.no_spirits'|trans }}',
+                no_conversations: '{{ 'spirit.memory.extract_panel.no_conversations'|trans }}',
+                select_conversation_first: '{{ 'spirit.memory.extract_panel.select_conversation_first'|trans }}'
             },
             library_selector: {
                 all_packs: '{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}',
