@@ -1760,7 +1760,7 @@ export class SpiritChatManager {
         this.messageInput.dispatchEvent(new Event('input'));
         
         // Pause updates polling during AI response processing
-        updatesService.pause();
+        updatesService.pause('spiritChat');
         
         try {
             // Add user message to UI immediately
@@ -1816,7 +1816,7 @@ export class SpiritChatManager {
             this.updateCreditIndicator();
             
             // Resume updates polling after AI response is complete
-            updatesService.resume();
+            updatesService.resume('spiritChat');
         }
         this.sendMessageBtn.disabled = false;
     }

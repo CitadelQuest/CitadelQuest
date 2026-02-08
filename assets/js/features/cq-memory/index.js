@@ -110,6 +110,13 @@ class CQMemoryExplorer {
                 const spiritJobs = updates.memoryJobs.active.filter(job => job.spiritId === this.spiritId);
                 
                 if (spiritJobs.length > 0) {
+                    // Switch to manual polling to prevent request stacking
+                    // (handles Spirit-initiated jobs detected on page load / global poll)
+                    if (!this.manualPollingActive) {
+                        updatesService.pause('memoryExplorer');
+                        this.startManualPolling();
+                    }
+                    
                     // Update extract panel progress
                     this.extractPanel.updateJobProgress(spiritJobs);
                     
@@ -199,7 +206,7 @@ class CQMemoryExplorer {
             }
             
             console.log('✅ Memory extraction complete - resuming global polling');
-            updatesService.resume();
+            updatesService.resume('memoryExplorer');
         }
     }
 
@@ -1636,6 +1643,60 @@ class CQMemoryExplorer {
             const data = await response.json();
             const meta = data.metadata || {};
             const stats = data.stats || {};
+            const aiUsage = data.aiUsage || {};
+
+            // Build AI usage section
+            let aiUsageHtml = '';
+            if (aiUsage.total_calls > 0) {
+                const totalCredits = aiUsage.total_cost_credits ? parseFloat(aiUsage.total_cost_credits).toFixed(4) : '0';
+                const totalTokens = aiUsage.total_tokens ? parseInt(aiUsage.total_tokens).toLocaleString() : '0';
+                
+                let purposeRows = '';
+                if (aiUsage.by_purpose && aiUsage.by_purpose.length > 0) {
+                    purposeRows = aiUsage.by_purpose.map(p => `
+                        <tr>
+                            <td class="small">${this.escapeHtml(p.purpose)}</td>
+                            <td class="text-center small">${p.calls}</td>
+                            <td class="text-center small">${p.tokens ? parseInt(p.tokens).toLocaleString() : '0'}</td>
+                            <td class="text-end small text-warning">${p.cost_credits ? parseFloat(p.cost_credits).toFixed(4) : '0'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                aiUsageHtml = `
+                    <h6 class="mb-2 mt-3"><i class="mdi mdi-circle-multiple-outline me-1 text-warning"></i>AI Usage:</h6>
+                    <div class="row text-center mb-2">
+                        <div class="col-4">
+                            <div class="glass-panel p-2">
+                                <div class="fs-4 text-warning">${aiUsage.total_calls}</div>
+                                <small class="text-secondary">AI Calls</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="glass-panel p-2">
+                                <div class="fs-4 text-warning">${totalTokens}</div>
+                                <small class="text-secondary">Tokens</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="glass-panel p-2">
+                                <div class="fs-4 text-warning">${totalCredits}</div>
+                                <small class="text-secondary">Credits</small>
+                            </div>
+                        </div>
+                    </div>
+                    ${purposeRows ? `
+                    <table class="table table-sm table-dark table-borderless mb-0 mt-1">
+                        <thead><tr>
+                            <th class="small text-secondary">Sub-Agent</th>
+                            <th class="text-center small text-secondary">Calls</th>
+                            <th class="text-center small text-secondary">Tokens</th>
+                            <th class="text-end small text-secondary">Credits</th>
+                        </tr></thead>
+                        <tbody>${purposeRows}</tbody>
+                    </table>` : ''}
+                `;
+            }
 
             contentEl.innerHTML = `
                 <div class="mb-3">
@@ -1667,6 +1728,7 @@ class CQMemoryExplorer {
                         </div>
                     </div>
                 </div>
+                ${aiUsageHtml}
                 ${meta.created_at ? `<p class="small text-secondary mt-2"><i class="mdi mdi-clock-outline me-1"></i>Created: ${this.escapeHtml(meta.created_at)}</p>` : ''}
             `;
         } catch (error) {

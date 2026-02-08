@@ -11,6 +11,7 @@ export class UpdatesService {
         this.isPaused = false;
         this.pausedInterval = null; // Store interval value when paused
         this.pausedGetCurrentChatId = null; // Store getCurrentChatId function when paused
+        this.pauseLocks = new Set(); // Named pause locks — polling resumes only when all cleared
     }
 
     /**
@@ -101,26 +102,38 @@ export class UpdatesService {
             this.isPaused = false;
             this.pausedInterval = null;
             this.pausedGetCurrentChatId = null;
+            this.pauseLocks.clear();
             console.log('⏸️ Stopped unified updates polling');
         }
     }
 
     /**
      * Pause polling temporarily (can be resumed)
+     * @param {string} lockName - Named lock identifier (default: 'default')
      */
-    pause() {
+    pause(lockName = 'default') {
+        this.pauseLocks.add(lockName);
         if (this.pollingInterval && !this.isPaused) {
             clearInterval(this.pollingInterval);
             this.pollingInterval = null;
             this.isPaused = true;
-            console.log('⏸️ Paused updates polling');
+            console.log(`⏸️ Paused updates polling [${lockName}]`);
         }
     }
 
     /**
      * Resume polling after pause
+     * @param {string} lockName - Named lock identifier to release (default: 'default')
      */
-    resume() {
+    resume(lockName = 'default') {
+        this.pauseLocks.delete(lockName);
+        
+        // Only actually resume when ALL locks are cleared
+        if (this.pauseLocks.size > 0) {
+            console.log(`🔒 Lock released [${lockName}], but ${this.pauseLocks.size} lock(s) remain: ${[...this.pauseLocks].join(', ')}`);
+            return;
+        }
+        
         if (this.isPaused && this.pausedInterval) {
             this.isPaused = false;
             console.log('▶️ Resuming updates polling...');

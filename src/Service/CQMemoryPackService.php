@@ -171,6 +171,28 @@ class CQMemoryPackService
             ");
             $this->logger->info('Migrated pack: added memory_sources table');
         }
+        
+        // Check if ai_usage_log table exists
+        $result = $db->executeQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_usage_log'"
+        );
+        if (!$result->fetchAssociative()) {
+            $db->executeStatement("
+                CREATE TABLE IF NOT EXISTS ai_usage_log (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT,
+                    purpose TEXT NOT NULL,
+                    model_slug TEXT,
+                    input_tokens INTEGER,
+                    output_tokens INTEGER,
+                    total_tokens INTEGER,
+                    total_cost_credits REAL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (job_id) REFERENCES memory_jobs(id) ON DELETE SET NULL
+                )
+            ");
+            $this->logger->info('Migrated pack: added ai_usage_log table');
+        }
     }
     
     /**
@@ -329,6 +351,22 @@ class CQMemoryPackService
             )
         ");
         
+        // AI usage log (tracks cost of all AI sub-agent calls within this pack)
+        $db->executeStatement("
+            CREATE TABLE IF NOT EXISTS ai_usage_log (
+                id TEXT PRIMARY KEY,
+                job_id TEXT,
+                purpose TEXT NOT NULL,
+                model_slug TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                total_cost_credits REAL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (job_id) REFERENCES memory_jobs(id) ON DELETE SET NULL
+            )
+        ");
+        
         // Indexes for performance
         $db->executeStatement("CREATE INDEX IF NOT EXISTS idx_memory_nodes_category ON memory_nodes(category)");
         $db->executeStatement("CREATE INDEX IF NOT EXISTS idx_memory_nodes_importance ON memory_nodes(importance)");
@@ -441,6 +479,101 @@ class CQMemoryPackService
         
         $row = $result->fetchAssociative();
         return $row ?: null;
+    }
+    
+    // ========================================
+    // AI Usage Log Operations
+    // ========================================
+    
+    /**
+     * Log an AI sub-agent call's usage data in the pack
+     */
+    public function logAiUsage(
+        string $purpose,
+        ?string $jobId = null,
+        ?string $modelSlug = null,
+        ?int $inputTokens = null,
+        ?int $outputTokens = null,
+        ?int $totalTokens = null,
+        ?float $totalCostCredits = null
+    ): void {
+        $db = $this->getConnection();
+        
+        $id = \Symfony\Component\Uid\Uuid::v4()->toRfc4122();
+        
+        $db->executeStatement(
+            'INSERT INTO ai_usage_log (id, job_id, purpose, model_slug, input_tokens, output_tokens, total_tokens, total_cost_credits, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $id,
+                $jobId,
+                $purpose,
+                $modelSlug,
+                $inputTokens,
+                $outputTokens,
+                $totalTokens,
+                $totalCostCredits,
+                date('Y-m-d H:i:s')
+            ]
+        );
+    }
+    
+    /**
+     * Log AI usage from an AiServiceResponse object (convenience method)
+     */
+    public function logAiUsageFromResponse(
+        string $purpose,
+        $aiServiceResponse,
+        ?string $jobId = null,
+        ?string $modelSlug = null
+    ): void {
+        $fullResponse = $aiServiceResponse->getFullResponse();
+        $totalCost = isset($fullResponse['total_cost_credits']) ? (float)$fullResponse['total_cost_credits'] : null;
+        
+        $this->logAiUsage(
+            $purpose,
+            $jobId,
+            $modelSlug,
+            $aiServiceResponse->getInputTokens(),
+            $aiServiceResponse->getOutputTokens(),
+            $aiServiceResponse->getTotalTokens(),
+            $totalCost
+        );
+    }
+    
+    /**
+     * Get aggregated AI usage summary for this pack
+     */
+    public function getAiUsageSummary(): array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery("
+            SELECT 
+                COUNT(*) as total_calls,
+                SUM(input_tokens) as total_input_tokens,
+                SUM(output_tokens) as total_output_tokens,
+                SUM(total_tokens) as total_tokens,
+                SUM(total_cost_credits) as total_cost_credits
+            FROM ai_usage_log
+        ");
+        
+        $summary = $result->fetchAssociative();
+        
+        // Also get per-purpose breakdown
+        $result = $db->executeQuery("
+            SELECT 
+                purpose,
+                COUNT(*) as calls,
+                SUM(total_tokens) as tokens,
+                SUM(total_cost_credits) as cost_credits
+            FROM ai_usage_log
+            GROUP BY purpose
+            ORDER BY cost_credits DESC
+        ");
+        
+        $summary['by_purpose'] = $result->fetchAllAssociative();
+        
+        return $summary;
     }
     
     // ========================================

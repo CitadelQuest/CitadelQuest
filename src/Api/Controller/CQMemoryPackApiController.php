@@ -161,6 +161,7 @@ class CQMemoryPackApiController extends AbstractController
             $this->packService->open($projectId, $path, $name);
             $metadata = $this->packService->getAllMetadata();
             $stats = $this->packService->getStats();
+            $aiUsage = $this->packService->getAiUsageSummary();
             $this->packService->close();
 
             return new JsonResponse([
@@ -169,7 +170,8 @@ class CQMemoryPackApiController extends AbstractController
                 'path' => $path,
                 'name' => $name,
                 'metadata' => $metadata,
-                'stats' => $stats
+                'stats' => $stats,
+                'aiUsage' => $aiUsage
             ]);
 
         } catch (\Exception $e) {
@@ -378,6 +380,13 @@ class CQMemoryPackApiController extends AbstractController
             
             $deletedIds = $this->packService->deleteNodeWithChildren($nodeId);
             $this->packService->close();
+
+            // Sync library stats after deletion
+            try {
+                $this->libraryService->syncLibraryForPack($projectId, $path, $name);
+            } catch (\Exception $e) {
+                // Non-fatal — library sync is optional
+            }
 
             return new JsonResponse([
                 'success' => true,

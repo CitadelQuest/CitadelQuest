@@ -434,8 +434,12 @@ class AIToolMemoryService
             $sourceRef = $arguments['sourceRef'] ?? null;
             $force = $arguments['force'] ?? false;
 
-            // Resolve "current/active/now" conversation aliases to actual conversation ID
+            // Resolve conversation aliases to actual conversation ID(s)
             if ($sourceRef && in_array($sourceType, ['spirit_conversation', 'conversation'], true)) {
+                // Check for "all" alias — batch extraction of all Spirit conversations
+                if ($this->isConversationAllAlias($sourceRef)) {
+                    return $this->memoryExtractAllConversations($spiritId, $arguments);
+                }
                 $sourceRef = $this->resolveConversationAlias($sourceRef, $spiritId);
             }
 
@@ -700,7 +704,7 @@ PROMPT;
      * 
      * @param string|array $content String content or array with file_data/filename for binary files
      */
-    private function generateDocumentSummary(string|array $content, string $documentTitle, $aiServiceModel): ?string
+    private function generateDocumentSummary(string|array $content, string $documentTitle, $aiServiceModel, ?string $jobId = null): ?string
     {
         try {
             $systemPrompt = <<<'PROMPT'
@@ -776,6 +780,16 @@ PROMPT;
                 $userLocale['lang'],
                 'general'
             );
+
+            // Log AI usage to pack if open
+            if ($this->packService->isOpen()) {
+                $this->packService->logAiUsageFromResponse(
+                    'Document Summary Sub-Agent',
+                    $aiServiceResponse,
+                    $jobId,
+                    $aiServiceModel->getModelSlug()
+                );
+            }
 
             $summary = $this->extractResponseContent($aiServiceResponse);
             
@@ -1007,6 +1021,16 @@ PROMPT;
                 $userLocale['lang'],
                 'general'
             );
+
+            // Log AI usage to pack if open
+            if ($this->packService->isOpen()) {
+                $this->packService->logAiUsageFromResponse(
+                    'Relationship Analyzer Sub-Agent',
+                    $aiServiceResponse,
+                    null,
+                    $aiServiceModel->getModelSlug()
+                );
+            }
 
             // Parse the JSON response
             $analysisResult = $this->parseRelationshipAnalyzerResponse($aiServiceResponse);
@@ -1402,6 +1426,27 @@ PROMPT;
     }
 
     /**
+     * Strip common sourceRef prefixes for conversation aliases
+     */
+    private function stripConversationPrefix(string $sourceRef): string
+    {
+        foreach (['spirit_conversation:', 'conversation:'] as $prefix) {
+            if (str_starts_with($sourceRef, $prefix)) {
+                return substr($sourceRef, strlen($prefix));
+            }
+        }
+        return $sourceRef;
+    }
+
+    /**
+     * Check if sourceRef is the "all" alias for batch conversation extraction
+     */
+    private function isConversationAllAlias(string $sourceRef): bool
+    {
+        return strtolower(trim($this->stripConversationPrefix($sourceRef))) === 'all';
+    }
+
+    /**
      * Resolve conversation alias (current/active/now) to the actual conversation ID
      * 
      * Strips any prefix (spirit_conversation:, conversation:) and checks if the
@@ -1410,14 +1455,7 @@ PROMPT;
      */
     private function resolveConversationAlias(string $sourceRef, string $spiritId): string
     {
-        // Strip common prefixes
-        $ref = $sourceRef;
-        foreach (['spirit_conversation:', 'conversation:'] as $prefix) {
-            if (str_starts_with($ref, $prefix)) {
-                $ref = substr($ref, strlen($prefix));
-                break;
-            }
-        }
+        $ref = $this->stripConversationPrefix($sourceRef);
 
         // Check if the remaining value is an alias for "current conversation"
         if (in_array(strtolower(trim($ref)), ['current', 'active', 'now'], true)) {
@@ -1432,7 +1470,123 @@ PROMPT;
             }
         }
 
-        return $sourceRef;
+        // Always return stripped value (bare UUID) for consistent source_ref format
+        return $ref;
+    }
+
+    /**
+     * Extract memories from ALL Spirit conversations (batch operation)
+     * 
+     * Iterates through all conversations for the Spirit, skips already-extracted ones
+     * (unless force=true), and triggers separate extraction for each new conversation.
+     * Each conversation gets its own source_ref for proper duplicate tracking.
+     */
+    private function memoryExtractAllConversations(string $spiritId, array $originalArguments): array
+    {
+        $force = $originalArguments['force'] ?? false;
+        $maxDepth = $originalArguments['maxDepth'] ?? 3;
+        $targetPack = $this->getSpiritTargetPack($spiritId);
+
+        // Get all conversations for this Spirit
+        $db = $this->userDatabaseManager->getDatabaseConnection($this->user);
+        $conversations = $db->executeQuery(
+            'SELECT id, title, last_interaction FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction ASC',
+            [$spiritId]
+        )->fetchAllAssociative();
+
+        if (empty($conversations)) {
+            return [
+                'success' => false,
+                'error' => 'No conversations found for this Spirit.'
+            ];
+        }
+
+        // Open pack once for duplicate checking
+        $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+        $results = [];
+        $skipped = 0;
+        $queued = 0;
+        $errors = 0;
+
+        foreach ($conversations as $conv) {
+            $convId = $conv['id'];
+            $convTitle = $conv['title'] ?? $convId;
+
+            // Check for duplicate extraction (per conversation)
+            if (!$force) {
+                $existing = $this->packService->hasExtractedFromSource('spirit_conversation', $convId);
+                if ($existing) {
+                    $skipped++;
+                    $results[] = [
+                        'conversationId' => $convId,
+                        'title' => $convTitle,
+                        'status' => 'skipped',
+                        'reason' => "Already extracted ({$existing['count']} memories on {$existing['lastExtracted']})"
+                    ];
+                    continue;
+                }
+            }
+
+            // Close pack before extraction (memoryExtractToPack will reopen it)
+            $this->packService->close();
+
+            // Extract this conversation
+            $result = $this->memoryExtractToPack([
+                'targetPack' => $targetPack,
+                'sourceType' => 'spirit_conversation',
+                'sourceRef' => $convId,
+                'content' => null,
+                'maxDepth' => $maxDepth,
+                'documentTitle' => $convTitle,
+            ]);
+
+            // Reopen pack for next iteration's duplicate check
+            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+            if ($result['success'] ?? false) {
+                $queued++;
+                $results[] = [
+                    'conversationId' => $convId,
+                    'title' => $convTitle,
+                    'status' => ($result['async'] ?? false) ? 'queued' : 'extracted',
+                    'jobId' => $result['jobId'] ?? null,
+                    'extractedCount' => $result['storedCount'] ?? $result['extractedCount'] ?? 0,
+                ];
+            } else {
+                $errors++;
+                $results[] = [
+                    'conversationId' => $convId,
+                    'title' => $convTitle,
+                    'status' => 'error',
+                    'error' => $result['error'] ?? 'Unknown error',
+                ];
+            }
+        }
+
+        $this->packService->close();
+
+        // Send summary notification
+        if ($this->user) {
+            $total = count($conversations);
+            $this->notificationService->createNotification(
+                $this->user,
+                '📚 Batch Conversation Extraction',
+                "Processed {$total} conversations: {$queued} queued, {$skipped} skipped (already extracted), {$errors} errors.",
+                $errors > 0 ? 'warning' : 'success'
+            );
+        }
+
+        return [
+            'success' => true,
+            'batch' => true,
+            'totalConversations' => count($conversations),
+            'queued' => $queued,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'results' => $results,
+            'message' => "Batch extraction: {$queued} conversations queued for extraction, {$skipped} already extracted, {$errors} errors out of " . count($conversations) . " total."
+        ];
     }
 
     /**
@@ -1683,7 +1837,7 @@ PROMPT;
      * @param int $startLineOffset Line offset for nested blocks (default 1)
      * @return array|null Array of blocks or null on failure
      */
-    public function extractContentBlocks(string $content, string $documentTitle, $aiServiceModel, int $startLineOffset = 1): ?array
+    public function extractContentBlocks(string $content, string $documentTitle, $aiServiceModel, int $startLineOffset = 1, ?string $jobId = null): ?array
     {
         try {
             $systemPrompt = $this->buildContentBlockExtractorSystemPrompt();
@@ -1726,6 +1880,16 @@ PROMPT;
                 $userLocale['lang'],
                 'general'
             );
+
+            // Log AI usage to pack if open
+            if ($this->packService->isOpen()) {
+                $this->packService->logAiUsageFromResponse(
+                    'Content Block Extractor Sub-Agent',
+                    $aiServiceResponse,
+                    $jobId,
+                    $aiServiceModel->getModelSlug()
+                );
+            }
 
             return $this->parseContentBlockExtractorResponse($aiServiceResponse, $content, $startLineOffset);
 
@@ -1979,73 +2143,33 @@ PROMPT;
 
             // Store original source content in the pack for portability
             $sourceContentToStore = is_string($content) ? $content : null;
-
-            // Get content length for deciding extraction strategy
             $contentLength = is_string($content) ? strlen($content) : 0;
-            $useRecursiveExtraction = $contentLength > 5000 && $maxDepth > 1;
 
-            if ($useRecursiveExtraction) {
-                // Start async recursive extraction job in pack
-                $job = $this->startPackRecursiveExtractionJob(
-                    $targetPack,
-                    $content,
-                    $sourceType,
-                    $sourceRef ?? 'direct-content',
-                    $documentTitle,
-                    $maxDepth,
-                    $sourceContentToStore
-                );
+            // Always use async extraction — job creation is instant (deferred init)
+            $job = $this->startPackRecursiveExtractionJob(
+                $targetPack,
+                $content,
+                $sourceType,
+                $sourceRef ?? 'direct-content',
+                $documentTitle,
+                $maxDepth,
+                $sourceContentToStore
+            );
 
-                $this->logger->info('Started pack recursive extraction job', [
-                    'jobId' => $job->getId(),
-                    'packName' => $targetPack['name'],
-                    'contentLength' => $contentLength,
-                    'maxDepth' => $maxDepth
-                ]);
-
-                // Get root node to return to frontend
-                $rootNodeId = $job->getPayload()['root_node_id'] ?? null;
-                $rootNodeData = null;
-                if ($rootNodeId) {
-                    $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
-                    $rootNode = $this->packService->findNodeById($rootNodeId);
-                    if ($rootNode) {
-                        $rootNodeData = [
-                            'id' => $rootNode->getId(),
-                            'content' => $rootNode->getContent(),
-                            'summary' => $rootNode->getSummary(),
-                            'category' => $rootNode->getCategory(),
-                            'importance' => $rootNode->getImportance(),
-                            'confidence' => $rootNode->getConfidence(),
-                            'createdAt' => $rootNode->getCreatedAt()->format('Y-m-d H:i:s'),
-                            'accessCount' => $rootNode->getAccessCount(),
-                            'tags' => $this->packService->getTagsForNode($rootNode->getId()),
-                            'sourceType' => $rootNode->getSourceType(),
-                            'sourceRef' => $rootNode->getSourceRef(),
-                            'sourceRange' => $rootNode->getSourceRange()
-                        ];
-                    }
-                    $this->packService->close();
-                }
-
-                return [
-                    'success' => true,
-                    'async' => true,
-                    'jobId' => $job->getId(),
-                    'targetPack' => $targetPack,
-                    'message' => "Recursive extraction started for large document ({$contentLength} chars). " .
-                        "Processing will continue in background. Poll /api/memory/pack/jobs for progress.",
-                    'initialProgress' => [
-                        'progress' => $job->getProgress(),
-                        'totalSteps' => $job->getTotalSteps(),
-                        'type' => $job->getType()
-                    ],
-                    'rootNode' => $rootNodeData
-                ];
-            }
-
-            // For smaller documents, use direct extraction
-            return $this->directExtractToPack($targetPack, $content, $sourceType, $sourceRef, $documentTitle, $sourceContentToStore);
+            return [
+                'success' => true,
+                'async' => true,
+                'jobId' => $job->getId(),
+                'targetPack' => $targetPack,
+                'message' => "Extraction job queued ({$contentLength} chars). " .
+                    "Processing will continue in background.",
+                'initialProgress' => [
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'type' => $job->getType()
+                ],
+                'rootNode' => null
+            ];
 
         } catch (\Exception $e) {
             $this->logger->error('Error extracting to pack', ['error' => $e->getMessage()]);
@@ -2116,6 +2240,14 @@ PROMPT;
 
             // Open pack and store memories
             $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+            // Log AI usage to pack (logged after open)
+            $this->packService->logAiUsageFromResponse(
+                'Memory Extraction Sub-Agent',
+                $aiServiceResponse,
+                null,
+                $aiServiceModel->getModelSlug()
+            );
 
             // Store original source content in the pack for portability
             if ($sourceContentToStore && $sourceRef) {
@@ -2281,59 +2413,8 @@ PROMPT;
             $this->packService->storeSource($sourceRef, $sourceType, $sourceContentToStore, $documentTitle);
         }
 
-        // Get AI model
-        $aiServiceModel = $this->getExtractionModel();
-
-        // Create initial document summary node
-        $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
-        if (!$summaryContent) {
-            $summaryContent = "Document: {$documentTitle}";
-        }
-
-        $totalLines = count(explode("\n", $content));
-
-        // Extract initial content blocks
-        $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1);
-
-        $documentTags = array_merge(
-            ['document', 'root', 'summary'],
-            $blocks['document_tags'] ?? []
-        );
-
-        $rootNode = $this->packService->storeNode(
-            $summaryContent,
-            MemoryNode::CATEGORY_KNOWLEDGE,
-            0.9,
-            "Document: {$documentTitle}",
-            'document_summary',
-            $sourceRef,
-            $documentTags,
-            null,
-            '1:' . $totalLines
-        );
-
-        $pendingBlocks = [];
-        if ($blocks && !empty($blocks['blocks'])) {
-            foreach ($blocks['blocks'] as $block) {
-                $block['parent_node_id'] = $rootNode->getId();
-                $block['depth'] = 1;
-                $pendingBlocks[] = $block;
-            }
-        } else {
-            $pendingBlocks[] = [
-                'title' => $documentTitle,
-                'summary' => substr($content, 0, 100),
-                'start_line' => 1,
-                'end_line' => $totalLines,
-                'is_leaf' => true,
-                'content' => $content,
-                'parent_node_id' => $rootNode->getId(),
-                'depth' => 1,
-                'tags' => []
-            ];
-        }
-
-        // Create the job in pack's memory_jobs table
+        // Create job immediately — all AI calls deferred to first job step (needs_init)
+        // This makes job creation instant, preventing timeouts on batch operations
         $job = $this->packService->createJob(
             MemoryJob::TYPE_EXTRACT_RECURSIVE,
             [
@@ -2342,22 +2423,23 @@ PROMPT;
                 'source_ref' => $sourceRef,
                 'document_title' => $documentTitle,
                 'max_depth' => $maxDepth,
-                'root_node_id' => $rootNode->getId(),
-                'pending_blocks' => $pendingBlocks,
-                'processed_count' => 1,
+                'needs_init' => true,
+                'raw_content' => $content,
+                'pending_blocks' => [],
+                'processed_count' => 0,
                 'current_depth' => 1,
-                'extracted_node_ids' => [$rootNode->getId()]
+                'extracted_node_ids' => []
             ]
         );
 
-        $this->packService->updateJobProgress($job->getId(), 1, 1 + count($pendingBlocks));
+        $this->packService->updateJobProgress($job->getId(), 0, 1);
         $this->packService->startJob($job->getId());
 
-        $this->logger->info('Started pack recursive extraction job', [
+        $this->logger->info('Started pack extraction job (deferred init)', [
             'jobId' => $job->getId(),
             'packName' => $targetPack['name'],
             'sourceRef' => $sourceRef,
-            'initialBlocks' => count($pendingBlocks)
+            'contentLength' => strlen($content)
         ]);
 
         // Close pack - polling endpoint will reopen it for processing
@@ -2396,8 +2478,87 @@ PROMPT;
                 return true;
             }
 
-            $pendingBlocks = $payload['pending_blocks'] ?? [];
             $maxDepth = $payload['max_depth'] ?? 3;
+
+            // Deferred initialization: generate document summary + extract content blocks
+            // This was moved out of startPackRecursiveExtractionJob to make job creation instant
+            if (!empty($payload['needs_init'])) {
+                $content = $payload['raw_content'] ?? '';
+                $documentTitle = $payload['document_title'] ?? 'Untitled Document';
+                $sourceRef = $payload['source_ref'] ?? 'direct-content';
+                $sourceType = $payload['source_type'] ?? 'document';
+
+                // Generate document summary (AI call)
+                $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel, $jobId);
+                if (!$summaryContent) {
+                    $summaryContent = "Document: {$documentTitle}";
+                }
+
+                $totalLines = count(explode("\n", $content));
+
+                // Extract initial content blocks (AI call)
+                $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1, $jobId);
+
+                $documentTags = array_merge(
+                    ['document', 'root', 'summary'],
+                    $blocks['document_tags'] ?? []
+                );
+
+                $rootNode = $this->packService->storeNode(
+                    $summaryContent,
+                    MemoryNode::CATEGORY_KNOWLEDGE,
+                    0.9,
+                    "Document: {$documentTitle}",
+                    'document_summary',
+                    $sourceRef,
+                    $documentTags,
+                    null,
+                    '1:' . $totalLines
+                );
+
+                $pendingBlocks = [];
+                if ($blocks && !empty($blocks['blocks'])) {
+                    foreach ($blocks['blocks'] as $block) {
+                        $block['parent_node_id'] = $rootNode->getId();
+                        $block['depth'] = 1;
+                        $pendingBlocks[] = $block;
+                    }
+                } else {
+                    $pendingBlocks[] = [
+                        'title' => $documentTitle,
+                        'summary' => substr($content, 0, 100),
+                        'start_line' => 1,
+                        'end_line' => $totalLines,
+                        'is_leaf' => true,
+                        'content' => $content,
+                        'parent_node_id' => $rootNode->getId(),
+                        'depth' => 1,
+                        'tags' => []
+                    ];
+                }
+
+                // Update payload: remove raw_content (free memory), set up blocks
+                $payload['needs_init'] = false;
+                unset($payload['raw_content']);
+                $payload['root_node_id'] = $rootNode->getId();
+                $payload['pending_blocks'] = $pendingBlocks;
+                $payload['processed_count'] = 1;
+                $payload['extracted_node_ids'] = [$rootNode->getId()];
+
+                $this->packService->updateJobProgress($jobId, 1, 1 + count($pendingBlocks));
+                $this->packService->updateJobPayload($jobId, $payload);
+                $this->packService->close();
+
+                $this->logger->info('Initialized pack extraction job', [
+                    'jobId' => $jobId,
+                    'documentTitle' => $documentTitle,
+                    'initialBlocks' => count($pendingBlocks)
+                ]);
+
+                return false; // More steps to process
+            }
+
+            $pendingBlocks = $payload['pending_blocks'] ?? [];
             $processedCount = $payload['processed_count'] ?? 0;
 
             // If no pending blocks, extraction is done
@@ -2439,7 +2600,7 @@ PROMPT;
             $blockDepth = $block['depth'] ?? 1;
 
             // Generate summary for this block
-            $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel);
+            $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel, $jobId);
             if (!$summaryContent) {
                 $summaryContent = $block['summary'] ?? "Section: {$blockTitle}";
             }
@@ -2482,7 +2643,7 @@ PROMPT;
             // If not a leaf and not at max depth, extract sub-blocks
             $blockLines = count(explode("\n", $blockContent));
             if (!$block['is_leaf'] && $blockDepth < $maxDepth && $blockLines > 30) {
-                $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line']);
+                $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line'], $jobId);
                 
                 if ($subBlocks && count($subBlocks['blocks']) > 1) {
                     foreach ($subBlocks['blocks'] as $subBlock) {

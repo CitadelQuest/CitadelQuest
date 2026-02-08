@@ -205,8 +205,8 @@ export class MemoryExtractPanel {
                 break;
             case 'conversation': {
                 const convId = document.getElementById('extract-conversation-selector')?.value;
-                params.sourceType = 'conversation';
-                params.sourceRef = `conversation:${convId}`;
+                params.sourceType = 'spirit_conversation';
+                params.sourceRef = convId;
                 // Get conversation title for documentTitle
                 const convSelector = document.getElementById('extract-conversation-selector');
                 const selectedOption = convSelector?.options[convSelector.selectedIndex];
@@ -244,7 +244,7 @@ export class MemoryExtractPanel {
         const extractionParams = this.getExtractionParams(maxDepth);
 
         // Pause global polling BEFORE fetch to prevent pile-up
-        updatesService.pause();
+        updatesService.pause('extractPanel');
 
         // Disable button during request
         if (startBtn) {
@@ -339,7 +339,7 @@ export class MemoryExtractPanel {
             } else if (result.success) {
                 // Direct extraction (small file) - notify completion
                 this.showSuccess(t.extraction_completed || 'Extraction completed!');
-                updatesService.resume();
+                updatesService.resume('extractPanel');
                 
                 // Build graph delta from extraction result and push to 3D scene
                 if (this.onGraphDelta && result.memories) {
@@ -397,7 +397,7 @@ export class MemoryExtractPanel {
         } catch (error) {
             console.error('Extraction failed:', error);
             this.showError(error.message);
-            updatesService.resume();
+            updatesService.resume('extractPanel');
         } finally {
             if (startBtn) {
                 // Restore button label but keep disabled if async jobs are running
@@ -457,7 +457,7 @@ export class MemoryExtractPanel {
                     this.isProcessingSteps = false;
                     
                     // Resume global polling
-                    updatesService.resume();
+                    updatesService.resume('extractPanel');
                     
                     // Clear jobs after delay and re-enable extraction button
                     setTimeout(() => {
@@ -481,7 +481,7 @@ export class MemoryExtractPanel {
             this.isProcessingSteps = false;
             this.showError('Extraction failed: ' + error.message);
             this.enableStartButton();
-            updatesService.resume();
+            updatesService.resume('extractPanel');
         }
     }
     

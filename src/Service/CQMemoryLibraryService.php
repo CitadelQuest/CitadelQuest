@@ -218,6 +218,64 @@ class CQMemoryLibraryService
     }
     
     /**
+     * Sync pack stats in a library by reading fresh data from each pack file
+     * Updates nodes, relationships, tags counts for each pack entry and library metadata totals
+     */
+    public function syncPackStats(string $projectId, string $libraryPath, string $libraryName): array
+    {
+        $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
+        $changed = false;
+        
+        foreach ($library['packs'] as &$packEntry) {
+            $packRelPath = $packEntry['path'];
+            $packDir = dirname($packRelPath);
+            $packName = basename($packRelPath);
+            
+            $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
+            if (!$packFile) {
+                continue;
+            }
+            
+            try {
+                $this->packService->open($projectId, $packDir, $packName);
+                $stats = $this->packService->getStats();
+                $this->packService->close();
+                
+                $newNodes = $stats['totalNodes'] ?? 0;
+                $newRelationships = $stats['totalRelationships'] ?? 0;
+                $newTags = $stats['tagsCount'] ?? 0;
+                
+                if (($packEntry['nodes'] ?? 0) !== $newNodes
+                    || ($packEntry['relationships'] ?? 0) !== $newRelationships
+                    || ($packEntry['tags'] ?? 0) !== $newTags
+                ) {
+                    $packEntry['nodes'] = $newNodes;
+                    $packEntry['relationships'] = $newRelationships;
+                    $packEntry['tags'] = $newTags;
+                    $changed = true;
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('Failed to sync pack stats', [
+                    'pack' => $packRelPath,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        unset($packEntry);
+        
+        if ($changed) {
+            $this->updateLibraryMetadata($library);
+            $this->saveLibrary($projectId, $libraryPath, $libraryName, $library);
+            
+            $this->logger->info('Synced pack stats in library', [
+                'library' => $libraryName
+            ]);
+        }
+        
+        return $library;
+    }
+    
+    /**
      * Update library metadata based on all packs
      */
     private function updateLibraryMetadata(array &$library): void
@@ -233,6 +291,42 @@ class CQMemoryLibraryService
         $library['metadata']['total_nodes'] = $totalNodes;
         $library['metadata']['total_relationships'] = $totalRelationships;
         $library['metadata']['last_sync'] = date('c');
+    }
+    
+    /**
+     * Find and sync any library that references a given pack
+     * Searches from project root for all .cqmlib files
+     */
+    public function syncLibraryForPack(string $projectId, string $packPath, string $packName): void
+    {
+        // Search from project root to find all libraries that reference this pack
+        $packRelPath = $packPath . '/' . $packName;
+        
+        try {
+            $libraries = $this->findLibrariesInDirectory($projectId, '/');
+            
+            foreach ($libraries as $libInfo) {
+                try {
+                    $library = $this->loadLibrary($projectId, $libInfo['path'], $libInfo['name']);
+                    
+                    // Check if this library references the pack
+                    foreach ($library['packs'] as $pack) {
+                        if ($pack['path'] === $packRelPath || basename($pack['path']) === $packName) {
+                            $this->syncPackStats($projectId, $libInfo['path'], $libInfo['name']);
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Skip invalid libraries
+                }
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to sync library for pack', [
+                'packPath' => $packPath,
+                'packName' => $packName,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
     
     /**
@@ -345,25 +439,19 @@ class CQMemoryLibraryService
                 continue;
             }
             
-            // Parse pack path (stored as relative path like "packs/session-2025-02-05.cqmpack")
+            // Parse pack path (stored as absolute project-relative path)
             $packRelPath = $pack['path'];
             $packDir = dirname($packRelPath);
             $packName = basename($packRelPath);
             
-            // Resolve relative to library directory
-            $fullPackDir = $libraryPath;
-            if ($packDir !== '.') {
-                $fullPackDir = rtrim($libraryPath, '/') . '/' . ltrim($packDir, '/');
-            }
-            
-            $packFile = $this->projectFileService->findByPathAndName($projectId, $fullPackDir, $packName);
+            $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
             if (!$packFile) {
-                $this->logger->warning('Pack file not found', ['path' => $fullPackDir, 'name' => $packName]);
+                $this->logger->warning('Pack file not found', ['path' => $packDir, 'name' => $packName]);
                 continue;
             }
             
             try {
-                $this->packService->open($projectId, $fullPackDir, $packName);
+                $this->packService->open($projectId, $packDir, $packName);
                 $graphData = $this->packService->getGraphData();
                 $this->packService->close();
                 

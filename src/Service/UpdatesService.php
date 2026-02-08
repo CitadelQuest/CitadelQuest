@@ -23,7 +23,8 @@ class UpdatesService
         private readonly CqContactService $cqContactService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly SpiritService $spiritService,
-        private readonly CQMemoryPackService $packService
+        private readonly CQMemoryPackService $packService,
+        private readonly CQMemoryLibraryService $libraryService
     ) {
         $this->user = $security->getUser();
     }
@@ -417,6 +418,20 @@ class UpdatesService
                     }
                     
                     $this->packService->close();
+                    
+                    // Sync library stats when jobs have completed
+                    if (!empty($completedJobs) && empty($activeJobs)) {
+                        try {
+                            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+                            $this->libraryService->syncPackStats(
+                                $memoryInfo['projectId'],
+                                $memoryInfo['memoryPath'],
+                                $memoryInfo['rootLibraryName']
+                            );
+                        } catch (\Exception $e) {
+                            // Non-fatal — library sync is optional
+                        }
+                    }
                     
                 } catch (\Exception $e) {
                     // Spirit pack not available, skip
