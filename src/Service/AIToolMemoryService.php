@@ -434,6 +434,11 @@ class AIToolMemoryService
             $sourceRef = $arguments['sourceRef'] ?? null;
             $force = $arguments['force'] ?? false;
 
+            // Resolve "current/active/now" conversation aliases to actual conversation ID
+            if ($sourceRef && in_array($sourceType, ['spirit_conversation', 'conversation'], true)) {
+                $sourceRef = $this->resolveConversationAlias($sourceRef, $spiritId);
+            }
+
             // Build targetPack from Spirit context
             $targetPack = $this->getSpiritTargetPack($spiritId);
 
@@ -1394,6 +1399,40 @@ PROMPT;
                 'error' => 'Error loading file: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Resolve conversation alias (current/active/now) to the actual conversation ID
+     * 
+     * Strips any prefix (spirit_conversation:, conversation:) and checks if the
+     * remaining value is an alias. If so, queries the latest conversation for the spirit.
+     * Returns the resolved conversation ID (or the original value if not an alias).
+     */
+    private function resolveConversationAlias(string $sourceRef, string $spiritId): string
+    {
+        // Strip common prefixes
+        $ref = $sourceRef;
+        foreach (['spirit_conversation:', 'conversation:'] as $prefix) {
+            if (str_starts_with($ref, $prefix)) {
+                $ref = substr($ref, strlen($prefix));
+                break;
+            }
+        }
+
+        // Check if the remaining value is an alias for "current conversation"
+        if (in_array(strtolower(trim($ref)), ['current', 'active', 'now'], true)) {
+            $db = $this->userDatabaseManager->getDatabaseConnection($this->user);
+            $convId = $db->executeQuery(
+                'SELECT id FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC LIMIT 1',
+                [$spiritId]
+            )->fetchOne();
+
+            if ($convId) {
+                return $convId;
+            }
+        }
+
+        return $sourceRef;
     }
 
     /**

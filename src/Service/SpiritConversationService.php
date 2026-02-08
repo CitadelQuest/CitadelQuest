@@ -1331,7 +1331,7 @@ class SpiritConversationService
                         - Prevents duplicate extraction of same source
                         Use sourceType + sourceRef to auto-load:
                         - document: \"projectId:path:filename\" (e.g., \"general:/docs:readme.md\")
-                        - spirit_conversation: conversation ID
+                        - spirit_conversation: conversation ID or alias \"current\"/\"active\"/\"now\" for the most recent conversation
                         - url: URL string (e.g., \"https://example.com/article\")
                         Use 'force: true' to re-extract already processed sources.
                     </tool>
@@ -1418,7 +1418,7 @@ class SpiritConversationService
                             - Prevents duplicate extraction of same source
                             Use sourceType + sourceRef to auto-load:
                             - legacy_memory/document: \"projectId:path:filename\" (e.g., \"general:/spirit/{$spirit->getName()}/memory:conversations.md\")
-                            - spirit_conversation: conversation ID
+                            - spirit_conversation: conversation ID or alias \"current\"/\"active\"/\"now\" for the most recent conversation
                             - url: URL string (e.g., \"https://example.com/article\")
                             Use 'force: true' to re-extract already processed sources.
                         </tool>

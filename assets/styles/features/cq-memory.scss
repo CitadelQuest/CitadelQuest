@@ -26,7 +26,7 @@ $panel-min-height: 500px;
 // Memory Explorer Container
 .memory-explorer {
     // Top toolbar must sit above the 3D scene for dropdown menus
-    > .row:first-child .glass-panel {
+    > .row:first-of-type .glass-panel {
         position: relative;
         z-index: 20;
     }
@@ -111,6 +111,8 @@ $panel-min-height: 500px;
     .memory-graph-wrapper {
         height: $panel-height;
         min-height: $panel-min-height;
+        position: relative;
+        z-index: 0;
     }
 
     // Node Detail Overlay (inside 3D viewport)
