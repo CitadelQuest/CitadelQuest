@@ -1320,7 +1320,7 @@ class SpiritConversationService
                     </tool>
                     <tool name=\"memoryUpdate\">
                         Update existing memories when information changes.
-                        Creates new node that SUPERSEDES the old one.
+                        Creates new version of the memory from the old one.
                     </tool>
                     <tool name=\"memoryForget\">
                         Mark memories as forgotten (soft delete) when they become irrelevant.
@@ -1407,7 +1407,7 @@ class SpiritConversationService
                         </tool>
                         <tool name=\"memoryUpdate\">
                             Update existing memories when information changes.
-                            Creates new node that SUPERSEDES the old one.
+                            Creates new version of the memory from the old one.
                         </tool>
                         <tool name=\"memoryForget\">
                             Mark memories as forgotten (soft delete) when they become irrelevant.

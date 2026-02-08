@@ -272,12 +272,10 @@ spirit:
         related_memory: 'Související paměť'
         relationship_context: 'Kontext vztahu'
         relationship_types:
-            relates_to: 'Souvisí s'
-            derived_from: 'Odvozeno z'
             part_of: 'Součást'
+            relates_to: 'Souvisí s'
             contradicts: 'Protiřečí'
             reinforces: 'Posiluje'
-            supersedes: 'Nahrazuje'
         source_viewer: 'Zobrazit zdroj'
         delete_node:
             title: 'Smazat Uzel Paměti'

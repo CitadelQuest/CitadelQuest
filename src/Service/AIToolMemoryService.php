@@ -323,7 +323,7 @@ class AIToolMemoryService
                 'oldMemoryId' => $arguments['memoryId'],
                 'newMemoryId' => $newMemory->getId(),
                 'summary' => $newMemory->getSummary(),
-                'message' => 'Memory updated successfully. New memory SUPERSEDES old one.'
+                'message' => 'Memory updated successfully. New version created from old one.'
             ];
 
         } catch (\Exception $e) {
@@ -1149,9 +1149,8 @@ and identify meaningful relationships to EXISTING memories.
 - RELATES_TO: General semantic connection (topics overlap, similar subject matter)
 - REINFORCES: New memory supports, confirms, or provides evidence for existing memory
 - CONTRADICTS: New memory conflicts with or opposes existing memory (CRITICAL to detect!)
-- PART_OF: New memory is a detail, subset, or component of existing broader memory
-- DERIVED_FROM: New memory was learned, inferred, or evolved from existing memory
-- SUPERSEDES: New memory replaces or updates existing memory with newer information
+
+NOTE: Do NOT use PART_OF — structural relationships are handled separately.
 
 ## Detection Guidelines:
 
@@ -1169,20 +1168,8 @@ Look for:
 - Confirmation of previously stored information
 - Examples that validate existing knowledge
 
-### SUPERSEDES
-Look for:
-- Newer version of same information
-- Updated facts that should replace old ones
-- More accurate/complete version of existing memory
-
-### PART_OF
-Look for:
-- Specific details of a broader topic
-- Sub-components of a larger concept
-- Examples of a general category
-
 ### RELATES_TO
-Use when there's clear topical connection but doesn't fit other types.
+Use when there's a clear topical connection but doesn't fit CONTRADICTS or REINFORCES.
 Be selective - don't create weak relationships.
 
 ## Output Format (JSON only, no other text):
@@ -2058,10 +2045,6 @@ PROMPT;
         return implode("\n", $numberedLines);
     }
 
-    // Legacy processExtractionJobStep and processRelationshipAnalysisJobStep removed
-    // All extraction/analysis now uses pack-based methods:
-    //   processPackExtractionJobStep() and processPackRelationshipAnalysisJobStep()
-
     /**
      * Get the AI model for extraction operations
      */
@@ -2177,219 +2160,6 @@ PROMPT;
                 'success' => false,
                 'error' => 'Error extracting memories: ' . $e->getMessage()
             ];
-        }
-    }
-
-    /**
-     * Direct (synchronous) extraction to pack for smaller documents
-     */
-    private function directExtractToPack(
-        array $targetPack,
-        string|array $content,
-        string $sourceType,
-        ?string $sourceRef,
-        string $documentTitle,
-        ?string $sourceContentToStore = null
-    ): array {
-        try {
-            // Get AI model
-            $aiServiceModel = $this->getExtractionModel();
-            if (!$aiServiceModel) {
-                return [
-                    'success' => false,
-                    'error' => 'No AI service model configured for Memory Extractor'
-                ];
-            }
-
-            // Build extraction request
-            $systemPrompt = $this->buildMemoryExtractorSystemPrompt();
-            $userMessage = $this->buildMemoryExtractorUserMessage([
-                'content' => $content,
-                'sourceType' => $sourceType,
-                'sourceRef' => $sourceRef
-            ]);
-
-            $messages = [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $userMessage]
-            ];
-
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-                $aiServiceModel->getId(),
-                $messages,
-                null,
-                0.3
-            );
-
-            $userLocale = $this->settingsService->getUserLocale();
-            $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                $aiServiceRequest,
-                'memoryExtractToPack - Memory Extraction Sub-Agent',
-                $userLocale['lang'],
-                'general'
-            );
-
-            $extractedMemories = $this->parseMemoryExtractorResponse($aiServiceResponse);
-
-            if ($extractedMemories === null) {
-                return [
-                    'success' => false,
-                    'error' => 'Failed to parse Memory Extractor response'
-                ];
-            }
-
-            // Open pack and store memories
-            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
-
-            // Log AI usage to pack (logged after open)
-            $this->packService->logAiUsageFromResponse(
-                'Memory Extraction Sub-Agent',
-                $aiServiceResponse,
-                null,
-                $aiServiceModel->getModelSlug()
-            );
-
-            // Store original source content in the pack for portability
-            if ($sourceContentToStore && $sourceRef) {
-                $this->packService->storeSource($sourceRef, $sourceType, $sourceContentToStore, $documentTitle);
-            }
-
-            $storedMemories = [];
-            $documentSummaryNode = null;
-
-            // Create document summary node if we have multiple memories
-            if (count($extractedMemories) > 1) {
-                $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel);
-                if ($summaryContent) {
-                    $documentSummaryNode = $this->packService->storeNode(
-                        $summaryContent,
-                        MemoryNode::CATEGORY_KNOWLEDGE,
-                        0.8,
-                        "Document: {$documentTitle}",
-                        'document_summary',
-                        $sourceRef ?? 'direct-content',
-                        ['document', 'root', 'summary', $sourceType]
-                    );
-                }
-            }
-
-            // Store each extracted memory
-            foreach ($extractedMemories as $memoryData) {
-                try {
-                    $node = $this->packService->storeNode(
-                        $memoryData['content'],
-                        $memoryData['category'] ?? 'knowledge',
-                        $memoryData['importance'] ?? 0.5,
-                        $memoryData['summary'] ?? null,
-                        $sourceType,
-                        $sourceRef,
-                        array_merge(['depth-1'], $memoryData['tags'] ?? [])
-                    );
-
-                    // Create PART_OF relationship to document summary
-                    if ($documentSummaryNode) {
-                        $this->packService->createRelationship(
-                            $node->getId(),
-                            $documentSummaryNode->getId(),
-                            MemoryNode::RELATION_PART_OF,
-                            0.9,
-                            "Extracted from document: " . ($sourceRef ?? 'unknown')
-                        );
-                    }
-
-                    $storedMemories[] = [
-                        'id' => $node->getId(),
-                        'content' => $node->getContent(),
-                        'summary' => $node->getSummary(),
-                        'category' => $node->getCategory(),
-                        'importance' => $node->getImportance(),
-                        'tags' => $this->packService->getTagsForNode($node->getId())
-                    ];
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to store extracted memory in pack', [
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-
-            // Create relationship analysis job (same as recursive path)
-            $extractedNodeIds = array_column($storedMemories, 'id');
-            if ($documentSummaryNode) {
-                $extractedNodeIds[] = $documentSummaryNode->getId();
-            }
-            $analysisJob = null;
-            if (!empty($extractedNodeIds) && count($extractedNodeIds) > 1) {
-                $analysisJob = $this->packService->createJob(
-                    MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
-                    [
-                        'target_pack' => $targetPack,
-                        'pending_node_ids' => $extractedNodeIds,
-                        'processed_count' => 0,
-                        'relationships_created' => 0,
-                        'document_title' => $documentTitle
-                    ]
-                );
-                $this->packService->updateJobProgress($analysisJob->getId(), 0, count($extractedNodeIds));
-            }
-
-            // Build document summary data BEFORE closing pack (needs DB connection for tags)
-            $documentSummaryData = $documentSummaryNode ? [
-                'id' => $documentSummaryNode->getId(),
-                'content' => $documentSummaryNode->getContent(),
-                'summary' => $documentSummaryNode->getSummary(),
-                'category' => $documentSummaryNode->getCategory(),
-                'importance' => $documentSummaryNode->getImportance(),
-                'tags' => $this->packService->getTagsForNode($documentSummaryNode->getId()),
-                'sourceType' => $documentSummaryNode->getSourceType(),
-                'sourceRef' => $documentSummaryNode->getSourceRef(),
-                'createdAt' => $documentSummaryNode->getCreatedAt()->format('Y-m-d H:i:s')
-            ] : null;
-
-            $this->packService->close();
-
-            // Send notification
-            if ($this->user) {
-                $this->notificationService->createNotification(
-                    $this->user,
-                    '📚 Memory Extraction Complete',
-                    'Extracted ' . count($storedMemories) . ' memories to pack: ' . $targetPack['name'],
-                    'success'
-                );
-            }
-
-            // If relationship analysis job was created, return async-like response
-            if ($analysisJob) {
-                return [
-                    'success' => true,
-                    'async' => true,
-                    'jobId' => $analysisJob->getId(),
-                    'targetPack' => $targetPack,
-                    'extractedCount' => count($extractedMemories),
-                    'storedCount' => count($storedMemories),
-                    'memories' => $storedMemories,
-                    'documentSummary' => $documentSummaryData,
-                    'initialProgress' => [
-                        'progress' => 0,
-                        'totalSteps' => count($extractedNodeIds),
-                        'type' => MemoryJob::TYPE_ANALYZE_RELATIONSHIPS
-                    ],
-                    'message' => 'Extracted ' . count($storedMemories) . ' memories. Analyzing relationships...'
-                ];
-            }
-
-            return [
-                'success' => true,
-                'extractedCount' => count($extractedMemories),
-                'storedCount' => count($storedMemories),
-                'memories' => $storedMemories,
-                'targetPack' => $targetPack,
-                'documentSummary' => $documentSummaryData,
-                'message' => 'Successfully extracted and stored ' . count($storedMemories) . ' memories to pack.'
-            ];
-
-        } catch (\Exception $e) {
-            $this->packService->close();
-            throw $e;
         }
     }
 

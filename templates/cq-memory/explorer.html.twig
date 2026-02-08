@@ -352,14 +352,6 @@
                                         </div>
                                     </div>
                                     <div class="filter-item d-flex align-items-center justify-content-between">
-                                        <label class="form-check-label" for="filter-rel-derived-from">
-                                            <span class="rel-color derived-from">―</span> {{ 'spirit.memory.relationship_types.derived_from'|trans }}
-                                        </label>
-                                        <div class="form-check form-switch mb-0">
-                                            <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-derived-from" data-relationship="DERIVED_FROM" checked>
-                                        </div>
-                                    </div>
-                                    <div class="filter-item d-flex align-items-center justify-content-between">
                                         <label class="form-check-label" for="filter-rel-part-of">
                                             <span class="rel-color part-of">―</span> {{ 'spirit.memory.relationship_types.part_of'|trans }}
                                         </label>
@@ -381,14 +373,6 @@
                                         </label>
                                         <div class="form-check form-switch mb-0">
                                             <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-reinforces" data-relationship="REINFORCES" checked>
-                                        </div>
-                                    </div>
-                                    <div class="filter-item d-flex align-items-center justify-content-between">
-                                        <label class="form-check-label" for="filter-rel-supersedes">
-                                            <span class="rel-color supersedes">―</span> {{ 'spirit.memory.relationship_types.supersedes'|trans }}
-                                        </label>
-                                        <div class="form-check form-switch mb-0">
-                                            <input class="form-check-input filter-relationship" type="checkbox" id="filter-rel-supersedes" data-relationship="SUPERSEDES" checked>
                                         </div>
                                     </div>
                                 </div>
@@ -709,12 +693,10 @@
     <script>
         window.memoryExplorerTranslations = {
             relationship_types: {
-                'RELATES_TO': '{{ 'spirit.memory.relationship_types.relates_to'|trans }}',
-                'DERIVED_FROM': '{{ 'spirit.memory.relationship_types.derived_from'|trans }}',
                 'PART_OF': '{{ 'spirit.memory.relationship_types.part_of'|trans }}',
+                'RELATES_TO': '{{ 'spirit.memory.relationship_types.relates_to'|trans }}',
                 'CONTRADICTS': '{{ 'spirit.memory.relationship_types.contradicts'|trans }}',
-                'REINFORCES': '{{ 'spirit.memory.relationship_types.reinforces'|trans }}',
-                'SUPERSEDES': '{{ 'spirit.memory.relationship_types.supersedes'|trans }}'
+                'REINFORCES': '{{ 'spirit.memory.relationship_types.reinforces'|trans }}'
             },
             extract_panel: {
                 show: '{{ 'spirit.memory.extract_panel.show'|trans }}',

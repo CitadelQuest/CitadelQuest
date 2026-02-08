@@ -886,15 +886,6 @@ class CQMemoryPackService
             $this->getTagsForNode($nodeId)
         );
         
-        // Create SUPERSEDES relationship (new node supersedes old)
-        $this->createRelationship(
-            $newNode->getId(),
-            $oldNode->getId(),
-            MemoryNode::RELATION_SUPERSEDES,
-            1.0,
-            $reason
-        );
-        
         // Log consolidation action
         $this->logConsolidation('update', [$oldNode->getId(), $newNode->getId()], [
             'reason' => $reason,

@@ -264,12 +264,10 @@ spirit:
         related_memory: 'Súvisiaca pamäť'
         relationship_context: 'Kontext vzťahu'
         relationship_types:
-            relates_to: 'Súvisí s'
-            derived_from: 'Odvodené z'
             part_of: 'Súčasť'
+            relates_to: 'Súvisí s'
             contradicts: 'Protirečí'
             reinforces: 'Posilňuje'
-            supersedes: 'Nahrádza'
         source_viewer: 'Zobraziť zdroj'
         delete_node:
             title: 'Zmazať Uzol Pamäte'

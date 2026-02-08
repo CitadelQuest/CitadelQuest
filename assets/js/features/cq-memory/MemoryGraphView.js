@@ -27,12 +27,10 @@ export class MemoryGraphView {
 
         // Relationship colors
         this.relationshipColors = {
-            RELATES_TO: 0xffffff,
-            DERIVED_FROM: 0xffff00,
             PART_OF: 0x00ff00,
+            RELATES_TO: 0xffffff,
             CONTRADICTS: 0xff0000,
             REINFORCES: 0x0088ff,
-            SUPERSEDES: 0xff8800,
             default: 0x666666
         };
 
@@ -63,7 +61,7 @@ export class MemoryGraphView {
         // Filters
         this.filters = {
             categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact']),
-            relationships: new Set(['RELATES_TO', 'DERIVED_FROM', 'PART_OF', 'CONTRADICTS', 'REINFORCES', 'SUPERSEDES'])
+            relationships: new Set(['PART_OF', 'RELATES_TO', 'CONTRADICTS', 'REINFORCES'])
         };
 
         // Data

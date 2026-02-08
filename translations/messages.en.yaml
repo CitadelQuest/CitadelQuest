@@ -272,12 +272,10 @@ spirit:
         related_memory: 'Related Memory'
         relationship_context: 'Relationship Context'
         relationship_types:
-            relates_to: 'Relates to'
-            derived_from: 'Derived from'
             part_of: 'Part of'
+            relates_to: 'Relates to'
             contradicts: 'Contradicts'
             reinforces: 'Reinforces'
-            supersedes: 'Supersedes'
         source_viewer: 'Source Viewer'
         delete_node:
             title: 'Delete Memory Node'

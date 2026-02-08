@@ -35,7 +35,7 @@ class CQMemoryExplorer {
         this.hoverDebounceTimer = null;
         this.filters = {
             categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact']),
-            relationships: new Set(['RELATES_TO', 'DERIVED_FROM', 'PART_OF', 'CONTRADICTS', 'REINFORCES', 'SUPERSEDES'])
+            relationships: new Set(['PART_OF', 'RELATES_TO', 'CONTRADICTS', 'REINFORCES'])
         };
 
         this.loadFilterState();
@@ -570,12 +570,10 @@ class CQMemoryExplorer {
 
     getRelationshipColor(type) {
         const colors = {
-            RELATES_TO: '#ffffff',
-            DERIVED_FROM: '#ffff00',
             PART_OF: '#00ff00',
+            RELATES_TO: '#ffffff',
             CONTRADICTS: '#ff0000',
-            REINFORCES: '#0088ff',
-            SUPERSEDES: '#ff8800'
+            REINFORCES: '#0088ff'
         };
         return colors[type] || '#666666';
     }

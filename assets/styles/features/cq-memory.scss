@@ -12,12 +12,10 @@ $category-thought: #ff9e4a;
 $category-fact: #4affff;
 
 // Relationship Colors
-$rel-relates-to: #ffffff;
-$rel-derived-from: #ffff00;
 $rel-part-of: #8dff8d;
+$rel-relates-to: #ffffff;
 $rel-contradicts: #ff0000;
 $rel-reinforces: #0088ff;
-$rel-supersedes: #ff8800;
 
 // Panel Heights
 $panel-height: calc(100vh - 210px);
@@ -288,12 +286,10 @@ $panel-min-height: 500px;
         }
 
         .relationship-type {
-            &.relates-to { color: $rel-relates-to; }
-            &.derived-from { color: $rel-derived-from; }
             &.part-of { color: $rel-part-of; }
+            &.relates-to { color: $rel-relates-to; }
             &.contradicts { color: $rel-contradicts; }
             &.reinforces { color: $rel-reinforces; }
-            &.supersedes { color: $rel-supersedes; }
         }
 
         .relationship-context {
@@ -356,12 +352,10 @@ $panel-min-height: 500px;
 
         // Relationship colors
         .rel-color {
-            &.relates-to { color: $rel-relates-to; }
-            &.derived-from { color: $rel-derived-from; }
             &.part-of { color: $rel-part-of; }
+            &.relates-to { color: $rel-relates-to; }
             &.contradicts { color: $rel-contradicts; }
             &.reinforces { color: $rel-reinforces; }
-            &.supersedes { color: $rel-supersedes; }
         }
     }
 

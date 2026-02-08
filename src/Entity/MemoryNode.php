@@ -27,12 +27,10 @@ class MemoryNode implements JsonSerializable
     private bool $isActive;
 
     // Relationship types as constants
-    public const RELATION_RELATES_TO = 'RELATES_TO';
-    public const RELATION_DERIVED_FROM = 'DERIVED_FROM';
     public const RELATION_PART_OF = 'PART_OF';
+    public const RELATION_RELATES_TO = 'RELATES_TO';
     public const RELATION_CONTRADICTS = 'CONTRADICTS';
     public const RELATION_REINFORCES = 'REINFORCES';
-    public const RELATION_SUPERSEDES = 'SUPERSEDES';
 
     // Category types as constants
     public const CATEGORY_CONVERSATION = 'conversation';
@@ -280,12 +278,10 @@ class MemoryNode implements JsonSerializable
     public static function getValidRelationTypes(): array
     {
         return [
-            self::RELATION_RELATES_TO,
-            self::RELATION_DERIVED_FROM,
             self::RELATION_PART_OF,
+            self::RELATION_RELATES_TO,
             self::RELATION_CONTRADICTS,
             self::RELATION_REINFORCES,
-            self::RELATION_SUPERSEDES,
         ];
     }
 }
