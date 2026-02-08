@@ -25,6 +25,7 @@ class MemoryNode implements JsonSerializable
     private ?string $sourceRef;
     private ?string $sourceRange;
     private bool $isActive;
+    private ?int $depth;
 
     // Relationship types as constants
     public const RELATION_PART_OF = 'PART_OF';
@@ -58,6 +59,7 @@ class MemoryNode implements JsonSerializable
         $this->sourceRef = null;
         $this->sourceRange = null;
         $this->isActive = true;
+        $this->depth = null;
     }
 
     // Getters
@@ -124,6 +126,11 @@ class MemoryNode implements JsonSerializable
     public function isActive(): bool
     {
         return $this->isActive;
+    }
+
+    public function getDepth(): ?int
+    {
+        return $this->depth;
     }
 
     // Setters
@@ -205,6 +212,12 @@ class MemoryNode implements JsonSerializable
         return $this;
     }
 
+    public function setDepth(?int $depth): self
+    {
+        $this->depth = $depth;
+        return $this;
+    }
+
     // Utility methods
     public function incrementAccessCount(): self
     {
@@ -235,6 +248,7 @@ class MemoryNode implements JsonSerializable
             'sourceRef' => $this->sourceRef,
             'sourceRange' => $this->sourceRange,
             'isActive' => $this->isActive,
+            'depth' => $this->depth,
         ];
     }
 
@@ -260,6 +274,7 @@ class MemoryNode implements JsonSerializable
         $node->setSourceRef($data['source_ref'] ?? null);
         $node->setSourceRange($data['source_range'] ?? null);
         $node->setIsActive((bool)($data['is_active'] ?? true));
+        $node->setDepth(isset($data['depth']) ? (int)$data['depth'] : null);
 
         return $node;
     }

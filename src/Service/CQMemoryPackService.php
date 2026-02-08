@@ -193,6 +193,14 @@ class CQMemoryPackService
             ");
             $this->logger->info('Migrated pack: added ai_usage_log table');
         }
+        
+        // Check if depth column exists on memory_nodes
+        $result = $db->executeQuery("PRAGMA table_info(memory_nodes)");
+        $columns = array_column($result->fetchAllAssociative(), 'name');
+        if (!in_array('depth', $columns)) {
+            $db->executeStatement("ALTER TABLE memory_nodes ADD COLUMN depth INTEGER DEFAULT NULL");
+            $this->logger->info('Migrated pack: added depth column to memory_nodes');
+        }
     }
     
     /**
@@ -273,7 +281,8 @@ class CQMemoryPackService
                 source_type TEXT,
                 source_ref TEXT,
                 source_range TEXT,
-                is_active INTEGER DEFAULT 1
+                is_active INTEGER DEFAULT 1,
+                depth INTEGER DEFAULT NULL
             )
         ");
         
@@ -589,7 +598,8 @@ class CQMemoryPackService
         ?string $sourceRef = null,
         array $tags = [],
         ?string $relatesTo = null,
-        ?string $sourceRange = null
+        ?string $sourceRange = null,
+        ?int $depth = null
     ): MemoryNode {
         $db = $this->getConnection();
         
@@ -597,6 +607,7 @@ class CQMemoryPackService
         $node->setSourceType($sourceType);
         $node->setSourceRef($sourceRef);
         $node->setSourceRange($sourceRange);
+        $node->setDepth($depth);
         
         // Auto-generate summary if not provided
         if (!$summary && strlen($content) > 100) {
@@ -605,8 +616,8 @@ class CQMemoryPackService
         
         $db->executeStatement(
             'INSERT INTO memory_nodes 
-            (id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, source_range, is_active) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (id, content, summary, category, importance, confidence, created_at, last_accessed, access_count, source_type, source_ref, source_range, is_active, depth) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $node->getId(),
                 $node->getContent(),
@@ -620,7 +631,8 @@ class CQMemoryPackService
                 $node->getSourceType(),
                 $node->getSourceRef(),
                 $node->getSourceRange(),
-                1
+                1,
+                $node->getDepth()
             ]
         );
         
@@ -1070,6 +1082,56 @@ class CQMemoryPackService
         return $related;
     }
     
+    /**
+     * Get all node IDs in the same PART_OF tree (all ancestors + all descendants)
+     * Walks the full tree recursively. Siblings are NOT included.
+     * Used to exclude structurally-related nodes from relationship analysis.
+     */
+    public function getStructurallyRelatedNodeIds(string $nodeId): array
+    {
+        $relatedIds = [];
+        
+        // Walk up: all ancestors
+        $this->collectAncestors($nodeId, $relatedIds);
+        
+        // Walk down: all descendants
+        $this->collectDescendants($nodeId, $relatedIds);
+        
+        return array_unique($relatedIds);
+    }
+    
+    private function collectAncestors(string $nodeId, array &$collected): void
+    {
+        $db = $this->getConnection();
+        $result = $db->executeQuery(
+            "SELECT target_id FROM memory_relationships WHERE source_id = ? AND type = 'PART_OF'",
+            [$nodeId]
+        );
+        foreach ($result->fetchAllAssociative() as $row) {
+            $parentId = $row['target_id'];
+            if (!in_array($parentId, $collected)) {
+                $collected[] = $parentId;
+                $this->collectAncestors($parentId, $collected);
+            }
+        }
+    }
+    
+    private function collectDescendants(string $nodeId, array &$collected): void
+    {
+        $db = $this->getConnection();
+        $result = $db->executeQuery(
+            "SELECT source_id FROM memory_relationships WHERE target_id = ? AND type = 'PART_OF'",
+            [$nodeId]
+        );
+        foreach ($result->fetchAllAssociative() as $row) {
+            $childId = $row['source_id'];
+            if (!in_array($childId, $collected)) {
+                $collected[] = $childId;
+                $this->collectDescendants($childId, $collected);
+            }
+        }
+    }
+
     public function relationshipExists(string $sourceId, string $targetId, ?string $type = null, bool $checkBothDirections = true): bool
     {
         $db = $this->getConnection();
@@ -1440,7 +1502,8 @@ class CQMemoryPackService
                 'tags' => $this->getTagsForNode($node->getId()),
                 'sourceType' => $node->getSourceType(),
                 'sourceRef' => $node->getSourceRef(),
-                'sourceRange' => $node->getSourceRange()
+                'sourceRange' => $node->getSourceRange(),
+                'depth' => $node->getDepth()
             ];
         }
         
@@ -1490,7 +1553,8 @@ class CQMemoryPackService
                 'tags' => $this->getTagsForNode($node->getId()),
                 'sourceType' => $node->getSourceType(),
                 'sourceRef' => $node->getSourceRef(),
-                'sourceRange' => $node->getSourceRange()
+                'sourceRange' => $node->getSourceRange(),
+                'depth' => $node->getDepth()
             ];
         }
         

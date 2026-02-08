@@ -941,12 +941,22 @@ PROMPT;
                 $categoriesToCompare = $this->packService->getCategories();
             }
 
+            // Get structurally-related node IDs (full PART_OF tree: all ancestors + all descendants)
+            // These are excluded from comparison — siblings are kept as candidates
+            $structurallyRelatedIds = $this->packService->getStructurallyRelatedNodeIds($memoryId);
+
             // Collect existing memories to compare against
             $existingMemories = [];
+            $skippedStructural = 0;
             foreach ($categoriesToCompare as $category) {
                 $categoryMemories = $this->packService->findByCategory($category);
                 foreach ($categoryMemories as $existingMemory) {
                     if ($existingMemory->getId() === $memoryId) {
+                        continue;
+                    }
+                    // Skip structurally-related nodes (all ancestors + all descendants)
+                    if (in_array($existingMemory->getId(), $structurallyRelatedIds)) {
+                        $skippedStructural++;
                         continue;
                     }
                     if (count($existingMemories) >= $maxComparisons * count($categoriesToCompare)) {
@@ -1061,6 +1071,11 @@ PROMPT;
                 $strength = $rel['strength'] ?? 0.8;
                 $context = $rel['context'] ?? null;
 
+                // Hard reject PART_OF — structural relationships are created only during extraction
+                if ($type === MemoryNode::RELATION_PART_OF) {
+                    continue;
+                }
+
                 // Validate relationship type
                 $validTypes = MemoryNode::getValidRelationTypes();
 
@@ -1108,6 +1123,7 @@ PROMPT;
             $this->logger->info('Memory relationships analyzed', [
                 'memoryId' => $memoryId,
                 'memoriesCompared' => count($existingMemories),
+                'skippedStructural' => $skippedStructural,
                 'relationshipsCreated' => count($createdRelationships)
             ]);
 
@@ -1149,8 +1165,6 @@ and identify meaningful relationships to EXISTING memories.
 - RELATES_TO: General semantic connection (topics overlap, similar subject matter)
 - REINFORCES: New memory supports, confirms, or provides evidence for existing memory
 - CONTRADICTS: New memory conflicts with or opposes existing memory (CRITICAL to detect!)
-
-NOTE: Do NOT use PART_OF — structural relationships are handled separately.
 
 ## Detection Guidelines:
 
@@ -2270,7 +2284,7 @@ PROMPT;
                 $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1, $jobId);
 
                 $documentTags = array_merge(
-                    ['document', 'root', 'summary'],
+                    ['document'],
                     $blocks['document_tags'] ?? []
                 );
 
@@ -2283,7 +2297,8 @@ PROMPT;
                     $sourceRef,
                     $documentTags,
                     null,
-                    '1:' . $totalLines
+                    '1:' . $totalLines,
+                    0 // depth=0 for root node
                 );
 
                 $pendingBlocks = [];
@@ -2378,7 +2393,7 @@ PROMPT;
             $sourceRange = $block['start_line'] . ':' . $block['end_line'];
             
             $blockTags = array_merge(
-                ['document', 'section', 'depth-' . $blockDepth],
+                ['document'],
                 $block['tags'] ?? []
             );
 
@@ -2391,7 +2406,8 @@ PROMPT;
                 $sourceRef,
                 $blockTags,
                 null,
-                $sourceRange
+                $sourceRange,
+                $blockDepth
             );
 
             // Create PART_OF relationship to parent

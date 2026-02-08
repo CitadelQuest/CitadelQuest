@@ -86,7 +86,7 @@ export class GraphLayoutEngine {
      * Called on each simulation tick
      */
     tick() {
-        // Position nodes on Z axis based on depth tags
+        // Position nodes on Z axis based on depth field
         this.nodes.forEach(node => {
             const depth = this.getNodeDepth(node);
             const depthSpacing = 40; // Distance between depth levels
@@ -104,31 +104,27 @@ export class GraphLayoutEngine {
     }
 
     /**
-     * Get node depth from tags (document, root, depth-0, depth-1, etc.)
+     * Get node depth — uses depth field, falls back to tags for old packs
      */
     getNodeDepth(node) {
-        const tags = node.tags || [];
+        // Primary: use depth field from MemoryNode entity
+        if (node.depth !== null && node.depth !== undefined) {
+            return node.depth;
+        }
         
-        // Check for depth-N tags
+        // Fallback: parse depth-N tags (backward compat for old packs)
+        const tags = node.tags || [];
         for (const tag of tags) {
             const match = tag.match(/^depth-(\d+)$/);
             if (match) {
                 return parseInt(match[1], 10);
             }
         }
-        
-        // Check for special tags
-        if (tags.includes('root') || tags.includes('document')) {
+        if (tags.includes('root')) {
             return 0;
         }
-        if (tags.includes('section')) {
-            return 1;
-        }
-        if (tags.includes('subsection')) {
-            return 2;
-        }
         
-        // Default depth based on category as fallback
+        // Default depth based on category
         return this.getCategoryDepth(node.category);
     }
 
@@ -236,9 +232,7 @@ export class GraphLayoutEngine {
         // Give new nodes random initial positions to avoid stacking at origin
         const spread = 100;
         const node = {
-            id: nodeData.id,
-            importance: nodeData.importance || 0.5,
-            tags: nodeData.tags || [],
+            ...nodeData,
             x: (Math.random() - 0.5) * spread,
             y: (Math.random() - 0.5) * spread,
             z: (Math.random() - 0.5) * spread,
