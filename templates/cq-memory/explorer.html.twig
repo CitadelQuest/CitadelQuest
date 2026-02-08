@@ -31,10 +31,10 @@
                             <i class="mdi mdi-arrow-left"></i>
                         </a>
                         {% endif %}
-                        <h4 class="mb-0">
+                        <div class="mb-0">
                             <i class="mdi mdi-graph text-cyber me-2"></i>
-                            {{ 'spirit.memory.title'|trans }}{% if spirit %} - {{ spirit.name }}{% endif %}
-                        </h4>
+                            {{ 'spirit.memory.title'|trans }}{% if spirit %} <br> <span class="small text-cyber"><i class="mdi mdi-ghost me-1"></i> {{ spirit.name }}</span>{% endif %}
+                        </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         {# Library Selector #}

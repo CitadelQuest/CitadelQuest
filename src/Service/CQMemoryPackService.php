@@ -1269,15 +1269,32 @@ class CQMemoryPackService
     
     /**
      * Get jobs that need processing (pending or in-progress)
+     * Extraction jobs have priority — relationship analysis jobs are held
+     * until all extraction jobs are completed.
      */
     public function getJobsToProcess(int $limit = 1): array
     {
         $db = $this->getConnection();
         
-        $result = $db->executeQuery(
-            'SELECT * FROM memory_jobs WHERE status IN (?, ?) ORDER BY created_at ASC LIMIT ?',
-            [MemoryJob::STATUS_PENDING, MemoryJob::STATUS_PROCESSING, $limit]
-        );
+        // Check if any extraction jobs are still active
+        $extractionActive = $db->executeQuery(
+            'SELECT COUNT(*) FROM memory_jobs WHERE type = ? AND status IN (?, ?)',
+            [MemoryJob::TYPE_EXTRACT_RECURSIVE, MemoryJob::STATUS_PENDING, MemoryJob::STATUS_PROCESSING]
+        )->fetchOne();
+        
+        if ($extractionActive > 0) {
+            // Only return extraction jobs while extractions are running
+            $result = $db->executeQuery(
+                'SELECT * FROM memory_jobs WHERE type = ? AND status IN (?, ?) ORDER BY created_at ASC LIMIT ?',
+                [MemoryJob::TYPE_EXTRACT_RECURSIVE, MemoryJob::STATUS_PENDING, MemoryJob::STATUS_PROCESSING, $limit]
+            );
+        } else {
+            // No active extractions — all job types eligible
+            $result = $db->executeQuery(
+                'SELECT * FROM memory_jobs WHERE status IN (?, ?) ORDER BY created_at ASC LIMIT ?',
+                [MemoryJob::STATUS_PENDING, MemoryJob::STATUS_PROCESSING, $limit]
+            );
+        }
         
         $jobs = [];
         foreach ($result->fetchAllAssociative() as $row) {

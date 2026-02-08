@@ -1265,9 +1265,16 @@ class CQMemoryExplorer {
             this.availableLibraries = data.libraries || [];
             this.availablePacks = data.packs || [];
 
+            // When viewing a Spirit's memory, only show that Spirit's libraries
+            if (this.spiritId && this.memoryPath) {
+                this.availableLibraries = this.availableLibraries.filter(
+                    lib => lib.path === this.memoryPath
+                );
+            }
+
             // Build library selector options
             const trans = window.memoryExplorerTranslations?.library_selector || {};
-            let html = `<option value="">${trans.all_packs || 'All Packs'}</option>`;
+            let html = this.spiritId ? '' : `<option value="">${trans.all_packs || 'All Packs'}</option>`;
             
             if (this.availableLibraries.length > 0) {
                 this.availableLibraries.forEach(lib => {
