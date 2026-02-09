@@ -1270,6 +1270,13 @@ class CQMemoryExplorer {
                 );
             }
 
+            // Sort libraries alphabetically by display name
+            this.availableLibraries.sort((a, b) => {
+                const nameA = (a.displayName || a.name).toLowerCase();
+                const nameB = (b.displayName || b.name).toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
             // Build library selector options
             const trans = window.memoryExplorerTranslations?.library_selector || {};
             let html = this.spiritId ? '' : `<option value="">${trans.all_packs || 'All Packs'}</option>`;
@@ -1317,6 +1324,15 @@ class CQMemoryExplorer {
                         }
                     } catch { /* ignore */ }
                 }
+            }
+
+            // Spirit view: if no library was selected yet, auto-select the first (and usually only) library
+            if (!this.selectedLibrary && this.spiritId && this.availableLibraries.length > 0) {
+                const firstLib = this.availableLibraries[0];
+                const libValue = JSON.stringify({ path: firstLib.path, name: firstLib.name });
+                librarySelector.value = libValue;
+                this.selectedLibrary = firstLib;
+                await this.loadLibraryPacks(firstLib.path, firstLib.name);
             }
 
         } catch (error) {
@@ -1990,6 +2006,13 @@ class CQMemoryExplorer {
                 // No library filter - show all project packs
                 packsToShow = this.availablePacks;
             }
+
+            // Sort packs alphabetically by display name
+            packsToShow.sort((a, b) => {
+                const nameA = (a.displayName || a.name).toLowerCase();
+                const nameB = (b.displayName || b.name).toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
 
             // Build selector options
             let html = `<option value="">${trans.select_pack || 'Select a pack'}</option>`;
