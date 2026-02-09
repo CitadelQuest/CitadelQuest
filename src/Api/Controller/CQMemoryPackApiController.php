@@ -402,6 +402,55 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
+     * Get active jobs in a specific pack
+     * Used by frontend to detect and resume stalled jobs after page refresh
+     */
+    #[Route('/pack/jobs', name: 'api_memory_pack_jobs', methods: ['POST'])]
+    public function getPackJobs(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+
+        if (!$path || !$name) {
+            return new JsonResponse(['error' => 'path and name are required'], 400);
+        }
+
+        try {
+            $this->packService->open($projectId, $path, $name);
+            $activeJobs = $this->packService->getActiveJobs();
+            
+            $jobs = [];
+            foreach ($activeJobs as $job) {
+                $payload = $job->getPayload();
+                $jobs[] = [
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'currentBlock' => $payload['current_block_title'] ?? null
+                ];
+            }
+            
+            $this->packService->close();
+
+            return new JsonResponse([
+                'success' => true,
+                'jobs' => $jobs
+            ]);
+
+        } catch (\Exception $e) {
+            try { $this->packService->close(); } catch (\Exception $e2) {}
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to get jobs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Process one job step synchronously
      * Returns the nodes and edges created in this step for immediate graph update
      */

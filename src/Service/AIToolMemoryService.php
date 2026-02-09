@@ -1290,6 +1290,340 @@ PROMPT;
     }
 
     /**
+     * Analyze a single pair of memory nodes for relationships (1:1 focused analysis)
+     * Used by batch job for higher quality results — AI focuses on exactly two nodes.
+     * Pack must already be open.
+     * 
+     * @return array ['success' => bool, 'relationshipCreated' => bool, 'relationship' => ?array]
+     */
+    private function analyzePairRelationship(string $nodeAId, string $nodeBId): array
+    {
+        // Fetch both nodes
+        $nodeA = $this->packService->findNodeById($nodeAId);
+        $nodeB = $this->packService->findNodeById($nodeBId);
+
+        if (!$nodeA || !$nodeB) {
+            return [
+                'success' => false,
+                'error' => 'One or both nodes not found',
+                'relationshipCreated' => false
+            ];
+        }
+
+        // Check if relationship already exists (both directions)
+        // This covers cases where a previous analysis already created this edge
+        $validTypes = [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_REINFORCES, MemoryNode::RELATION_CONTRADICTS];
+        foreach ($validTypes as $type) {
+            if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
+                return [
+                    'success' => true,
+                    'relationshipCreated' => false,
+                    'skipped' => 'relationship_exists'
+                ];
+            }
+        }
+
+        // Get AI model for the Relationship Analyzer Sub-Agent
+        $aiServiceModel = null;
+        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+        if ($gateway) {
+            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            if (!$aiServiceModel) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+            }
+        }
+        if (!$aiServiceModel) {
+            return [
+                'success' => false,
+                'error' => 'No AI service model configured for Relationship Analyzer',
+                'relationshipCreated' => false
+            ];
+        }
+
+        // Build pairwise prompts
+        $systemPrompt = $this->buildPairwiseAnalyzerSystemPrompt();
+        $userMessage = $this->buildPairwiseAnalyzerUserMessage($nodeA, $nodeB);
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userMessage]
+        ];
+
+        $userLocale = $this->settingsService->getUserLocale();
+
+        $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+            $aiServiceModel->getId(),
+            $messages,
+            null,
+            0.3
+        );
+
+        $aiServiceResponse = $this->aiGatewayService->sendRequest(
+            $aiServiceRequest,
+            'memoryAnalyzePairRelationship - Pairwise Analyzer Sub-Agent',
+            $userLocale['lang'],
+            'general'
+        );
+
+        // Log AI usage
+        if ($this->packService->isOpen()) {
+            $this->packService->logAiUsageFromResponse(
+                'Pairwise Relationship Analyzer Sub-Agent',
+                $aiServiceResponse,
+                null,
+                $aiServiceModel->getModelSlug()
+            );
+        }
+
+        // Parse pairwise response
+        $analysisResult = $this->parsePairwiseAnalyzerResponse($aiServiceResponse);
+
+        if (!$analysisResult) {
+            $this->logger->warning('Failed to parse pairwise analyzer response', [
+                'nodeAId' => $nodeAId,
+                'nodeBId' => $nodeBId,
+                'response' => $this->extractResponseContent($aiServiceResponse)
+            ]);
+            return [
+                'success' => false,
+                'error' => 'Failed to parse pairwise analysis response',
+                'relationshipCreated' => false
+            ];
+        }
+
+        // Create relationship if one was detected
+        $rel = $analysisResult['relationship'] ?? null;
+        if (!$rel || !isset($rel['type'])) {
+            return [
+                'success' => true,
+                'relationshipCreated' => false,
+                'analysis' => $analysisResult['analysis'] ?? null
+            ];
+        }
+
+        $type = strtoupper($rel['type']);
+        $strength = $rel['strength'] ?? 0.8;
+        $context = $rel['context'] ?? null;
+
+        // Hard reject PART_OF
+        if ($type === MemoryNode::RELATION_PART_OF) {
+            return [
+                'success' => true,
+                'relationshipCreated' => false,
+                'analysis' => $analysisResult['analysis'] ?? null
+            ];
+        }
+
+        // Validate type
+        if (!in_array($type, MemoryNode::getValidRelationTypes())) {
+            $this->logger->warning('Invalid relationship type from pairwise analyzer', [
+                'type' => $type, 'nodeAId' => $nodeAId, 'nodeBId' => $nodeBId
+            ]);
+            return [
+                'success' => true,
+                'relationshipCreated' => false
+            ];
+        }
+
+        // Final dedup check
+        if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
+            return [
+                'success' => true,
+                'relationshipCreated' => false,
+                'skipped' => 'relationship_exists'
+            ];
+        }
+
+        try {
+            $relationship = $this->packService->createRelationship(
+                $nodeAId,
+                $nodeBId,
+                $type,
+                $strength,
+                $context
+            );
+
+            return [
+                'success' => true,
+                'relationshipCreated' => true,
+                'relationship' => [
+                    'id' => $relationship->getId(),
+                    'sourceId' => $nodeAId,
+                    'targetId' => $nodeBId,
+                    'type' => $type,
+                    'strength' => $strength,
+                    'context' => $context
+                ],
+                'analysis' => $analysisResult['analysis'] ?? null
+            ];
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to create pairwise relationship', [
+                'error' => $e->getMessage(),
+                'nodeAId' => $nodeAId,
+                'nodeBId' => $nodeBId,
+                'type' => $type
+            ]);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'relationshipCreated' => false
+            ];
+        }
+    }
+
+    /**
+     * Build the system prompt for pairwise (1:1) relationship analysis
+     */
+    private function buildPairwiseAnalyzerSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are the Relationship Analyzer Agent. Your task is to determine if there is 
+a meaningful relationship between two memories.
+
+## Relationship Types (use ONLY these exact values):
+- RELATES_TO: General semantic connection (topics overlap, similar subject matter)
+- REINFORCES: Memory A supports, confirms, or provides evidence for Memory B
+- CONTRADICTS: Memory A conflicts with or opposes Memory B (CRITICAL to detect!)
+
+## Detection Guidelines:
+
+### CONTRADICTS (Most Important!)
+Look for:
+- Opposite statements ("likes X" vs "dislikes X")
+- Changed preferences ("prefers A" → "now prefers B")
+- Updated facts ("works at X" → "now works at Y")
+- Conflicting beliefs, opinions, or information
+- Temporal changes that invalidate old information
+
+### REINFORCES
+Look for:
+- Additional evidence supporting the other memory
+- Confirmation of previously stored information
+- Examples that validate existing knowledge
+
+### RELATES_TO
+Use when there's a clear topical connection but doesn't fit CONTRADICTS or REINFORCES.
+Only create relationships when the actual content is semantically connected, 
+not just because they share a topic category. Be selective.
+
+## Output Format (JSON only, no other text):
+{
+    "relationship": {
+        "type": "RELATES_TO",
+        "strength": 0.8,
+        "context": "Brief explanation of why this relationship exists"
+    },
+    "analysis": "Brief reasoning about the comparison"
+}
+
+If NO meaningful relationship exists, return:
+{
+    "relationship": null,
+    "analysis": "Brief reasoning about why no relationship was found"
+}
+
+## Rules:
+1. ONLY output the JSON object, nothing else
+2. Only create a relationship if there's a clear, meaningful connection
+3. Strength should be 0.5-1.0 (0.5 = weak connection, 1.0 = very strong)
+4. Context should be concise but informative (under 100 characters)
+5. Return null for relationship if the connection is too weak or non-existent
+6. Pay special attention to CONTRADICTS - these prevent "pattern-bastardisation"
+<clean_system_prompt>
+PROMPT;
+    }
+
+    /**
+     * Build the user message for pairwise (1:1) relationship analysis
+     * Includes document context (root node content + source_ref) for each node
+     */
+    private function buildPairwiseAnalyzerUserMessage(MemoryNode $nodeA, MemoryNode $nodeB): string
+    {
+        $message = "## MEMORY A\n\n";
+        $message .= $this->formatNodeForPairwiseAnalysis($nodeA);
+
+        $message .= "\n---\n\n";
+
+        $message .= "## MEMORY B\n\n";
+        $message .= $this->formatNodeForPairwiseAnalysis($nodeB);
+
+        $message .= "\n---\n\n";
+        $message .= "Determine if there is a meaningful relationship between Memory A and Memory B.\n";
+        $message .= "Respond with ONLY the JSON object, no other text.";
+
+        return $message;
+    }
+
+    /**
+     * Format a single node with its document context for pairwise analysis
+     */
+    private function formatNodeForPairwiseAnalysis(MemoryNode $node): string
+    {
+        $message = "**ID**: " . $node->getId() . "\n";
+        $message .= "**Category**: " . $node->getCategory() . "\n";
+        $message .= "**Content**: " . $node->getContent() . "\n";
+        if ($node->getSummary()) {
+            $message .= "**Summary**: " . $node->getSummary() . "\n";
+        }
+        $tags = $this->packService->getTagsForNode($node->getId());
+        if (!empty($tags)) {
+            $message .= "**Tags**: " . implode(', ', $tags) . "\n";
+        }
+        if ($node->getSourceRef()) {
+            $message .= "**Source**: " . $node->getSourceRef() . "\n";
+        }
+
+        // Add document context from root node
+        $rootNode = $this->packService->findRootNode($node->getId());
+        if ($rootNode) {
+            $message .= "\n**Document Context** (root document this memory belongs to):\n";
+            if ($rootNode->getSourceRef()) {
+                $message .= "- Source: " . $rootNode->getSourceRef() . "\n";
+            }
+            $message .= "- Document Content: " . $rootNode->getContent() . "\n";
+        }
+
+        return $message;
+    }
+
+    /**
+     * Parse the pairwise Relationship Analyzer's JSON response
+     * Expects: {"relationship": {...} | null, "analysis": "..."}
+     */
+    private function parsePairwiseAnalyzerResponse($aiServiceResponse): ?array
+    {
+        $content = $this->extractResponseContent($aiServiceResponse);
+
+        if (empty($content)) {
+            return null;
+        }
+
+        // Try direct parse
+        $decoded = json_decode($content, true);
+        if ($decoded && array_key_exists('relationship', $decoded)) {
+            return $decoded;
+        }
+
+        // Try markdown code block
+        if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
+            $decoded = json_decode($matches[1], true);
+            if ($decoded && array_key_exists('relationship', $decoded)) {
+                return $decoded;
+            }
+        }
+
+        // Try raw JSON object
+        if (preg_match('/\{[\s\S]*"relationship"[\s\S]*\}/', $content, $matches)) {
+            $decoded = json_decode($matches[0], true);
+            if ($decoded && array_key_exists('relationship', $decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Load content from a source based on sourceType and sourceRef
      * 
      * Supported formats:
@@ -2355,20 +2689,75 @@ PROMPT;
                     'message' => "Extraction complete. Created {$processedCount} memory nodes."
                 ]);
 
-                // Create relationship analysis job
+                // Create relationship analysis job with hierarchical pair strategy
                 if (!empty($extractedNodeIds)) {
-                    $analysisJob = $this->packService->createJob(
-                        MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
-                        [
-                            'target_pack' => $targetPack,
-                            'pending_node_ids' => $extractedNodeIds,
-                            'processed_count' => 0,
-                            'relationships_created' => 0,
-                            'source_job_id' => $jobId,
-                            'document_title' => $payload['document_title'] ?? null
-                        ]
-                    );
-                    $this->packService->updateJobProgress($analysisJob->getId(), 0, count($extractedNodeIds));
+                    $pendingPairs = [];
+                    $seenPairs = [];
+                    
+                    // Determine the source_ref of the newly extracted document
+                    $newSourceRef = $payload['source_ref'] ?? null;
+                    
+                    // --- 1. Intra-document leaf pairs (same source_ref, non-sibling) ---
+                    if ($newSourceRef) {
+                        $newLeaves = $this->packService->getLeafNodes($newSourceRef);
+                        $newLeafIds = array_map(fn($n) => $n->getId(), $newLeaves);
+                        
+                        foreach ($newLeafIds as $leafId) {
+                            $structuralIds = $this->packService->getStructurallyRelatedNodeIds($leafId);
+                            
+                            foreach ($newLeafIds as $otherLeafId) {
+                                if ($otherLeafId === $leafId) continue;
+                                if (in_array($otherLeafId, $structuralIds)) continue;
+                                
+                                $pairKey = $leafId < $otherLeafId
+                                    ? $leafId . ':' . $otherLeafId
+                                    : $otherLeafId . ':' . $leafId;
+                                if (isset($seenPairs[$pairKey])) continue;
+                                $seenPairs[$pairKey] = true;
+                                
+                                $pendingPairs[] = [$leafId, $otherLeafId, 'intra'];
+                            }
+                        }
+                    }
+                    
+                    // --- 2. Cross-document root gating (Phase 1) ---
+                    // Find new doc's root node and compare against all other docs' roots
+                    $newRootNode = $newSourceRef
+                        ? $this->packService->findRootNode($extractedNodeIds[0] ?? '') 
+                        : null;
+                    // If the first extracted node IS the root, use it directly
+                    if (!$newRootNode && $newSourceRef) {
+                        $allRoots = $this->packService->getRootNodes();
+                        foreach ($allRoots as $root) {
+                            if ($root->getSourceRef() === $newSourceRef) {
+                                $newRootNode = $root;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if ($newRootNode) {
+                        $existingRoots = $this->packService->getRootNodes($newSourceRef);
+                        foreach ($existingRoots as $existingRoot) {
+                            $pendingPairs[] = [$newRootNode->getId(), $existingRoot->getId(), 'root_gate'];
+                        }
+                    }
+                    
+                    if (!empty($pendingPairs)) {
+                        $analysisJob = $this->packService->createJob(
+                            MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
+                            [
+                                'target_pack' => $targetPack,
+                                'pending_pairs' => $pendingPairs,
+                                'processed_count' => 0,
+                                'relationships_created' => 0,
+                                'source_job_id' => $jobId,
+                                'document_title' => $payload['document_title'] ?? null,
+                                'new_source_ref' => $newSourceRef
+                            ]
+                        );
+                        $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));
+                    }
                 }
 
                 $this->packService->close();
@@ -2481,6 +2870,8 @@ PROMPT;
 
     /**
      * Process a single step of pack relationship analysis job
+     * Handles pair types: 'intra', 'root_gate', 'cross_recursive'
+     * One AI call per step. Dynamic pair spawning for cross-doc drill-down.
      */
     public function processPackRelationshipAnalysisJobStep(array $targetPack, string $jobId): bool
     {
@@ -2494,54 +2885,141 @@ PROMPT;
             }
 
             $payload = $job->getPayload();
-            $pendingNodeIds = $payload['pending_node_ids'] ?? [];
+            $pendingPairs = $payload['pending_pairs'] ?? [];
             $processedCount = $payload['processed_count'] ?? 0;
             $relationshipsCreated = $payload['relationships_created'] ?? 0;
 
-            if (empty($pendingNodeIds)) {
+            // Backward compat: convert old pending_node_ids to intra pairs
+            if (empty($pendingPairs) && !empty($payload['pending_node_ids'])) {
+                $nodeIds = $payload['pending_node_ids'];
+                $seenPairs = [];
+                foreach ($nodeIds as $id) {
+                    if (!$this->packService->isLeafNode($id)) continue;
+                    $structuralIds = $this->packService->getStructurallyRelatedNodeIds($id);
+                    foreach ($nodeIds as $otherId) {
+                        if ($otherId === $id) continue;
+                        if (!$this->packService->isLeafNode($otherId)) continue;
+                        if (in_array($otherId, $structuralIds)) continue;
+                        $pairKey = $id < $otherId ? $id . ':' . $otherId : $otherId . ':' . $id;
+                        if (isset($seenPairs[$pairKey])) continue;
+                        $seenPairs[$pairKey] = true;
+                        $pendingPairs[] = [$id, $otherId, 'intra'];
+                    }
+                }
+                unset($payload['pending_node_ids']);
+                $payload['pending_pairs'] = $pendingPairs;
+                $this->packService->updateJobProgress($jobId, 0, count($pendingPairs));
+            }
+
+            if (empty($pendingPairs)) {
                 $this->packService->completeJob($jobId, [
-                    'nodes_analyzed' => $processedCount,
+                    'pairs_analyzed' => $processedCount,
                     'relationships_created' => $relationshipsCreated,
-                    'message' => "Relationship analysis complete. Analyzed {$processedCount} nodes, created {$relationshipsCreated} relationships."
+                    'message' => "Relationship analysis complete. Analyzed {$processedCount} pairs, created {$relationshipsCreated} relationships."
                 ]);
                 $this->packService->close();
                 return true;
             }
 
-            // Process ONE node per step
-            $nodeId = array_shift($pendingNodeIds);
-            $newRelationships = 0;
+            // Process ONE pair per step
+            $pair = array_shift($pendingPairs);
+            $nodeAId = $pair[0];
+            $nodeBId = $pair[1];
+            $pairType = $pair[2] ?? 'intra';
+            $newRelationship = 0;
+            $spawnedPairs = [];
 
             try {
-                $result = $this->memoryAnalyzeRelationships([
-                    'memoryId' => $nodeId,
-                    '_packAlreadyOpen' => true
-                ]);
-                if ($result['success'] ?? false) {
-                    $newRelationships = $result['relationshipsCreated'] ?? 0;
+                $result = $this->analyzePairRelationship($nodeAId, $nodeBId);
+                $relationshipFound = ($result['success'] ?? false) && ($result['relationshipCreated'] ?? false);
+                // For gating types, also consider skipped (already exists) as "found"
+                $gatingPass = $relationshipFound || (($result['skipped'] ?? '') === 'relationship_exists');
+
+                if ($relationshipFound) {
+                    $newRelationship = 1;
                 }
+
+                // --- Handle pair type specific logic ---
+                
+                if ($pairType === 'root_gate' && $gatingPass) {
+                    // Root gating passed: spawn cross_recursive pairs
+                    // Option B: roots are summaries, not leaves — remove edge (pure gating)
+                    if ($relationshipFound && isset($result['relationship']['id'])) {
+                        try {
+                            $this->packService->deleteRelationship($result['relationship']['id']);
+                            $newRelationship = 0;
+                        } catch (\Exception $e) {
+                            // Ignore
+                        }
+                    }
+                    
+                    // leaf_A × root_child_B for each new doc leaf
+                    $newSourceRef = $payload['new_source_ref'] ?? null;
+                    if ($newSourceRef) {
+                        $newLeaves = $this->packService->getLeafNodes($newSourceRef);
+                        $existingRootChildren = $this->packService->getChildNodes($nodeBId);
+                        
+                        foreach ($newLeaves as $leaf) {
+                            foreach ($existingRootChildren as $child) {
+                                $spawnedPairs[] = [$leaf->getId(), $child->getId(), 'cross_recursive'];
+                            }
+                        }
+                    }
+                } elseif ($pairType === 'cross_recursive' && $gatingPass) {
+                    // Cross-recursive: if nodeB has children, drill deeper
+                    $children = $this->packService->getChildNodes($nodeBId);
+                    if (!empty($children)) {
+                        // nodeB is intermediate — don't create edge (Option B gating)
+                        // Undo the relationship count if one was created at this level
+                        // Actually, analyzePairRelationship already created it.
+                        // For Option B: we should NOT have created it. But we need to
+                        // know if there's a semantic match to gate. So we let AI decide,
+                        // but we only keep the edge if nodeB is a leaf.
+                        // Since nodeB has children, it's NOT a leaf — remove the edge if created.
+                        if ($relationshipFound && isset($result['relationship']['id'])) {
+                            try {
+                                $this->packService->deleteRelationship($result['relationship']['id']);
+                                $newRelationship = 0;
+                            } catch (\Exception $e) {
+                                // Ignore deletion failure
+                            }
+                        }
+                        
+                        // Spawn deeper pairs
+                        foreach ($children as $child) {
+                            $spawnedPairs[] = [$nodeAId, $child->getId(), 'cross_recursive'];
+                        }
+                    }
+                    // If nodeB has NO children (is leaf) — relationship was already created. Perfect.
+                }
+                // 'intra' pairs: relationship created directly, no spawning needed.
+
             } catch (\Exception $e) {
-                $this->logger->warning('Failed to analyze relationships for pack node', [
-                    'nodeId' => $nodeId,
+                $this->logger->warning('Failed to analyze pair relationship', [
+                    'pair' => $pair,
+                    'pairType' => $pairType,
                     'error' => $e->getMessage()
                 ]);
             }
 
+            // Append any spawned pairs to the pending list
+            if (!empty($spawnedPairs)) {
+                $pendingPairs = array_merge($pendingPairs, $spawnedPairs);
+            }
+
             $processedCount++;
-            $relationshipsCreated += $newRelationships;
+            $relationshipsCreated += $newRelationship;
 
             // Update job
-            $payload['pending_node_ids'] = $pendingNodeIds;
+            $payload['pending_pairs'] = $pendingPairs;
             $payload['processed_count'] = $processedCount;
             $payload['relationships_created'] = $relationshipsCreated;
             
-            $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingNodeIds));
-            
-            // Update payload
+            $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingPairs));
             $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
-            return empty($pendingNodeIds);
+            return empty($pendingPairs);
 
         } catch (\Exception $e) {
             $this->logger->error('Error processing pack relationship analysis job step', [

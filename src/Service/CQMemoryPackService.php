@@ -1037,6 +1037,16 @@ class CQMemoryPackService
         return $relationship;
     }
     
+    /**
+     * Delete a relationship by ID.
+     * Used by Option B gating to remove intermediate-level edges during cross-doc drill-down.
+     */
+    public function deleteRelationship(string $relationshipId): void
+    {
+        $db = $this->getConnection();
+        $db->executeStatement('DELETE FROM memory_relationships WHERE id = ?', [$relationshipId]);
+    }
+
     public function findAllRelationships(): array
     {
         $db = $this->getConnection();
@@ -1083,8 +1093,43 @@ class CQMemoryPackService
     }
     
     /**
-     * Get all node IDs in the same PART_OF tree (all ancestors + all descendants)
-     * Walks the full tree recursively. Siblings are NOT included.
+     * Find the root node for a given node.
+     * Looks up the node with same source_ref and depth=0.
+     * Returns the root MemoryNode, or null if the node is itself root or standalone.
+     */
+    public function findRootNode(string $nodeId): ?MemoryNode
+    {
+        $db = $this->getConnection();
+        
+        // Get the node's source_ref
+        $node = $db->executeQuery(
+            'SELECT source_ref, depth FROM memory_nodes WHERE id = ?',
+            [$nodeId]
+        )->fetchAssociative();
+        
+        if (!$node || empty($node['source_ref'])) {
+            return null;
+        }
+        
+        // Already root
+        if (($node['depth'] ?? null) === 0 || $node['depth'] === '0') {
+            return null;
+        }
+        
+        // Find root: same source_ref, depth=0
+        $row = $db->executeQuery(
+            'SELECT * FROM memory_nodes WHERE source_ref = ? AND depth = 0 AND is_active = 1 LIMIT 1',
+            [$node['source_ref']]
+        )->fetchAssociative();
+        
+        return $row ? MemoryNode::fromArray($row) : null;
+    }
+
+    /**
+     * Get all node IDs structurally related to a given node:
+     * - All ancestors (recursive PART_OF walk up)
+     * - All descendants (recursive PART_OF walk down)
+     * - All siblings and their descendants (parent's other children, recursive)
      * Used to exclude structurally-related nodes from relationship analysis.
      */
     public function getStructurallyRelatedNodeIds(string $nodeId): array
@@ -1096,6 +1141,30 @@ class CQMemoryPackService
         
         // Walk down: all descendants
         $this->collectDescendants($nodeId, $relatedIds);
+        
+        // Siblings: parent's other children (and their descendants)
+        $db = $this->getConnection();
+        $parentResult = $db->executeQuery(
+            "SELECT target_id FROM memory_relationships WHERE source_id = ? AND type = 'PART_OF'",
+            [$nodeId]
+        );
+        foreach ($parentResult->fetchAllAssociative() as $row) {
+            $parentId = $row['target_id'];
+            // Get all children of this parent
+            $childResult = $db->executeQuery(
+                "SELECT source_id FROM memory_relationships WHERE target_id = ? AND type = 'PART_OF'",
+                [$parentId]
+            );
+            foreach ($childResult->fetchAllAssociative() as $childRow) {
+                $siblingId = $childRow['source_id'];
+                if ($siblingId === $nodeId) continue; // skip self
+                if (!in_array($siblingId, $relatedIds)) {
+                    $relatedIds[] = $siblingId;
+                    // Also exclude sibling's descendants
+                    $this->collectDescendants($siblingId, $relatedIds);
+                }
+            }
+        }
         
         return array_unique($relatedIds);
     }
@@ -1130,6 +1199,90 @@ class CQMemoryPackService
                 $this->collectDescendants($childId, $collected);
             }
         }
+    }
+
+    /**
+     * Check if a node is a leaf (has no PART_OF children).
+     */
+    public function isLeafNode(string $nodeId): bool
+    {
+        $db = $this->getConnection();
+        $count = $db->executeQuery(
+            "SELECT COUNT(*) FROM memory_relationships WHERE target_id = ? AND type = 'PART_OF'",
+            [$nodeId]
+        )->fetchOne();
+        return (int)$count === 0;
+    }
+
+    /**
+     * Get all leaf nodes in the pack (nodes with no PART_OF children).
+     * Optionally filter by source_ref.
+     */
+    public function getLeafNodes(?string $sourceRef = null): array
+    {
+        $db = $this->getConnection();
+        
+        $sql = "SELECT n.* FROM memory_nodes n 
+                WHERE n.is_active = 1 
+                AND n.id NOT IN (
+                    SELECT DISTINCT target_id FROM memory_relationships WHERE type = 'PART_OF'
+                )";
+        $params = [];
+        
+        if ($sourceRef !== null) {
+            $sql .= ' AND n.source_ref = ?';
+            $params[] = $sourceRef;
+        }
+        
+        $result = $db->executeQuery($sql, $params);
+        $nodes = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $nodes[] = MemoryNode::fromArray($row);
+        }
+        return $nodes;
+    }
+
+    /**
+     * Get direct PART_OF children of a node.
+     */
+    public function getChildNodes(string $nodeId): array
+    {
+        $db = $this->getConnection();
+        $result = $db->executeQuery(
+            "SELECT n.* FROM memory_nodes n 
+             JOIN memory_relationships r ON n.id = r.source_id 
+             WHERE r.target_id = ? AND r.type = 'PART_OF' AND n.is_active = 1",
+            [$nodeId]
+        );
+        $nodes = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $nodes[] = MemoryNode::fromArray($row);
+        }
+        return $nodes;
+    }
+
+    /**
+     * Get all root nodes (depth=0) in the pack.
+     * Optionally exclude a specific source_ref.
+     */
+    public function getRootNodes(?string $excludeSourceRef = null): array
+    {
+        $db = $this->getConnection();
+        
+        $sql = 'SELECT * FROM memory_nodes WHERE depth = 0 AND is_active = 1';
+        $params = [];
+        
+        if ($excludeSourceRef !== null) {
+            $sql .= ' AND source_ref != ?';
+            $params[] = $excludeSourceRef;
+        }
+        
+        $result = $db->executeQuery($sql, $params);
+        $nodes = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $nodes[] = MemoryNode::fromArray($row);
+        }
+        return $nodes;
     }
 
     public function relationshipExists(string $sourceId, string $targetId, ?string $type = null, bool $checkBothDirections = true): bool

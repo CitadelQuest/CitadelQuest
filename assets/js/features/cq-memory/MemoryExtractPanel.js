@@ -178,6 +178,46 @@ export class MemoryExtractPanel {
     setTargetPack(targetPack, projectId = 'general') {
         this.targetPack = targetPack;
         this.projectId = projectId;
+        
+        // Check for stalled jobs in this pack (e.g. after page refresh)
+        this.checkForActiveJobs();
+    }
+
+    /**
+     * Check if the current pack has active (stalled) jobs and resume them
+     */
+    async checkForActiveJobs() {
+        if (!this.targetPack || this.isProcessingSteps) return;
+        
+        try {
+            const response = await fetch('/api/memory/pack/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.targetPack.projectId,
+                    path: this.targetPack.path,
+                    name: this.targetPack.name
+                })
+            });
+            
+            if (!response.ok) return;
+            const data = await response.json();
+            
+            if (data.success && data.jobs && data.jobs.length > 0) {
+                // Found stalled jobs — populate activeJobs and resume processing
+                data.jobs.forEach(job => {
+                    this.activeJobs.set(job.id, job);
+                });
+                this.renderJobsList();
+                
+                // Pause global polling and resume step processing
+                updatesService.pause('extractPanel');
+                this.processStepsSequentially();
+            }
+        } catch (e) {
+            // Non-fatal — just means we can't detect stalled jobs
+            console.warn('Failed to check for active jobs:', e.message);
+        }
     }
 
     /**
@@ -432,8 +472,19 @@ export class MemoryExtractPanel {
                 });
                 
                 if (!response.ok) {
+                    // Retry on transient 5xx errors (e.g. 504 Gateway Timeout)
+                    if (response.status >= 500 && response.status < 600) {
+                        this.stepRetryCount = (this.stepRetryCount || 0) + 1;
+                        if (this.stepRetryCount <= 3) {
+                            console.warn(`Step returned ${response.status}, retry ${this.stepRetryCount}/3...`);
+                            await new Promise(resolve => setTimeout(resolve, 2000 * this.stepRetryCount));
+                            continue;
+                        }
+                    }
+                    this.stepRetryCount = 0;
                     throw new Error('Step processing failed');
                 }
+                this.stepRetryCount = 0;
                 
                 const data = await response.json();
                 
