@@ -2943,15 +2943,7 @@ PROMPT;
                 
                 if ($pairType === 'root_gate' && $gatingPass) {
                     // Root gating passed: spawn cross_recursive pairs
-                    // Option B: roots are summaries, not leaves — remove edge (pure gating)
-                    if ($relationshipFound && isset($result['relationship']['id'])) {
-                        try {
-                            $this->packService->deleteRelationship($result['relationship']['id']);
-                            $newRelationship = 0;
-                        } catch (\Exception $e) {
-                            // Ignore
-                        }
-                    }
+                    // Keep root-root edge as high-level overview relationship
                     
                     // leaf_A × root_child_B for each new doc leaf
                     $newSourceRef = $payload['new_source_ref'] ?? null;
