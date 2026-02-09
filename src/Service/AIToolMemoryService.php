@@ -1296,7 +1296,7 @@ PROMPT;
      * 
      * @return array ['success' => bool, 'relationshipCreated' => bool, 'relationship' => ?array]
      */
-    private function analyzePairRelationship(string $nodeAId, string $nodeBId): array
+    private function analyzePairRelationship(string $nodeAId, string $nodeBId, string $pairType = 'intra'): array
     {
         // Fetch both nodes
         $nodeA = $this->packService->findNodeById($nodeAId);
@@ -1310,9 +1310,17 @@ PROMPT;
             ];
         }
 
+        // Allowed types depend on pair context:
+        // intra-doc: RELATES_TO + CONTRADICTS only (REINFORCES is redundant within same document)
+        // cross-doc: all three types
+        $isCrossDoc = in_array($pairType, ['root_gate', 'cross_recursive']);
+        $allowedTypes = $isCrossDoc
+            ? [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_REINFORCES, MemoryNode::RELATION_CONTRADICTS]
+            : [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_CONTRADICTS];
+
         // Check if relationship already exists (both directions)
         // This covers cases where a previous analysis already created this edge
-        $validTypes = [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_REINFORCES, MemoryNode::RELATION_CONTRADICTS];
+        $validTypes = $allowedTypes;
         foreach ($validTypes as $type) {
             if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
                 return [
@@ -1407,6 +1415,15 @@ PROMPT;
 
         // Hard reject PART_OF
         if ($type === MemoryNode::RELATION_PART_OF) {
+            return [
+                'success' => true,
+                'relationshipCreated' => false,
+                'analysis' => $analysisResult['analysis'] ?? null
+            ];
+        }
+
+        // Reject types not allowed for this pair context
+        if (!in_array($type, $allowedTypes)) {
             return [
                 'success' => true,
                 'relationshipCreated' => false,
@@ -2930,7 +2947,7 @@ PROMPT;
             $spawnedPairs = [];
 
             try {
-                $result = $this->analyzePairRelationship($nodeAId, $nodeBId);
+                $result = $this->analyzePairRelationship($nodeAId, $nodeBId, $pairType);
                 $relationshipFound = ($result['success'] ?? false) && ($result['relationshipCreated'] ?? false);
                 // For gating types, also consider skipped (already exists) as "found"
                 $gatingPass = $relationshipFound || (($result['skipped'] ?? '') === 'relationship_exists');
