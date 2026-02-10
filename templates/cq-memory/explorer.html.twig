@@ -73,6 +73,7 @@
                                     <li><a class="dropdown-item" href="#" id="btn-create-pack"><i class="mdi mdi-plus me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.create_new'|trans|default('Create new pack') }}</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="#" id="btn-pack-details"><i class="mdi mdi-information-outline me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.details'|trans|default('Details') }}</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-add-pack-to-lib"><i class="mdi mdi-book-plus-outline me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.add_to_lib'|trans|default('Add to Library') }}</a></li>
                                     <li><a class="dropdown-item" href="#" id="btn-remove-pack-from-lib"><i class="mdi mdi-book-remove-outline me-2 text-warning"></i>{{ 'spirit.memory.pack_selector.remove_from_lib'|trans|default('Remove from Library') }}</a></li>
                                     <li><a class="dropdown-item text-danger" href="#" id="btn-delete-pack"><i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.pack_selector.delete'|trans|default('Delete') }}</a></li>
                                 </ul>
@@ -564,6 +565,34 @@
     </div>
 </div>
 
+{# Add Pack to Library Modal #}
+<div class="modal fade" id="addPackToLibModal" tabindex="-1" aria-labelledby="addPackToLibModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber">
+                <span class="modal-title text-dark" id="addPackToLibModalLabel">
+                    <i class="mdi mdi-book-plus-outline me-2"></i>{{ 'spirit.memory.pack_selector.add_to_lib_title'|trans|default('Add Pack to Library') }}
+                </span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">{{ 'spirit.memory.pack_selector.add_to_lib_info'|trans|default('Select a library to add this pack to:') }}</p>
+                <select id="add-pack-lib-select" class="form-select form-select-sm bg-dark text-light border-secondary">
+                    <option value="">-- {{ 'spirit.memory.pack_selector.add_to_lib_select'|trans|default('Select a library') }} --</option>
+                </select>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-cyber" id="btn-confirm-add-pack-to-lib">
+                    <i class="mdi mdi-book-plus-outline me-1"></i>{{ 'spirit.memory.pack_selector.add_to_lib_button'|trans|default('Add to Library') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# Remove Pack from Library Confirmation Modal #}
 <div class="modal fade" id="removePackFromLibModal" tabindex="-1" aria-labelledby="removePackFromLibModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -729,6 +758,8 @@
                 loading: '{{ 'spirit.memory.pack_selector.loading'|trans|default('Loading packs...') }}',
                 create_success: '{{ 'spirit.memory.pack_selector.create_success'|trans|default('Pack created successfully') }}',
                 create_error: '{{ 'spirit.memory.pack_selector.create_error'|trans|default('Failed to create pack') }}',
+                add_to_lib_success: '{{ 'spirit.memory.pack_selector.add_to_lib_success'|trans|default('Pack added to library') }}',
+                add_to_lib_error: '{{ 'spirit.memory.pack_selector.add_to_lib_error'|trans|default('Failed to add pack to library') }}',
                 nodes: '{{ 'spirit.memory.nodes'|trans }}',
                 legacy_mode: '{{ 'spirit.memory.pack_selector.legacy_mode'|trans|default('Legacy (user database)') }}'
             }

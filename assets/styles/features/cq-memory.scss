@@ -575,3 +575,14 @@ $panel-min-height: 500px;
     pointer-events: none;
     box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
 }
+
+// Memory modals (outside .memory-explorer scope)
+#addPackToLibModal,
+#removePackFromLibModal,
+#deletePackModal,
+#createPackModal {
+    .form-select option {
+        background: colors.$dark;
+        color: colors.$text-light;
+    }
+}

@@ -1181,6 +1181,8 @@ class CQMemoryExplorer {
         const createPackBtn = document.getElementById('btn-create-pack');
         const confirmCreateBtn = document.getElementById('btn-confirm-create-pack');
         const detailsPackBtn = document.getElementById('btn-pack-details');
+        const addPackToLibBtn = document.getElementById('btn-add-pack-to-lib');
+        const confirmAddPackToLibBtn = document.getElementById('btn-confirm-add-pack-to-lib');
         const removePackFromLibBtn = document.getElementById('btn-remove-pack-from-lib');
         const deletePackBtn = document.getElementById('btn-delete-pack');
         const confirmRemovePackFromLibBtn = document.getElementById('btn-confirm-remove-pack-from-lib');
@@ -1200,6 +1202,14 @@ class CQMemoryExplorer {
 
         if (detailsPackBtn) {
             detailsPackBtn.addEventListener('click', (e) => { e.preventDefault(); this.showPackDetails(); });
+        }
+
+        if (addPackToLibBtn) {
+            addPackToLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showAddPackToLibModal(); });
+        }
+
+        if (confirmAddPackToLibBtn) {
+            confirmAddPackToLibBtn.addEventListener('click', () => this.addPackToLibrary());
         }
 
         if (removePackFromLibBtn) {
@@ -1755,6 +1765,112 @@ class CQMemoryExplorer {
         } catch (error) {
             console.error('Failed to load pack details:', error);
             contentEl.innerHTML = `<div class="alert alert-danger"><i class="mdi mdi-alert me-2"></i>Failed to load pack details: ${this.escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    /**
+     * Show add pack to library modal with library selector
+     */
+    showAddPackToLibModal() {
+        if (!this.currentPackPath) {
+            window.toast?.warning('Select a pack first');
+            return;
+        }
+
+        // Populate library select with available libraries
+        const libSelect = document.getElementById('add-pack-lib-select');
+        if (!libSelect) return;
+
+        let html = '<option value="">-- Select a library --</option>';
+        const sortedLibs = [...this.availableLibraries].sort((a, b) => {
+            const nameA = (a.displayName || a.name).toLowerCase();
+            const nameB = (b.displayName || b.name).toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        sortedLibs.forEach(lib => {
+            const libValue = JSON.stringify({ path: lib.path, name: lib.name });
+            const label = `${lib.displayName || lib.name} (${lib.packCount} packs)`;
+            html += `<option value='${this.escapeHtml(libValue)}'>${this.escapeHtml(label)}</option>`;
+        });
+        libSelect.innerHTML = html;
+
+        const modal = document.getElementById('addPackToLibModal');
+        if (!modal) return;
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+        bsModal.show();
+    }
+
+    /**
+     * Add the current pack to the selected library
+     */
+    async addPackToLibrary() {
+        if (!this.currentPackPath) return;
+
+        const libSelect = document.getElementById('add-pack-lib-select');
+        if (!libSelect || !libSelect.value) {
+            window.toast?.warning('Select a library first');
+            return;
+        }
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+            const libData = JSON.parse(libSelect.value);
+
+            const response = await fetch('/api/memory/library/add-pack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    libraryPath: libData.path,
+                    libraryName: libData.name,
+                    packPath: packData.path,
+                    packName: packData.name
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Failed to add pack to library');
+            }
+
+            // Close modal
+            const modal = document.getElementById('addPackToLibModal');
+            if (modal) bootstrap.Modal.getInstance(modal)?.hide();
+
+            const trans = window.memoryExplorerTranslations?.pack_selector || {};
+            window.toast?.success(trans.add_to_lib_success || 'Pack added to library');
+
+            // Save current pack reference before reloading
+            const savedPackPath = this.currentPackPath;
+
+            // Reload libraries to update pack counts
+            await this.loadLibraries();
+
+            // Select the target library (without auto-selecting first pack)
+            const librarySelector = document.getElementById('library-selector');
+            if (librarySelector) {
+                const libValue = libSelect.value;
+                librarySelector.value = libValue;
+                const storageKey = this.spiritId ? `cqMemoryLib_${this.spiritId}` : 'cqMemoryLib_global';
+                this.selectedLibrary = this.availableLibraries.find(
+                    l => l.path === libData.path && l.name === libData.name
+                ) || libData;
+                localStorage.setItem(storageKey, libValue);
+                await this.loadLibraryPacks(libData.path, libData.name);
+                await this.loadPacks();
+            }
+
+            // Re-select the pack we just added
+            const packSelector = document.getElementById('pack-selector');
+            if (packSelector && savedPackPath) {
+                packSelector.value = savedPackPath;
+                await this.onPackSelected(savedPackPath);
+            }
+
+        } catch (error) {
+            console.error('Failed to add pack to library:', error);
+            const trans = window.memoryExplorerTranslations?.pack_selector || {};
+            window.toast?.error((trans.add_to_lib_error || 'Failed to add pack to library') + ': ' + error.message);
         }
     }
 
