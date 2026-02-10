@@ -907,7 +907,7 @@ class CQMemoryPackService
     /**
      * Check if FTS5 virtual table exists in current pack
      */
-    private function hasFTS5(): bool
+    public function hasFTS5(): bool
     {
         try {
             $db = $this->getConnection();

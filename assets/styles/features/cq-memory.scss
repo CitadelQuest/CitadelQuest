@@ -56,6 +56,14 @@ $panel-min-height: 500px;
                 padding: 0.5rem 0.75rem;
                 white-space: nowrap;
                 transition: all vars.$duration-quick;
+                display: flex;
+                align-items: center;
+                gap: 0;
+
+                .tab-label {
+                    display: none;
+                    margin-left: 0.35rem;
+                }
 
                 &:hover {
                     color: colors.$cyber;
@@ -64,6 +72,10 @@ $panel-min-height: 500px;
                 &.active {
                     color: colors.$cyber;
                     background: transparent;
+
+                    .tab-label {
+                        display: inline;
+                    }
                 }
             }
         }
@@ -313,6 +325,93 @@ $panel-min-height: 500px;
                 border-radius: vars.$border-radius;
                 overflow-x: auto;
                 code { background: transparent; padding: 0; }
+            }
+        }
+    }
+
+    // Search Panel (Phase 5: GUI Memory Search)
+    .memory-search-results {
+        max-height: calc(#{$panel-height} - 140px);
+        overflow-y: auto;
+        @include mix.cyber-scrollbar;
+    }
+
+    .search-result-item {
+        padding: 0.5rem 0.6rem;
+        border-radius: vars.$border-radius;
+        border-left: 3px solid transparent;
+        cursor: pointer;
+        transition: all vars.$duration-quick vars.$ease-standard;
+        overflow: hidden;
+
+        &:hover {
+            background: rgba(colors.$cyber, 0.08);
+            border-left-color: rgba(colors.$cyber, 0.4);
+        }
+
+        &.active {
+            background: rgba(colors.$cyber, 0.12);
+            border-left-color: colors.$cyber;
+        }
+
+        & + .search-result-item {
+            border-top: 1px solid rgba(colors.$secondary, 0.1);
+        }
+
+        .search-score-badge {
+            min-width: 32px;
+            padding: 0.15rem 0.3rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-align: center;
+            border-radius: vars.$border-radius;
+            background: rgba(colors.$cyber, 0.15);
+            color: colors.$cyber;
+            flex-shrink: 0;
+            margin-top: 0.15rem;
+        }
+
+        .search-result-summary {
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 0.2rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .search-result-content {
+            font-size: 0.72rem;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+
+            mark {
+                background: rgba(colors.$cyber, 0.3);
+                color: colors.$text-light;
+                padding: 0 0.15rem;
+                border-radius: 2px;
+            }
+        }
+
+        .search-result-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            overflow: hidden;
+            max-height: 2.5rem;
+
+            .badge {
+                font-size: 0.6rem;
+                max-width: 100px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
     }

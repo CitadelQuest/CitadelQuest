@@ -31,7 +31,7 @@
                             <i class="mdi mdi-arrow-left"></i>
                         </a>
                         {% endif %}
-                        <div class="mb-0">
+                        <div class="mb-0 d-none d-lg-inline-block">
                             <i class="mdi mdi-graph text-cyber me-2"></i>
                             {{ 'spirit.memory.title'|trans }}{% if spirit %} <br> <span class="small text-cyber"><i class="mdi mdi-ghost me-1"></i> {{ spirit.name }}</span>{% endif %}
                         </div>
@@ -102,21 +102,27 @@
                 {# Tab Navigation #}
                 <ul class="nav nav-tabs memory-tabs" role="tablist">
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-search" data-bs-toggle="tab" data-bs-target="#panel-search" type="button" role="tab" aria-controls="panel-search" aria-selected="false">
+                            <i class="mdi mdi-magnify"></i>
+                            <span class="tab-label">{{ 'spirit.memory.search_panel.title'|trans|default('Search') }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-compilation" data-bs-toggle="tab" data-bs-target="#panel-compilation" type="button" role="tab" aria-controls="panel-compilation" aria-selected="true">
-                            <i class="mdi mdi-file-document-multiple me-1"></i>
-                            {{ 'spirit.memory.compilation'|trans }}
+                            <i class="mdi mdi-file-document-multiple"></i>
+                            <span class="tab-label">{{ 'spirit.memory.compilation'|trans }}</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-extraction" data-bs-toggle="tab" data-bs-target="#panel-extraction" type="button" role="tab" aria-controls="panel-extraction" aria-selected="false">
-                            <i class="mdi mdi-excavator me-1"></i>
-                            {{ 'spirit.memory.extract_panel.title'|trans }}
+                            <i class="mdi mdi-excavator"></i>
+                            <span class="tab-label">{{ 'spirit.memory.extract_panel.title'|trans }}</span>
                         </button>
                     </li>
                 </ul>
 
                 {# Tab Content #}
-                <div class="tab-content p-3">
+                <div class="tab-content p-3 pb-0 pt-2">
                     {# Compilation Tab #}
                     <div class="tab-pane fade show active" id="panel-compilation" role="tabpanel" aria-labelledby="tab-compilation">
                         <div id="compilation-placeholder" class="text-center text-secondary py-5 placeholder-state">
@@ -135,6 +141,44 @@
                             
                             <div id="compilation-related">
                             </div>
+                        </div>
+                    </div>
+
+                    {# Search Tab #}
+                    <div class="tab-pane fade" id="panel-search" role="tabpanel" aria-labelledby="tab-search">
+                        <div class="mb-3">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-dark border-secondary text-cyber">
+                                    <i class="mdi mdi-magnify"></i>
+                                </span>
+                                <input type="text" id="memory-search-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="{{ 'spirit.memory.search_panel.placeholder'|trans|default('Search memories...') }}" autocomplete="off">
+                                <button id="memory-search-clear" class="btn btn-sm btn-outline-secondary d-none" type="button" title="Clear">
+                                    <i class="mdi mdi-close"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between mt-2">
+                                <select id="memory-search-category" class="form-select form-select-sm bg-dark text-light border-secondary" style="max-width: 140px;">
+                                    <option value="">{{ 'spirit.memory.search_panel.all_categories'|trans|default('All categories') }}</option>
+                                    <option value="conversation">conversation</option>
+                                    <option value="knowledge">knowledge</option>
+                                    <option value="preference">preference</option>
+                                    <option value="thought">thought</option>
+                                    <option value="fact">fact</option>
+                                </select>
+                                <small id="memory-search-status" class="text-secondary text-end"></small>
+                            </div>
+                        </div>
+
+                        <div id="memory-search-results" class="memory-search-results">
+                            <div id="memory-search-placeholder" class="text-center text-secondary py-4 placeholder-state">
+                                <i class="mdi mdi-text-search" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                                <p class="mt-2 small">{{ 'spirit.memory.search_panel.hint'|trans|default('Type to search across all memories in this pack. Uses FTS5 full-text search with relevance ranking.') }}</p>
+                            </div>
+                            <div id="memory-search-loading" class="text-center py-4 d-none">
+                                <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                                <span class="ms-2 small text-secondary">{{ 'spirit.memory.search_panel.searching'|trans|default('Searching...') }}</span>
+                            </div>
+                            <div id="memory-search-list"></div>
                         </div>
                     </div>
 

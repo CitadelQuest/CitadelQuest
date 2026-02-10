@@ -284,6 +284,12 @@ spirit:
             irreversible: 'Tuto akci nelze vrátit zpět.'
             success: 'Uzel úspěšně smazán'
             error: 'Nepodařilo se smazat uzel'
+        search_panel:
+            title: 'Hledat'
+            placeholder: 'Hledat v pamětech...'
+            all_categories: 'Všechny kategorie'
+            hint: 'Zadejte text pro prohledávání všech pamětí v tomto balíčku. Využívá FTS5 fulltextové vyhledávání s hodnocením relevance.'
+            searching: 'Vyhledávám...'
         extract_panel:
             show: 'Zobrazit Panel Extrakce Paměti'
             hide: 'Skrýt Panel Extrakce Paměti'

@@ -284,6 +284,12 @@ spirit:
             irreversible: 'This action cannot be undone.'
             success: 'Node deleted successfully'
             error: 'Failed to delete node'
+        search_panel:
+            title: 'Search'
+            placeholder: 'Search memories...'
+            all_categories: 'All categories'
+            hint: 'Type to search across all memories in this pack. Uses FTS5 full-text search with relevance ranking.'
+            searching: 'Searching...'
         extract_panel:
             show: 'Show Memory Extraction Panel'
             hide: 'Hide Memory Extraction Panel'

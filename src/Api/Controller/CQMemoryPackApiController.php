@@ -451,6 +451,78 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
+     * Search memories in a pack using FTS5 full-text search
+     * Returns ranked results with scores, categories, and tags
+     */
+    #[Route('/pack/search', name: 'api_memory_pack_search', methods: ['POST'])]
+    public function searchPack(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+        $query = trim($data['query'] ?? '');
+        $category = $data['category'] ?? null;
+        $limit = min((int)($data['limit'] ?? 20), 50);
+
+        if (!$path || !$name) {
+            return new JsonResponse(['error' => 'path and name are required'], 400);
+        }
+
+        if (empty($query)) {
+            return new JsonResponse(['error' => 'query is required'], 400);
+        }
+
+        try {
+            $this->packService->open($projectId, $path, $name);
+
+            $results = $this->packService->recall(
+                $query,
+                $category,
+                [],           // no tag filter
+                $limit,
+                false,        // no related memories (user can click to see those)
+                0.10,         // recency weight (lower for search — relevance matters most)
+                0.20,         // importance weight
+                0.70          // relevance weight (FTS5 match quality)
+            );
+
+            $hasFTS5 = $this->packService->hasFTS5();
+            $this->packService->close();
+
+            // Format results for frontend
+            $formattedResults = [];
+            foreach ($results as $result) {
+                $node = $result['node'];
+                $formattedResults[] = [
+                    'id' => $node->getId(),
+                    'summary' => $node->getSummary(),
+                    'content' => $node->getContent(),
+                    'category' => $node->getCategory(),
+                    'importance' => round($node->getImportance(), 2),
+                    'score' => round($result['score'], 3),
+                    'tags' => $result['tags'] ?? [],
+                    'createdAt' => $node->getCreatedAt(),
+                    'accessCount' => $node->getAccessCount(),
+                    'isRelated' => $result['isRelated'] ?? false,
+                ];
+            }
+
+            return new JsonResponse([
+                'success' => true,
+                'query' => $query,
+                'results' => $formattedResults,
+                'count' => count($formattedResults),
+                'hasFTS5' => $hasFTS5,
+            ]);
+
+        } catch (\Exception $e) {
+            try { $this->packService->close(); } catch (\Exception $e2) {}
+            return new JsonResponse(['error' => 'Search failed: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Process one job step synchronously
      * Returns the nodes and edges created in this step for immediate graph update
      */

@@ -31,6 +31,12 @@ class CQMemoryExplorer {
         this.selectedLibrary = null; // { path, name } of selected library
         this.libraryPacks = []; // Packs belonging to selected library
         
+        // Search state
+        this.searchDebounceTimer = null;
+        this.searchAbortController = null;
+        this.lastSearchQuery = '';
+        this.searchHighlightedNodeIds = new Set();
+        
         // Filter state
         this.hoverDebounceTimer = null;
         this.filters = {
@@ -287,6 +293,9 @@ class CQMemoryExplorer {
 
         // Load collapsible state
         this.loadCollapsibleState();
+
+        // Search tab
+        this.setupSearchListeners();
 
         // Delete key listener for selected node
         document.addEventListener('keydown', (e) => {
@@ -1131,6 +1140,277 @@ class CQMemoryExplorer {
             // selectedNode is a mesh, userData contains the node data
             this.updateCompilation(this.graphView.selectedNode.userData);
         }
+    }
+
+    // ========================================
+    // Memory Search (Phase 5)
+    // ========================================
+
+    setupSearchListeners() {
+        const searchInput = document.getElementById('memory-search-input');
+        const clearBtn = document.getElementById('memory-search-clear');
+        const categorySelect = document.getElementById('memory-search-category');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                // Show/hide clear button
+                if (clearBtn) {
+                    clearBtn.classList.toggle('d-none', !searchInput.value);
+                }
+                // Debounced search
+                if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+                this.searchDebounceTimer = setTimeout(() => this.performSearch(), 300);
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    if (clearBtn) clearBtn.classList.add('d-none');
+                    this.clearSearchResults();
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                clearBtn.classList.add('d-none');
+                this.clearSearchResults();
+            });
+        }
+
+        if (categorySelect) {
+            categorySelect.addEventListener('change', () => {
+                if (searchInput?.value?.trim()) {
+                    this.performSearch();
+                }
+            });
+        }
+    }
+
+    async performSearch() {
+        const searchInput = document.getElementById('memory-search-input');
+        const query = searchInput?.value?.trim() || '';
+
+        if (query.length < 2) {
+            this.clearSearchResults();
+            return;
+        }
+
+        // Abort previous request
+        if (this.searchAbortController) {
+            this.searchAbortController.abort();
+        }
+        this.searchAbortController = new AbortController();
+
+        // Show loading
+        const placeholder = document.getElementById('memory-search-placeholder');
+        const loading = document.getElementById('memory-search-loading');
+        const listEl = document.getElementById('memory-search-list');
+        const statusEl = document.getElementById('memory-search-status');
+
+        if (placeholder) placeholder.classList.add('d-none');
+        if (loading) loading.classList.remove('d-none');
+        if (listEl) listEl.innerHTML = '';
+
+        try {
+            if (!this.currentPackPath) {
+                if (statusEl) statusEl.textContent = 'No pack selected';
+                if (loading) loading.classList.add('d-none');
+                return;
+            }
+
+            const packData = JSON.parse(this.currentPackPath);
+            const category = document.getElementById('memory-search-category')?.value || null;
+
+            const response = await fetch('/api/memory/pack/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name,
+                    query: query,
+                    category: category || null,
+                    limit: 20
+                }),
+                signal: this.searchAbortController.signal
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (loading) loading.classList.add('d-none');
+
+            this.renderSearchResults(data.results || [], query);
+            this.highlightSearchResultsIn3D(data.results || []);
+
+            if (statusEl) {
+                const engine = data.hasFTS5 ? 'FTS5' : 'LIKE';
+                statusEl.textContent = `${data.count} result${data.count !== 1 ? 's' : ''} (${engine})`;
+            }
+
+            this.lastSearchQuery = query;
+
+        } catch (error) {
+            if (error.name === 'AbortError') return; // Cancelled by newer search
+            console.error('Search failed:', error);
+            if (loading) loading.classList.add('d-none');
+            if (statusEl) statusEl.textContent = 'Search failed';
+            if (listEl) {
+                listEl.innerHTML = `<div class="text-danger small p-2"><i class="mdi mdi-alert-circle me-1"></i>${this.escapeHtml(error.message)}</div>`;
+            }
+        }
+    }
+
+    renderSearchResults(results, query) {
+        const listEl = document.getElementById('memory-search-list');
+        const placeholder = document.getElementById('memory-search-placeholder');
+        if (!listEl) return;
+
+        if (results.length === 0) {
+            listEl.innerHTML = `
+                <div class="text-center text-secondary py-4">
+                    <i class="mdi mdi-magnify-close" style="font-size: 2rem; opacity: 0.4;"></i>
+                    <p class="mt-2 small">No memories found for "${this.escapeHtml(query)}"</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (placeholder) placeholder.classList.add('d-none');
+
+        const html = results.map((result, index) => {
+            const scorePercent = Math.round(result.score * 100);
+            const importancePercent = Math.round(result.importance * 100);
+            const summary = result.summary || '(no summary)';
+            const content = result.content || '';
+            const needsTruncate = content.length > 200;
+            const displayContent = needsTruncate ? content.substring(0, 200) + '...' : content;
+            const tagsHtml = result.tags?.length
+                ? `<div class="search-result-tags mt-1">${result.tags.map(t => `<span class="badge bg-secondary bg-opacity-50">${this.escapeHtml(t)}</span>`).join('')}</div>`
+                : '';
+
+            return `
+                <div class="search-result-item" data-node-id="${this.escapeHtml(result.id)}" data-result-index="${index}">
+                    <div class="d-flex align-items-start gap-2">
+                        <div class="search-score-badge" title="Relevance score">
+                            ${scorePercent}%
+                        </div>
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <div class="search-result-summary" style="color: ${this.getCategoryColor(result.category)};">
+                                ${this.escapeHtml(summary)}
+                            </div>
+                            <div class="search-result-content small text-secondary">
+                                ${this.highlightQuery(this.escapeHtml(displayContent), query)}
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="badge" style="background-color: ${this.getCategoryColor(result.category)}; font-size: 0.65rem;">${result.category}</span>
+                                <span class="small text-secondary" title="Importance">
+                                    <i class="mdi mdi-star" style="opacity: ${0.3 + result.importance * 0.7}"></i>${importancePercent}%
+                                </span>
+                            </div>
+                            ${tagsHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        listEl.innerHTML = html;
+
+        // Attach click handlers
+        listEl.querySelectorAll('.search-result-item').forEach(item => {
+            const nodeId = item.dataset.nodeId;
+
+            item.addEventListener('click', () => {
+                this.onSearchResultClick(nodeId);
+                // Highlight active
+                listEl.querySelectorAll('.search-result-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            });
+
+            item.addEventListener('mouseenter', () => {
+                if (this.graphView) this.graphView.glowNodeById(nodeId, true);
+            });
+
+            item.addEventListener('mouseleave', () => {
+                if (this.graphView) this.graphView.glowNodeById(nodeId, false);
+            });
+        });
+    }
+
+    highlightQuery(text, query) {
+        if (!query || query.length < 2) return text;
+        // Split query into words and highlight each
+        const words = query.split(/\s+/).filter(w => w.length >= 2);
+        let result = text;
+        words.forEach(word => {
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escaped})`, 'gi');
+            result = result.replace(regex, '<mark>$1</mark>');
+        });
+        return result;
+    }
+
+    onSearchResultClick(nodeId) {
+        // Focus the node in the 3D graph
+        if (this.graphView) {
+            const mesh = this.graphView.nodeMeshes.get(nodeId);
+            if (mesh) {
+                // Select the node (triggers showNodeDetails + compilation panel)
+                this.graphView.selectNodeMesh(mesh);
+                // Switch to compilation tab to show details
+                const compilationTab = document.getElementById('tab-compilation');
+                if (compilationTab) {
+                    const tabInstance = bootstrap.Tab.getOrCreateInstance(compilationTab);
+                    tabInstance.show();
+                }
+            }
+        }
+    }
+
+    highlightSearchResultsIn3D(results) {
+        // Clear previous search highlights
+        this.clearSearchHighlights();
+
+        if (!this.graphView || !results.length) return;
+
+        // Glow all result nodes
+        results.forEach(result => {
+            this.searchHighlightedNodeIds.add(result.id);
+            this.graphView.glowNodeById(result.id, true);
+        });
+
+        // Auto-clear highlights after 3 seconds
+        setTimeout(() => this.clearSearchHighlights(), 3000);
+    }
+
+    clearSearchHighlights() {
+        if (!this.graphView) return;
+        this.searchHighlightedNodeIds.forEach(id => {
+            this.graphView.glowNodeById(id, false);
+        });
+        this.searchHighlightedNodeIds.clear();
+    }
+
+    clearSearchResults() {
+        const listEl = document.getElementById('memory-search-list');
+        const placeholder = document.getElementById('memory-search-placeholder');
+        const loading = document.getElementById('memory-search-loading');
+        const statusEl = document.getElementById('memory-search-status');
+
+        if (listEl) listEl.innerHTML = '';
+        if (placeholder) placeholder.classList.remove('d-none');
+        if (loading) loading.classList.add('d-none');
+        if (statusEl) statusEl.textContent = '';
+
+        this.clearSearchHighlights();
+        this.lastSearchQuery = '';
     }
 
     // ========================================

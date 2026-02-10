@@ -310,6 +310,29 @@ export class MemoryGraphView {
     }
 
     /**
+     * Programmatically select a node by its mesh (for external callers like search)
+     */
+    selectNodeMesh(mesh) {
+        if (!mesh) return;
+
+        // Deselect previous
+        this.clearHighlights();
+        this.restoreNodeOpacity();
+
+        this.selectedNode = mesh;
+        this.setNodeEmissive(this.selectedNode, 0x95ec86, 1.5);
+        this.setNodeScale(this.selectedNode, 1.5);
+
+        // Highlight neighbors
+        this.highlightNeighbors(this.selectedNode.userData.id);
+        this.dimNonSelectedNodes();
+
+        if (this.onNodeSelect) {
+            this.onNodeSelect(this.selectedNode.userData);
+        }
+    }
+
+    /**
      * Clear all highlights (selected node and neighbors)
      */
     clearHighlights() {

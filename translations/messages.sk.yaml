@@ -276,6 +276,12 @@ spirit:
             irreversible: 'Túto akciu nie je možné vrátiť späť.'
             success: 'Uzol úspešne zmazaný'
             error: 'Nepodarilo sa zmazať uzol'
+        search_panel:
+            title: 'Hľadať'
+            placeholder: 'Hľadať v pamätiach...'
+            all_categories: 'Všetky kategórie'
+            hint: 'Zadajte text na prehľadávanie všetkých pamätí v tomto balíku. Využíva FTS5 fulltextové vyhľadávanie s hodnotením relevantnosti.'
+            searching: 'Vyhľadávam...'
         extract_panel:
             show: 'Zobraziť Panel Extrakcie Pamäte'
             hide: 'Skryť Panel Extrakcie Pamäte'
