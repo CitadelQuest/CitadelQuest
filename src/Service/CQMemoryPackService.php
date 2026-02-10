@@ -209,30 +209,42 @@ class CQMemoryPackService
         
         $hasFTS5Triggers = count($db->executeQuery(
             "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'memory_nodes_fts_%'"
-        )->fetchAllAssociative()) >= 3;
+        )->fetchAllAssociative()) >= 5; // 3 on memory_nodes + 2 on memory_tags
         
-        if (!$hasFTS5Table || !$hasFTS5Triggers) {
-            // Drop old FTS5 table/triggers if they exist (may be external-content mode from older version)
+        // Check if existing FTS5 table has 'tags' column (v2 schema)
+        $hasFTS5Tags = false;
+        if ($hasFTS5Table) {
+            $schema = $db->executeQuery(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_nodes_fts'"
+            )->fetchOne();
+            $hasFTS5Tags = $schema && str_contains((string)$schema, 'tags');
+        }
+        
+        if (!$hasFTS5Table || !$hasFTS5Triggers || !$hasFTS5Tags) {
+            // Drop old FTS5 table/triggers (may be missing tags column or tag triggers)
             if ($hasFTS5Table) {
                 $db->executeStatement("DROP TABLE IF EXISTS memory_nodes_fts");
             }
             $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_insert");
             $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_update");
             $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_delete");
+            $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_tag_insert");
+            $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_tag_delete");
             
-            // Create fresh FTS5 table + triggers in regular (non-external-content) mode
+            // Create fresh FTS5 table + triggers (content + summary + tags)
             $this->initializeFTS5($db);
             
-            // Populate FTS5 index from existing active nodes
+            // Populate FTS5 index from existing active nodes (including their tags)
             $db->executeStatement("
-                INSERT INTO memory_nodes_fts(rowid, content, summary)
-                SELECT rowid, content, COALESCE(summary, '') 
-                FROM memory_nodes 
-                WHERE is_active = 1
+                INSERT INTO memory_nodes_fts(rowid, content, summary, tags)
+                SELECT mn.rowid, mn.content, COALESCE(mn.summary, ''),
+                       COALESCE((SELECT GROUP_CONCAT(mt.tag, ' ') FROM memory_tags mt WHERE mt.memory_id = mn.id), '')
+                FROM memory_nodes mn
+                WHERE mn.is_active = 1
             ");
             
             $count = $db->executeQuery('SELECT COUNT(*) FROM memory_nodes_fts')->fetchOne();
-            $this->logger->info('Migrated pack: added FTS5 index, populated with ' . $count . ' nodes');
+            $this->logger->info('Migrated pack: added FTS5 index (with tags), populated with ' . $count . ' nodes');
         }
     }
     
@@ -429,32 +441,33 @@ class CQMemoryPackService
     /**
      * Initialize FTS5 full-text search virtual table and sync triggers
      * 
-     * Creates the FTS5 index on memory_nodes (content + summary) with
+     * Creates the FTS5 index on memory_nodes (content + summary + tags) with
      * Porter stemming and Unicode support. Triggers keep the index in
      * sync automatically on INSERT, UPDATE (content/summary/is_active),
-     * and DELETE operations on memory_nodes.
+     * and DELETE operations on memory_nodes, and on INSERT/DELETE on memory_tags.
      */
     private function initializeFTS5(Connection $db): void
     {
         // FTS5 virtual table with Porter stemming + Unicode tokenizer
-        // Uses regular (non-external-content) mode so standard INSERT/DELETE work in triggers
+        // Indexes content, summary AND tags for comprehensive search
         $db->executeStatement("
             CREATE VIRTUAL TABLE IF NOT EXISTS memory_nodes_fts 
             USING fts5(
                 content, 
                 summary, 
+                tags,
                 tokenize='porter unicode61'
             )
         ");
         
-        // Trigger: sync FTS5 on INSERT (only active nodes)
+        // Trigger: sync FTS5 on INSERT (only active nodes, tags empty at creation)
         $db->executeStatement("
             CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_insert 
             AFTER INSERT ON memory_nodes 
             WHEN NEW.is_active = 1
             BEGIN
-                INSERT INTO memory_nodes_fts(rowid, content, summary) 
-                VALUES (NEW.rowid, NEW.content, COALESCE(NEW.summary, ''));
+                INSERT INTO memory_nodes_fts(rowid, content, summary, tags) 
+                VALUES (NEW.rowid, NEW.content, COALESCE(NEW.summary, ''), '');
             END
         ");
         
@@ -464,8 +477,9 @@ class CQMemoryPackService
             AFTER UPDATE ON memory_nodes
             BEGIN
                 DELETE FROM memory_nodes_fts WHERE rowid = OLD.rowid;
-                INSERT INTO memory_nodes_fts(rowid, content, summary)
-                SELECT NEW.rowid, NEW.content, COALESCE(NEW.summary, '')
+                INSERT INTO memory_nodes_fts(rowid, content, summary, tags)
+                SELECT NEW.rowid, NEW.content, COALESCE(NEW.summary, ''),
+                       COALESCE((SELECT GROUP_CONCAT(tag, ' ') FROM memory_tags WHERE memory_id = NEW.id), '')
                 WHERE NEW.is_active = 1;
             END
         ");
@@ -476,6 +490,32 @@ class CQMemoryPackService
             AFTER DELETE ON memory_nodes
             BEGIN
                 DELETE FROM memory_nodes_fts WHERE rowid = OLD.rowid;
+            END
+        ");
+        
+        // Trigger: sync FTS5 when a tag is added
+        $db->executeStatement("
+            CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_tag_insert 
+            AFTER INSERT ON memory_tags
+            BEGIN
+                DELETE FROM memory_nodes_fts WHERE rowid = (SELECT rowid FROM memory_nodes WHERE id = NEW.memory_id);
+                INSERT INTO memory_nodes_fts(rowid, content, summary, tags)
+                SELECT mn.rowid, mn.content, COALESCE(mn.summary, ''),
+                       COALESCE((SELECT GROUP_CONCAT(tag, ' ') FROM memory_tags WHERE memory_id = NEW.memory_id), '')
+                FROM memory_nodes mn WHERE mn.id = NEW.memory_id AND mn.is_active = 1;
+            END
+        ");
+        
+        // Trigger: sync FTS5 when a tag is removed
+        $db->executeStatement("
+            CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_tag_delete 
+            AFTER DELETE ON memory_tags
+            BEGIN
+                DELETE FROM memory_nodes_fts WHERE rowid = (SELECT rowid FROM memory_nodes WHERE id = OLD.memory_id);
+                INSERT INTO memory_nodes_fts(rowid, content, summary, tags)
+                SELECT mn.rowid, mn.content, COALESCE(mn.summary, ''),
+                       COALESCE((SELECT GROUP_CONCAT(tag, ' ') FROM memory_tags WHERE memory_id = OLD.memory_id), '')
+                FROM memory_nodes mn WHERE mn.id = OLD.memory_id AND mn.is_active = 1;
             END
         ");
     }
@@ -802,7 +842,7 @@ class CQMemoryPackService
         string $query,
         ?string $category = null,
         array $tags = [],
-        int $limit = 20
+        int $limit = 50
     ): array {
         $db = $this->getConnection();
         
@@ -927,12 +967,12 @@ class CQMemoryPackService
         string $query,
         ?string $category = null,
         array $tags = [],
-        int $limit = 20
+        int $limit = 50
     ): array {
         $db = $this->getConnection();
         
-        $sql = "SELECT * FROM memory_nodes WHERE is_active = 1 AND (content LIKE ? OR summary LIKE ?)";
-        $params = ["%{$query}%", "%{$query}%"];
+        $sql = "SELECT * FROM memory_nodes WHERE is_active = 1 AND (content LIKE ? OR summary LIKE ? OR id IN (SELECT memory_id FROM memory_tags WHERE tag LIKE ?))";
+        $params = ["%{$query}%", "%{$query}%", "%{$query}%"];
         
         if ($category) {
             $sql .= " AND category = ?";
@@ -976,10 +1016,10 @@ class CQMemoryPackService
         $result = $db->executeQuery(
             "SELECT * FROM memory_nodes 
              WHERE is_active = 1 
-             AND (content LIKE ? OR summary LIKE ?)
+             AND (content LIKE ? OR summary LIKE ? OR id IN (SELECT memory_id FROM memory_tags WHERE tag LIKE ?))
              ORDER BY importance DESC, created_at DESC
              LIMIT ?",
-            ["%{$keyword}%", "%{$keyword}%", $limit]
+            ["%{$keyword}%", "%{$keyword}%", "%{$keyword}%", $limit]
         );
         
         $nodes = [];
@@ -1076,10 +1116,13 @@ class CQMemoryPackService
         // Fallback to LIKE-based search
         if (!$useFTS5 || empty($rows)) {
             $sql = "SELECT *, 
-                    (CASE WHEN content LIKE ? OR summary LIKE ? THEN 1.0 ELSE 0.0 END) as relevance_score
+                    (CASE WHEN content LIKE ? OR summary LIKE ? THEN 1.0
+                          WHEN id IN (SELECT memory_id FROM memory_tags WHERE tag LIKE ?) THEN 0.8
+                          ELSE 0.0 END) as relevance_score
                     FROM memory_nodes 
-                    WHERE is_active = 1";
-            $params = ["%{$query}%", "%{$query}%"];
+                    WHERE is_active = 1
+                      AND (content LIKE ? OR summary LIKE ? OR id IN (SELECT memory_id FROM memory_tags WHERE tag LIKE ?))";
+            $params = ["%{$query}%", "%{$query}%", "%{$query}%", "%{$query}%", "%{$query}%", "%{$query}%"];
             
             if ($category) {
                 $sql .= " AND category = ?";

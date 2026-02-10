@@ -463,7 +463,7 @@ class CQMemoryPackApiController extends AbstractController
         $name = $data['name'] ?? null;
         $query = trim($data['query'] ?? '');
         $category = $data['category'] ?? null;
-        $limit = min((int)($data['limit'] ?? 20), 50);
+        $limit = min((int)($data['limit'] ?? 50), 50);
 
         if (!$path || !$name) {
             return new JsonResponse(['error' => 'path and name are required'], 400);
