@@ -1312,7 +1312,7 @@ class CQMemoryExplorer {
             const needsTruncate = content.length > 200;
             const displayContent = needsTruncate ? content.substring(0, 200) + '...' : content;
             const tagsHtml = result.tags?.length
-                ? `<div class="search-result-tags mt-1">${result.tags.map(t => `<span class="badge bg-secondary bg-opacity-50">${this.escapeHtml(t)}</span>`).join('')}</div>`
+                ? `<div class="search-result-tags mt-1">${result.tags.map(t => `<span class="badge bg-secondary bg-opacity-50 opacity-75">${this.escapeHtml(t)}</span>`).join('')}</div>`
                 : '';
 
             return `
@@ -1329,8 +1329,8 @@ class CQMemoryExplorer {
                                 ${this.highlightQuery(this.escapeHtml(displayContent), query)}
                             </div>
                             <div class="d-flex align-items-center gap-2 mt-1">
-                                <span class="badge" style="background-color: ${this.getCategoryColor(result.category)}; font-size: 0.65rem;">${result.category}</span>
-                                <span class="small text-secondary" title="Importance">
+                                <span class="badge text-dark opacity-75" style="background-color: ${this.getCategoryColor(result.category)}; font-size: 0.65rem;">${result.category}</span>
+                                <span class="small" title="Importance">
                                     <i class="mdi mdi-star" style="opacity: ${0.3 + result.importance * 0.7}"></i>${importancePercent}%
                                 </span>
                             </div>

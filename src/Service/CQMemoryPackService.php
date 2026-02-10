@@ -842,7 +842,7 @@ class CQMemoryPackService
         string $query,
         ?string $category = null,
         array $tags = [],
-        int $limit = 50
+        int $limit = 500
     ): array {
         $db = $this->getConnection();
         
@@ -967,7 +967,7 @@ class CQMemoryPackService
         string $query,
         ?string $category = null,
         array $tags = [],
-        int $limit = 50
+        int $limit = 500
     ): array {
         $db = $this->getConnection();
         
