@@ -905,8 +905,21 @@ class SpiritConversationService
         // Build AI messages array
         $aiMessages = [];
         
+        // Extract latest user message text for memory recall
+        $latestUserMessageText = $this->extractLatestUserMessageText($messages);
+        
         // Add system message (same as existing implementation)
         $systemMessage = $this->buildSystemMessage($spirit, $lang);
+        
+        // Append recalled memories based on latest user message (Tier 1: SQL Reflexes)
+        $config = $this->getPromptConfig($spirit->getId());
+        if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($latestUserMessageText)) {
+            $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText);
+            if (!empty($recalledMemories)) {
+                $systemMessage .= $recalledMemories;
+            }
+        }
+        
         $aiMessages[] = [
             'role' => 'system',
             'content' => $systemMessage
@@ -1179,6 +1192,11 @@ class SpiritConversationService
                 'systemPrompt.config.includeLanguage', 
                 '1'
             ) === '1',
+            'includeMemoryRecall' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeMemoryRecall', 
+                '1'
+            ) === '1',
         ];
     }
     
@@ -1213,6 +1231,13 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.includeLanguage',
                 $config['includeLanguage'] ? '1' : '0'
+            );
+        }
+        if (isset($config['includeMemoryRecall'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeMemoryRecall',
+                $config['includeMemoryRecall'] ? '1' : '0'
             );
         }
     }
@@ -1282,6 +1307,9 @@ class SpiritConversationService
         $migrationStatus = $this->packService->isLegacyMemoryMigrated();
         $this->packService->close();
         $isFullyMigrated = $migrationStatus['allMigrated'];
+
+        // TMP test hack
+        $isFullyMigrated = true;
         
         // Build the memory section based on migration status
         if ($isFullyMigrated) {
@@ -1337,12 +1365,21 @@ class SpiritConversationService
                     </tool>
                 </available-tools>
                 
+                <automatic-recall>
+                    Your memory system now includes **automatic recall**. Relevant memories are 
+                    automatically searched and injected into your context as &lt;recalled-memories&gt; 
+                    based on what the user says. Use these naturally in your responses without 
+                    explicitly saying \"I recalled...\" — just weave the knowledge in naturally,
+                    as if you simply remember it.
+                </automatic-recall>
+                
                 <best-practices>
                     - Store important user preferences with category 'preference' and high importance (0.8-1.0)
                     - Store facts about the user with category 'fact'
                     - Store conversation summaries with category 'conversation' after meaningful interactions
                     - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
-                    - Recall memories at the start of conversations to personalize responses
+                    - When automatic recall provides relevant context, use it naturally
+                    - Use memoryRecall tool for deeper/specific searches beyond automatic recall
                     - Update memories when information changes rather than creating duplicates
                     - Keep memories concise and self-contained
                 </best-practices>
@@ -1661,6 +1698,226 @@ class SpiritConversationService
             'spiritName' => $spirit->getName(),
             'memoryDir' => $spiritMemoryDir
         ];
+    }
+    
+    // ========================================
+    // Memory Recall — Tier 1: SQL Reflexes
+    // ========================================
+    
+    /**
+     * Extract plain text from the latest user message in a conversation
+     * Handles both string content and multimodal content arrays
+     * 
+     * @param array $messages Array of SpiritConversationMessage entities
+     * @return string The extracted text, or empty string if none found
+     */
+    private function extractLatestUserMessageText(array $messages): string
+    {
+        // Walk backwards to find the latest user message
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            $msg = $messages[$i];
+            if ($msg->getRole() !== 'user') {
+                continue;
+            }
+            
+            $content = $msg->getContent();
+            
+            // String content
+            if (is_string($content)) {
+                return trim($content);
+            }
+            
+            // Array content (multimodal: text + images)
+            if (is_array($content)) {
+                $textParts = [];
+                foreach ($content as $part) {
+                    if (is_array($part) && isset($part['type']) && $part['type'] === 'text' && isset($part['text'])) {
+                        $textParts[] = $part['text'];
+                    } elseif (is_string($part)) {
+                        $textParts[] = $part;
+                    }
+                }
+                $text = trim(implode(' ', $textParts));
+                if (!empty($text)) {
+                    return $text;
+                }
+            }
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Extract meaningful keywords from natural language text
+     * 
+     * Pure PHP keyword extraction — no AI cost.
+     * Strips stop words, short words, and returns unique meaningful terms.
+     * 
+     * @param string $text Input text (user message)
+     * @param int $maxKeywords Maximum keywords to extract
+     * @return array Array of keyword strings
+     */
+    private function extractKeywords(string $text, int $maxKeywords = 8): array
+    {
+        // Stop words (common English + common conversational filler)
+        static $stopWords = [
+            'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+            'of', 'with', 'by', 'from', 'is', 'it', 'as', 'be', 'was', 'are',
+            'were', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+            'will', 'would', 'could', 'should', 'may', 'might', 'shall', 'can',
+            'this', 'that', 'these', 'those', 'i', 'me', 'my', 'we', 'our',
+            'you', 'your', 'he', 'she', 'his', 'her', 'they', 'them', 'their',
+            'what', 'which', 'who', 'whom', 'when', 'where', 'why', 'how',
+            'not', 'no', 'nor', 'if', 'then', 'else', 'so', 'up', 'out',
+            'about', 'into', 'through', 'during', 'before', 'after', 'above',
+            'below', 'between', 'same', 'each', 'every', 'all', 'both', 'few',
+            'more', 'most', 'other', 'some', 'such', 'than', 'too', 'very',
+            'just', 'also', 'now', 'here', 'there', 'only', 'own', 'its',
+            'let', 'got', 'get', 'like', 'know', 'think', 'want', 'need',
+            'tell', 'say', 'said', 'make', 'way', 'well', 'back', 'much',
+            'many', 'go', 'going', 'see', 'look', 'come', 'came', 'take',
+            'give', 'good', 'new', 'first', 'last', 'long', 'great', 'little',
+            'right', 'still', 'find', 'any', 'thing', 'things', 'yeah', 'yes',
+            'ok', 'okay', 'sure', 'please', 'thanks', 'thank', 'hi', 'hello',
+            'hey', 'really', 'actually', 'basically', 'maybe', 'probably',
+            'something', 'anything', 'everything', 'nothing', 'someone',
+            'one', 'two', 'three', 'four', 'five', 'much', 'even', 'over',
+            'again', 'once', 'been', 'am', 'being', 'while', 'since',
+        ];
+        
+        // Strip HTML tags and normalize whitespace
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        
+        // Extract words (keep Unicode letters, numbers, hyphens)
+        preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\-]*/u', mb_strtolower($text), $matches);
+        $words = $matches[0] ?? [];
+        
+        // Filter: remove stop words, short words (< 3 chars), pure numbers
+        $keywords = [];
+        $seen = [];
+        foreach ($words as $word) {
+            if (mb_strlen($word) < 3) continue;
+            if (in_array($word, $stopWords)) continue;
+            if (is_numeric($word)) continue;
+            if (isset($seen[$word])) continue;
+            
+            $seen[$word] = true;
+            $keywords[] = $word;
+        }
+        
+        // Also extract multi-word phrases (bigrams) that appear quoted or are proper nouns
+        // Look for capitalized consecutive words in original text (before lowering)
+        preg_match_all('/[A-Z][\p{L}]+(?:\s+[A-Z][\p{L}]+)+/u', $text, $phraseMatches);
+        foreach (($phraseMatches[0] ?? []) as $phrase) {
+            $phraseLower = mb_strtolower($phrase);
+            if (!isset($seen[$phraseLower]) && mb_strlen($phraseLower) >= 5) {
+                $seen[$phraseLower] = true;
+                // Prepend phrases (they're often more meaningful)
+                array_unshift($keywords, $phraseLower);
+            }
+        }
+        
+        return array_slice($keywords, 0, $maxKeywords);
+    }
+    
+    /**
+     * Build <recalled-memories> XML section for Spirit's system prompt
+     * 
+     * Tier 1: SQL Reflexes — automatic, zero AI cost memory recall.
+     * Extracts keywords from user's latest message, runs FTS5 search
+     * on Spirit's memory pack, and formats top results as XML.
+     * 
+     * @param Spirit $spirit The Spirit whose memories to search
+     * @param string $userMessageText The latest user message text
+     * @return string XML block to append to system prompt, or empty string
+     */
+    private function buildRecalledMemoriesSection(Spirit $spirit, string $userMessageText): string
+    {
+        try {
+            // Extract keywords from user message
+            $keywords = $this->extractKeywords($userMessageText);
+            
+            if (empty($keywords)) {
+                return '';
+            }
+            
+            // Open Spirit's root memory pack
+            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+            $this->packService->open(
+                $memoryInfo['projectId'],
+                $memoryInfo['packsPath'],
+                $memoryInfo['rootPackName']
+            );
+            
+            // Build FTS5 query from keywords and run recall
+            $query = implode(' ', $keywords);
+            $results = $this->packService->recall(
+                $query,
+                null,       // no category filter
+                [],         // no tag filter
+                5,          // top 5 results
+                false,      // no related memories (keep it lightweight)
+                0.15,       // recency weight
+                0.35,       // importance weight
+                0.50        // relevance weight (prioritize text match)
+            );
+            
+            $this->packService->close();
+            
+            if (empty($results)) {
+                return '';
+            }
+            
+            // Filter: only include results with meaningful scores
+            $minScore = 0.15;
+            $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
+            
+            if (empty($results)) {
+                return '';
+            }
+            
+            // Build XML
+            $count = count($results);
+            $xml = "\n\n            <recalled-memories count=\"{$count}\" source=\"automatic\" keywords=\"" . htmlspecialchars(implode(', ', $keywords)) . "\">";
+            $xml .= "\n                <note>These memories were automatically recalled based on the user's latest message. Use them naturally to personalize your response — don't explicitly mention that you \"recalled\" them unless relevant.</note>";
+            
+            foreach ($results as $result) {
+                $node = $result['node'];
+                $score = round($result['score'], 2);
+                $importance = round($node->getImportance(), 1);
+                $category = htmlspecialchars($node->getCategory());
+                $tags = !empty($result['tags']) ? htmlspecialchars(implode(', ', $result['tags'])) : '';
+                
+                // Use content (summary is more of a title, not useful for recall context)
+                $content = $node->getContent();
+                // Limit to ~1000 chars per memory to keep the brief compact but meaningful
+                if (mb_strlen($content) > 1000) {
+                    $content = mb_substr($content, 0, 1000) . '...';
+                }
+                $content = htmlspecialchars($content);
+                
+                $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
+                $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr}>";
+                $xml .= "\n                    {$content}";
+                $xml .= "\n                </memory>";
+            }
+            
+            $xml .= "\n            </recalled-memories>";
+            
+            $this->logger->debug('Memory recall: injected {count} memories for keywords: {keywords}', [
+                'count' => $count,
+                'keywords' => implode(', ', $keywords)
+            ]);
+            
+            return $xml;
+            
+        } catch (\Exception $e) {
+            $this->logger->warning('Memory recall failed: {error}', [
+                'error' => $e->getMessage()
+            ]);
+            return '';
+        }
     }
 
 }

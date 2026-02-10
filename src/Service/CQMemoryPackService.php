@@ -201,6 +201,39 @@ class CQMemoryPackService
             $db->executeStatement("ALTER TABLE memory_nodes ADD COLUMN depth INTEGER DEFAULT NULL");
             $this->logger->info('Migrated pack: added depth column to memory_nodes');
         }
+        
+        // FTS5 full-text search index migration
+        $hasFTS5Table = (bool)$db->executeQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_nodes_fts'"
+        )->fetchAssociative();
+        
+        $hasFTS5Triggers = count($db->executeQuery(
+            "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'memory_nodes_fts_%'"
+        )->fetchAllAssociative()) >= 3;
+        
+        if (!$hasFTS5Table || !$hasFTS5Triggers) {
+            // Drop old FTS5 table/triggers if they exist (may be external-content mode from older version)
+            if ($hasFTS5Table) {
+                $db->executeStatement("DROP TABLE IF EXISTS memory_nodes_fts");
+            }
+            $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_insert");
+            $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_update");
+            $db->executeStatement("DROP TRIGGER IF EXISTS memory_nodes_fts_delete");
+            
+            // Create fresh FTS5 table + triggers in regular (non-external-content) mode
+            $this->initializeFTS5($db);
+            
+            // Populate FTS5 index from existing active nodes
+            $db->executeStatement("
+                INSERT INTO memory_nodes_fts(rowid, content, summary)
+                SELECT rowid, content, COALESCE(summary, '') 
+                FROM memory_nodes 
+                WHERE is_active = 1
+            ");
+            
+            $count = $db->executeQuery('SELECT COUNT(*) FROM memory_nodes_fts')->fetchOne();
+            $this->logger->info('Migrated pack: added FTS5 index, populated with ' . $count . ' nodes');
+        }
     }
     
     /**
@@ -388,6 +421,63 @@ class CQMemoryPackService
         $db->executeStatement("CREATE INDEX IF NOT EXISTS idx_memory_tags_memory ON memory_tags(memory_id)");
         $db->executeStatement("CREATE INDEX IF NOT EXISTS idx_memory_jobs_status ON memory_jobs(status)");
         $db->executeStatement("CREATE INDEX IF NOT EXISTS idx_memory_jobs_type ON memory_jobs(type)");
+        
+        // FTS5 full-text search index for Memory Recall
+        $this->initializeFTS5($db);
+    }
+    
+    /**
+     * Initialize FTS5 full-text search virtual table and sync triggers
+     * 
+     * Creates the FTS5 index on memory_nodes (content + summary) with
+     * Porter stemming and Unicode support. Triggers keep the index in
+     * sync automatically on INSERT, UPDATE (content/summary/is_active),
+     * and DELETE operations on memory_nodes.
+     */
+    private function initializeFTS5(Connection $db): void
+    {
+        // FTS5 virtual table with Porter stemming + Unicode tokenizer
+        // Uses regular (non-external-content) mode so standard INSERT/DELETE work in triggers
+        $db->executeStatement("
+            CREATE VIRTUAL TABLE IF NOT EXISTS memory_nodes_fts 
+            USING fts5(
+                content, 
+                summary, 
+                tokenize='porter unicode61'
+            )
+        ");
+        
+        // Trigger: sync FTS5 on INSERT (only active nodes)
+        $db->executeStatement("
+            CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_insert 
+            AFTER INSERT ON memory_nodes 
+            WHEN NEW.is_active = 1
+            BEGIN
+                INSERT INTO memory_nodes_fts(rowid, content, summary) 
+                VALUES (NEW.rowid, NEW.content, COALESCE(NEW.summary, ''));
+            END
+        ");
+        
+        // Trigger: sync FTS5 on UPDATE (handles content/summary changes AND soft-delete via is_active)
+        $db->executeStatement("
+            CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_update 
+            AFTER UPDATE ON memory_nodes
+            BEGIN
+                DELETE FROM memory_nodes_fts WHERE rowid = OLD.rowid;
+                INSERT INTO memory_nodes_fts(rowid, content, summary)
+                SELECT NEW.rowid, NEW.content, COALESCE(NEW.summary, '')
+                WHERE NEW.is_active = 1;
+            END
+        ");
+        
+        // Trigger: sync FTS5 on DELETE (hard delete)
+        $db->executeStatement("
+            CREATE TRIGGER IF NOT EXISTS memory_nodes_fts_delete 
+            AFTER DELETE ON memory_nodes
+            BEGIN
+                DELETE FROM memory_nodes_fts WHERE rowid = OLD.rowid;
+            END
+        ");
     }
     
     // ========================================
@@ -695,8 +785,192 @@ class CQMemoryPackService
         return $nodes;
     }
     
+    /**
+     * FTS5 full-text search with BM25 ranking
+     * 
+     * Returns memory nodes ranked by text relevance (BM25), with optional
+     * category and tag filtering. Falls back to LIKE search if FTS5 is
+     * not available (e.g., SQLite compiled without FTS5 extension).
+     * 
+     * @param string $query Search query (natural language or keywords)
+     * @param string|null $category Optional category filter
+     * @param array $tags Optional tag filter (matches any)
+     * @param int $limit Maximum results to return
+     * @return array Array of ['node' => MemoryNode, 'fts_rank' => float]
+     */
+    public function searchFTS5(
+        string $query,
+        ?string $category = null,
+        array $tags = [],
+        int $limit = 20
+    ): array {
+        $db = $this->getConnection();
+        
+        // Check if FTS5 table exists
+        if (!$this->hasFTS5()) {
+            // Fallback to LIKE-based search
+            return $this->searchLikeFallback($query, $category, $tags, $limit);
+        }
+        
+        // Sanitize query for FTS5 (escape special chars, handle multi-word)
+        $ftsQuery = $this->buildFTS5Query($query);
+        
+        if (empty($ftsQuery)) {
+            return [];
+        }
+        
+        // Build SQL with FTS5 MATCH + optional filters
+        $sql = "
+            SELECT mn.*, fts.rank AS fts_rank
+            FROM memory_nodes_fts fts
+            JOIN memory_nodes mn ON fts.rowid = mn.rowid
+            WHERE memory_nodes_fts MATCH ?
+              AND mn.is_active = 1
+        ";
+        $params = [$ftsQuery];
+        
+        if ($category) {
+            $sql .= " AND mn.category = ?";
+            $params[] = $category;
+        }
+        
+        if (!empty($tags)) {
+            $placeholders = implode(',', array_fill(0, count($tags), '?'));
+            $sql .= " AND mn.id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
+            $params = array_merge($params, $tags);
+        }
+        
+        // FTS5 rank is negative (closer to 0 = better match), so ORDER BY rank ASC
+        $sql .= " ORDER BY fts.rank LIMIT ?";
+        $params[] = $limit;
+        
+        try {
+            $result = $db->executeQuery($sql, $params);
+            $rows = $result->fetchAllAssociative();
+        } catch (\Exception $e) {
+            $this->logger->warning('FTS5 search failed, falling back to LIKE', [
+                'query' => $query,
+                'error' => $e->getMessage()
+            ]);
+            return $this->searchLikeFallback($query, $category, $tags, $limit);
+        }
+        
+        $results = [];
+        foreach ($rows as $row) {
+            $ftsRank = (float)$row['fts_rank'];
+            unset($row['fts_rank']);
+            $results[] = [
+                'node' => MemoryNode::fromArray($row),
+                'fts_rank' => $ftsRank
+            ];
+        }
+        
+        return $results;
+    }
+    
+    /**
+     * Build FTS5 query from natural language input
+     * 
+     * Handles multi-word queries, removes FTS5 special characters,
+     * and constructs a query that searches across content and summary columns.
+     */
+    private function buildFTS5Query(string $query): string
+    {
+        // Remove FTS5 special operators that could cause syntax errors
+        $cleaned = preg_replace('/[^\p{L}\p{N}\s\-_]/u', ' ', $query);
+        $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
+        
+        if (empty($cleaned)) {
+            return '';
+        }
+        
+        // Split into words and build OR query for broader matching
+        $words = array_filter(array_map('trim', explode(' ', $cleaned)));
+        
+        if (empty($words)) {
+            return '';
+        }
+        
+        if (count($words) === 1) {
+            // Single word: match prefix for flexibility (e.g., "cook" matches "cooking")
+            return $words[0] . '*';
+        }
+        
+        // Multi-word: try phrase match first OR individual terms with prefix
+        // "{content summary}: word1 word2" searches both columns
+        $phraseMatch = '"' . implode(' ', $words) . '"';
+        $termMatches = array_map(fn($w) => $w . '*', $words);
+        
+        return $phraseMatch . ' OR ' . implode(' OR ', $termMatches);
+    }
+    
+    /**
+     * Check if FTS5 virtual table exists in current pack
+     */
+    private function hasFTS5(): bool
+    {
+        try {
+            $db = $this->getConnection();
+            $result = $db->executeQuery(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='memory_nodes_fts'"
+            );
+            return (bool)$result->fetchAssociative();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+    
+    /**
+     * LIKE-based fallback search when FTS5 is not available
+     */
+    private function searchLikeFallback(
+        string $query,
+        ?string $category = null,
+        array $tags = [],
+        int $limit = 20
+    ): array {
+        $db = $this->getConnection();
+        
+        $sql = "SELECT * FROM memory_nodes WHERE is_active = 1 AND (content LIKE ? OR summary LIKE ?)";
+        $params = ["%{$query}%", "%{$query}%"];
+        
+        if ($category) {
+            $sql .= " AND category = ?";
+            $params[] = $category;
+        }
+        
+        if (!empty($tags)) {
+            $placeholders = implode(',', array_fill(0, count($tags), '?'));
+            $sql .= " AND id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
+            $params = array_merge($params, $tags);
+        }
+        
+        $sql .= " ORDER BY importance DESC, created_at DESC LIMIT ?";
+        $params[] = $limit;
+        
+        $result = $db->executeQuery($sql, $params);
+        
+        $results = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $results[] = [
+                'node' => MemoryNode::fromArray($row),
+                'fts_rank' => 0.0
+            ];
+        }
+        
+        return $results;
+    }
+    
     public function findByKeyword(string $keyword, int $limit = 10): array
     {
+        // Use FTS5 search if available, otherwise fall back to LIKE
+        $ftsResults = $this->searchFTS5($keyword, null, [], $limit);
+        
+        if (!empty($ftsResults)) {
+            return array_map(fn($r) => $r['node'], $ftsResults);
+        }
+        
+        // Final fallback: direct LIKE query
         $db = $this->getConnection();
         
         $result = $db->executeQuery(
@@ -739,8 +1013,9 @@ class CQMemoryPackService
     /**
      * Scored recall with recency × importance × relevance weighting
      * 
-     * Replicates the scoring logic from SpiritMemoryService::recall()
-     * but operates on the currently open pack (no spiritId needed).
+     * Uses FTS5 BM25 ranking for relevance scoring when available,
+     * providing continuous relevance scores instead of binary LIKE matching.
+     * Falls back to LIKE-based search if FTS5 is not available.
      */
     public function recall(
         string $query,
@@ -754,39 +1029,108 @@ class CQMemoryPackService
     ): array {
         $db = $this->getConnection();
         
-        $sql = "SELECT *, 
-                (CASE WHEN content LIKE ? OR summary LIKE ? THEN 1.0 ELSE 0.0 END) as relevance_score
-                FROM memory_nodes 
-                WHERE is_active = 1";
-        $params = ["%{$query}%", "%{$query}%"];
+        // Try FTS5-powered recall first
+        $useFTS5 = $this->hasFTS5();
+        $rows = [];
         
-        if ($category) {
-            $sql .= " AND category = ?";
-            $params[] = $category;
+        if ($useFTS5) {
+            $ftsQuery = $this->buildFTS5Query($query);
+            
+            if (!empty($ftsQuery)) {
+                // FTS5 query: rank is BM25 score (negative, closer to 0 = better)
+                $sql = "
+                    SELECT mn.*, fts.rank AS fts_rank
+                    FROM memory_nodes_fts fts
+                    JOIN memory_nodes mn ON fts.rowid = mn.rowid
+                    WHERE memory_nodes_fts MATCH ?
+                      AND mn.is_active = 1
+                ";
+                $params = [$ftsQuery];
+                
+                if ($category) {
+                    $sql .= " AND mn.category = ?";
+                    $params[] = $category;
+                }
+                
+                if (!empty($tags)) {
+                    $placeholders = implode(',', array_fill(0, count($tags), '?'));
+                    $sql .= " AND mn.id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
+                    $params = array_merge($params, $tags);
+                }
+                
+                $sql .= " ORDER BY fts.rank LIMIT ?";
+                $params[] = $limit * 2;
+                
+                try {
+                    $result = $db->executeQuery($sql, $params);
+                    $rows = $result->fetchAllAssociative();
+                } catch (\Exception $e) {
+                    $this->logger->warning('FTS5 recall failed, falling back to LIKE', [
+                        'query' => $query, 'error' => $e->getMessage()
+                    ]);
+                    $useFTS5 = false;
+                }
+            }
         }
         
-        if (!empty($tags)) {
-            $placeholders = implode(',', array_fill(0, count($tags), '?'));
-            $sql .= " AND id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
-            $params = array_merge($params, $tags);
+        // Fallback to LIKE-based search
+        if (!$useFTS5 || empty($rows)) {
+            $sql = "SELECT *, 
+                    (CASE WHEN content LIKE ? OR summary LIKE ? THEN 1.0 ELSE 0.0 END) as relevance_score
+                    FROM memory_nodes 
+                    WHERE is_active = 1";
+            $params = ["%{$query}%", "%{$query}%"];
+            
+            if ($category) {
+                $sql .= " AND category = ?";
+                $params[] = $category;
+            }
+            
+            if (!empty($tags)) {
+                $placeholders = implode(',', array_fill(0, count($tags), '?'));
+                $sql .= " AND id IN (SELECT memory_id FROM memory_tags WHERE tag IN ({$placeholders}))";
+                $params = array_merge($params, $tags);
+            }
+            
+            $sql .= " ORDER BY relevance_score DESC, importance DESC, created_at DESC LIMIT ?";
+            $params[] = $limit * 2;
+            
+            $result = $db->executeQuery($sql, $params);
+            $rows = $result->fetchAllAssociative();
         }
-        
-        $sql .= " ORDER BY relevance_score DESC, importance DESC, created_at DESC LIMIT ?";
-        $params[] = $limit * 2;
-        
-        $result = $db->executeQuery($sql, $params);
-        $rows = $result->fetchAllAssociative();
         
         $scoredResults = [];
         $now = new \DateTime();
         
+        // Normalize FTS5 ranks to 0-1 relevance score
+        $maxAbsRank = 0.0;
+        if ($useFTS5 && !empty($rows)) {
+            foreach ($rows as $row) {
+                if (isset($row['fts_rank'])) {
+                    $maxAbsRank = max($maxAbsRank, abs((float)$row['fts_rank']));
+                }
+            }
+        }
+        
         foreach ($rows as $row) {
+            // Compute relevance score
+            if ($useFTS5 && isset($row['fts_rank'])) {
+                // FTS5 BM25: negative score, closer to 0 = better
+                // Normalize to 0-1 range (1 = best match)
+                $absRank = abs((float)$row['fts_rank']);
+                $relevanceScore = $maxAbsRank > 0 ? (1.0 - ($absRank / ($maxAbsRank * 1.5))) : 0.5;
+                $relevanceScore = max(0.1, min(1.0, $relevanceScore));
+                unset($row['fts_rank']);
+            } else {
+                $relevanceScore = isset($row['relevance_score']) ? (float)$row['relevance_score'] : 0.0;
+                unset($row['relevance_score']);
+            }
+            
             $node = MemoryNode::fromArray($row);
             
             $daysSinceCreation = max(1, $now->diff($node->getCreatedAt())->days);
             $recencyScore = 1.0 / (1 + log($daysSinceCreation));
             
-            $relevanceScore = (float)$row['relevance_score'];
             $importanceScore = $node->getImportance();
             
             $finalScore = ($relevanceScore * $relevanceWeight) +
@@ -810,12 +1154,13 @@ class CQMemoryPackService
             foreach ($scoredResults as $result) {
                 $related = $this->getRelatedNodes($result['node']->getId(), 2);
                 foreach ($related as $rel) {
-                    $relId = $rel->getId();
+                    $relNode = $rel['node'];
+                    $relId = $relNode->getId();
                     if (!isset($relatedMemories[$relId])) {
                         $relatedMemories[$relId] = [
-                            'node' => $rel,
+                            'node' => $relNode,
                             'score' => 0,
-                            'tags' => $this->getTagsForNode($relId),
+                            'tags' => $rel['tags'] ?? $this->getTagsForNode($relId),
                             'isRelated' => true
                         ];
                     }
