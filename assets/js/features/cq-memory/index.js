@@ -297,8 +297,10 @@ class CQMemoryExplorer {
         // Search tab
         this.setupSearchListeners();
 
-        // Delete key listener for selected node
+        // Delete key listener for selected node (skip when typing in inputs)
         document.addEventListener('keydown', (e) => {
+            const tag = document.activeElement?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
             if (e.key === 'Delete' && this.selectedNode && !this.isModalOpen()) {
                 e.preventDefault();
                 this.showDeleteNodeModal();

@@ -102,13 +102,13 @@
                 {# Tab Navigation #}
                 <ul class="nav nav-tabs memory-tabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-search" data-bs-toggle="tab" data-bs-target="#panel-search" type="button" role="tab" aria-controls="panel-search" aria-selected="false">
+                        <button class="nav-link active" id="tab-search" data-bs-toggle="tab" data-bs-target="#panel-search" type="button" role="tab" aria-controls="panel-search" aria-selected="false">
                             <i class="mdi mdi-magnify"></i>
                             <span class="tab-label">{{ 'spirit.memory.search_panel.title'|trans|default('Search') }}</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="tab-compilation" data-bs-toggle="tab" data-bs-target="#panel-compilation" type="button" role="tab" aria-controls="panel-compilation" aria-selected="true">
+                        <button class="nav-link" id="tab-compilation" data-bs-toggle="tab" data-bs-target="#panel-compilation" type="button" role="tab" aria-controls="panel-compilation" aria-selected="true">
                             <i class="mdi mdi-file-document-multiple"></i>
                             <span class="tab-label">{{ 'spirit.memory.compilation'|trans }}</span>
                         </button>
@@ -123,29 +123,8 @@
 
                 {# Tab Content #}
                 <div class="tab-content p-3 pb-0 pt-2">
-                    {# Compilation Tab #}
-                    <div class="tab-pane fade show active" id="panel-compilation" role="tabpanel" aria-labelledby="tab-compilation">
-                        <div id="compilation-placeholder" class="text-center text-secondary py-5 placeholder-state">
-                            <i class="mdi mdi-selection-ellipse placeholder-icon"></i>
-                            <p class="mt-2">{{ 'spirit.memory.select_for_compilation'|trans }}</p>
-                        </div>
-                        
-                        <div id="compilation-content" class="d-none">
-                            <div id="compilation-selected" class="mb-3">
-                                <label class="form-label small text-cyber d-flex align-items-center">
-                                    <i class="mdi mdi-star me-1"></i>
-                                    {{ 'spirit.memory.selected_memory'|trans }}
-                                </label>
-                                <div id="compilation-selected-content" class="small p-2 rounded compilation-selected"></div>
-                            </div>
-                            
-                            <div id="compilation-related">
-                            </div>
-                        </div>
-                    </div>
-
                     {# Search Tab #}
-                    <div class="tab-pane fade" id="panel-search" role="tabpanel" aria-labelledby="tab-search">
+                    <div class="tab-pane fade show active" id="panel-search" role="tabpanel" aria-labelledby="tab-search">
                         <div class="mb-3">
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-dark border-secondary text-cyber">
@@ -179,6 +158,27 @@
                                 <span class="ms-2 small text-secondary">{{ 'spirit.memory.search_panel.searching'|trans|default('Searching...') }}</span>
                             </div>
                             <div id="memory-search-list"></div>
+                        </div>
+                    </div>
+
+                    {# Compilation Tab #}
+                    <div class="tab-pane fade" id="panel-compilation" role="tabpanel" aria-labelledby="tab-compilation">
+                        <div id="compilation-placeholder" class="text-center text-secondary py-5 placeholder-state">
+                            <i class="mdi mdi-selection-ellipse placeholder-icon"></i>
+                            <p class="mt-2">{{ 'spirit.memory.select_for_compilation'|trans }}</p>
+                        </div>
+                        
+                        <div id="compilation-content" class="d-none">
+                            <div id="compilation-selected" class="mb-3">
+                                <label class="form-label small text-cyber d-flex align-items-center">
+                                    <i class="mdi mdi-star me-1"></i>
+                                    {{ 'spirit.memory.selected_memory'|trans }}
+                                </label>
+                                <div id="compilation-selected-content" class="small p-2 rounded compilation-selected"></div>
+                            </div>
+                            
+                            <div id="compilation-related">
+                            </div>
                         </div>
                     </div>
 
