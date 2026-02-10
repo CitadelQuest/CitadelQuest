@@ -911,10 +911,10 @@ class SpiritConversationService
         // Add system message (same as existing implementation)
         $systemMessage = $this->buildSystemMessage($spirit, $lang);
         
-        // Append recalled memories based on latest user message (Tier 1: SQL Reflexes)
+        // Append recalled memories based on latest user message (Tier 1: SQL Reflexes + Phase 3: Smart Triggering)
         $config = $this->getPromptConfig($spirit->getId());
         if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($latestUserMessageText)) {
-            $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText);
+            $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText, $messages);
             if (!empty($recalledMemories)) {
                 $systemMessage .= $recalledMemories;
             }
@@ -1702,7 +1702,119 @@ class SpiritConversationService
     
     // ========================================
     // Memory Recall — Tier 1: SQL Reflexes
+    // Phase 3: Smart Triggering & Caching
     // ========================================
+    
+    /**
+     * Detect past-reference triggers in user message
+     * 
+     * Detects phrases like "remember when", "you mentioned", "we discussed", etc.
+     * Returns trigger info for boosting recall parameters.
+     * 
+     * @param string $text User message text
+     * @return array ['triggered' => bool, 'type' => string|null, 'pattern' => string|null]
+     */
+    private function detectPastReference(string $text): array
+    {
+        $textLower = mb_strtolower($text);
+        
+        // Past-reference patterns (ordered by specificity)
+        $patterns = [
+            // Explicit memory/recall requests
+            'remember when'     => 'explicit_recall',
+            'do you remember'   => 'explicit_recall',
+            'you remember'      => 'explicit_recall',
+            'can you recall'    => 'explicit_recall',
+            'pamätáš si'        => 'explicit_recall',  // Slovak: "do you remember"
+            'spomínaš si'       => 'explicit_recall',  // Slovak: "do you recall"
+            // Reference to past conversation
+            'we talked about'   => 'past_conversation',
+            'we discussed'      => 'past_conversation',
+            'you told me'       => 'past_conversation',
+            'you said'          => 'past_conversation',
+            'you mentioned'     => 'past_conversation',
+            'we spoke about'    => 'past_conversation',
+            'last time'         => 'past_conversation',
+            'previously'        => 'past_conversation',
+            'earlier you'       => 'past_conversation',
+            'minule'            => 'past_conversation',  // Slovak: "last time"
+            'hovorili sme'      => 'past_conversation',  // Slovak: "we talked"
+            'vravel si'         => 'past_conversation',  // Slovak: "you said"
+            // Knowledge queries
+            'what do you know about'  => 'knowledge_query',
+            'tell me about'           => 'knowledge_query',
+            'what did i tell you'     => 'knowledge_query',
+            'čo vieš o'              => 'knowledge_query',  // Slovak: "what do you know about"
+        ];
+        
+        foreach ($patterns as $pattern => $type) {
+            if (str_contains($textLower, $pattern)) {
+                return [
+                    'triggered' => true,
+                    'type' => $type,
+                    'pattern' => $pattern
+                ];
+            }
+        }
+        
+        return ['triggered' => false, 'type' => null, 'pattern' => null];
+    }
+    
+    /**
+     * Extract keywords from recent conversation context (not just latest message)
+     * 
+     * For follow-up messages like "tell me more" or "what else?", the latest message
+     * alone has no useful keywords. This method enriches by looking at recent messages.
+     * 
+     * @param array $messages Array of SpiritConversationMessage entities
+     * @param int $lookback How many previous user messages to consider
+     * @return array Contextual keywords from recent messages
+     */
+    private function extractConversationContextKeywords(array $messages, int $lookback = 2): array
+    {
+        $contextKeywords = [];
+        $found = 0;
+        
+        // Walk backwards through user messages (skip the latest — it's handled separately)
+        $skippedFirst = false;
+        for ($i = count($messages) - 1; $i >= 0 && $found < $lookback; $i--) {
+            $msg = $messages[$i];
+            if ($msg->getRole() !== 'user') {
+                continue;
+            }
+            
+            // Skip the latest user message (already processed by extractKeywords)
+            if (!$skippedFirst) {
+                $skippedFirst = true;
+                continue;
+            }
+            
+            $content = $msg->getContent();
+            $text = '';
+            
+            if (is_string($content)) {
+                $text = $content;
+            } elseif (is_array($content)) {
+                foreach ($content as $part) {
+                    if (is_array($part) && ($part['type'] ?? '') === 'text' && isset($part['text'])) {
+                        $text .= ' ' . $part['text'];
+                    } elseif (is_string($part)) {
+                        $text .= ' ' . $part;
+                    }
+                }
+            }
+            
+            $text = trim($text);
+            if (!empty($text)) {
+                $keywords = $this->extractKeywords($text, 4); // fewer per message
+                $contextKeywords = array_merge($contextKeywords, $keywords);
+                $found++;
+            }
+        }
+        
+        // Deduplicate while preserving order
+        return array_values(array_unique($contextKeywords));
+    }
     
     /**
      * Extract plain text from the latest user message in a conversation
@@ -1824,22 +1936,62 @@ class SpiritConversationService
     /**
      * Build <recalled-memories> XML section for Spirit's system prompt
      * 
-     * Tier 1: SQL Reflexes — automatic, zero AI cost memory recall.
-     * Extracts keywords from user's latest message, runs FTS5 search
-     * on Spirit's memory pack, and formats top results as XML.
+     * Tier 1: SQL Reflexes + Phase 3: Smart Triggering
+     * - Extracts keywords from user's latest message
+     * - Detects past-reference triggers → boosts recall parameters
+     * - Enriches with conversation context keywords for follow-ups
+     * - Runs FTS5 search and formats top results as XML
      * 
      * @param Spirit $spirit The Spirit whose memories to search
      * @param string $userMessageText The latest user message text
+     * @param array $messages Full conversation messages for context enrichment
      * @return string XML block to append to system prompt, or empty string
      */
-    private function buildRecalledMemoriesSection(Spirit $spirit, string $userMessageText): string
+    private function buildRecalledMemoriesSection(Spirit $spirit, string $userMessageText, array $messages = []): string
     {
         try {
-            // Extract keywords from user message
+            // Phase 3: Detect past-reference triggers
+            $pastRef = $this->detectPastReference($userMessageText);
+            
+            // Extract keywords from latest user message
             $keywords = $this->extractKeywords($userMessageText);
+            
+            // Phase 3: If keywords are thin (≤2), enrich from conversation context
+            if (count($keywords) <= 2 && !empty($messages)) {
+                $contextKeywords = $this->extractConversationContextKeywords($messages);
+                if (!empty($contextKeywords)) {
+                    // Merge: current keywords first (higher priority), then context
+                    $merged = array_unique(array_merge($keywords, $contextKeywords));
+                    $keywords = array_slice($merged, 0, 10); // allow more when enriching
+                    
+                    $this->logger->debug('Memory recall: enriched keywords from conversation context', [
+                        'original' => count($keywords) - count($contextKeywords),
+                        'contextAdded' => count($contextKeywords)
+                    ]);
+                }
+            }
             
             if (empty($keywords)) {
                 return '';
+            }
+            
+            // Phase 3: Determine recall parameters based on trigger
+            $limit = 5;
+            $minScore = 0.15;
+            $includeRelated = false;
+            $triggerSource = 'automatic';
+            
+            if ($pastRef['triggered']) {
+                // Boost: more results, lower threshold, include related
+                $limit = 8;
+                $minScore = 0.08;
+                $includeRelated = true;
+                $triggerSource = 'past-reference:' . $pastRef['type'];
+                
+                $this->logger->debug('Memory recall: past-reference trigger detected', [
+                    'type' => $pastRef['type'],
+                    'pattern' => $pastRef['pattern']
+                ]);
             }
             
             // Open Spirit's root memory pack
@@ -1856,8 +2008,8 @@ class SpiritConversationService
                 $query,
                 null,       // no category filter
                 [],         // no tag filter
-                5,          // top 5 results
-                false,      // no related memories (keep it lightweight)
+                $limit,
+                $includeRelated,
                 0.15,       // recency weight
                 0.35,       // importance weight
                 0.50        // relevance weight (prioritize text match)
@@ -1870,7 +2022,6 @@ class SpiritConversationService
             }
             
             // Filter: only include results with meaningful scores
-            $minScore = 0.15;
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
@@ -1879,8 +2030,16 @@ class SpiritConversationService
             
             // Build XML
             $count = count($results);
-            $xml = "\n\n            <recalled-memories count=\"{$count}\" source=\"automatic\" keywords=\"" . htmlspecialchars(implode(', ', $keywords)) . "\">";
-            $xml .= "\n                <note>These memories were automatically recalled based on the user's latest message. Use them naturally to personalize your response — don't explicitly mention that you \"recalled\" them unless relevant.</note>";
+            $xml = "\n\n            <recalled-memories count=\"{$count}\" source=\"{$triggerSource}\" keywords=\"" . htmlspecialchars(implode(', ', $keywords)) . "\">";
+            
+            // Adapt the instruction note based on trigger type
+            if ($pastRef['triggered'] && $pastRef['type'] === 'explicit_recall') {
+                $xml .= "\n                <note>The user is explicitly asking about past memories. These memories were recalled with boosted depth. You may reference them directly since the user is asking about them.</note>";
+            } elseif ($pastRef['triggered']) {
+                $xml .= "\n                <note>The user is referencing a past conversation or knowledge. Use these recalled memories to provide accurate context about what was discussed before.</note>";
+            } else {
+                $xml .= "\n                <note>These memories were automatically recalled based on the user's latest message. Use them naturally to personalize your response — don't explicitly mention that you \"recalled\" them unless relevant.</note>";
+            }
             
             foreach ($results as $result) {
                 $node = $result['node'];
@@ -1898,16 +2057,18 @@ class SpiritConversationService
                 $content = htmlspecialchars($content);
                 
                 $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
-                $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr}>";
+                $relatedAttr = !empty($result['isRelated']) ? ' related="true"' : '';
+                $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr}{$relatedAttr}>";
                 $xml .= "\n                    {$content}";
                 $xml .= "\n                </memory>";
             }
             
             $xml .= "\n            </recalled-memories>";
             
-            $this->logger->debug('Memory recall: injected {count} memories for keywords: {keywords}', [
+            $this->logger->debug('Memory recall: injected {count} memories for keywords: {keywords} (trigger: {trigger})', [
                 'count' => $count,
-                'keywords' => implode(', ', $keywords)
+                'keywords' => implode(', ', $keywords),
+                'trigger' => $triggerSource
             ]);
             
             return $xml;
