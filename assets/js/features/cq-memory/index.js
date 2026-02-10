@@ -36,6 +36,7 @@ class CQMemoryExplorer {
         this.searchAbortController = null;
         this.lastSearchQuery = '';
         this.searchHighlightedNodeIds = new Set();
+        this.lastSearchResults = [];
         
         // Filter state
         this.hoverDebounceTimer = null;
@@ -1188,6 +1189,22 @@ class CQMemoryExplorer {
                 }
             });
         }
+
+        // Hover on status text → highlight all search result nodes in 3D
+        const statusEl = document.getElementById('memory-search-status');
+        if (statusEl) {
+            statusEl.style.cursor = 'default';
+            statusEl.addEventListener('mouseenter', () => {
+                if (this.lastSearchResults.length && this.graphView) {
+                    this.lastSearchResults.forEach(r => this.graphView.glowNodeById(r.id, true));
+                }
+            });
+            statusEl.addEventListener('mouseleave', () => {
+                if (this.lastSearchResults.length && this.graphView) {
+                    this.lastSearchResults.forEach(r => this.graphView.glowNodeById(r.id, false));
+                }
+            });
+        }
     }
 
     async performSearch() {
@@ -1248,8 +1265,9 @@ class CQMemoryExplorer {
 
             if (loading) loading.classList.add('d-none');
 
-            this.renderSearchResults(data.results || [], query);
-            this.highlightSearchResultsIn3D(data.results || []);
+            this.lastSearchResults = data.results || [];
+            this.renderSearchResults(this.lastSearchResults, query);
+            this.highlightSearchResultsIn3D(this.lastSearchResults);
 
             if (statusEl) {
                 const engine = data.hasFTS5 ? 'FTS5' : 'LIKE';
