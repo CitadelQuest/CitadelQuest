@@ -1065,7 +1065,8 @@ class CQMemoryPackService
         bool $includeRelated = true,
         float $recencyWeight = 0.2,
         float $importanceWeight = 0.4,
-        float $relevanceWeight = 0.4
+        float $relevanceWeight = 0.4,
+        float $connectednessWeight = 0.0
     ): array {
         $db = $this->getConnection();
         
@@ -1145,6 +1146,25 @@ class CQMemoryPackService
         $scoredResults = [];
         $now = new \DateTime();
         
+        // Batch-count relationships per node for connectedness scoring
+        $relCounts = [];
+        if ($connectednessWeight > 0 && !empty($rows)) {
+            $nodeIds = array_column($rows, 'id');
+            $placeholders = implode(',', array_fill(0, count($nodeIds), '?'));
+            $relResult = $db->executeQuery(
+                "SELECT node_id, COUNT(*) as rel_count FROM (
+                    SELECT source_id AS node_id FROM memory_relationships WHERE source_id IN ({$placeholders})
+                    UNION ALL
+                    SELECT target_id AS node_id FROM memory_relationships WHERE target_id IN ({$placeholders})
+                ) GROUP BY node_id",
+                array_merge($nodeIds, $nodeIds)
+            );
+            foreach ($relResult->fetchAllAssociative() as $rc) {
+                $relCounts[$rc['node_id']] = (int)$rc['rel_count'];
+            }
+        }
+        $maxRelCount = !empty($relCounts) ? max($relCounts) : 1;
+        
         // Normalize FTS5 ranks to 0-1 relevance score
         $maxAbsRank = 0.0;
         if ($useFTS5 && !empty($rows)) {
@@ -1176,9 +1196,17 @@ class CQMemoryPackService
             
             $importanceScore = $node->getImportance();
             
+            // Connectedness score: normalized relationship count (0-1)
+            $connectednessScore = 0.0;
+            if ($connectednessWeight > 0) {
+                $nodeRelCount = $relCounts[$node->getId()] ?? 0;
+                $connectednessScore = $maxRelCount > 0 ? min(1.0, $nodeRelCount / $maxRelCount) : 0.0;
+            }
+            
             $finalScore = ($relevanceScore * $relevanceWeight) +
                           ($importanceScore * $importanceWeight) +
-                          ($recencyScore * $recencyWeight);
+                          ($recencyScore * $recencyWeight) +
+                          ($connectednessScore * $connectednessWeight);
             
             $scoredResults[] = [
                 'node' => $node,

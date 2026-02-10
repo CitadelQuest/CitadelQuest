@@ -1251,7 +1251,7 @@ class CQMemoryExplorer {
                     name: packData.name,
                     query: query,
                     category: category || null,
-                    limit: 50
+                    limit: 500
                 }),
                 signal: this.searchAbortController.signal
             });

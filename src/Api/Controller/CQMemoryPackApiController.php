@@ -463,7 +463,7 @@ class CQMemoryPackApiController extends AbstractController
         $name = $data['name'] ?? null;
         $query = trim($data['query'] ?? '');
         $category = $data['category'] ?? null;
-        $limit = min((int)($data['limit'] ?? 50), 50);
+        $limit = 500;//$limit = min((int)($data['limit'] ?? 50), 50);
 
         if (!$path || !$name) {
             return new JsonResponse(['error' => 'path and name are required'], 400);
@@ -483,8 +483,9 @@ class CQMemoryPackApiController extends AbstractController
                 $limit,
                 false,        // no related memories (user can click to see those)
                 0.10,         // recency weight (lower for search — relevance matters most)
-                0.20,         // importance weight
-                0.70          // relevance weight (FTS5 match quality)
+                0.15,         // importance weight
+                0.55,         // relevance weight (FTS5 match quality)
+                0.20          // connectedness weight (more relationships = higher score)
             );
 
             $hasFTS5 = $this->packService->hasFTS5();
