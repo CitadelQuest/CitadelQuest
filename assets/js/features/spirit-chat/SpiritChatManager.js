@@ -5,6 +5,7 @@ import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
+import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
 
 /**
  * Spirit Chat Manager
@@ -29,6 +30,11 @@ export class SpiritChatManager {
         this.executionStopped = false;
         this.isExecutingTools = false;
         this.lastMessageUsage = null;
+        
+        // Memory graph state (Phase 3.5: Pre-Send Reflexes)
+        this.memoryGraphView = null;
+        this.memoryGraphData = null;
+        this.memoryGraphContainer = null;
         
         // Pagination state
         this.messageLimit = 10; // Messages per page
@@ -1709,6 +1715,7 @@ export class SpiritChatManager {
     
     /**
      * Send a message in the current conversation (ASYNC MODE)
+     * Phase 3.5: Two-step flow — pre-send (Reflexes + 3D graph) → send-async (AI)
      */
     async sendMessage() {
         if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
@@ -1766,15 +1773,36 @@ export class SpiritChatManager {
             // Add user message to UI immediately
             this.addUserMessageToUI(messageContent);
             
-            // Add loading indicator for assistant response
+            // Extract plain text for pre-send (handle multimodal content)
+            const messageText = typeof message === 'string' ? message : message;
+            
+            // Step 1: PRE-SEND — run Reflexes recall, show 3D memory graph
+            let memoryGraphEl = null;
+            try {
+                const preSendResult = await this.apiService.preSend(this.currentConversationId, messageText);
+                
+                if (preSendResult.success && preSendResult.recalledNodes?.length > 0) {
+                    memoryGraphEl = this.showMemoryRecallGraph(preSendResult);
+                }
+            } catch (preSendError) {
+                // Pre-send is optional — if it fails, continue with normal send
+                console.warn('Pre-send failed, continuing with normal send:', preSendError);
+            }
+            
+            // Add loading indicator for assistant response (after graph)
             const loadingEl = this.addLoadingIndicator();
             
-            // Send message to API (async - returns immediately)
+            // Step 2: SEND — actual AI request (uses cached system prompt from pre-send)
             const response = await this.apiService.sendMessageAsync(this.currentConversationId, messageContent, maxOutput, temperature);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
                 this.chatMessages.removeChild(loadingEl);
+            }
+            
+            // Fade out memory graph after response arrives
+            if (memoryGraphEl) {
+                this.fadeOutMemoryGraph(memoryGraphEl);
             }
             
             if (response.error) {
@@ -1798,14 +1826,6 @@ export class SpiritChatManager {
             // Update conversation list to reflect changes
             this.loadConversations();
             
-            // Trigger async database vacuum (user is now reading the response)
-            // disabled - it's blocking async tool use
-            /* if (window.databaseVacuum) {
-                window.databaseVacuum.vacuum().catch(err => {
-                    console.error('Background vacuum failed:', err);
-                });
-            } */
-            
         } catch (error) {
             console.error('Error sending message:', error);
             window.toast.error(error.message || 'Failed to send message');
@@ -1819,6 +1839,148 @@ export class SpiritChatManager {
             updatesService.resume('spiritChat');
         }
         this.sendMessageBtn.disabled = false;
+    }
+
+    /**
+     * Show 3D memory graph with recalled nodes highlighted in the chat area
+     * Phase 3.5: Visual feedback while waiting for AI response
+     */
+    showMemoryRecallGraph(preSendResult) {
+        if (!this.chatMessages) return null;
+        
+        // Create container element in chat flow
+        const graphEl = document.createElement('div');
+        graphEl.className = 'chat-memory-recall';
+        graphEl.innerHTML = `
+            <div class="memory-recall-viewport" style="position: relative; width: 50%; height: 200px; border-radius: 8px; overflow: hidden; background: rgba(10, 10, 15, 0.8); margin-bottom: 0.5rem;">
+                <canvas class="memory-recall-canvas" style="width: 100%; height: 100%;"></canvas>
+                <div class="memory-recall-overlay" style="position: absolute; bottom: 4px; left: 8px; pointer-events: none;">
+                    <span class="small" style="font-size: 0.6rem; opacity: 0.6;">
+                        <i class="mdi mdi-brain"></i> ${preSendResult.recalledNodes.length} ${preSendResult.recalledNodes.length === 1 ? 'memory' : 'memories'} recalled
+                    </span>
+                </div>
+            </div>
+        `;
+        
+        this.chatMessages.appendChild(graphEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        
+        // Initialize Three.js graph in the viewport
+        const viewport = graphEl.querySelector('.memory-recall-viewport');
+        const canvas = graphEl.querySelector('.memory-recall-canvas');
+        
+        if (viewport && canvas) {
+            try {
+                // Set canvas dimensions
+                const rect = viewport.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                
+                // Create compact graph view
+                const graphView = new MemoryGraphView(viewport, {
+                    backgroundColor: 0x0a0a0f,
+                    compact: true
+                });
+                graphView.setOnNodeSelect(null); // read-only
+                
+                // Load graph data if we have it cached, otherwise fetch it
+                this.loadMemoryGraphForRecall(graphView, preSendResult);
+                
+                // Store reference for cleanup
+                this.memoryGraphView = graphView;
+                
+                // Auto-rotate
+                if (graphView.controls) {
+                    graphView.controls.autoRotate = true;
+                    graphView.controls.autoRotateSpeed = 1.0;
+                }
+            } catch (err) {
+                console.warn('Failed to init memory recall graph:', err);
+            }
+        }
+        
+        return graphEl;
+    }
+
+    /**
+     * Load memory graph data and highlight recalled nodes
+     */
+    async loadMemoryGraphForRecall(graphView, preSendResult) {
+        try {
+            // Use cached graph data or fetch from Spirit's root pack
+            if (!this.memoryGraphData && preSendResult.packInfo?.name) {
+                const response = await fetch('/api/memory/pack/open', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: preSendResult.packInfo.projectId,
+                        path: preSendResult.packInfo.path,
+                        name: preSendResult.packInfo.name
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.memoryGraphData = {
+                        nodes: data.nodes || [],
+                        edges: data.edges || [],
+                        stats: data.stats || {}
+                    };
+                }
+            }
+            
+            if (this.memoryGraphData) {
+                graphView.loadGraph(this.memoryGraphData);
+                graphView.resetView();
+                
+                // After focusOnGraph settles (500ms), zoom camera 50% closer
+                setTimeout(() => {
+                    if (!graphView.camera || !graphView.controls) return;
+                    const target = graphView.controls.target.clone();
+                    const pos = graphView.camera.position.clone();
+                    // Move camera halfway between current position and target
+                    graphView.camera.position.lerpVectors(pos, target, 0.35);
+                    graphView.controls.update();
+                    
+                    // Highlight recalled nodes with glow
+                    const recalledIds = preSendResult.recalledNodes.map(n => n.id);
+                    recalledIds.forEach(id => {
+                        graphView.glowNodeById(id, true);
+                    });
+                }, 700);
+            }
+        } catch (err) {
+            console.warn('Failed to load memory graph data:', err);
+        }
+    }
+
+    /**
+     * Fade out and remove memory graph element after AI response arrives
+     */
+    fadeOutMemoryGraph(graphEl) {
+        if (!graphEl) return;
+        
+        // Fade out over 2 seconds, collapse height to avoid empty space
+        graphEl.style.transition = 'opacity 2s ease-out, max-height 2s ease-out';
+        graphEl.style.maxHeight = graphEl.scrollHeight + 'px';
+        graphEl.style.overflow = 'hidden';
+        
+        requestAnimationFrame(() => {
+            graphEl.style.opacity = '0';
+            graphEl.style.maxHeight = '0';
+        });
+        
+        setTimeout(() => {
+            // Dispose Three.js instance
+            if (this.memoryGraphView) {
+                this.memoryGraphView.dispose();
+                this.memoryGraphView = null;
+            }
+            // Remove from DOM
+            if (graphEl.parentNode) {
+                graphEl.parentNode.removeChild(graphEl);
+            }
+        }, 2500);
     }
     
     /**

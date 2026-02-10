@@ -471,6 +471,66 @@ class SpiritConversationService
     }
 
     /**
+     * Pre-process recall: run Reflexes (keyword extraction + FTS5 search),
+     * build system prompt with recalled memories, return recalled node data.
+     * The built system prompt is returned for caching in session.
+     * 
+     * @return array ['systemPrompt' => string, 'recalledNodes' => array, 'keywords' => array, 'packInfo' => array]
+     */
+    public function preProcessRecall(
+        string $conversationId,
+        string $userMessageText,
+        string $lang = 'English'
+    ): array {
+        // Get conversation + spirit
+        $conversation = $this->getConversation($conversationId);
+        if (!$conversation) {
+            throw new \Exception('Conversation not found');
+        }
+        
+        $spirit = $this->spiritService->getSpirit($conversation->getSpiritId());
+        if (!$spirit) {
+            throw new \Exception('Spirit not found');
+        }
+        
+        // Build base system prompt
+        $systemMessage = $this->buildSystemMessage($spirit, $lang);
+        
+        // Run recall
+        $config = $this->getPromptConfig($spirit->getId());
+        $recalledNodes = [];
+        $keywords = [];
+        $packInfo = [];
+        
+        if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($userMessageText)) {
+            // Get existing conversation messages for context enrichment
+            $messageService = new SpiritConversationMessageService(
+                $this->userDatabaseManager,
+                $this->security,
+                $this->logger
+            );
+            $messages = $messageService->getMessagesByConversation($conversationId);
+            
+            // Run recall and get both XML and node data
+            $recallResult = $this->buildRecalledMemoriesSectionWithData($spirit, $userMessageText, $messages);
+            
+            if (!empty($recallResult['xml'])) {
+                $systemMessage .= $recallResult['xml'];
+            }
+            $recalledNodes = $recallResult['nodes'] ?? [];
+            $keywords = $recallResult['keywords'] ?? [];
+            $packInfo = $recallResult['packInfo'] ?? [];
+        }
+        
+        return [
+            'systemPrompt' => $systemMessage,
+            'recalledNodes' => $recalledNodes,
+            'keywords' => $keywords,
+            'packInfo' => $packInfo,
+        ];
+    }
+
+    /**
      * Send message (returns immediately without executing tools)
      * 
      * @return array Contains message entity, type, toolCalls, and requiresToolExecution flag
@@ -480,7 +540,8 @@ class SpiritConversationService
         \App\Entity\SpiritConversationMessage $userMessage,
         string $lang = 'English',
         int $maxOutput = 500,
-        float $temperature = 0.7
+        float $temperature = 0.7,
+        ?string $cachedSystemPrompt = null
     ): array {
         $db = $this->getUserDb();
         
@@ -500,7 +561,7 @@ class SpiritConversationService
         $aiServiceModel = $this->spiritService->getSpiritAiModel($spirit->getId());
         
         // Prepare messages for AI request (from message table)
-        $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang);
+        $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang, $cachedSystemPrompt);
         
         // Add tools
         $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
@@ -890,7 +951,8 @@ class SpiritConversationService
     private function prepareMessagesForAiRequestFromMessageTable(
         string $conversationId,
         Spirit $spirit,
-        string $lang
+        string $lang,
+        ?string $cachedSystemPrompt = null
     ): array {
         // Get message service
         $messageService = new SpiritConversationMessageService(
@@ -905,18 +967,27 @@ class SpiritConversationService
         // Build AI messages array
         $aiMessages = [];
         
-        // Extract latest user message text for memory recall
-        $latestUserMessageText = $this->extractLatestUserMessageText($messages);
-        
-        // Add system message (same as existing implementation)
-        $systemMessage = $this->buildSystemMessage($spirit, $lang);
-        
-        // Append recalled memories based on latest user message (Tier 1: SQL Reflexes + Phase 3: Smart Triggering)
-        $config = $this->getPromptConfig($spirit->getId());
-        if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($latestUserMessageText)) {
-            $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText, $messages);
-            if (!empty($recalledMemories)) {
-                $systemMessage .= $recalledMemories;
+        if ($cachedSystemPrompt !== null) {
+            // Use pre-built system prompt from pre-send step (Phase 3.5)
+            $systemMessage = $cachedSystemPrompt;
+            $this->logger->debug('Using cached system prompt from pre-send ({length} chars)', [
+                'length' => strlen($cachedSystemPrompt)
+            ]);
+        } else {
+            // Build system prompt normally (fallback if pre-send was skipped)
+            // Extract latest user message text for memory recall
+            $latestUserMessageText = $this->extractLatestUserMessageText($messages);
+            
+            // Add system message (same as existing implementation)
+            $systemMessage = $this->buildSystemMessage($spirit, $lang);
+            
+            // Append recalled memories based on latest user message (Tier 1: SQL Reflexes + Phase 3: Smart Triggering)
+            $config = $this->getPromptConfig($spirit->getId());
+            if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($latestUserMessageText)) {
+                $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText, $messages);
+                if (!empty($recalledMemories)) {
+                    $systemMessage .= $recalledMemories;
+                }
             }
         }
         
@@ -1949,6 +2020,19 @@ class SpiritConversationService
      */
     private function buildRecalledMemoriesSection(Spirit $spirit, string $userMessageText, array $messages = []): string
     {
+        $result = $this->buildRecalledMemoriesSectionWithData($spirit, $userMessageText, $messages);
+        return $result['xml'];
+    }
+
+    /**
+     * Build recalled memories XML AND return node data for pre-send visualization.
+     * 
+     * @return array ['xml' => string, 'nodes' => array, 'keywords' => array, 'packInfo' => array]
+     */
+    private function buildRecalledMemoriesSectionWithData(Spirit $spirit, string $userMessageText, array $messages = []): array
+    {
+        $emptyResult = ['xml' => '', 'nodes' => [], 'keywords' => [], 'packInfo' => []];
+        
         try {
             // Phase 3: Detect past-reference triggers
             $pastRef = $this->detectPastReference($userMessageText);
@@ -1972,7 +2056,7 @@ class SpiritConversationService
             }
             
             if (empty($keywords)) {
-                return '';
+                return $emptyResult;
             }
             
             // Phase 3: Determine recall parameters based on trigger
@@ -2015,17 +2099,39 @@ class SpiritConversationService
                 0.50        // relevance weight (prioritize text match)
             );
             
+            // Get pack info for frontend visualization
+            $packInfo = [
+                'name' => $memoryInfo['rootPackName'],
+                'projectId' => $memoryInfo['projectId'],
+                'path' => $memoryInfo['packsPath'],
+            ];
+            
             $this->packService->close();
             
             if (empty($results)) {
-                return '';
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return '';
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo]);
+            }
+            
+            // Build node data for frontend
+            $recalledNodes = [];
+            foreach ($results as $result) {
+                $node = $result['node'];
+                $recalledNodes[] = [
+                    'id' => $node->getId(),
+                    'summary' => $node->getSummary(),
+                    'score' => round($result['score'], 3),
+                    'category' => $node->getCategory(),
+                    'importance' => round($node->getImportance(), 2),
+                    'tags' => $result['tags'] ?? [],
+                    'isRelated' => $result['isRelated'] ?? false,
+                ];
             }
             
             // Build XML
@@ -2071,13 +2177,18 @@ class SpiritConversationService
                 'trigger' => $triggerSource
             ]);
             
-            return $xml;
+            return [
+                'xml' => $xml,
+                'nodes' => $recalledNodes,
+                'keywords' => $keywords,
+                'packInfo' => $packInfo,
+            ];
             
         } catch (\Exception $e) {
             $this->logger->warning('Memory recall failed: {error}', [
                 'error' => $e->getMessage()
             ]);
-            return '';
+            return $emptyResult;
         }
     }
 

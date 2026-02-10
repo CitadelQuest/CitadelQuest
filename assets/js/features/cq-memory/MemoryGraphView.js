@@ -700,6 +700,8 @@ export class MemoryGraphView {
      * Animation loop
      */
     animate() {
+        if (!this.renderer) return; // Stop loop after dispose
+
         requestAnimationFrame(() => this.animate());
 
         this.controls.update();

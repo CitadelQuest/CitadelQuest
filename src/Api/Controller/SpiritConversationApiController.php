@@ -216,6 +216,49 @@ class SpiritConversationApiController extends AbstractController
     }
     
     /**
+     * Pre-send: run Reflexes recall, cache system prompt, return recalled nodes
+     * Phase 3.5: Separates recall from AI send for visual feedback + timeout prevention
+     */
+    #[Route('/{id}/pre-send', name: 'api_spirit_conversation_pre_send', methods: ['POST'])]
+    public function preSend(
+        string $id,
+        Request $request,
+        TranslatorInterface $translator
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $messageText = trim($data['message'] ?? '');
+            
+            if (empty($messageText)) {
+                return $this->json(['error' => 'Missing message parameter'], 400);
+            }
+            
+            // Get locale for language
+            $locale = $request->getSession()->get('_locale') ?? 
+                      $request->getSession()->get('citadel_locale') ?? 'en';
+            $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+            
+            // Run pre-process recall
+            $result = $this->conversationService->preProcessRecall($id, $messageText, $lang);
+            
+            // Cache system prompt in session (one-shot, used by send-async)
+            $session = $request->getSession();
+            $session->set("recall_{$id}_latest", $result['systemPrompt']);
+            
+            return $this->json([
+                'success' => true,
+                'recalledNodes' => $result['recalledNodes'],
+                'keywords' => $result['keywords'],
+                'packInfo' => $result['packInfo'],
+                'cached' => true,
+            ]);
+            
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Send message (returns immediately without executing tools)
      */
     #[Route('/{id}/send-async', name: 'api_spirit_conversation_send_async', methods: ['POST'])]
@@ -288,13 +331,21 @@ class SpiritConversationApiController extends AbstractController
                       $request->getSession()->get('citadel_locale') ?? 'en';
             $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
             
+            // Check for cached system prompt from pre-send (Phase 3.5)
+            $session = $request->getSession();
+            $cachedSystemPrompt = $session->get("recall_{$id}_latest");
+            if ($cachedSystemPrompt) {
+                $session->remove("recall_{$id}_latest"); // one-shot: clear after use
+            }
+            
             // Send to AI and get immediate response
             $aiResponse = $this->conversationService->sendMessageAsync(
                 $id,
                 $userMessage,
                 $lang,
                 $maxOutput,
-                $data['temperature'] ?? 0.7
+                $data['temperature'] ?? 0.7,
+                $cachedSystemPrompt
             );
             
             // Enrich message with usage data

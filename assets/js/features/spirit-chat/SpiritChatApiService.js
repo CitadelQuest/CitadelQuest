@@ -156,6 +156,36 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Pre-send: run Reflexes recall, cache system prompt, return recalled nodes
+     * Phase 3.5: Separates recall from AI send for visual feedback
+     * @param {string} conversationId - The ID of the conversation
+     * @param {string} messageText - The raw message text (not saved yet)
+     * @returns {Promise<Object>} - Response with recalledNodes, keywords, packInfo, cached
+     */
+    async preSend(conversationId, messageText) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${conversationId}/pre-send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ message: messageText })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error?.error || 'Pre-send failed');
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error in pre-send:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send a message (returns immediately without executing tools)
      * @param {string} conversationId - The ID of the conversation
      * @param {string|Array} message - The message to send
