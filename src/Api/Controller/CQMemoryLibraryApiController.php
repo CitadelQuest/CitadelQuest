@@ -45,7 +45,8 @@ class CQMemoryLibraryApiController extends AbstractController
         }
 
         try {
-            $library = $this->libraryService->loadLibrary($projectId, $path, $name);
+            // Sync first to prune stale packs and refresh stats
+            $library = $this->libraryService->syncPackStats($projectId, $path, $name);
 
             return new JsonResponse([
                 'success' => true,

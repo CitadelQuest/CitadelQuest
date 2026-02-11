@@ -226,13 +226,19 @@ class CQMemoryLibraryService
         $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
         $changed = false;
         
-        foreach ($library['packs'] as &$packEntry) {
+        $packsToRemove = [];
+        
+        foreach ($library['packs'] as $index => &$packEntry) {
             $packRelPath = $packEntry['path'];
             $packDir = dirname($packRelPath);
             $packName = basename($packRelPath);
             
             $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
             if (!$packFile) {
+                // Pack file no longer exists — mark for removal
+                $packsToRemove[] = $index;
+                $changed = true;
+                $this->logger->info('Pruning stale pack from library', ['pack' => $packRelPath]);
                 continue;
             }
             
@@ -262,6 +268,14 @@ class CQMemoryLibraryService
             }
         }
         unset($packEntry);
+        
+        // Remove stale packs (deleted files) from library
+        if (!empty($packsToRemove)) {
+            foreach ($packsToRemove as $idx) {
+                unset($library['packs'][$idx]);
+            }
+            $library['packs'] = array_values($library['packs']);
+        }
         
         if ($changed) {
             $this->updateLibraryMetadata($library);

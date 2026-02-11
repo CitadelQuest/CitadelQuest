@@ -288,6 +288,27 @@ class CQMemoryPackApiController extends AbstractController
             
             $this->projectFileService->delete($file->getId());
 
+            // Remove deleted pack from any libraries that reference it
+            $packRelPath = $path . '/' . $name;
+            try {
+                $libraries = $this->libraryService->findLibrariesInDirectory($projectId, '/');
+                foreach ($libraries as $libInfo) {
+                    try {
+                        $library = $this->libraryService->loadLibrary($projectId, $libInfo['path'], $libInfo['name']);
+                        foreach ($library['packs'] as $pack) {
+                            if ($pack['path'] === $packRelPath) {
+                                $this->libraryService->removePackFromLibrary($projectId, $libInfo['path'], $libInfo['name'], $packRelPath);
+                                break;
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Skip invalid libraries
+                    }
+                }
+            } catch (\Exception $e) {
+                // Non-blocking: pack is deleted, library sync is best-effort
+            }
+
             return new JsonResponse([
                 'success' => true,
                 'message' => 'Pack deleted successfully'
