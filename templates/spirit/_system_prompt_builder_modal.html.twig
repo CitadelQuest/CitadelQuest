@@ -108,8 +108,18 @@
                                     <i class="mdi mdi-brain me-1"></i>
                                     {{ 'spirit.prompt_builder.memory_hint'|trans }}
                                 </div>
+                                <div class="mb-3">
+                                    <label for="memoryTypeSelect" class="form-label small text-muted mb-1">
+                                        <i class="mdi mdi-memory me-1"></i>Spirit Memory Type
+                                    </label>
+                                    <select class="form-select form-select-sm bg-dark bg-opacity-50 text-light border-secondary" id="memoryTypeSelect">
+                                        <option value="-1">📄 .md File Memory</option>
+                                        <option value="1" selected>🧠 Reflexes</option>
+                                        <option value="2">🤖 Memory Agent</option>
+                                    </select>
+                                </div>
                                 <div id="memoryFilesList">
-                                    {# Memory files will be populated by JavaScript #}
+                                    {# Memory content will be populated by JavaScript based on memoryType #}
                                 </div>
                             </div>
                         </div>

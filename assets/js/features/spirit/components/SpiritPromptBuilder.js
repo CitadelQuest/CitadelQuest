@@ -61,6 +61,16 @@ export class SpiritPromptBuilder {
             });
         }
         
+        // Memory Type select
+        const memoryTypeSelect = document.getElementById('memoryTypeSelect');
+        if (memoryTypeSelect) {
+            memoryTypeSelect.addEventListener('change', (e) => {
+                this.config.memoryType = parseInt(e.target.value, 10);
+                this.renderMemorySection(this.promptData?.sections?.memory);
+                this.markAsChanged();
+            });
+        }
+        
         if (toggleTools) {
             toggleTools.addEventListener('change', (e) => {
                 this.config.includeTools = e.target.checked;
@@ -188,12 +198,16 @@ export class SpiritPromptBuilder {
             }
         }
         
-        // 4. Memory (v3 graph-based system)
+        // 4. Memory
         this.renderMemorySection(sections.memory);
         const toggleMemory = document.getElementById('toggleMemory');
         if (toggleMemory && sections.memory) {
             toggleMemory.checked = sections.memory.enabled;
             this.updateSectionVisibility('sectionMemoryBody', sections.memory.enabled);
+        }
+        const memoryTypeSelect = document.getElementById('memoryTypeSelect');
+        if (memoryTypeSelect && sections.memory) {
+            memoryTypeSelect.value = String(sections.memory.memoryType ?? 1);
         }
         
         // 5. Tools
@@ -226,7 +240,7 @@ export class SpiritPromptBuilder {
     }
     
     /**
-     * Render Spirit Memory v3 section with stats
+     * Render Spirit Memory section based on current memoryType
      */
     renderMemorySection(memorySection) {
         const container = document.getElementById('memoryFilesList');
@@ -234,81 +248,103 @@ export class SpiritPromptBuilder {
         
         container.innerHTML = '';
         
+        const memoryType = this.config.memoryType ?? memorySection.memoryType ?? 1;
         const stats = memorySection.stats || {};
-        const migration = memorySection.migrationStatus || {};
-        
-        // Memory stats display
         const statsEl = document.createElement('div');
         
-        const totalMemories = stats.totalMemories || 0;
-        const categories = stats.categories || {};
-        const tagsCount = stats.tagsCount || 0;
-        const relationshipsCount = stats.relationshipsCount || 0;
-        
-        // Build category badges
-        let categoryBadges = '';
-        for (const [cat, count] of Object.entries(categories)) {
-            const badgeClass = this.getCategoryBadgeClass(cat);
-            categoryBadges += `<span class="badge ${badgeClass} me-1">${cat}: ${count}</span>`;
-        }
-        if (!categoryBadges) {
-            categoryBadges = '<span class="text-muted small">No memories yet</span>';
-        }
-        
-        // Migration status
-        let migrationStatus = '';
-        if (migration.allMigrated) {
-            migrationStatus = `<span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>Fully migrated to v3</span>`;
-        } else if (migration.migrated) {
-            migrationStatus = `<span class="badge bg-warning text-dark"><i class="mdi mdi-progress-clock me-1"></i>Partially migrated</span>`;
+        if (memoryType === -1) {
+            // Legacy .md File Memory
+            statsEl.innerHTML = `
+                <div class="p-3 bg-dark bg-opacity-25 rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="mdi mdi-file-document-outline me-2 text-warning"></i>
+                        <strong>.md File Memory</strong>
+                        <span class="text-muted ms-2">(Legacy markdown files)</span>
+                    </div>
+                    <p class="small text-muted mb-2">
+                        Spirit reads and writes 3 markdown files in File Browser:
+                        <code>conversations.md</code>, <code>inner-thoughts.md</code>, <code>knowledge-base.md</code>
+                    </p>
+                    <p class="small text-warning mb-0">
+                        <i class="mdi mdi-alert-outline me-1"></i>
+                        File contents are dumped into the system prompt each message — uses more tokens.
+                        Consider switching to <strong>Reflexes</strong> for smarter, on-demand memory recall.
+                    </p>
+                </div>
+            `;
+        } else if (memoryType === 2) {
+            // Memory Agent (future)
+            statsEl.innerHTML = `
+                <div class="p-3 bg-dark bg-opacity-25 rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="mdi mdi-robot-outline me-2 text-info"></i>
+                        <strong>Memory Agent</strong>
+                        <span class="text-muted ms-2">(Coming soon)</span>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        <i class="mdi mdi-information-outline me-1"></i>
+                        Memory Agent mode is not yet implemented. Currently falls back to Reflexes behavior.
+                    </p>
+                </div>
+            `;
         } else {
-            migrationStatus = `<span class="badge bg-secondary"><i class="mdi mdi-database-outline me-1"></i>Ready for migration</span>`;
-        }
-        
-        statsEl.innerHTML = `
-            <div class="p-3 bg-dark bg-opacity-25 rounded">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div>
+            // Reflexes (default, memoryType === 1)
+            const totalMemories = stats.totalMemories || 0;
+            const categories = stats.categories || {};
+            const tagsCount = stats.tagsCount || 0;
+            const relationshipsCount = stats.relationshipsCount || 0;
+            
+            let categoryBadges = '';
+            for (const [cat, count] of Object.entries(categories)) {
+                const badgeClass = this.getCategoryBadgeClass(cat);
+                categoryBadges += `<span class="badge ${badgeClass} me-1">${cat}: ${count}</span>`;
+            }
+            if (!categoryBadges) {
+                categoryBadges = '<span class="text-muted small">No memories yet</span>';
+            }
+            
+            statsEl.innerHTML = `
+                <div class="p-3 bg-dark bg-opacity-25 rounded">
+                    <div class="d-flex align-items-center mb-2">
                         <i class="mdi mdi-brain me-2 text-cyber"></i>
-                        <strong>Spirit Memory v3</strong>
+                        <strong>Reflexes</strong>
                         <span class="text-muted ms-2">(Graph-based knowledge system)</span>
                     </div>
-                    ${migrationStatus}
+                    
+                    <div class="row g-2 mt-2">
+                        <div class="col-auto">
+                            <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                                <div class="h4 mb-0 text-cyber">${totalMemories}</div>
+                                <small class="text-muted">Memories</small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                                <div class="h4 mb-0 text-info">${tagsCount}</div>
+                                <small class="text-muted">Tags</small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
+                                <div class="h4 mb-0 text-warning">${relationshipsCount}</div>
+                                <small class="text-muted">Links</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted d-block mb-1">Categories:</small>
+                        ${categoryBadges}
+                    </div>
                 </div>
                 
-                <div class="row g-2 mt-2">
-                    <div class="col-auto">
-                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
-                            <div class="h4 mb-0 text-cyber">${totalMemories}</div>
-                            <small class="text-muted">Memories</small>
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
-                            <div class="h4 mb-0 text-info">${tagsCount}</div>
-                            <small class="text-muted">Tags</small>
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <div class="p-2 bg-dark bg-opacity-50 rounded text-center" style="min-width: 80px;">
-                            <div class="h4 mb-0 text-warning">${relationshipsCount}</div>
-                            <small class="text-muted">Links</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-3">
-                    <small class="text-muted d-block mb-1">Categories:</small>
-                    ${categoryBadges}
-                </div>
-            </div>
-            
-            <p class="small text-muted mt-2 mb-0">
-                <i class="mdi mdi-information-outline me-1"></i>
-                Spirit Memory v3 uses AI tools (memoryStore, memoryRecall, etc.) to manage knowledge.
-                Toggle OFF to disable memory context in system prompt.
-            </p>
-        `;
+                <p class="small text-muted mt-2 mb-0">
+                    <i class="mdi mdi-information-outline me-1"></i>
+                    Reflexes uses AI tools (memoryStore, memoryRecall, etc.) and automatic recall.
+                    Toggle OFF to disable memory context in system prompt.
+                </p>
+            `;
+        }
         
         container.appendChild(statsEl);
     }

@@ -1274,6 +1274,11 @@ class SpiritConversationService
                 'systemPrompt.config.includeMemoryRecall', 
                 '1'
             ) === '1',
+            'memoryType' => (int) $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.memoryType', 
+                '1'
+            ),
         ];
     }
     
@@ -1315,6 +1320,13 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.includeMemoryRecall',
                 $config['includeMemoryRecall'] ? '1' : '0'
+            );
+        }
+        if (isset($config['memoryType'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.memoryType',
+                (string) $config['memoryType']
             );
         }
     }
@@ -1367,7 +1379,7 @@ class SpiritConversationService
     
     /**
      * Build Memory section (optional)
-     * Contains: Spirit Memory v3 (graph-based) + legacy memory files (if not migrated)
+     * Contains: CQ Memory (graph-based) + legacy memory files (if not migrated)
      */
     public function buildMemorySection(Spirit $spirit): string
     {
@@ -1378,36 +1390,36 @@ class SpiritConversationService
         // migration from single-spirit memory files to multi-spirit memory files
         $this->migrateMemoryFiles($spirit, '/spirit/memory', $spiritMemoryDir);
         
-        // Check if legacy memory has been migrated to v3 (via pack)
-        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-        $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
-        $migrationStatus = $this->packService->isLegacyMemoryMigrated();
-        $this->packService->close();
-        $isFullyMigrated = $migrationStatus['allMigrated'];
-
-        // TMP test hack
-        $isFullyMigrated = true;
+        // Ensure Spirit memory infrastructure exists
+        $this->spiritService->initSpiritMemory($spirit);
         
-        // Build the memory section based on migration status
-        if ($isFullyMigrated) {
-            // V3 ONLY - Legacy memory has been fully migrated
-            return $this->buildMemorySectionV3Only($spirit);
-        } else {
-            // HYBRID - Show both v3 and legacy (for backward compatibility during migration)
-            return $this->buildMemorySectionHybrid($spirit, $spiritMemoryDir, $migrationStatus);
+        // Build memory section based on memoryType setting
+        $config = $this->getPromptConfig($spirit->getId());
+        $memoryType = $config['memoryType'];
+        
+        switch ($memoryType) {
+            case -1:
+                // Legacy .md File Memory
+                return $this->buildMemorySectionLegacy($spirit, $spiritMemoryDir);
+            case 2:
+                // Memory Agent (future) — fall back to Reflexes for now
+            case 1:
+            default:
+                // Reflexes — CQ Memory graph-based with automatic recall
+                return $this->buildMemorySectionCQMemoryReflexes($spirit);
         }
     }
     
     /**
-     * Build Memory section for fully migrated Spirits (v3 only)
+     * Build Memory section for CQ Memory Reflexes mode (memoryType = 1)
      * Returns only the <spirit-memory-system> content (projects section is separate)
      */
-    private function buildMemorySectionV3Only(Spirit $spirit): string
+    private function buildMemorySectionCQMemoryReflexes(Spirit $spirit): string
     {
         return "
-            <spirit-memory-system version=\"3\">
+            <spirit-memory-system version=\"cq-memory\">
                 <overview>
-                    Your memory is powered by **Spirit Memory v3** - a graph-based knowledge system.
+                    Your memory is powered by **CQ Memory** - a graph-based knowledge system.
                     Use the memory tools to store, recall, update, and forget information.
                     Memories are automatically scored by importance, recency, and relevance.
                 </overview>
@@ -1464,117 +1476,54 @@ class SpiritConversationService
     }
     
     /**
-     * Build Memory section for Spirits still using legacy memory (hybrid mode)
+     * Build Memory section for Spirits using legacy .md File Memory (memoryType = -1)
+     * Dumps the 3 markdown files into the system prompt as the Spirit's memory context.
      */
-    private function buildMemorySectionHybrid(Spirit $spirit, string $spiritMemoryDir, array $migrationStatus): string
+    private function buildMemorySectionLegacy(Spirit $spirit, string $spiritMemoryDir): string
     {
-        // Get memory files content (legacy system)
         $memoryFiles = $this->getMemoryFilesContent($spirit, $spiritMemoryDir);
         
-        // Build migration hint based on what's already migrated
-        $migratedFiles = [];
-        $notMigratedFiles = [];
-        foreach ($migrationStatus['files'] as $file => $isMigrated) {
-            if ($isMigrated) {
-                $migratedFiles[] = $file . '.md';
-            } else {
-                $notMigratedFiles[] = $file . '.md';
-            }
-        }
-        
-        $migrationHint = '';
-        if (!empty($migratedFiles)) {
-            $migrationHint = "\n                    Already migrated: " . implode(', ', $migratedFiles);
-        }
-        if (!empty($notMigratedFiles)) {
-            $migrationHint .= "\n                    Not yet migrated: " . implode(', ', $notMigratedFiles);
-        }
-        
         return "
-            <spirit-memory-system>
+            <spirit-memory-system version=\"legacy-md\">
                 <overview>
-                    You have TWO memory systems available:
-                    1. **Spirit Memory v3** (PRIMARY, RECOMMENDED) - Graph-based knowledge system with AI tools
-                    2. **Legacy File Memory** (DEPRECATED) - Markdown files in File Browser (will be phased out)
-                    
-                    IMPORTANT: Prefer using Spirit Memory v3 tools for all new memories. 
-                    Use memoryExtract to migrate remaining legacy files to v3.{$migrationHint}
+                    Your memory is stored in markdown files in the File Browser.
+                    Use File Browser tools (getFileContent, writeFileContent) to read and update these files.
+                    Keep your memories organized and concise.
                 </overview>
                 
-                <spirit-memory-v3>
-                    <description>
-                        A graph-based knowledge system where memories are nodes connected by relationships.
-                        Use the memory tools to store, recall, update, and forget information.
-                        Memories are automatically scored by importance, recency, and relevance.
-                    </description>
-                    
-                    <available-tools>
-                        <tool name=\"memoryStore\">
-                            Store new memories. Categories: conversation, thought, knowledge, fact, preference.
-                            You can add tags and link to related memories.
-                            Example: Store user preferences, important facts, conversation summaries.
-                        </tool>
-                        <tool name=\"memoryRecall\">
-                            Search and retrieve memories by query, category, or tags.
-                            Returns scored results with related memories.
-                            Use this to remember things about the user or past conversations.
-                        </tool>
-                        <tool name=\"memoryUpdate\">
-                            Update existing memories when information changes.
-                            Creates new version of the memory from the old one.
-                        </tool>
-                        <tool name=\"memoryForget\">
-                            Mark memories as forgotten (soft delete) when they become irrelevant.
-                        </tool>
-                        <tool name=\"memoryExtract\">
-                            Extract memories from content using AI Sub-Agent. SMART FEATURES:
-                            - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
-                            - Prevents duplicate extraction of same source
-                            Use sourceType + sourceRef to auto-load:
-                            - legacy_memory/document: \"projectId:path:filename\" (e.g., \"general:/spirit/{$spirit->getName()}/memory:conversations.md\")
-                            - spirit_conversation: conversation ID, or alias \"current\"/\"active\"/\"now\" for the most recent conversation, or \"all\" to batch-extract ALL conversations (skips already-extracted ones)
-                            - url: URL string (e.g., \"https://example.com/article\")
-                            Use 'force: true' to re-extract already processed sources.
-                        </tool>
-                    </available-tools>
-                    
-                    <best-practices>
-                        - Store important user preferences with category 'preference' and high importance (0.8-1.0)
-                        - Store facts about the user with category 'fact'
-                        - Store conversation summaries with category 'conversation' after meaningful interactions
-                        - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
-                        - Recall memories at the start of conversations to personalize responses
-                        - Update memories when information changes rather than creating duplicates
-                        - Keep memories concise and self-contained
-                    </best-practices>
-                </spirit-memory-v3>
+                <memory-files>
+                    <file>
+                        <path>{$spiritMemoryDir}</path>
+                        <name>conversations.md</name>
+                        <purpose>Summaries and key points from past conversations</purpose>
+                        <content>
+                            {$memoryFiles['conversations']['content']}
+                        </content>
+                    </file>
+                    <file>
+                        <path>{$spiritMemoryDir}</path>
+                        <name>inner-thoughts.md</name>
+                        <purpose>Your reflections, observations, and insights about the user</purpose>
+                        <content>
+                            {$memoryFiles['inner-thoughts']['content']}
+                        </content>
+                    </file>
+                    <file>
+                        <path>{$spiritMemoryDir}</path>
+                        <name>knowledge-base.md</name>
+                        <purpose>Facts, preferences, and important information about the user</purpose>
+                        <content>
+                            {$memoryFiles['knowledge-base']['content']}
+                        </content>
+                    </file>
+                </memory-files>
                 
-                <legacy-file-memory status=\"deprecated\">
-                    <note>This system is being phased out. Use memoryExtract to migrate these files to Spirit Memory v3.</note>
-                    <files>
-                        <file>
-                            <path>{$spiritMemoryDir}</path>
-                            <name>conversations.md</name>
-                            <content>
-                                {$memoryFiles['conversations']['content']}
-                            </content>
-                        </file>
-                        <file>
-                            <path>{$spiritMemoryDir}</path>
-                            <name>inner-thoughts.md</name>
-                            <content>
-                                {$memoryFiles['inner-thoughts']['content']}
-                            </content>
-                        </file>
-                        <file>
-                            <path>{$spiritMemoryDir}</path>
-                            <name>knowledge-base.md</name>
-                            <content>
-                                {$memoryFiles['knowledge-base']['content']}
-                            </content>
-                        </file>
-                    </files>
-                </legacy-file-memory>
+                <best-practices>
+                    - After meaningful conversations, update conversations.md with a summary
+                    - Store important user facts and preferences in knowledge-base.md
+                    - Use inner-thoughts.md for your own reflections and observations
+                    - Keep entries concise and timestamped
+                </best-practices>
             </spirit-memory-system>";
     }
     
@@ -1704,7 +1653,6 @@ class SpiritConversationService
         $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
         $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
         $packStats = $this->packService->getStats();
-        $migrationStatus = $this->packService->isLegacyMemoryMigrated();
         $this->packService->close();
         $memoryStats = [
             'totalMemories' => $packStats['totalNodes'],
@@ -1735,12 +1683,11 @@ class SpiritConversationService
                 'configKey' => 'includeSystemInfo'
             ],
             'memory' => [
-                'title' => 'Spirit Memory v3',
+                'title' => 'Spirit Memory',
                 'enabled' => $config['includeMemory'],
                 'configKey' => 'includeMemory',
-                'version' => 3,
+                'memoryType' => $config['memoryType'],
                 'stats' => $memoryStats,
-                'migrationStatus' => $migrationStatus,
                 'content' => $config['includeMemory'] ? $this->buildMemorySection($spirit) : ''
             ],
             'tools' => [

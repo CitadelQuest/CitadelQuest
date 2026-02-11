@@ -23,7 +23,7 @@ use Symfony\Bundle\SecurityBundle\Security;
  * - url: Web content via fetchURL (sourceRef = URL)
  * - legacy_memory: Legacy .md file (sourceRef = "projectId:path/filename")
  * 
- * @see /docs/features/spirit-memory-v3.md
+ * @see /docs/features/CQ-MEMORY.md
  */
 class AIToolMemoryService
 {
