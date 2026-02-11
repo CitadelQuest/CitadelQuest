@@ -39,6 +39,7 @@ class MemoryNode implements JsonSerializable
     public const CATEGORY_KNOWLEDGE = 'knowledge';
     public const CATEGORY_FACT = 'fact';
     public const CATEGORY_PREFERENCE = 'preference';
+    public const CATEGORY_INTERNET = 'internet';
 
     public function __construct(
         string $content,

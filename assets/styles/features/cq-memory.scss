@@ -10,6 +10,7 @@ $category-knowledge: #4aff9e;
 $category-preference: #aa67f7;
 $category-thought: #ff9e4a;
 $category-fact: #4affff;
+$category-internet: #ff4a9e;
 
 // Relationship Colors
 $rel-part-of: #8dff8d;
@@ -447,6 +448,7 @@ $panel-min-height: 500px;
             &.preference { background-color: $category-preference; }
             &.thought { background-color: $category-thought; }
             &.fact { background-color: $category-fact; }
+            &.internet { background-color: $category-internet; }
         }
 
         // Relationship colors

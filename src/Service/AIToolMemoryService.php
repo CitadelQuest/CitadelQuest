@@ -2623,10 +2623,28 @@ PROMPT;
                 $sourceRef = $payload['source_ref'] ?? 'direct-content';
                 $sourceType = $payload['source_type'] ?? 'document';
 
+                // Determine root node category, base tag, and summary prefix based on source type
+                $rootCategory = MemoryNode::CATEGORY_KNOWLEDGE;
+                $baseTag = 'document';
+                $summaryPrefix = 'Document';
+                switch ($sourceType) {
+                    case 'spirit_conversation':
+                    case 'conversation':
+                        $rootCategory = MemoryNode::CATEGORY_CONVERSATION;
+                        $baseTag = 'conversation';
+                        $summaryPrefix = 'Conversation';
+                        break;
+                    case 'url':
+                        $rootCategory = MemoryNode::CATEGORY_INTERNET;
+                        $baseTag = 'internet';
+                        $summaryPrefix = 'Web';
+                        break;
+                }
+
                 // Generate document summary (AI call)
                 $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel, $jobId);
                 if (!$summaryContent) {
-                    $summaryContent = "Document: {$documentTitle}";
+                    $summaryContent = "{$summaryPrefix}: {$documentTitle}";
                 }
 
                 $totalLines = count(explode("\n", $content));
@@ -2635,15 +2653,15 @@ PROMPT;
                 $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1, $jobId);
 
                 $documentTags = array_merge(
-                    ['document'],
+                    [$baseTag],
                     $blocks['document_tags'] ?? []
                 );
 
                 $rootNode = $this->packService->storeNode(
                     $summaryContent,
-                    MemoryNode::CATEGORY_KNOWLEDGE,
+                    $rootCategory,
                     0.9,
-                    "Document: {$documentTitle}",
+                    "{$summaryPrefix}: {$documentTitle}",
                     'document_summary',
                     $sourceRef,
                     $documentTags,
@@ -2677,6 +2695,7 @@ PROMPT;
                 $payload['needs_init'] = false;
                 unset($payload['raw_content']);
                 $payload['root_node_id'] = $rootNode->getId();
+                $payload['base_tag'] = $baseTag;
                 $payload['pending_blocks'] = $pendingBlocks;
                 $payload['processed_count'] = 1;
                 $payload['extracted_node_ids'] = [$rootNode->getId()];
@@ -2798,8 +2817,9 @@ PROMPT;
 
             $sourceRange = $block['start_line'] . ':' . $block['end_line'];
             
+            $baseTag = $payload['base_tag'] ?? 'document';
             $blockTags = array_merge(
-                ['document'],
+                [$baseTag],
                 $block['tags'] ?? []
             );
 

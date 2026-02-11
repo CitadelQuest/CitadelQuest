@@ -22,6 +22,7 @@ export class MemoryGraphView {
             preference: 0x9e4aff,
             thought: 0xff9e4a,
             fact: 0x4affff,
+            internet: 0xff4a9e,
             default: 0x95ec86
         };
 
@@ -60,7 +61,7 @@ export class MemoryGraphView {
 
         // Filters
         this.filters = {
-            categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact']),
+            categories: new Set(['conversation', 'knowledge', 'preference', 'thought', 'fact', 'internet']),
             relationships: new Set(['PART_OF', 'RELATES_TO', 'CONTRADICTS', 'REINFORCES'])
         };
 

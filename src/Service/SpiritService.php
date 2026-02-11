@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\MemoryNode;
 use App\Entity\Spirit;
 use App\Entity\SpiritInteraction;
 use App\Entity\SpiritSettings;
@@ -171,6 +172,9 @@ class SpiritService
                     'spiritId' => $spirit->getId(),
                     'pack' => $packsPath . '/' . $rootPackName,
                 ]);
+                
+                // Seed foundational memory nodes in the new pack
+                $this->seedSpiritMemoryNodes($spirit, $projectId, $packsPath, $rootPackName);
             }
             
             // Create root library if it doesn't exist
@@ -211,6 +215,72 @@ class SpiritService
             'rootPackName' => $rootPackName,
             'spiritNameSlug' => $spiritNameSlug,
         ];
+    }
+    
+    /**
+     * Seed foundational memory nodes in a newly created Spirit's root pack.
+     * Creates "Spirit Identity" and "User Identity" nodes with a RELATES_TO relationship.
+     * Called once when the root pack is first created.
+     */
+    private function seedSpiritMemoryNodes(Spirit $spirit, string $projectId, string $packsPath, string $rootPackName): void
+    {
+        try {
+            /** @var User $user */
+            $user = $this->security->getUser();
+            if (!$user) {
+                return;
+            }
+            
+            $this->packService->open($projectId, $packsPath, $rootPackName);
+            
+            $createdAt = $spirit->getCreatedAt()->format('Y-m-d H:i:s');
+            
+            // Spirit Identity node
+            $spiritNode = $this->packService->storeNode(
+                "Spirit {$spirit->getName()} is an AI companion in CitadelQuest, created on {$createdAt}. "
+                . "{$spirit->getName()} assists the user in their journey, providing insights, guidance, and companionship.",
+                MemoryNode::CATEGORY_KNOWLEDGE,
+                1.0,
+                "Spirit {$spirit->getName()} — identity and core attributes",
+                'system',
+                'spirit_creation',
+                ['identity', 'spirit', 'core']
+            );
+            
+            // User Identity node
+            $userNode = $this->packService->storeNode(
+                "User {$user->getUsername()} ({$user->getEmail()}) is the owner and companion of Spirit {$spirit->getName()} in CitadelQuest.",
+                MemoryNode::CATEGORY_KNOWLEDGE,
+                1.0,
+                "User {$user->getUsername()} — identity",
+                'system',
+                'spirit_creation',
+                ['identity', 'user', 'core']
+            );
+            
+            // Link Spirit and User identity nodes
+            $this->packService->createRelationship(
+                $spiritNode->getId(),
+                $userNode->getId(),
+                MemoryNode::RELATION_RELATES_TO,
+                1.0,
+                'Spirit-User identity bond'
+            );
+            
+            $this->packService->close();
+            
+            $this->logger->info('Seeded foundational memory nodes for Spirit', [
+                'spiritId' => $spirit->getId(),
+                'spiritNodeId' => $spiritNode->getId(),
+                'userNodeId' => $userNode->getId(),
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to seed Spirit memory nodes', [
+                'spiritId' => $spirit->getId(),
+                'error' => $e->getMessage(),
+            ]);
+            try { $this->packService->close(); } catch (\Exception $ignored) {}
+        }
     }
     
     /**
