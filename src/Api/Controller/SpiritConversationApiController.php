@@ -241,9 +241,14 @@ class SpiritConversationApiController extends AbstractController
             // Run pre-process recall
             $result = $this->conversationService->preProcessRecall($id, $messageText, $lang);
             
-            // Cache system prompt in session (one-shot, used by send-async)
+            // Cache system prompt + recalled nodes in session (one-shot, used by send-async)
             $session = $request->getSession();
             $session->set("recall_{$id}_latest", $result['systemPrompt']);
+            $session->set("recall_{$id}_nodes", [
+                'recalledNodes' => $result['recalledNodes'],
+                'keywords' => $result['keywords'],
+                'packInfo' => $result['packInfo'],
+            ]);
             
             return $this->json([
                 'success' => true,
@@ -334,8 +339,23 @@ class SpiritConversationApiController extends AbstractController
             // Check for cached system prompt from pre-send (Phase 3.5)
             $session = $request->getSession();
             $cachedSystemPrompt = $session->get("recall_{$id}_latest");
+            $cachedRecallNodes = $session->get("recall_{$id}_nodes");
             if ($cachedSystemPrompt) {
                 $session->remove("recall_{$id}_latest"); // one-shot: clear after use
+            }
+            if ($cachedRecallNodes) {
+                $session->remove("recall_{$id}_nodes"); // one-shot: clear after use
+            }
+            
+            // Save memory_recall message if pre-send returned recalled nodes (Phase 3.5)
+            if ($cachedRecallNodes && !empty($cachedRecallNodes['recalledNodes'])) {
+                $messageService->createMessage(
+                    $id,
+                    'assistant',
+                    'memory_recall',
+                    $cachedRecallNodes,
+                    $userMessage->getId()
+                );
             }
             
             // Send to AI and get immediate response

@@ -1010,6 +1010,11 @@ export class SpiritChatManager {
      * @returns {HTMLElement|null} - The message element or null
      */
     createMessageElement(message) {
+        // Handle memory_recall messages — show as expandable badge
+        if (message.type === 'memory_recall') {
+            return this.createMemoryRecallBadge(message.content);
+        }
+        
         // Handle tool result messages - display frontendData if present
         if (message.role === 'tool' || message.type === 'tool_result') {
             // Check if message content has frontendData
@@ -1778,10 +1783,12 @@ export class SpiritChatManager {
             
             // Step 1: PRE-SEND — run Reflexes recall, show 3D memory graph
             let memoryGraphEl = null;
+            let preSendData = null;
             try {
                 const preSendResult = await this.apiService.preSend(this.currentConversationId, messageText);
                 
                 if (preSendResult.success && preSendResult.recalledNodes?.length > 0) {
+                    preSendData = preSendResult;
                     memoryGraphEl = this.showMemoryRecallGraph(preSendResult);
                 }
             } catch (preSendError) {
@@ -1800,9 +1807,9 @@ export class SpiritChatManager {
                 this.chatMessages.removeChild(loadingEl);
             }
             
-            // Fade out memory graph after response arrives
+            // Fade out memory graph → collapse to persistent badge
             if (memoryGraphEl) {
-                this.fadeOutMemoryGraph(memoryGraphEl);
+                this.fadeOutMemoryGraph(memoryGraphEl, preSendData);
             }
             
             if (response.error) {
@@ -1955,9 +1962,158 @@ export class SpiritChatManager {
     }
 
     /**
+     * Create a memory recall badge element (expandable)
+     * Used for both conversation history rendering and live flow after graph fade-out
+     */
+    createMemoryRecallBadge(recallData) {
+        const nodes = recallData?.recalledNodes || [];
+        const keywords = recallData?.keywords || [];
+        const packInfo = recallData?.packInfo || null;
+        const count = nodes.length;
+        
+        if (count === 0) return null;
+        
+        const badgeEl = document.createElement('div');
+        badgeEl.className = 'chat-message chat-message-memory-recall flex-column d-inline-block';
+        
+        // Build expandable details list
+        const detailRows = nodes.map(node => {
+            const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
+            const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
+            const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
+            return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;">
+                <span class="flex-grow-1">${node.summary || 'Memory node'}</span>
+                ${category}${score}${tags}
+            </div>`;
+        }).join('');
+        
+        const keywordsHtml = keywords.length > 0 
+            ? `<div class="mt-1 pt-1 border-top border-dark border-opacity-25" style="font-size: 0.6rem;">
+                <span class="text-cyber opacity-50"><i class="mdi mdi-key-variant me-1"></i>${keywords.join(', ')}</span>
+               </div>` 
+            : '';
+        
+        badgeEl.innerHTML = `
+            <div class="d-flex align-items-center gap-2 p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25 cursor-pointer memory-recall-badge">
+                <span class="text-muted small">
+                    <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${count} ${count === 1 ? 'memory' : 'memories'} recalled
+                </span>
+                <i class="mdi mdi-chevron-right text-muted opacity-50 small" style="transition: transform 0.2s;"></i>
+            </div>
+            <div class="d-none p-2 bg-info bg-opacity-10 rounded border border-top-0 border-info border-opacity-25 memory-recall-details">
+                <div class="memory-recall-graph-container" style="position: relative; width: 100%; height: 200px; border-radius: 6px; overflow: hidden; background: rgba(10, 10, 15, 0.8); margin-bottom: 0.5rem;"></div>
+                ${detailRows}
+                ${keywordsHtml}
+            </div>
+        `;
+        
+        // Wire up expand/collapse toggle with lazy 3D graph init
+        const badgeHeader = badgeEl.querySelector('.memory-recall-badge');
+        const detailsPanel = badgeEl.querySelector('.memory-recall-details');
+        const graphContainer = badgeEl.querySelector('.memory-recall-graph-container');
+        let graphInitialized = false;
+        
+        badgeHeader.addEventListener('click', () => {
+            detailsPanel.classList.toggle('d-none');
+            badgeHeader.querySelector('.mdi-chevron-right')?.classList.toggle('mdi-rotate-90');
+            
+            const isExpanded = !detailsPanel.classList.contains('d-none');
+            
+            // Lazy-init 3D graph on first expand
+            if (isExpanded && !graphInitialized && packInfo && graphContainer) {
+                graphInitialized = true;
+                this.initBadgeMemoryGraph(graphContainer, nodes, packInfo);
+            }
+            
+            // Dispose graph when collapsed to free resources
+            if (!isExpanded && graphContainer?._graphView) {
+                graphContainer._graphView.dispose();
+                graphContainer._graphView = null;
+                graphInitialized = false;
+                graphContainer.innerHTML = '';
+            }
+        });
+        
+        return badgeEl;
+    }
+    
+    /**
+     * Initialize a compact 3D memory graph inside a badge's detail panel
+     */
+    async initBadgeMemoryGraph(container, recalledNodes, packInfo) {
+        try {
+            // Add canvas element required by MemoryGraphView
+            const canvas = document.createElement('canvas');
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            container.appendChild(canvas);
+            
+            // Wait for layout to compute dimensions after d-none toggle
+            await new Promise(r => requestAnimationFrame(r));
+            
+            const graphView = new MemoryGraphView(container, {
+                backgroundColor: 0x0a0a0f,
+                compact: true
+            });
+            graphView.setOnNodeSelect(null); // read-only
+            
+            // Auto-rotate
+            if (graphView.controls) {
+                graphView.controls.autoRotate = true;
+                graphView.controls.autoRotateSpeed = 1.0;
+            }
+            
+            // Fetch full pack data or use cached
+            let graphData = this.memoryGraphData;
+            if (!graphData && packInfo?.name) {
+                const response = await fetch('/api/memory/pack/open', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: packInfo.projectId,
+                        path: packInfo.path,
+                        name: packInfo.name
+                    })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    graphData = {
+                        nodes: data.nodes || [],
+                        edges: data.edges || [],
+                        stats: data.stats || {}
+                    };
+                    this.memoryGraphData = graphData;
+                }
+            }
+            
+            if (graphData) {
+                graphView.loadGraph(graphData);
+                graphView.resetView();
+                
+                // Zoom closer + highlight recalled nodes after settle
+                setTimeout(() => {
+                    if (!graphView.camera || !graphView.controls) return;
+                    const target = graphView.controls.target.clone();
+                    const pos = graphView.camera.position.clone();
+                    graphView.camera.position.lerpVectors(pos, target, 0.35);
+                    graphView.controls.update();
+                    
+                    const recalledIds = recalledNodes.map(n => n.id);
+                    recalledIds.forEach(id => graphView.glowNodeById(id, true));
+                }, 700);
+            }
+            
+            // Store ref on container for cleanup
+            container._graphView = graphView;
+        } catch (err) {
+            console.warn('Failed to init badge memory graph:', err);
+        }
+    }
+
+    /**
      * Fade out and remove memory graph element after AI response arrives
      */
-    fadeOutMemoryGraph(graphEl) {
+    fadeOutMemoryGraph(graphEl, preSendData) {
         if (!graphEl) return;
         
         // Fade out over 2 seconds, collapse height to avoid empty space
@@ -1976,8 +2132,17 @@ export class SpiritChatManager {
                 this.memoryGraphView.dispose();
                 this.memoryGraphView = null;
             }
-            // Remove from DOM
-            if (graphEl.parentNode) {
+            
+            // Replace graph with persistent badge
+            if (graphEl.parentNode && preSendData) {
+                const badgeData = {
+                    recalledNodes: preSendData.recalledNodes,
+                    keywords: preSendData.keywords,
+                    packInfo: preSendData.packInfo,
+                };
+                const badgeEl = this.createMemoryRecallBadge(badgeData);
+                graphEl.parentNode.replaceChild(badgeEl, graphEl);
+            } else if (graphEl.parentNode) {
                 graphEl.parentNode.removeChild(graphEl);
             }
         }, 2500);

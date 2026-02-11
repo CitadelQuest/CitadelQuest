@@ -1002,6 +1002,11 @@ class SpiritConversationService
             $content = $message->getContent();
             $type = $message->getType();
             
+            // Skip memory_recall messages — informational only, not part of AI context
+            if ($type === 'memory_recall') {
+                continue;
+            }
+            
             if ($role === 'tool') {
                 // Tool messages contain an array of tool results
                 // Each tool result needs to be added as a separate message

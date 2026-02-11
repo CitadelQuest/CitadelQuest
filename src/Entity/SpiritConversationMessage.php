@@ -15,6 +15,7 @@ use DateTime;
  * - tool_use: AI wants to use tools (finish_reason = 'tool_use')
  * - tool_result: Result of tool execution
  * - length: Context length limit reached (finish_reason = 'length')
+ * - memory_recall: Phase 3.5 — recalled memories info (informational, not sent to AI)
  */
 class SpiritConversationMessage implements \JsonSerializable
 {
