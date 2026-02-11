@@ -2605,7 +2605,14 @@ class CQMemoryExplorer {
             return;
         }
 
-        if (!this.packsPath) {
+        // Determine pack storage path:
+        // If a library is selected, store in the library's packs subdirectory
+        // (e.g., library at /spirit/Lori/memory → packs at /spirit/Lori/memory/packs)
+        const packPath = this.selectedLibrary
+            ? this.selectedLibrary.path + '/packs'
+            : this.packsPath;
+
+        if (!packPath) {
             window.toast?.error('Memory path not initialized');
             return;
         }
@@ -2616,7 +2623,7 @@ class CQMemoryExplorer {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     projectId: this.projectId,
-                    path: this.packsPath,
+                    path: packPath,
                     name, 
                     description 
                 })
