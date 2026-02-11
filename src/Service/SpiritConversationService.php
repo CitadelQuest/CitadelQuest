@@ -38,6 +38,7 @@ class SpiritConversationService
         private readonly AiToolService $aiToolService,
         private readonly AIToolCallService $aiToolCallService,
         private readonly CQMemoryPackService $packService,
+        private readonly CQMemoryLibraryService $libraryService,
         private readonly LoggerInterface $logger,
         private readonly AnnoService $annoService,
         private readonly SluggerInterface $slugger
@@ -2083,35 +2084,104 @@ class SpiritConversationService
                 ]);
             }
             
-            // Open Spirit's root memory pack
+            // Cross-pack recall: search all enabled packs in Spirit's library
             $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-            $this->packService->open(
-                $memoryInfo['projectId'],
-                $memoryInfo['packsPath'],
-                $memoryInfo['rootPackName']
-            );
-            
-            // Build FTS5 query from keywords and run recall
             $query = implode(' ', $keywords);
-            $results = $this->packService->recall(
-                $query,
-                null,       // no category filter
-                [],         // no tag filter
-                $limit,
-                $includeRelated,
-                0.15,       // recency weight
-                0.35,       // importance weight
-                0.50        // relevance weight (prioritize text match)
-            );
+            $results = [];
             
-            // Get pack info for frontend visualization
+            // Root pack info for frontend 3D graph visualization
             $packInfo = [
                 'name' => $memoryInfo['rootPackName'],
                 'projectId' => $memoryInfo['projectId'],
                 'path' => $memoryInfo['packsPath'],
             ];
             
-            $this->packService->close();
+            // Load library to get all packs
+            $packsToSearch = [];
+            try {
+                $library = $this->libraryService->loadLibrary(
+                    $memoryInfo['projectId'],
+                    $memoryInfo['memoryPath'],
+                    $memoryInfo['rootLibraryName']
+                );
+                
+                foreach ($library['packs'] ?? [] as $packEntry) {
+                    if (!($packEntry['enabled'] ?? true)) {
+                        continue;
+                    }
+                    $packPath = $packEntry['path'] ?? '';
+                    if (empty($packPath)) {
+                        continue;
+                    }
+                    $packsToSearch[] = [
+                        'path' => dirname($packPath),
+                        'name' => basename($packPath),
+                    ];
+                }
+            } catch (\Exception $e) {
+                $this->logger->debug('Memory recall: library load failed, falling back to root pack', [
+                    'error' => $e->getMessage()
+                ]);
+            }
+            
+            // Fallback: if no packs from library, use root pack
+            if (empty($packsToSearch)) {
+                $packsToSearch[] = [
+                    'path' => $memoryInfo['packsPath'],
+                    'name' => $memoryInfo['rootPackName'],
+                ];
+            }
+            
+            // Search each pack and collect results
+            $packsSearched = 0;
+            foreach ($packsToSearch as $packRef) {
+                try {
+                    $this->packService->open(
+                        $memoryInfo['projectId'],
+                        $packRef['path'],
+                        $packRef['name']
+                    );
+                    
+                    $packResults = $this->packService->recall(
+                        $query,
+                        null,       // no category filter
+                        [],         // no tag filter
+                        $limit,     // per-pack limit (will trim globally after merge)
+                        $includeRelated,
+                        0.15,       // recency weight
+                        0.35,       // importance weight
+                        0.50        // relevance weight (prioritize text match)
+                    );
+                    
+                    // Tag each result with its source pack
+                    foreach ($packResults as &$pr) {
+                        $pr['sourcePack'] = $packRef['name'];
+                    }
+                    unset($pr);
+                    
+                    $results = array_merge($results, $packResults);
+                    $packsSearched++;
+                    
+                    $this->packService->close();
+                } catch (\Exception $e) {
+                    $this->logger->warning('Memory recall: failed to search pack {pack}', [
+                        'pack' => $packRef['name'],
+                        'error' => $e->getMessage()
+                    ]);
+                    try { $this->packService->close(); } catch (\Exception $ignored) {}
+                }
+            }
+            
+            // Re-sort merged results by score and apply global limit
+            if (count($packsToSearch) > 1 && !empty($results)) {
+                usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
+                $results = array_slice($results, 0, $limit);
+            }
+            
+            $this->logger->debug('Memory recall: searched {packs} pack(s), found {count} results', [
+                'packs' => $packsSearched,
+                'count' => count($results),
+            ]);
             
             if (empty($results)) {
                 return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo]);
