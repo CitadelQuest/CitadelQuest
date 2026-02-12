@@ -2017,7 +2017,7 @@ export class SpiritChatManager {
             const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
             const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
             const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
-            return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;">
+            return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;overflow: hidden;">
                 <span class="flex-grow-1">${node.summary || 'Memory node'}</span>
                 ${category}${score}${tags}
             </div>`;
