@@ -590,7 +590,7 @@ export class MemoryExtractPanel {
             let icon = 'clock-outline';
             if (isComplete) {
                 icon = 'check-circle';
-            } else if (job.status === 'processing') {
+            } else /* if (job.status === 'processing') */ {
                 icon = 'cog mdi-spin';
             }
             

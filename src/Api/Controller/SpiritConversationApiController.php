@@ -249,6 +249,7 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
+                'rootNodes' => $result['rootNodes'] ?? [],
             ]);
             
             // Phase 4: Store user message for sub-agent context
@@ -296,6 +297,7 @@ class SpiritConversationApiController extends AbstractController
             
             $recalledNodes = $cachedNodes['recalledNodes'] ?? [];
             $keywords = $cachedNodes['keywords'] ?? [];
+            $rootNodes = $cachedNodes['rootNodes'] ?? [];
             
             // Run the Subconsciousness sub-agent
             $result = $this->conversationService->runSubconsciousnessAgent(
@@ -303,7 +305,8 @@ class SpiritConversationApiController extends AbstractController
                 $userMessageText,
                 $cachedSystemPrompt,
                 $recalledNodes,
-                $keywords
+                $keywords,
+                $rootNodes
             );
             
             // Overwrite session cache with enriched data

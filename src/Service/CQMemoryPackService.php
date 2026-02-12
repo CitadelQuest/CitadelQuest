@@ -917,7 +917,9 @@ class CQMemoryPackService
     private function buildFTS5Query(string $query): string
     {
         // Remove FTS5 special operators that could cause syntax errors
-        $cleaned = preg_replace('/[^\p{L}\p{N}\s\-_]/u', ' ', $query);
+        // Note: hyphens must be removed — FTS5 interprets them as column prefix operators
+        // e.g. "pzp-insurance" → column "pzp", term "insurance" → "no such column" error
+        $cleaned = preg_replace('/[^\p{L}\p{N}\s_]/u', ' ', $query);
         $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
         
         if (empty($cleaned)) {

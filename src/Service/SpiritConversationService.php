@@ -505,6 +505,7 @@ class SpiritConversationService
         $keywords = [];
         $packInfo = [];
         
+        $rootNodes = [];
         if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
             $messageService = new SpiritConversationMessageService(
@@ -523,6 +524,7 @@ class SpiritConversationService
             $recalledNodes = $recallResult['nodes'] ?? [];
             $keywords = $recallResult['keywords'] ?? [];
             $packInfo = $recallResult['packInfo'] ?? [];
+            $rootNodes = $recallResult['rootNodes'] ?? [];
         }
         
         // Phase 4: Evaluate sub-agent trigger
@@ -533,6 +535,7 @@ class SpiritConversationService
             'recalledNodes' => $recalledNodes,
             'keywords' => $keywords,
             'packInfo' => $packInfo,
+            'rootNodes' => $rootNodes,
             'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
     }
@@ -1477,13 +1480,7 @@ class SpiritConversationService
      */
     private function buildMemorySectionCQMemoryReflexes(Spirit $spirit): string
     {
-        return "
-            <spirit-memory-system version=\"cq-memory\">
-                <overview>
-                    Your memory is powered by **CQ Memory** - a graph-based knowledge system.
-                    Use the memory tools to store, recall, update, and forget information.
-                    Memories are automatically scored by importance, recency, and relevance.
-                </overview>
+        /*
                 
                 <available-tools>
                     <tool name=\"memoryStore\">
@@ -1514,6 +1511,15 @@ class SpiritConversationService
                         Use 'force: true' to re-extract already processed sources.
                     </tool>
                 </available-tools>
+
+        */
+        return "
+            <spirit-memory-system version=\"cq-memory\">
+                <overview>
+                    Your memory is powered by **CQ Memory** - a graph-based knowledge system.
+                    Use the memory tools to store, recall, update, and forget information.
+                    Memories are automatically scored by importance, recency, and relevance.
+                </overview>
                 
                 <automatic-recall>
                     Your memory system now includes **automatic recall**. Relevant memories are 
@@ -2142,6 +2148,9 @@ class SpiritConversationService
             
             // Search each pack and collect results
             $packsSearched = 0;
+            $rootNodes = []; // Phase 4b: root nodes for Memory Agent context
+            $seenRootIds = [];
+            
             foreach ($packsToSearch as $packRef) {
                 try {
                     $this->packService->open(
@@ -2149,6 +2158,24 @@ class SpiritConversationService
                         $packRef['path'],
                         $packRef['name']
                     );
+                    
+                    // Phase 4b: fetch root nodes (depth=0) right after open, before recall
+                    // Separate try-catch so root node collection succeeds even if recall fails
+                    try {
+                        $packRootNodes = $this->packService->getRootNodes();
+                        foreach ($packRootNodes as $rootNode) {
+                            if (!in_array($rootNode->getId(), $seenRootIds)) {
+                                $seenRootIds[] = $rootNode->getId();
+                                $rootNodes[] = [
+                                    'id' => $rootNode->getId(),
+                                    'summary' => $rootNode->getSummary(),
+                                    'content' => $rootNode->getContent(),
+                                ];
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Root node fetch failed for this pack — non-critical, continue
+                    }
                     
                     $packResults = $this->packService->recall(
                         $query,
@@ -2190,20 +2217,15 @@ class SpiritConversationService
                 $results = array_slice($results, 0, $limit);
             }
             
-            $this->logger->debug('Memory recall: searched {packs} pack(s), found {count} results', [
-                'packs' => $packsSearched,
-                'count' => count($results),
-            ]);
-            
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes]);
             }
             
             // Build node data for frontend + Phase 4b: include graph neighbors
@@ -2271,6 +2293,7 @@ class SpiritConversationService
                 'nodes' => $recalledNodes,
                 'keywords' => $keywords,
                 'packInfo' => $packInfo,
+                'rootNodes' => $rootNodes,
             ];
             
         } catch (\Exception $e) {
@@ -2300,7 +2323,8 @@ class SpiritConversationService
         string $userMessageText,
         string $cachedSystemPrompt,
         array $recalledNodes,
-        array $keywords
+        array $keywords,
+        array $rootNodes = []
     ): array {
         try {
             // Get AI model (same as extraction sub-agents: Kael = Gemini Flash)
@@ -2329,7 +2353,7 @@ class SpiritConversationService
             $systemPrompt = $this->buildSubAgentSystemPrompt();
             
             // Build sub-agent user message
-            $userMessage = $this->buildSubAgentUserMessage($userMessageText, $contextMessages, $recalledNodes);
+            $userMessage = $this->buildSubAgentUserMessage($userMessageText, $contextMessages, $recalledNodes, $rootNodes);
             
             // Make AI call
             $messages = [
@@ -2566,7 +2590,8 @@ PROMPT;
     private function buildSubAgentUserMessage(
         string $userMessageText,
         array $conversationContext,
-        array $recalledNodes
+        array $recalledNodes,
+        array $rootNodes = []
     ): string {
         $message = "## User's Latest Message\n";
         $message .= $userMessageText . "\n\n";
@@ -2596,6 +2621,24 @@ PROMPT;
                     $content = mb_substr($content, 0, 300) . '...';
                 }
                 $message .= "**{$role}**: {$content}\n\n";
+            }
+        }
+        
+        // Phase 4b: Available Memory Graphs — root nodes (depth=0) for broader context
+        if (!empty($rootNodes)) {
+            $message .= "## Available Memory Graphs (root nodes)\n";
+            $message .= "The following root documents exist in the user's memory. Use this as context for understanding the broader memory structure and what information is available.\n\n";
+            foreach ($rootNodes as $root) {
+                $message .= "- **ID**: {$root['id']}\n";
+                $message .= "  **Title**: {$root['summary']}\n";
+                $rootContent = $root['content'] ?? '';
+                if (mb_strlen($rootContent) > 250) {
+                    $rootContent = mb_substr($rootContent, 0, 250) . '...';
+                }
+                if (!empty($rootContent)) {
+                    $message .= "  **Content**: {$rootContent}\n";
+                }
+                $message .= "\n";
             }
         }
         
