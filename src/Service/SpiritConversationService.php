@@ -551,14 +551,14 @@ class SpiritConversationService
         // TODO: Testing mode — always trigger sub-agent. Restore conditions below when done.
         return true;
         
-        // --- Original smart trigger logic (restore after testing) ---
-        // Master toggles: includeMemoryRecall + includeMemory + includeSubconsciousness must be on
-        // if (!$config['includeMemoryRecall'] || !$config['includeMemory'] || !$config['includeSubconsciousness']) {
+        // --- Smart trigger logic (restore after testing) ---
+        // Master toggles: includeMemoryRecall + includeMemory must be on
+        // if (!$config['includeMemoryRecall'] || !$config['includeMemory']) {
         //     return false;
         // }
         // 
-        // // Only Reflexes mode (memoryType = 1) supports sub-agent
-        // if ($config['memoryType'] !== 1) {
+        // // Only Memory Agent mode (memoryType = 2) uses sub-agent
+        // if ($config['memoryType'] !== 2) {
         //     return false;
         // }
         // 
@@ -1340,11 +1340,6 @@ class SpiritConversationService
                 'systemPrompt.config.memoryType', 
                 '1'
             ),
-            'includeSubconsciousness' => $this->spiritService->getSpiritSetting(
-                $spiritId, 
-                'systemPrompt.config.includeSubconsciousness', 
-                '1'
-            ) === '1',
         ];
     }
     
@@ -1393,13 +1388,6 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.memoryType',
                 (string) $config['memoryType']
-            );
-        }
-        if (isset($config['includeSubconsciousness'])) {
-            $this->spiritService->setSpiritSetting(
-                $spiritId,
-                'systemPrompt.config.includeSubconsciousness',
-                $config['includeSubconsciousness'] ? '1' : '0'
             );
         }
     }

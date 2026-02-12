@@ -67,19 +67,10 @@ export class SpiritPromptBuilder {
             memoryTypeSelect.addEventListener('change', (e) => {
                 this.config.memoryType = parseInt(e.target.value, 10);
                 this.renderMemorySection(this.promptData?.sections?.memory);
-                this.updateSubconsciousnessVisibility();
                 this.markAsChanged();
             });
         }
         
-        // Subconsciousness Agent toggle (Phase 4)
-        const toggleSubconsciousness = document.getElementById('toggleSubconsciousness');
-        if (toggleSubconsciousness) {
-            toggleSubconsciousness.addEventListener('change', (e) => {
-                this.config.includeSubconsciousness = e.target.checked;
-                this.markAsChanged();
-            });
-        }
         
         if (toggleTools) {
             toggleTools.addEventListener('change', (e) => {
@@ -219,12 +210,6 @@ export class SpiritPromptBuilder {
         if (memoryTypeSelect && sections.memory) {
             memoryTypeSelect.value = String(sections.memory.memoryType ?? 1);
         }
-        // Phase 4: Subconsciousness toggle
-        const toggleSubconsciousness = document.getElementById('toggleSubconsciousness');
-        if (toggleSubconsciousness) {
-            toggleSubconsciousness.checked = this.config.includeSubconsciousness ?? true;
-        }
-        this.updateSubconsciousnessVisibility();
         
         // 5. Tools
         const toolsEl = document.getElementById('sectionTools');
@@ -289,17 +274,21 @@ export class SpiritPromptBuilder {
                 </div>
             `;
         } else if (memoryType === 2) {
-            // Memory Agent (future)
+            // Memory Agent — Reflexes + AI Sub-Agent synthesis
             statsEl.innerHTML = `
                 <div class="p-3 bg-dark bg-opacity-25 rounded">
                     <div class="d-flex align-items-center mb-2">
-                        <i class="mdi mdi-robot-outline me-2 text-info"></i>
+                        <i class="mdi mdi-robot-outline me-2 text-cyber"></i>
                         <strong>Memory Agent</strong>
-                        <span class="text-muted ms-2">(Coming soon)</span>
+                        <span class="text-muted ms-2">(Beta)</span>
                     </div>
-                    <p class="small text-muted mb-0">
+                    <p class="small text-muted mb-2">
                         <i class="mdi mdi-information-outline me-1"></i>
-                        Memory Agent mode is not yet implemented. Currently falls back to Reflexes behavior.
+                        Combines <strong>Reflexes</strong> (FTS5 keyword search) with an <strong>AI Sub-Agent</strong> that evaluates recalled memories and synthesizes contextual summaries for the Spirit.
+                    </p>
+                    <p class="small text-muted mb-0">
+                        <i class="mdi mdi-brain me-1 text-cyber"></i>
+                        Three-step flow: Reflexes recall → AI synthesis → Spirit response. Adds ~$0.0003 per message.
                     </p>
                 </div>
             `;
@@ -436,17 +425,6 @@ export class SpiritPromptBuilder {
         }
     }
     
-    /**
-     * Phase 4: Show/hide Subconsciousness toggle based on memoryType
-     * Only visible when memoryType = 1 (Reflexes)
-     */
-    updateSubconsciousnessVisibility() {
-        const container = document.getElementById('subconsciousnessToggleContainer');
-        if (container) {
-            const memoryType = this.config.memoryType ?? 1;
-            container.style.display = memoryType === 1 ? 'block' : 'none';
-        }
-    }
     
     /**
      * Mark the form as having unsaved changes
