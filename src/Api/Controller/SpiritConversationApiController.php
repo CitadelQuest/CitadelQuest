@@ -218,6 +218,7 @@ class SpiritConversationApiController extends AbstractController
     /**
      * Pre-send: run Reflexes recall, cache system prompt, return recalled nodes
      * Phase 3.5: Separates recall from AI send for visual feedback + timeout prevention
+     * Phase 4: Also returns shouldTriggerSubAgent flag for Subconsciousness agent
      */
     #[Route('/{id}/pre-send', name: 'api_spirit_conversation_pre_send', methods: ['POST'])]
     public function preSend(
@@ -250,12 +251,80 @@ class SpiritConversationApiController extends AbstractController
                 'packInfo' => $result['packInfo'],
             ]);
             
+            // Phase 4: Store user message for sub-agent context
+            // Always store when trigger flag is true (sub-agent endpoint reads it from session)
+            $session->set("recall_{$id}_user_message", $messageText);
+            
             return $this->json([
                 'success' => true,
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
+                'shouldTriggerSubAgent' => $result['shouldTriggerSubAgent'],
                 'cached' => true,
+            ]);
+            
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Phase 4: Run Subconsciousness sub-agent to enrich Reflexes recall.
+     * Called by frontend between pre-send and send-async (Step 1.5).
+     * Reads cached data from session, runs AI sub-agent, overwrites session cache.
+     */
+    #[Route('/{id}/sub-agent-recall', name: 'api_spirit_conversation_sub_agent_recall', methods: ['POST'])]
+    public function subAgentRecall(
+        string $id,
+        Request $request
+    ): JsonResponse {
+        try {
+            $session = $request->getSession();
+            
+            // Read cached data from pre-send
+            $cachedSystemPrompt = $session->get("recall_{$id}_latest");
+            $cachedNodes = $session->get("recall_{$id}_nodes");
+            $userMessageText = $session->get("recall_{$id}_user_message");
+            
+            if (!$cachedSystemPrompt || !$cachedNodes || !$userMessageText) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'No cached recall data found. Pre-send must run first.'
+                ], 400);
+            }
+            
+            $recalledNodes = $cachedNodes['recalledNodes'] ?? [];
+            $keywords = $cachedNodes['keywords'] ?? [];
+            
+            // Run the Subconsciousness sub-agent
+            $result = $this->conversationService->runSubconsciousnessAgent(
+                $id,
+                $userMessageText,
+                $cachedSystemPrompt,
+                $recalledNodes,
+                $keywords
+            );
+            
+            // Overwrite session cache with enriched data
+            $session->set("recall_{$id}_latest", $result['systemPrompt']);
+            $session->set("recall_{$id}_nodes", [
+                'recalledNodes' => $result['recalledNodes'],
+                'keywords' => $keywords,
+                'packInfo' => $cachedNodes['packInfo'] ?? [],
+                'synthesis' => $result['synthesis'],
+                'confidence' => $result['confidence'],
+                'subAgentUsage' => $result['usage'],
+            ]);
+            // Clean up user message from session
+            $session->remove("recall_{$id}_user_message");
+            
+            return $this->json([
+                'success' => true,
+                'recalledNodes' => $result['recalledNodes'],
+                'synthesis' => $result['synthesis'],
+                'confidence' => $result['confidence'],
+                'usage' => $result['usage'],
             ]);
             
         } catch (\Exception $e) {

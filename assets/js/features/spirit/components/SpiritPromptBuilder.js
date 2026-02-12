@@ -67,6 +67,16 @@ export class SpiritPromptBuilder {
             memoryTypeSelect.addEventListener('change', (e) => {
                 this.config.memoryType = parseInt(e.target.value, 10);
                 this.renderMemorySection(this.promptData?.sections?.memory);
+                this.updateSubconsciousnessVisibility();
+                this.markAsChanged();
+            });
+        }
+        
+        // Subconsciousness Agent toggle (Phase 4)
+        const toggleSubconsciousness = document.getElementById('toggleSubconsciousness');
+        if (toggleSubconsciousness) {
+            toggleSubconsciousness.addEventListener('change', (e) => {
+                this.config.includeSubconsciousness = e.target.checked;
                 this.markAsChanged();
             });
         }
@@ -209,6 +219,12 @@ export class SpiritPromptBuilder {
         if (memoryTypeSelect && sections.memory) {
             memoryTypeSelect.value = String(sections.memory.memoryType ?? 1);
         }
+        // Phase 4: Subconsciousness toggle
+        const toggleSubconsciousness = document.getElementById('toggleSubconsciousness');
+        if (toggleSubconsciousness) {
+            toggleSubconsciousness.checked = this.config.includeSubconsciousness ?? true;
+        }
+        this.updateSubconsciousnessVisibility();
         
         // 5. Tools
         const toolsEl = document.getElementById('sectionTools');
@@ -417,6 +433,18 @@ export class SpiritPromptBuilder {
         if (section) {
             section.style.opacity = visible ? '1' : '0.4';
             section.style.pointerEvents = visible ? 'auto' : 'none';
+        }
+    }
+    
+    /**
+     * Phase 4: Show/hide Subconsciousness toggle based on memoryType
+     * Only visible when memoryType = 1 (Reflexes)
+     */
+    updateSubconsciousnessVisibility() {
+        const container = document.getElementById('subconsciousnessToggleContainer');
+        if (container) {
+            const memoryType = this.config.memoryType ?? 1;
+            container.style.display = memoryType === 1 ? 'block' : 'none';
         }
     }
     

@@ -186,6 +186,34 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Phase 4: Run Subconsciousness sub-agent to enrich Reflexes recall.
+     * Called between pre-send and send-async (Step 1.5).
+     * @param {string} conversationId - The ID of the conversation
+     * @returns {Promise<Object>} - Response with recalledNodes, synthesis, confidence
+     */
+    async subAgentRecall(conversationId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${conversationId}/sub-agent-recall`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error?.error || 'Sub-agent recall failed');
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error in sub-agent recall:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send a message (returns immediately without executing tools)
      * @param {string} conversationId - The ID of the conversation
      * @param {string|Array} message - The message to send

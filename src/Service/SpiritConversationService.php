@@ -476,7 +476,9 @@ class SpiritConversationService
      * build system prompt with recalled memories, return recalled node data.
      * The built system prompt is returned for caching in session.
      * 
-     * @return array ['systemPrompt' => string, 'recalledNodes' => array, 'keywords' => array, 'packInfo' => array]
+     * Phase 4: Also evaluates whether the Subconsciousness sub-agent should be triggered.
+     * 
+     * @return array ['systemPrompt' => string, 'recalledNodes' => array, 'keywords' => array, 'packInfo' => array, 'shouldTriggerSubAgent' => bool]
      */
     public function preProcessRecall(
         string $conversationId,
@@ -523,12 +525,71 @@ class SpiritConversationService
             $packInfo = $recallResult['packInfo'] ?? [];
         }
         
+        // Phase 4: Evaluate sub-agent trigger
+        $shouldTriggerSubAgent = $this->shouldTriggerSubAgent($userMessageText, $recalledNodes, $config);
+        
         return [
             'systemPrompt' => $systemMessage,
             'recalledNodes' => $recalledNodes,
             'keywords' => $keywords,
             'packInfo' => $packInfo,
+            'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
+    }
+    
+    /**
+     * Phase 4: Determine whether the Subconsciousness sub-agent should be triggered.
+     * 
+     * Aggressive strategy: trigger on every non-trivial message that has recalled nodes.
+     * Cost per call is negligible (~$0.0003), so we maximize the "magic" experience.
+     */
+    private function shouldTriggerSubAgent(
+        string $userMessageText,
+        array $recalledNodes,
+        array $config
+    ): bool {
+        // TODO: Testing mode — always trigger sub-agent. Restore conditions below when done.
+        return true;
+        
+        // --- Original smart trigger logic (restore after testing) ---
+        // Master toggles: includeMemoryRecall + includeMemory + includeSubconsciousness must be on
+        // if (!$config['includeMemoryRecall'] || !$config['includeMemory'] || !$config['includeSubconsciousness']) {
+        //     return false;
+        // }
+        // 
+        // // Only Reflexes mode (memoryType = 1) supports sub-agent
+        // if ($config['memoryType'] !== 1) {
+        //     return false;
+        // }
+        // 
+        // // No recalled nodes = nothing for sub-agent to evaluate
+        // if (empty($recalledNodes)) {
+        //     return false;
+        // }
+        // 
+        // // Skip trivial messages
+        // $trimmed = trim($userMessageText);
+        // $wordCount = str_word_count($trimmed);
+        // 
+        // // Too short (< 3 words): "hi", "ok", "thanks", emoji-only
+        // if ($wordCount < 3) {
+        //     return false;
+        // }
+        // 
+        // // Greeting/trivial patterns
+        // $trivialPatterns = [
+        //     '/^(hi|hello|hey|hej|ahoj|cau|nazdar)\b/i',
+        //     '/^(thanks?|thank you|ok|okay|sure|cool|nice)\b/i',
+        //     '/^[\p{So}\p{Sk}\s]+$/u',  // emoji-only
+        // ];
+        // foreach ($trivialPatterns as $pattern) {
+        //     if (preg_match($pattern, $trimmed)) {
+        //         return false;
+        //     }
+        // }
+        // 
+        // // All checks passed — trigger sub-agent
+        // return true;
     }
 
     /**
@@ -1279,6 +1340,11 @@ class SpiritConversationService
                 'systemPrompt.config.memoryType', 
                 '1'
             ),
+            'includeSubconsciousness' => $this->spiritService->getSpiritSetting(
+                $spiritId, 
+                'systemPrompt.config.includeSubconsciousness', 
+                '1'
+            ) === '1',
         ];
     }
     
@@ -1327,6 +1393,13 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.memoryType',
                 (string) $config['memoryType']
+            );
+        }
+        if (isset($config['includeSubconsciousness'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'systemPrompt.config.includeSubconsciousness',
+                $config['includeSubconsciousness'] ? '1' : '0'
             );
         }
     }
@@ -2148,6 +2221,7 @@ class SpiritConversationService
                 $recalledNodes[] = [
                     'id' => $node->getId(),
                     'summary' => $node->getSummary(),
+                    'content' => $node->getContent(),
                     'score' => round($result['score'], 3),
                     'category' => $node->getCategory(),
                     'importance' => round($node->getImportance(), 2),
@@ -2212,6 +2286,410 @@ class SpiritConversationService
             ]);
             return $emptyResult;
         }
+    }
+
+    /**
+     * Phase 4: Run the Subconsciousness sub-agent.
+     * 
+     * Takes Reflexes candidates + conversation context, calls a lightweight AI model
+     * to evaluate relevance and produce a contextual synthesis.
+     * Returns enriched system prompt and updated recalled nodes.
+     * 
+     * @param string $conversationId Conversation for context
+     * @param string $userMessageText The user's latest message
+     * @param string $cachedSystemPrompt The system prompt from pre-send (Reflexes)
+     * @param array $recalledNodes Recalled nodes from Reflexes
+     * @param array $keywords Keywords from Reflexes
+     * @return array ['systemPrompt' => string, 'recalledNodes' => array, 'synthesis' => string, 'confidence' => string]
+     */
+    public function runSubconsciousnessAgent(
+        string $conversationId,
+        string $userMessageText,
+        string $cachedSystemPrompt,
+        array $recalledNodes,
+        array $keywords
+    ): array {
+        try {
+            // Get AI model (same as extraction sub-agents: Kael = Gemini Flash)
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if (!$gateway) {
+                throw new \Exception('CQ AI Gateway not found');
+            }
+            $model = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            if (!$model) {
+                $model = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+            }
+            if (!$model) {
+                throw new \Exception('No AI model available for sub-agent');
+            }
+            
+            // Get conversation context (last 5 messages)
+            $messageService = new SpiritConversationMessageService(
+                $this->userDatabaseManager,
+                $this->security,
+                $this->logger
+            );
+            $allMessages = $messageService->getMessagesByConversation($conversationId);
+            $contextMessages = $this->getConversationContext($allMessages, 5);
+            
+            // Build sub-agent system prompt
+            $systemPrompt = $this->buildSubAgentSystemPrompt();
+            
+            // Build sub-agent user message
+            $userMessage = $this->buildSubAgentUserMessage($userMessageText, $contextMessages, $recalledNodes);
+            
+            // Make AI call
+            $messages = [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $userMessage]
+            ];
+            
+            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+                $model->getId(),
+                $messages,
+                null,   // max_tokens (auto)
+                0.3,    // temperature — low for structured output
+                null,
+                []
+            );
+            
+            $userLocale = $this->settingsService->getUserLocale();
+            
+            $aiServiceResponse = $this->aiGatewayService->sendRequest(
+                $aiServiceRequest,
+                'CQ Memory Subconsciousness Sub-Agent',
+                $userLocale['lang'],
+                'general'
+            );
+            
+            // Get usage data for sub-agent call
+            $subAgentUsage = $this->aiServiceUseLogService->getUsageByRequestId($aiServiceRequest->getId());
+            
+            // Parse JSON response
+            $responseContent = $this->extractSubAgentResponseContent($aiServiceResponse);
+            $parsed = $this->parseSubAgentResponse($responseContent);
+            
+            if (!$parsed) {
+                $this->logger->warning('Subconsciousness sub-agent: failed to parse response', [
+                    'response' => mb_substr($responseContent, 0, 500)
+                ]);
+                // Return unchanged — fallback to Reflexes
+                return [
+                    'systemPrompt' => $cachedSystemPrompt,
+                    'recalledNodes' => $recalledNodes,
+                    'synthesis' => '',
+                    'confidence' => 'low',
+                    'usage' => $subAgentUsage,
+                ];
+            }
+            
+            $relevantIds = $parsed['relevant'] ?? [];
+            $synthesis = $parsed['synthesis'] ?? '';
+            $confidence = $parsed['confidence'] ?? 'medium';
+            
+            // Filter recalled nodes: keep only relevant ones
+            $enrichedNodes = [];
+            foreach ($recalledNodes as $node) {
+                if (in_array($node['id'], $relevantIds)) {
+                    $node['relevance'] = 'high';
+                    $enrichedNodes[] = $node;
+                }
+            }
+            
+            // If sub-agent dropped everything, fall back to original nodes
+            if (empty($enrichedNodes) && !empty($recalledNodes)) {
+                $this->logger->debug('Subconsciousness sub-agent: all nodes filtered out, keeping originals');
+                $enrichedNodes = $recalledNodes;
+                $confidence = 'low';
+            }
+            
+            // Build enriched system prompt: replace the <recalled-memories> section
+            $enrichedSystemPrompt = $this->rebuildSystemPromptWithEnrichedRecall(
+                $cachedSystemPrompt,
+                $enrichedNodes,
+                $keywords,
+                $synthesis,
+                $confidence
+            );
+            
+            $this->logger->info('Subconsciousness sub-agent: enriched recall', [
+                'originalNodes' => count($recalledNodes),
+                'enrichedNodes' => count($enrichedNodes),
+                'synthesisLength' => mb_strlen($synthesis),
+                'confidence' => $confidence,
+            ]);
+            
+            return [
+                'systemPrompt' => $enrichedSystemPrompt,
+                'recalledNodes' => $enrichedNodes,
+                'synthesis' => $synthesis,
+                'confidence' => $confidence,
+                'usage' => $subAgentUsage,
+            ];
+            
+        } catch (\Exception $e) {
+            $this->logger->warning('Subconsciousness sub-agent failed: {error}', [
+                'error' => $e->getMessage()
+            ]);
+            // Graceful fallback: return unchanged
+            return [
+                'systemPrompt' => $cachedSystemPrompt,
+                'recalledNodes' => $recalledNodes,
+                'synthesis' => '',
+                'confidence' => 'low',
+            ];
+        }
+    }
+    
+    /**
+     * Build the system prompt for the Subconsciousness sub-agent
+     */
+    private function buildSubAgentSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are a Memory Analyst for a Spirit AI assistant. Your task is to evaluate candidate memories recalled by keyword search and produce a contextual synthesis.
+
+## Input
+You will receive:
+1. The user's latest message
+2. Recent conversation context (last few messages)
+3. Candidate memories found by keyword search (with scores, categories, tags)
+
+## Your Task
+
+### 1. EVALUATE
+For each candidate memory, decide if it is truly relevant to the current conversation context. A memory is relevant if:
+- It directly relates to what the user is talking about
+- It provides useful background context for the Spirit to respond well
+- It contains facts/preferences the Spirit should consider right now
+
+A memory is NOT relevant if:
+- It was matched by keywords but is about a completely different topic
+- It's too generic or stale to be useful for this specific conversation
+
+### 2. SYNTHESIZE
+Write a brief contextual summary (50-150 words) that tells the Spirit:
+- What it should know from these memories for the current conversation
+- Any important connections between the memories
+- Key facts, preferences, or context that should influence the response
+
+The synthesis should read naturally — as if you're briefing someone before a meeting: "Here's what you should know..."
+
+## Output Format
+Respond with ONLY a valid JSON object:
+
+```json
+{
+    "relevant": ["node-id-1", "node-id-3"],
+    "irrelevant": ["node-id-2", "node-id-4"],
+    "synthesis": "Brief contextual summary of what Spirit should know...",
+    "confidence": "high"
+}
+```
+
+## Rules
+1. ONLY output the JSON object, nothing else
+2. Keep synthesis concise but informative (50-150 words)
+3. confidence = "high" if candidates clearly match context, "medium" if partially relevant, "low" if weak matches
+4. If NO candidates are relevant, return empty relevant array and synthesis = "" with confidence = "low"
+5. Write synthesis in the same language as the user's message
+<clean_system_prompt>
+PROMPT;
+    }
+    
+    /**
+     * Build the user message for the Subconsciousness sub-agent
+     */
+    private function buildSubAgentUserMessage(
+        string $userMessageText,
+        array $conversationContext,
+        array $recalledNodes
+    ): string {
+        $message = "## User's Latest Message\n";
+        $message .= $userMessageText . "\n\n";
+        
+        // Last N messages for context
+        if (!empty($conversationContext)) {
+            $message .= "## Recent Conversation Context\n";
+            foreach ($conversationContext as $msg) {
+                $role = $msg['role'] === 'user' ? 'User' : 'Spirit';
+                $content = $msg['content'] ?? '';
+                if (is_array($content)) {
+                    // Extract text from multimodal content
+                    $texts = [];
+                    foreach ($content as $item) {
+                        if (is_string($item)) {
+                            $texts[] = $item;
+                        } elseif (isset($item['text'])) {
+                            $texts[] = $item['text'];
+                        } elseif (isset($item['type']) && $item['type'] === 'text' && isset($item['text'])) {
+                            $texts[] = $item['text'];
+                        }
+                    }
+                    $content = implode(' ', $texts);
+                }
+                // Truncate long messages
+                if (mb_strlen($content) > 300) {
+                    $content = mb_substr($content, 0, 300) . '...';
+                }
+                $message .= "**{$role}**: {$content}\n\n";
+            }
+        }
+        
+        // Candidate memories from Reflexes
+        $message .= "## Candidate Memories (from keyword search)\n";
+        foreach ($recalledNodes as $node) {
+            $tags = !empty($node['tags']) ? implode(', ', $node['tags']) : 'none';
+            $message .= "- **ID**: {$node['id']}\n";
+            $message .= "  **Score**: {$node['score']} | ";
+            $message .= "**Category**: {$node['category']} | ";
+            $message .= "**Importance**: {$node['importance']} | ";
+            $message .= "**Tags**: {$tags}\n";
+            $nodeContent = $node['content'] ?? ($node['summary'] . 'full content not available. ');
+            $message .= "  **Content**: {$nodeContent}\n\n";
+        }
+        
+        return $message;
+    }
+    
+    /**
+     * Extract last N user/assistant messages from conversation for sub-agent context
+     */
+    private function getConversationContext(array $allMessages, int $limit = 5): array
+    {
+        $context = [];
+        // Walk backwards through messages, skip memory_recall type
+        $reversed = array_reverse($allMessages);
+        foreach ($reversed as $msg) {
+            $type = $msg->getType() ?? 'text';
+            if ($type === 'memory_recall') continue;
+            
+            $role = $msg->getRole();
+            if ($role !== 'user' && $role !== 'assistant') continue;
+            
+            $content = $msg->getContent();
+            // Convert SpiritConversationMessage content to simple format
+            if (is_array($content)) {
+                $texts = [];
+                foreach ($content as $item) {
+                    if (is_string($item)) {
+                        $texts[] = $item;
+                    } elseif (isset($item['text'])) {
+                        $texts[] = $item['text'];
+                    }
+                }
+                $content = implode(' ', $texts);
+            }
+            
+            $context[] = [
+                'role' => $role,
+                'content' => $content,
+            ];
+            
+            if (count($context) >= $limit) break;
+        }
+        
+        // Reverse back to chronological order
+        return array_reverse($context);
+    }
+    
+    /**
+     * Extract content from sub-agent AI response
+     */
+    private function extractSubAgentResponseContent($aiServiceResponse): string
+    {
+        $message = $aiServiceResponse->getMessage();
+        $content = $message['content'] ?? '';
+        
+        if (is_array($content)) {
+            foreach ($content as $item) {
+                if (isset($item['type']) && $item['type'] === 'text') {
+                    return $item['text'];
+                }
+            }
+            return '';
+        }
+        
+        return is_string($content) ? $content : '';
+    }
+    
+    /**
+     * Parse the sub-agent's JSON response
+     */
+    private function parseSubAgentResponse(string $responseContent): ?array
+    {
+        // Try direct parse
+        $decoded = json_decode($responseContent, true);
+        if ($decoded && isset($decoded['relevant'])) {
+            return $decoded;
+        }
+        
+        // Try to find JSON in markdown code block
+        if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $responseContent, $matches)) {
+            $decoded = json_decode($matches[1], true);
+            if ($decoded && isset($decoded['relevant'])) {
+                return $decoded;
+            }
+        }
+        
+        // Try to find raw JSON object
+        if (preg_match('/\{[\s\S]*"relevant"[\s\S]*\}/', $responseContent, $matches)) {
+            $decoded = json_decode($matches[0], true);
+            if ($decoded && isset($decoded['relevant'])) {
+                return $decoded;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Rebuild the system prompt replacing <recalled-memories> with enriched version
+     */
+    private function rebuildSystemPromptWithEnrichedRecall(
+        string $cachedSystemPrompt,
+        array $enrichedNodes,
+        array $keywords,
+        string $synthesis,
+        string $confidence
+    ): string {
+        // Remove existing <recalled-memories> section
+        $promptWithoutRecall = preg_replace(
+            '/\s*<recalled-memories[\s\S]*?<\/recalled-memories>/',
+            '',
+            $cachedSystemPrompt
+        );
+        
+        // Build enriched <recalled-memories> XML
+        $count = count($enrichedNodes);
+        $keywordsAttr = htmlspecialchars(implode(', ', $keywords));
+        $xml = "\n\n            <recalled-memories count=\"{$count}\" source=\"subconsciousness\" confidence=\"{$confidence}\" keywords=\"{$keywordsAttr}\">";
+        
+        // Add synthesis
+        if (!empty($synthesis)) {
+            $synthesisEscaped = htmlspecialchars($synthesis);
+            $xml .= "\n                <synthesis>{$synthesisEscaped}</synthesis>";
+        }
+        
+        $xml .= "\n                <note>These memories were evaluated and synthesized by the Subconsciousness Agent. Use the synthesis for context. Individual memories below for detail. Weave these naturally into your response.</note>";
+        
+        foreach ($enrichedNodes as $node) {
+            $score = $node['score'] ?? 0;
+            $importance = $node['importance'] ?? 0.5;
+            $category = htmlspecialchars($node['category'] ?? 'knowledge');
+            $tags = !empty($node['tags']) ? htmlspecialchars(implode(', ', $node['tags'])) : '';
+            $relevance = htmlspecialchars($node['relevance'] ?? 'high');
+            $summary = htmlspecialchars($node['summary'] ?? '');
+            
+            $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
+            $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\">";
+            $xml .= "\n                    {$summary}";
+            $xml .= "\n                </memory>";
+        }
+        
+        $xml .= "\n            </recalled-memories>";
+        
+        return $promptWithoutRecall . $xml;
     }
 
 }

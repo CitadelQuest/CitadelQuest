@@ -1791,6 +1791,33 @@ export class SpiritChatManager {
                     preSendData = preSendResult;
                     memoryGraphEl = this.showMemoryRecallGraph(preSendResult);
                 }
+                
+                // Step 1.5: SUB-AGENT — Subconsciousness enrichment (Phase 4)
+                if (preSendResult.shouldTriggerSubAgent && preSendData) {
+                    try {
+                        this.showSubAgentThinking(memoryGraphEl);
+                        
+                        const subAgentResult = await this.apiService.subAgentRecall(this.currentConversationId);
+                        
+                        if (subAgentResult.success) {
+                            // Merge enriched data
+                            preSendData = {
+                                ...preSendData,
+                                recalledNodes: subAgentResult.recalledNodes,
+                                synthesis: subAgentResult.synthesis,
+                                confidence: subAgentResult.confidence,
+                                subAgentUsage: subAgentResult.usage,
+                                enrichedBySubAgent: true,
+                            };
+                            // Update graph highlights with enriched results
+                            this.updateRecallAfterSubAgent(memoryGraphEl, subAgentResult);
+                        }
+                    } catch (subAgentError) {
+                        // Sub-agent is optional — continue with Reflexes-only
+                        console.warn('Sub-agent failed, using Reflexes results:', subAgentError);
+                    }
+                    this.hideSubAgentThinking(memoryGraphEl);
+                }
             } catch (preSendError) {
                 // Pre-send is optional — if it fails, continue with normal send
                 console.warn('Pre-send failed, continuing with normal send:', preSendError);
@@ -1969,12 +1996,21 @@ export class SpiritChatManager {
         const nodes = recallData?.recalledNodes || [];
         const keywords = recallData?.keywords || [];
         const packInfo = recallData?.packInfo || null;
+        const synthesis = recallData?.synthesis || '';
+        const confidence = recallData?.confidence || '';
+        const subAgentUsage = recallData?.subAgentUsage || null;
         const count = nodes.length;
         
         if (count === 0) return null;
         
         const badgeEl = document.createElement('div');
         badgeEl.className = 'chat-message chat-message-memory-recall flex-column d-inline-block';
+        
+        // Badge label reflects whether sub-agent enriched the recall
+        const isSynthesized = !!synthesis;
+        const badgeLabel = isSynthesized 
+            ? `${count} ${count === 1 ? 'memory' : 'memories'} synthesized`
+            : `${count} ${count === 1 ? 'memory' : 'memories'} recalled`;
         
         // Build expandable details list
         const detailRows = nodes.map(node => {
@@ -1987,23 +2023,45 @@ export class SpiritChatManager {
             </div>`;
         }).join('');
         
+        // Synthesis section (Phase 4)
+        const synthesisHtml = synthesis 
+            ? `<div class="mb-2 p-2 bg-dark bg-opacity-25 rounded" style="font-size: 0.7rem;">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="mdi mdi-brain text-cyber opacity-75 me-1" style="font-size: 0.7rem;"></i>
+                    <span class="text-cyber opacity-75" style="font-size: 0.6rem;">Synthesis</span>
+                    ${confidence ? `<span class="badge bg-dark bg-opacity-50 opacity-50 ms-1" style="font-size: 0.5rem;">${confidence}</span>` : ''}
+                </div>
+                <span class="text-muted">${synthesis}</span>
+            </div>` 
+            : '';
+        
         const keywordsHtml = keywords.length > 0 
             ? `<div class="mt-1 pt-1 border-top border-dark border-opacity-25" style="font-size: 0.6rem;">
                 <span class="text-cyber opacity-50"><i class="mdi mdi-key-variant me-1"></i>${keywords.join(', ')}</span>
                </div>` 
             : '';
         
+        const usageHtml = subAgentUsage 
+            ? `<div class="mt-1 pt-1 border-top border-dark border-opacity-25 d-flex align-items-center gap-2" style="font-size: 0.55rem;">
+                <span class="text-warning opacity-50" title="Subconsciousness Sub-Agent"><i class="mdi mdi-brain me-1"></i>Sub-Agent</span>
+                <span class="opacity-50" title="Tokens"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1"></i>${subAgentUsage.totalTokensFormatted || '0'}</span>
+                <span class="opacity-50" title="Credits"><i class="mdi mdi-circle-multiple-outline text-warning opacity-75 me-1"></i>${subAgentUsage.totalPriceFormatted || '0'}</span>
+               </div>` 
+            : '';
+        
         badgeEl.innerHTML = `
             <div class="d-flex align-items-center gap-2 p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25 cursor-pointer memory-recall-badge">
                 <span class="text-muted small">
-                    <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${count} ${count === 1 ? 'memory' : 'memories'} recalled
+                    <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${badgeLabel}
                 </span>
                 <i class="mdi mdi-chevron-right text-muted opacity-50 small" style="transition: transform 0.2s;"></i>
             </div>
             <div class="d-none p-2 bg-info bg-opacity-10 rounded border border-top-0 border-info border-opacity-25 memory-recall-details">
                 <div class="memory-recall-graph-container" style="position: relative; width: 100%; height: 200px; border-radius: 6px; overflow: hidden; background: rgba(10, 10, 15, 0.8); margin-bottom: 0.5rem;"></div>
+                ${synthesisHtml}
                 ${detailRows}
                 ${keywordsHtml}
+                ${usageHtml}
             </div>
         `;
         
@@ -2139,6 +2197,9 @@ export class SpiritChatManager {
                     recalledNodes: preSendData.recalledNodes,
                     keywords: preSendData.keywords,
                     packInfo: preSendData.packInfo,
+                    synthesis: preSendData.synthesis || '',
+                    confidence: preSendData.confidence || '',
+                    subAgentUsage: preSendData.subAgentUsage || null,
                 };
                 const badgeEl = this.createMemoryRecallBadge(badgeData);
                 graphEl.parentNode.replaceChild(badgeEl, graphEl);
@@ -2146,6 +2207,67 @@ export class SpiritChatManager {
                 graphEl.parentNode.removeChild(graphEl);
             }
         }, 2500);
+    }
+    
+    /**
+     * Phase 4: Show "thinking deeper" overlay on memory graph during sub-agent processing
+     */
+    showSubAgentThinking(graphEl) {
+        if (!graphEl) return;
+        
+        const overlay = graphEl.querySelector('.memory-recall-overlay');
+        if (overlay) {
+            overlay.innerHTML = `
+                <span class="small" style="font-size: 0.6rem; opacity: 0.8;">
+                    <i class="mdi mdi-brain"></i> Thinking deeper...
+                </span>
+            `;
+        }
+        
+        // Add subtle pulse animation to the 3D viewport
+        const viewport = graphEl.querySelector('.memory-recall-viewport');
+        if (viewport) viewport.style.animation = 'pulse-subtle 1.5s ease-in-out infinite';
+    }
+    
+    /**
+     * Phase 4: Hide "thinking deeper" overlay after sub-agent completes
+     */
+    hideSubAgentThinking(graphEl) {
+        if (!graphEl) return;
+        const viewport = graphEl.querySelector('.memory-recall-viewport');
+        if (viewport) viewport.style.animation = '';
+    }
+    
+    /**
+     * Phase 4: Update graph and overlay after sub-agent enrichment
+     */
+    updateRecallAfterSubAgent(graphEl, subAgentResult) {
+        if (!graphEl) return;
+        
+        const nodeCount = subAgentResult.recalledNodes?.length || 0;
+        const confidence = subAgentResult.confidence || 'medium';
+        const overlay = graphEl.querySelector('.memory-recall-overlay');
+        
+        if (overlay) {
+            const icon = confidence === 'high' ? 'mdi-brain' : 'mdi-brain';
+            overlay.innerHTML = `
+                <span class="small" style="font-size: 0.6rem; opacity: 0.7;">
+                    <i class="mdi ${icon}"></i> ${nodeCount} ${nodeCount === 1 ? 'memory' : 'memories'} synthesized
+                </span>
+            `;
+        }
+        
+        // Update graph highlights: dim nodes that were dropped, keep relevant ones glowing
+        if (this.memoryGraphView && subAgentResult.recalledNodes) {
+            const enrichedIds = subAgentResult.recalledNodes.map(n => n.id);
+            // Re-glow only the enriched nodes
+            if (this.memoryGraphView.clearAllGlows) {
+                this.memoryGraphView.clearAllGlows();
+            }
+            enrichedIds.forEach(id => {
+                this.memoryGraphView.glowNodeById(id, true);
+            });
+        }
     }
     
     /**
