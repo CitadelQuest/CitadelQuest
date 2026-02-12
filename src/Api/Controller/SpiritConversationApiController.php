@@ -261,6 +261,7 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
+                'graphData' => $result['graphData'] ?? null,
                 'shouldTriggerSubAgent' => $result['shouldTriggerSubAgent'],
                 'cached' => true,
             ]);

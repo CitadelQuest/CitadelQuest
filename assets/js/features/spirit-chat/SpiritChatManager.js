@@ -1784,6 +1784,7 @@ export class SpiritChatManager {
             // Step 1: PRE-SEND — run Reflexes recall, show 3D memory graph
             let memoryGraphEl = null;
             let preSendData = null;
+            this.memoryGraphData = null; // Reset: each recall may search different packs
             try {
                 const preSendResult = await this.apiService.preSend(this.currentConversationId, messageText);
                 
@@ -1941,26 +1942,13 @@ export class SpiritChatManager {
      */
     async loadMemoryGraphForRecall(graphView, preSendResult) {
         try {
-            // Use cached graph data or fetch from Spirit's root pack
-            if (!this.memoryGraphData && preSendResult.packInfo?.name) {
-                const response = await fetch('/api/memory/pack/open', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        projectId: preSendResult.packInfo.projectId,
-                        path: preSendResult.packInfo.path,
-                        name: preSendResult.packInfo.name
-                    })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    this.memoryGraphData = {
-                        nodes: data.nodes || [],
-                        edges: data.edges || [],
-                        stats: data.stats || {}
-                    };
-                }
+            // Use merged graph data from all searched packs (supplied by pre-send)
+            if (!this.memoryGraphData && preSendResult.graphData) {
+                this.memoryGraphData = {
+                    nodes: preSendResult.graphData.nodes || [],
+                    edges: preSendResult.graphData.edges || [],
+                    stats: {}
+                };
             }
             
             if (this.memoryGraphData) {
@@ -2127,28 +2115,8 @@ export class SpiritChatManager {
                 graphView.controls.autoRotateSpeed = 1.0;
             }
             
-            // Fetch full pack data or use cached
+            // Use cached merged graph data from all searched packs
             let graphData = this.memoryGraphData;
-            if (!graphData && packInfo?.name) {
-                const response = await fetch('/api/memory/pack/open', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        projectId: packInfo.projectId,
-                        path: packInfo.path,
-                        name: packInfo.name
-                    })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    graphData = {
-                        nodes: data.nodes || [],
-                        edges: data.edges || [],
-                        stats: data.stats || {}
-                    };
-                    this.memoryGraphData = graphData;
-                }
-            }
             
             if (graphData) {
                 graphView.loadGraph(graphData);

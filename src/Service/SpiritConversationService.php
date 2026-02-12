@@ -506,6 +506,7 @@ class SpiritConversationService
         $packInfo = [];
         
         $rootNodes = [];
+        $graphData = null;
         if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
             $messageService = new SpiritConversationMessageService(
@@ -525,6 +526,7 @@ class SpiritConversationService
             $keywords = $recallResult['keywords'] ?? [];
             $packInfo = $recallResult['packInfo'] ?? [];
             $rootNodes = $recallResult['rootNodes'] ?? [];
+            $graphData = $recallResult['graphData'] ?? null;
         }
         
         // Phase 4: Evaluate sub-agent trigger
@@ -536,6 +538,7 @@ class SpiritConversationService
             'keywords' => $keywords,
             'packInfo' => $packInfo,
             'rootNodes' => $rootNodes,
+            'graphData' => $graphData,
             'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
     }
@@ -2150,6 +2153,10 @@ class SpiritConversationService
             $packsSearched = 0;
             $rootNodes = []; // Phase 4b: root nodes for Memory Agent context
             $seenRootIds = [];
+            $mergedGraphNodes = []; // All nodes from all searched packs for 3D visualization
+            $mergedGraphEdges = []; // All edges from all searched packs for 3D visualization
+            $seenGraphNodeIds = [];
+            $seenGraphEdgeIds = [];
             
             foreach ($packsToSearch as $packRef) {
                 try {
@@ -2175,6 +2182,26 @@ class SpiritConversationService
                         }
                     } catch (\Exception $e) {
                         // Root node fetch failed for this pack — non-critical, continue
+                    }
+                    
+                    // Collect full graph data from this pack for 3D visualization
+                    // (while pack is open — avoids extra API calls from frontend)
+                    try {
+                        $packGraph = $this->packService->getGraphData();
+                        foreach ($packGraph['nodes'] ?? [] as $gNode) {
+                            if (!in_array($gNode['id'], $seenGraphNodeIds)) {
+                                $seenGraphNodeIds[] = $gNode['id'];
+                                $mergedGraphNodes[] = $gNode;
+                            }
+                        }
+                        foreach ($packGraph['edges'] ?? [] as $gEdge) {
+                            if (!in_array($gEdge['id'], $seenGraphEdgeIds)) {
+                                $seenGraphEdgeIds[] = $gEdge['id'];
+                                $mergedGraphEdges[] = $gEdge;
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Graph data fetch failed — non-critical, 3D scene will be partial
                     }
                     
                     $packResults = $this->packService->recall(
@@ -2217,15 +2244,17 @@ class SpiritConversationService
                 $results = array_slice($results, 0, $limit);
             }
             
+            $mergedGraphData = ['nodes' => $mergedGraphNodes, 'edges' => $mergedGraphEdges];
+            
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
             }
             
             // Build node data for frontend + Phase 4b: include graph neighbors
@@ -2294,6 +2323,7 @@ class SpiritConversationService
                 'keywords' => $keywords,
                 'packInfo' => $packInfo,
                 'rootNodes' => $rootNodes,
+                'graphData' => $mergedGraphData,
             ];
             
         } catch (\Exception $e) {
