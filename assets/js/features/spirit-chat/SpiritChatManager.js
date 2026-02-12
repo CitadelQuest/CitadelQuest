@@ -1028,7 +1028,7 @@ export class SpiritChatManager {
                         frontendDataEl.className = 'chat-message chat-message-system';
                         
                         frontendDataEl.innerHTML = `
-                            <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                            <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
                                 ${item.frontendData}
                             </div>
                         `;
@@ -1042,7 +1042,7 @@ export class SpiritChatManager {
                 frontendDataEl.className = 'chat-message chat-message-system';
                 
                 frontendDataEl.innerHTML = `
-                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
                         ${content.frontendData}
                     </div>
                 `;
@@ -2008,18 +2008,24 @@ export class SpiritChatManager {
         
         // Badge label reflects whether sub-agent enriched the recall
         const isSynthesized = !!synthesis;
-        const badgeLabel = isSynthesized 
+        const expandedCount = nodes.filter(n => n.expanded).length;
+        const hasGraphContext = nodes.some(n => n.graphNeighbors && n.graphNeighbors.length > 0);
+        let badgeLabel = isSynthesized 
             ? `${count} ${count === 1 ? 'memory' : 'memories'} synthesized`
             : `${count} ${count === 1 ? 'memory' : 'memories'} recalled`;
+        if (hasGraphContext || expandedCount > 0) {
+            badgeLabel += expandedCount > 0 ? ` (+${expandedCount} graph)` : ' (graph)';
+        }
         
         // Build expandable details list
         const detailRows = nodes.map(node => {
             const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
             const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
             const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
+            const expandedBadge = node.expanded ? `<span class="badge bg-warning bg-opacity-25 text-warning ms-1" style="font-size: 0.5rem;" title="Discovered via graph relationship">graph</span>` : '';
             return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;overflow: hidden;">
                 <span class="flex-grow-1">${node.summary || 'Memory node'}</span>
-                ${category}${score}${tags}
+                ${expandedBadge}${category}${score}${tags}
             </div>`;
         }).join('');
         
@@ -2576,6 +2582,10 @@ export class SpiritChatManager {
                 </div>
             </div>
         ` : '';
+
+        if (messageEl.innerHTML == '') {
+            messageEl.classList.add('d-none');
+        }
         
         this.chatMessages.appendChild(messageEl);
         this.chatMessages.scrollIntoView({ behavior: 'instant', block: 'end' });
@@ -2726,7 +2736,7 @@ export class SpiritChatManager {
                 frontendDataEl.className = 'chat-message chat-message-system';
                 
                 frontendDataEl.innerHTML = `
-                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>
+                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
                         ${toolResult.frontendData}
                     </div>
                 `;

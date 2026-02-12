@@ -1509,6 +1509,69 @@ class CQMemoryPackService
     }
     
     /**
+     * Phase 4b: Get all 1-hop neighbors of a node via semantic relationships (bidirectional).
+     * Excludes PART_OF relationships (structural, not semantic).
+     * Returns neighbors with relationship type, strength, context, and node summary (short title).
+     * 
+     * Used by Memory Agent Graph Expansion to pre-fetch graph context during pre-send.
+     */
+    public function getNodeNeighborhood(string $nodeId, int $limit = 5): array
+    {
+        $db = $this->getConnection();
+        
+        // Outgoing: this node → neighbor
+        $outgoing = $db->executeQuery(
+            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.source_ref, n.source_range,
+                    r.type as relation_type, r.strength as relation_strength, r.context as relation_context,
+                    'outgoing' as direction
+             FROM memory_nodes n
+             JOIN memory_relationships r ON n.id = r.target_id
+             WHERE r.source_id = ? AND r.type != 'PART_OF' AND n.is_active = 1
+             ORDER BY r.strength DESC
+             LIMIT ?",
+            [$nodeId, $limit]
+        )->fetchAllAssociative();
+        
+        // Incoming: neighbor → this node
+        $incoming = $db->executeQuery(
+            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.source_ref, n.source_range,
+                    r.type as relation_type, r.strength as relation_strength, r.context as relation_context,
+                    'incoming' as direction
+             FROM memory_nodes n
+             JOIN memory_relationships r ON n.id = r.source_id
+             WHERE r.target_id = ? AND r.type != 'PART_OF' AND n.is_active = 1
+             ORDER BY r.strength DESC
+             LIMIT ?",
+            [$nodeId, $limit]
+        )->fetchAllAssociative();
+        
+        // Merge, deduplicate by node ID, sort by strength
+        $neighbors = [];
+        $seen = [];
+        foreach (array_merge($outgoing, $incoming) as $row) {
+            if (in_array($row['id'], $seen)) continue;
+            $seen[] = $row['id'];
+            $neighbors[] = [
+                'id' => $row['id'],
+                'summary' => $row['summary'],
+                'content' => $row['content'],
+                'category' => $row['category'],
+                'importance' => (float) $row['importance'],
+                'sourceRef' => $row['source_ref'],
+                'sourceRange' => $row['source_range'],
+                'relationType' => $row['relation_type'],
+                'relationStrength' => (float) $row['relation_strength'],
+                'relationContext' => $row['relation_context'],
+                'direction' => $row['direction'],
+            ];
+        }
+        
+        // Sort by strength descending, limit
+        usort($neighbors, fn($a, $b) => $b['relationStrength'] <=> $a['relationStrength']);
+        return array_slice($neighbors, 0, $limit);
+    }
+    
+    /**
      * Find the root node for a given node.
      * Looks up the node with same source_ref and depth=0.
      * Returns the root MemoryNode, or null if the node is itself root or standalone.
