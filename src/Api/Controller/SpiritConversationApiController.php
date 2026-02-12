@@ -249,6 +249,7 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
+                'searchedPacks' => $result['searchedPacks'] ?? [],
                 'rootNodes' => $result['rootNodes'] ?? [],
             ]);
             
@@ -262,6 +263,7 @@ class SpiritConversationApiController extends AbstractController
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
                 'graphData' => $result['graphData'] ?? null,
+                'searchedPacks' => $result['searchedPacks'] ?? [],
                 'shouldTriggerSubAgent' => $result['shouldTriggerSubAgent'],
                 'cached' => true,
             ]);
@@ -316,6 +318,7 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $keywords,
                 'packInfo' => $cachedNodes['packInfo'] ?? [],
+                'searchedPacks' => $cachedNodes['searchedPacks'] ?? [],
                 'synthesis' => $result['synthesis'],
                 'confidence' => $result['confidence'],
                 'subAgentUsage' => $result['usage'],

@@ -507,6 +507,7 @@ class SpiritConversationService
         
         $rootNodes = [];
         $graphData = null;
+        $searchedPacks = [];
         if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
             $messageService = new SpiritConversationMessageService(
@@ -527,6 +528,7 @@ class SpiritConversationService
             $packInfo = $recallResult['packInfo'] ?? [];
             $rootNodes = $recallResult['rootNodes'] ?? [];
             $graphData = $recallResult['graphData'] ?? null;
+            $searchedPacks = $recallResult['searchedPacks'] ?? [];
         }
         
         // Phase 4: Evaluate sub-agent trigger
@@ -539,6 +541,7 @@ class SpiritConversationService
             'packInfo' => $packInfo,
             'rootNodes' => $rootNodes,
             'graphData' => $graphData,
+            'searchedPacks' => $searchedPacks,
             'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
     }
@@ -2149,6 +2152,13 @@ class SpiritConversationService
                 ];
             }
             
+            // Build searchedPacks list for frontend persistence (page refresh)
+            $searchedPacks = array_map(fn($p) => [
+                'projectId' => $memoryInfo['projectId'],
+                'path' => $p['path'],
+                'name' => $p['name'],
+            ], $packsToSearch);
+            
             // Search each pack and collect results
             $packsSearched = 0;
             $rootNodes = []; // Phase 4b: root nodes for Memory Agent context
@@ -2247,14 +2257,14 @@ class SpiritConversationService
             $mergedGraphData = ['nodes' => $mergedGraphNodes, 'edges' => $mergedGraphEdges];
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
             }
             
             // Build node data for frontend + Phase 4b: include graph neighbors
@@ -2322,6 +2332,7 @@ class SpiritConversationService
                 'nodes' => $recalledNodes,
                 'keywords' => $keywords,
                 'packInfo' => $packInfo,
+                'searchedPacks' => $searchedPacks,
                 'rootNodes' => $rootNodes,
                 'graphData' => $mergedGraphData,
             ];

@@ -1984,6 +1984,7 @@ export class SpiritChatManager {
         const nodes = recallData?.recalledNodes || [];
         const keywords = recallData?.keywords || [];
         const packInfo = recallData?.packInfo || null;
+        const searchedPacks = recallData?.searchedPacks || [];
         const synthesis = recallData?.synthesis || '';
         const confidence = recallData?.confidence || '';
         const subAgentUsage = recallData?.subAgentUsage || null;
@@ -2072,9 +2073,9 @@ export class SpiritChatManager {
             const isExpanded = !detailsPanel.classList.contains('d-none');
             
             // Lazy-init 3D graph on first expand
-            if (isExpanded && !graphInitialized && packInfo && graphContainer) {
+            if (isExpanded && !graphInitialized && (packInfo || searchedPacks.length) && graphContainer) {
                 graphInitialized = true;
-                this.initBadgeMemoryGraph(graphContainer, nodes, packInfo);
+                this.initBadgeMemoryGraph(graphContainer, nodes, packInfo, searchedPacks);
             }
             
             // Dispose graph when collapsed to free resources
@@ -2092,7 +2093,7 @@ export class SpiritChatManager {
     /**
      * Initialize a compact 3D memory graph inside a badge's detail panel
      */
-    async initBadgeMemoryGraph(container, recalledNodes, packInfo) {
+    async initBadgeMemoryGraph(container, recalledNodes, packInfo, searchedPacks = []) {
         try {
             // Add canvas element required by MemoryGraphView
             const canvas = document.createElement('canvas');
@@ -2115,8 +2116,59 @@ export class SpiritChatManager {
                 graphView.controls.autoRotateSpeed = 1.0;
             }
             
-            // Use cached merged graph data from all searched packs
+            // Use cached merged graph data from all searched packs (live flow)
+            // Fallback: fetch from all searchedPacks (page refresh — memoryGraphData is null)
             let graphData = this.memoryGraphData;
+            if (!graphData && searchedPacks.length > 0) {
+                const mergedNodes = [];
+                const mergedEdges = [];
+                const seenNodeIds = new Set();
+                const seenEdgeIds = new Set();
+                for (const pack of searchedPacks) {
+                    try {
+                        const response = await fetch('/api/memory/pack/open', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                projectId: pack.projectId,
+                                path: pack.path,
+                                name: pack.name
+                            })
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            for (const n of (data.nodes || [])) {
+                                if (!seenNodeIds.has(n.id)) { seenNodeIds.add(n.id); mergedNodes.push(n); }
+                            }
+                            for (const e of (data.edges || [])) {
+                                if (!seenEdgeIds.has(e.id)) { seenEdgeIds.add(e.id); mergedEdges.push(e); }
+                            }
+                        }
+                    } catch (err) {
+                        // Pack fetch failed — partial graph is acceptable
+                    }
+                }
+                graphData = { nodes: mergedNodes, edges: mergedEdges, stats: {} };
+                this.memoryGraphData = graphData;
+            } else if (!graphData && packInfo?.name) {
+                // Legacy fallback: older messages without searchedPacks
+                try {
+                    const response = await fetch('/api/memory/pack/open', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectId: packInfo.projectId,
+                            path: packInfo.path,
+                            name: packInfo.name
+                        })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        graphData = { nodes: data.nodes || [], edges: data.edges || [], stats: data.stats || {} };
+                        this.memoryGraphData = graphData;
+                    }
+                } catch (err) { /* non-critical */ }
+            }
             
             if (graphData) {
                 graphView.loadGraph(graphData);
