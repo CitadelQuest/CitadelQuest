@@ -257,6 +257,9 @@ class SpiritConversationApiController extends AbstractController
             // Always store when trigger flag is true (sub-agent endpoint reads it from session)
             $session->set("recall_{$id}_user_message", $messageText);
             
+            // Release session lock early — prevents blocking other requests from this user
+            $session->save();
+            
             return $this->json([
                 'success' => true,
                 'recalledNodes' => $result['recalledNodes'],
@@ -302,6 +305,9 @@ class SpiritConversationApiController extends AbstractController
             $keywords = $cachedNodes['keywords'] ?? [];
             $rootNodes = $cachedNodes['rootNodes'] ?? [];
             
+            // Release session lock early — the AI call below can take 3-15s
+            $session->save();
+            
             // Run the Subconsciousness sub-agent
             $result = $this->conversationService->runSubconsciousnessAgent(
                 $id,
@@ -325,6 +331,9 @@ class SpiritConversationApiController extends AbstractController
             ]);
             // Clean up user message from session
             $session->remove("recall_{$id}_user_message");
+            
+            // Release session lock after writing enriched results
+            $session->save();
             
             return $this->json([
                 'success' => true,
@@ -423,6 +432,10 @@ class SpiritConversationApiController extends AbstractController
                 $session->remove("recall_{$id}_nodes"); // one-shot: clear after use
             }
             
+            // Release session lock early — the AI call below can take 5-60s+
+            // All session data has been read and cleared; no further session access needed
+            $session->save();
+            
             // Save memory_recall message if pre-send returned recalled nodes (Phase 3.5)
             if ($cachedRecallNodes && !empty($cachedRecallNodes['recalledNodes'])) {
                 $messageService->createMessage(
@@ -486,6 +499,9 @@ class SpiritConversationApiController extends AbstractController
             $locale = $request->getSession()->get('_locale') ?? 
                       $request->getSession()->get('citadel_locale') ?? 'en';
             $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+            
+            // Release session lock early — tool execution + AI call can take 5-30s+
+            $request->getSession()->save();
             
             // Execute tools and get AI's next response
             $aiResponse = $this->conversationService->executeToolsAsync(

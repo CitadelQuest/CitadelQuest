@@ -349,6 +349,9 @@ class CQMemoryPackApiController extends AbstractController
             return new JsonResponse(['error' => 'Either sourceRef or content is required'], 400);
         }
 
+        // Release session lock early — extraction involves file I/O + pack DB writes
+        $request->getSession()->save();
+
         try {
             // Prepare arguments for pack-based extraction
             $arguments = [
@@ -559,6 +562,9 @@ class CQMemoryPackApiController extends AbstractController
         if (!$path || !$name) {
             return new JsonResponse(['error' => 'path and name are required'], 400);
         }
+
+        // Release session lock early — job steps make AI calls (3-15s+)
+        $request->getSession()->save();
 
         try {
             $targetPack = [

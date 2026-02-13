@@ -212,6 +212,9 @@ class CQMemoryController extends AbstractController
                 return new JsonResponse(['error' => 'Either sourceRef or content is required'], 400);
             }
 
+            // Release session lock early — extraction involves file I/O + pack DB writes
+            $request->getSession()->save();
+
             // Call memoryExtract AI Tool
             $result = $this->aiToolMemoryService->memoryExtract($arguments);
 

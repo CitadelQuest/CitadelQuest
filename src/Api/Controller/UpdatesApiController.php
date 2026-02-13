@@ -31,6 +31,10 @@ class UpdatesApiController extends AbstractController
             $since = $request->query->get('since', null);
             $openChatId = $request->query->get('openChatId', null);
 
+            // Release session lock early — Memory Job steps make AI calls (3-15s+)
+            // No session data needed for updates polling
+            $request->getSession()->save();
+
             $updates = $this->updatesService->getUpdates($since, $openChatId);
 
             return $this->json($updates);
