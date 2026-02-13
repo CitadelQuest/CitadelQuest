@@ -455,6 +455,11 @@ class SpiritConversationApiController extends AbstractController
                 }
             }
             
+            // Include saved files/images info for live UI update
+            if (!empty($newFilesInfo) || !empty($newImagesInfo)) {
+                $aiResponse['savedAttachments'] = array_merge($newFilesInfo, $newImagesInfo);
+            }
+            
             return $this->json($aiResponse);
             
         } catch (\Exception $e) {

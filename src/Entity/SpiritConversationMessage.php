@@ -162,8 +162,8 @@ class SpiritConversationMessage implements \JsonSerializable
             'parentMessageId' => $this->parentMessageId,
             'aiServiceRequestId' => $this->aiServiceRequestId,
             'aiServiceResponseId' => $this->aiServiceResponseId,
-            'createdAt' => $this->createdAt->format('Y-m-d H:i:s'),
-            'timestamp' => $this->createdAt->format('Y-m-d H:i:s')  // For frontend compatibility
+            'createdAt' => $this->createdAt->format('c'),
+            'timestamp' => $this->createdAt->format('c')  // ISO 8601 with timezone for correct JS parsing
         ];
     }
 }

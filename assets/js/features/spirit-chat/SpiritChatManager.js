@@ -1071,7 +1071,7 @@ export class SpiritChatManager {
         if (message.role === 'assistant' && message.usage) {
             const tokens = message.usage.totalTokensFormatted;
             const price = message.usage.totalPriceFormatted;
-            if (tokens > 0 || price > 0) {
+            if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
                     <div class="chat-usage small text-muted opacity-50">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
@@ -1100,7 +1100,7 @@ export class SpiritChatManager {
             if (message.usage) {
                 const tokens = message.usage.totalTokensFormatted;
                 const price = message.usage.totalPriceFormatted;
-                if (tokens > 0 || price > 0) {
+                if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                     filterUsageHtml = `
                         <span class="small text-muted opacity-50 ms-2">
                             <i class="mdi mdi-tally-mark-5 me-1 text-warning opacity-50" title="Tokens"></i>${tokens}
@@ -1142,7 +1142,7 @@ export class SpiritChatManager {
                 if (message.usage) {
                     const tokens = message.usage.totalTokensFormatted;
                     const price = message.usage.totalPriceFormatted;
-                    if (tokens > 0 || price > 0) {
+                    if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                         toolUsageHtml = `
                             <span class="small text-muted opacity-50 ms-2">
                                 <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens}
@@ -1289,8 +1289,9 @@ export class SpiritChatManager {
                 modal.hide();
             }
             
-            // Clear deleteConversationId
-            this.deleteConversationId = null;            
+            // Clear deleteConversationId and localStorage
+            this.deleteConversationId = null;
+            localStorage.removeItem('config.chat.last_conversation_id');            
             
             // Refresh conversations list
             this.loadConversations();
@@ -1680,8 +1681,15 @@ export class SpiritChatManager {
         for (let item of items) {
             if (item.type.startsWith('image/')) {
                 e.preventDefault();
-                const file = item.getAsFile();
+                let file = item.getAsFile();
                 if (file) {
+                    // Clipboard images often have empty or generic names — generate a proper one
+                    if (!file.name || file.name === '' || file.name === 'image.png' || !file.name.includes('.')) {
+                        const ext = item.type.split('/')[1] || 'png';
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        const newName = `clipboard-${timestamp}.${ext}`;
+                        file = new File([file], newName, { type: file.type });
+                    }
                     this.handleUploadedFiles([file]);
                 }
                 return;
@@ -1692,8 +1700,12 @@ export class SpiritChatManager {
         for (let item of items) {
             if (item.type === 'application/pdf') {
                 e.preventDefault();
-                const file = item.getAsFile();
+                let file = item.getAsFile();
                 if (file) {
+                    if (!file.name || file.name === '' || !file.name.includes('.')) {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        file = new File([file], `clipboard-${timestamp}.pdf`, { type: file.type });
+                    }
                     this.handleUploadedFiles([file]);
                 }
                 return;
@@ -1723,7 +1735,30 @@ export class SpiritChatManager {
      * Phase 3.5: Two-step flow — pre-send (Reflexes + 3D graph) → send-async (AI)
      */
     async sendMessage() {
-        if (!this.currentConversationId || !this.messageInput || !this.messageInput.value.trim()) return;
+        if (!this.messageInput || !this.messageInput.value.trim()) return;
+
+        // Auto-create conversation if none is active
+        if (!this.currentConversationId) {
+            if (!this.currentSpiritId) return;
+            try {
+                const title = this.messageInput.value.trim().substring(0, 60) + (this.messageInput.value.trim().length > 60 ? '...' : '');
+                const conversation = await this.apiService.createConversation(this.currentSpiritId, title);
+                this.currentConversationId = conversation.id;
+                localStorage.setItem('config.chat.last_conversation_id', conversation.id);
+                localStorage.setItem('config.chat.last_conversation_spirit_id', this.currentSpiritId);
+                this.spiritChatModalTitle.innerHTML = title;
+                if (this.chatContainer) {
+                    this.chatContainer.classList.remove('d-none');
+                }
+                if (this.chatMessages) {
+                    this.chatMessages.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error auto-creating conversation:', error);
+                window.toast.error(error.message || 'Failed to create conversation');
+                return;
+            }
+        }
 
         this.sendMessageBtn.disabled = true;
         this.executionStopped = false;
@@ -1844,6 +1879,17 @@ export class SpiritChatManager {
                 throw new Error(response.error);
             }
             
+            // Append saved attachment info to user message (live, without refresh)
+            if (response.savedAttachments && response.savedAttachments.length > 0) {
+                const lastUserBubble = this.chatMessages.querySelector('.chat-message-user:last-of-type .chat-content');
+                if (lastUserBubble) {
+                    const attachmentHtml = '<div style="clear:both;"></div>' + response.savedAttachments
+                        .map(a => this.formatMessageContent(a.text))
+                        .join('');
+                    lastUserBubble.insertAdjacentHTML('beforeend', attachmentHtml);
+                }
+            }
+            
             // Add AI's response to UI
             this.addAssistantMessageToUI(response.message);
             
@@ -1855,7 +1901,7 @@ export class SpiritChatManager {
             
             // If AI wants to use tools, execute them
             if (response.requiresToolExecution && response.toolCalls) {
-                await this.executeToolChain(response.message.id, response.toolCalls, maxOutput, 0.5/* temperature */);
+                await this.executeToolChain(response.message.id, response.toolCalls, maxOutput, 0.5/* temperature */, response.message?.usage);
             }
             
             // Update conversation list to reflect changes
@@ -2499,7 +2545,7 @@ export class SpiritChatManager {
         messageEl.innerHTML = formattedContent != '' ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-timestamp">${formattedDate} <span class="text-cyber opacity-75">/</span> ${formattedTime}</div>
+                <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>
             </div>
         ` : '';
         
@@ -2583,7 +2629,7 @@ export class SpiritChatManager {
         if (message.usage) {
             const tokens = message.usage.totalTokensFormatted;
             const price = message.usage.totalPriceFormatted;
-            if (tokens > 0 || price > 0) {
+            if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
                     <div class="chat-usage small text-muted opacity-50">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
@@ -2614,7 +2660,7 @@ export class SpiritChatManager {
     /**
      * Execute tool chain (loop until no more tools needed)
      */
-    async executeToolChain(messageId, toolCalls, maxOutput, temperature) {
+    async executeToolChain(messageId, toolCalls, maxOutput, temperature, previousCallUsage = null) {
         this.isExecutingTools = true;
         
         // Show stop button
@@ -2645,12 +2691,14 @@ export class SpiritChatManager {
                 
                 // Replace loading spinner with success indicator
                 if (toolIndicator) {
-                    // Format usage info for tool execution
+                    // Use the PREVIOUS call's usage (the AI call that requested these tools)
+                    // not the current response's usage (which is the AI call after tool execution)
+                    const toolUsage = previousCallUsage || null;
                     let toolUsageHtml = '';
-                    if (response.message?.usage) {
-                        const tokens = response.message.usage.totalTokensFormatted;
-                        const price = response.message.usage.totalPriceFormatted;
-                        if (tokens > 0 || price > 0) {
+                    if (toolUsage) {
+                        const tokens = toolUsage.totalTokensFormatted;
+                        const price = toolUsage.totalPriceFormatted;
+                        if (toolUsage.totalTokens > 0 || toolUsage.totalPrice > 0) {
                             toolUsageHtml = `
                                 <span class="small text-muted opacity-50 ms-2">
                                     <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens} <i class="mdi mdi-circle-small opacity-75 me-1"></i>
@@ -2689,6 +2737,7 @@ export class SpiritChatManager {
                 // Continue with next tool calls
                 messageId = response.message.id;
                 toolCalls = response.toolCalls;
+                previousCallUsage = response.message?.usage;
                 
             } catch (error) {
                 console.error('Error executing tools:', error);

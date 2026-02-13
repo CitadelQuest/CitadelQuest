@@ -10,6 +10,7 @@ use App\Service\ProjectFileService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
 class AiServiceResponseService
 {
@@ -19,7 +20,8 @@ class AiServiceResponseService
         private readonly Security $security,
         private readonly ProjectFileService $projectFileService,
         private readonly LoggerInterface $logger,
-        private readonly AnnoService $annoService
+        private readonly AnnoService $annoService,
+        private readonly SluggerInterface $slugger
     ) {
     }
     
