@@ -310,10 +310,11 @@ class CitadelQuestUpdater
             $zip->close();
 
             // clear /vendor dir
-            if (version_compare(str_replace('v', '', $this->version), '0.5.31', '<')) {
+            // always
+            //if (version_compare(str_replace('v', '', $this->version), '0.5.31', '<')) {
                 //error_log("version: " . $this->version . " is less than 0.5.31 >> removing /vendor");
                 $this->removeDirectory($this->installDir . '/vendor');
-            }
+            //}
             
             // Update files
             $this->log("Updating files...");

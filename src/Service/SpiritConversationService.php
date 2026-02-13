@@ -892,12 +892,10 @@ class SpiritConversationService
         } else {
             // Update ALL messages (for vacuum/cleanup operations)
             $db->executeStatement(
-                'UPDATE ai_service_request SET messages = "removed" 
-                 WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE ai_service_request_id IS NOT NULL)'
+                'UPDATE ai_service_request SET messages = "removed", tools = "removed"'
             );
             $db->executeStatement(
-                'UPDATE ai_service_response SET message = "removed", full_response = "removed" 
-                 WHERE id IN (SELECT ai_service_response_id FROM spirit_conversation_message WHERE ai_service_response_id IS NOT NULL)'
+                'UPDATE ai_service_response SET message = "removed", full_response = "removed"'
             );
         }
     }
