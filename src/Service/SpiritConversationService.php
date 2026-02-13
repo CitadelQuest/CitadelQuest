@@ -1457,7 +1457,7 @@ class SpiritConversationService
             case 1:
             default:
                 // Reflexes — CQ Memory graph-based with automatic recall
-                return $this->buildMemorySectionCQMemoryReflexes($spirit);
+                return $this->buildMemorySectionCQMemoryReflexes($spirit, $config['includeTools']);
         }
     }
     
@@ -1465,41 +1465,25 @@ class SpiritConversationService
      * Build Memory section for CQ Memory Reflexes mode (memoryType = 1)
      * Returns only the <spirit-memory-system> content (projects section is separate)
      */
-    private function buildMemorySectionCQMemoryReflexes(Spirit $spirit): string
+    private function buildMemorySectionCQMemoryReflexes(Spirit $spirit, bool $includeTools = true): string
     {
-        /*
-                
-                <available-tools>
-                    <tool name=\"memoryStore\">
-                        Store new memories. Categories: conversation, thought, knowledge, fact, preference.
-                        You can add tags and link to related memories.
-                        Example: Store user preferences, important facts, conversation summaries.
-                    </tool>
-                    <tool name=\"memoryRecall\">
-                        Search and retrieve memories by query, category, or tags.
-                        Returns scored results with related memories.
-                        Use this to remember things about the user or past conversations.
-                    </tool>
-                    <tool name=\"memoryUpdate\">
-                        Update existing memories when information changes.
-                        Creates new version of the memory from the old one.
-                    </tool>
-                    <tool name=\"memoryForget\">
-                        Mark memories as forgotten (soft delete) when they become irrelevant.
-                    </tool>
-                    <tool name=\"memoryExtract\">
-                        Extract memories from content using AI Sub-Agent. SMART FEATURES:
-                        - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
-                        - Prevents duplicate extraction of same source
-                        Use sourceType + sourceRef to auto-load:
-                        - document: \"projectId:path:filename\" (e.g., \"general:/docs:readme.md\")
-                        - spirit_conversation: conversation ID, or alias \"current\"/\"active\"/\"now\" for the most recent conversation, or \"all\" to batch-extract ALL conversations (skips already-extracted ones)
-                        - url: URL string (e.g., \"https://example.com/article\")
-                        Use 'force: true' to re-extract already processed sources.
-                    </tool>
-                </available-tools>
-
-        */
+        // Dynamically build <available-tools> from active memory tools in DB (respects includeTools config)
+        $toolsSection = '';
+        if ($includeTools) {
+            $memoryToolNames = ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract'];
+            $toolsXml = '';
+            foreach ($memoryToolNames as $toolName) {
+                $tool = $this->aiToolService->findByName($toolName);
+                if ($tool && $tool->isActive()) {
+                    $desc = htmlspecialchars($tool->getDescription(), ENT_XML1, 'UTF-8');
+                    $toolsXml .= "\n                    <tool name=\"{$toolName}\">\n                        {$desc}\n                    </tool>";
+                }
+            }
+            if (!empty($toolsXml)) {
+                $toolsSection = "\n\n                <available-tools>{$toolsXml}\n                </available-tools>";
+            }
+        }
+        
         return "
             <spirit-memory-system version=\"cq-memory\">
                 <overview>
@@ -1514,30 +1498,13 @@ class SpiritConversationService
                     based on what the user says. Use these naturally in your responses without 
                     explicitly saying \"I recalled...\" — just weave the knowledge in naturally,
                     as if you simply remember it.
-                </automatic-recall>
-
-                <available-tools>
-                    <tool name=\"memoryExtract\">
-                        Extract memories from content using AI Sub-Agent. SMART FEATURES:
-                        - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
-                        - Prevents duplicate extraction of same source
-                        Use sourceType + sourceRef to auto-load:
-                        - document: \"projectId:path:filename\" (e.g., \"general:/docs:readme.md\")
-                        - spirit_conversation: conversation ID, or alias \"current\"/\"active\"/\"now\" for the most recent conversation, or \"all\" to batch-extract ALL conversations (skips already-extracted ones)
-                        - url: URL string (e.g., \"https://example.com/article\")
-                        Use 'force: true' to re-extract already processed sources.
-                    </tool>
-                </available-tools>
+                </automatic-recall>{$toolsSection}
                 
                 <best-practices>
-                    - Store important user preferences with category 'preference' and high importance (0.8-1.0)
-                    - Store facts about the user with category 'fact'
-                    - Store conversation summaries with category 'conversation' after meaningful interactions
                     - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
                     - When automatic recall provides relevant context, use it naturally
                     - Use memoryRecall tool for deeper/specific searches beyond automatic recall
-                    - Update memories when information changes rather than creating duplicates
-                    - Keep memories concise and self-contained
+                    - Always use sourceType=\"spirit_conversation\" for extracting conversation content - on User's request only! Usually at the ver end of conversation.
                 </best-practices>
             </spirit-memory-system>";
     }
