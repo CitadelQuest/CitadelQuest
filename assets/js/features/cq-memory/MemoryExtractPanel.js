@@ -591,7 +591,7 @@ export class MemoryExtractPanel {
             if (isComplete) {
                 icon = 'check-circle';
             } else /* if (job.status === 'processing') */ {
-                icon = 'cog mdi-spin';
+                icon = 'cog mdi-spin text-cyber';
             }
             
             return `
@@ -735,10 +735,14 @@ export class MemoryExtractPanel {
             return;
         }
 
-        // Populate conversation selector (already ordered by last_interaction DESC from backend)
+        // Sort by created_at descending (newest first)
+        const sorted = [...spirit.conversations].sort((a, b) => {
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+
         let options = `<option value="">-- ${t.select_conversation || 'Select Conversation'} --</option>`;
-        for (const conv of spirit.conversations) {
-            options += `<option value="${conv.id}">${conv.title} (${conv.lastInteraction})</option>`;
+        for (const conv of sorted) {
+            options += `<option value="${conv.id}">${conv.title} (${conv.createdAt})</option>`;
         }
         convSelector.innerHTML = options;
         convSelector.disabled = false;

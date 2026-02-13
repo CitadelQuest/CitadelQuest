@@ -508,7 +508,7 @@ class SpiritConversationService
         $rootNodes = [];
         $graphData = null;
         $searchedPacks = [];
-        if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($userMessageText)) {
+        if ($config['includeMemory'] && $config['memoryType'] >= 1 && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
             $messageService = new SpiritConversationMessageService(
                 $this->userDatabaseManager,
@@ -557,48 +557,43 @@ class SpiritConversationService
         array $recalledNodes,
         array $config
     ): bool {
-        // TODO: Testing mode — always trigger sub-agent. Restore conditions below when done.
+        // Master toggle: includeMemory must be on, memoryType must be Memory Agent (2)
+        if (!$config['includeMemory'] || $config['memoryType'] !== 2) {
+            return false;
+        }
+        
+        // No recalled nodes = nothing for sub-agent to evaluate
+        if (empty($recalledNodes)) {
+            return false;
+        }
+        
+        // TODO: Testing hack — always trigger sub-agent for Memory Agent mode. Remove after testing.
         return true;
         
         // --- Smart trigger logic (restore after testing) ---
-        // Master toggles: includeMemoryRecall + includeMemory must be on
-        // if (!$config['includeMemoryRecall'] || !$config['includeMemory']) {
-        //     return false;
-        // }
-        // 
-        // // Only Memory Agent mode (memoryType = 2) uses sub-agent
-        // if ($config['memoryType'] !== 2) {
-        //     return false;
-        // }
-        // 
-        // // No recalled nodes = nothing for sub-agent to evaluate
-        // if (empty($recalledNodes)) {
-        //     return false;
-        // }
-        // 
-        // // Skip trivial messages
-        // $trimmed = trim($userMessageText);
-        // $wordCount = str_word_count($trimmed);
-        // 
-        // // Too short (< 3 words): "hi", "ok", "thanks", emoji-only
-        // if ($wordCount < 3) {
-        //     return false;
-        // }
-        // 
-        // // Greeting/trivial patterns
-        // $trivialPatterns = [
-        //     '/^(hi|hello|hey|hej|ahoj|cau|nazdar)\b/i',
-        //     '/^(thanks?|thank you|ok|okay|sure|cool|nice)\b/i',
-        //     '/^[\p{So}\p{Sk}\s]+$/u',  // emoji-only
-        // ];
-        // foreach ($trivialPatterns as $pattern) {
-        //     if (preg_match($pattern, $trimmed)) {
-        //         return false;
-        //     }
-        // }
-        // 
-        // // All checks passed — trigger sub-agent
-        // return true;
+        // Skip trivial messages
+        $trimmed = trim($userMessageText);
+        $wordCount = str_word_count($trimmed);
+        
+        // Too short (< 3 words): "hi", "ok", "thanks", emoji-only
+        if ($wordCount < 3) {
+            return false;
+        }
+        
+        // Greeting/trivial patterns
+        $trivialPatterns = [
+            '/^(hi|hello|hey|hej|ahoj|cau|nazdar)\b/i',
+            '/^(thanks?|thank you|ok|okay|sure|cool|nice)\b/i',
+            '/^[\p{So}\p{Sk}\s]+$/u',  // emoji-only
+        ];
+        foreach ($trivialPatterns as $pattern) {
+            if (preg_match($pattern, $trimmed)) {
+                return false;
+            }
+        }
+        
+        // All checks passed — trigger sub-agent
+        return true;
     }
 
     /**
@@ -1054,7 +1049,7 @@ class SpiritConversationService
             
             // Append recalled memories based on latest user message (Tier 1: SQL Reflexes + Phase 3: Smart Triggering)
             $config = $this->getPromptConfig($spirit->getId());
-            if ($config['includeMemoryRecall'] && $config['includeMemory'] && !empty($latestUserMessageText)) {
+            if ($config['includeMemory'] && $config['memoryType'] >= 1 && !empty($latestUserMessageText)) {
                 $recalledMemories = $this->buildRecalledMemoriesSection($spirit, $latestUserMessageText, $messages);
                 if (!empty($recalledMemories)) {
                     $systemMessage .= $recalledMemories;
@@ -1339,11 +1334,6 @@ class SpiritConversationService
                 'systemPrompt.config.includeLanguage', 
                 '1'
             ) === '1',
-            'includeMemoryRecall' => $this->spiritService->getSpiritSetting(
-                $spiritId, 
-                'systemPrompt.config.includeMemoryRecall', 
-                '1'
-            ) === '1',
             'memoryType' => (int) $this->spiritService->getSpiritSetting(
                 $spiritId, 
                 'systemPrompt.config.memoryType', 
@@ -1383,13 +1373,6 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.includeLanguage',
                 $config['includeLanguage'] ? '1' : '0'
-            );
-        }
-        if (isset($config['includeMemoryRecall'])) {
-            $this->spiritService->setSpiritSetting(
-                $spiritId,
-                'systemPrompt.config.includeMemoryRecall',
-                $config['includeMemoryRecall'] ? '1' : '0'
             );
         }
         if (isset($config['memoryType'])) {
@@ -1534,6 +1517,19 @@ class SpiritConversationService
                     explicitly saying \"I recalled...\" — just weave the knowledge in naturally,
                     as if you simply remember it.
                 </automatic-recall>
+
+                <available-tools>
+                    <tool name=\"memoryExtract\">
+                        Extract memories from content using AI Sub-Agent. SMART FEATURES:
+                        - Auto-loads content from files/conversations/URLs (no need to call getFileContent or fetchURL first!)
+                        - Prevents duplicate extraction of same source
+                        Use sourceType + sourceRef to auto-load:
+                        - document: \"projectId:path:filename\" (e.g., \"general:/docs:readme.md\")
+                        - spirit_conversation: conversation ID, or alias \"current\"/\"active\"/\"now\" for the most recent conversation, or \"all\" to batch-extract ALL conversations (skips already-extracted ones)
+                        - url: URL string (e.g., \"https://example.com/article\")
+                        Use 'force: true' to re-extract already processed sources.
+                    </tool>
+                </available-tools>
                 
                 <best-practices>
                     - Store important user preferences with category 'preference' and high importance (0.8-1.0)
