@@ -2896,7 +2896,20 @@ PROMPT;
             }
 
             $payload = $job->getPayload();
-            
+
+            // Concurrent processing guard: prevent duplicate step execution
+            // Two paths process steps: GUI (/api/memory/pack/step) and polling (/api/updates)
+            // Without this lock, both can process the same needs_init step simultaneously,
+            // creating duplicate root nodes and sub-nodes.
+            $stepLockedAt = $payload['step_locked_at'] ?? 0;
+            if (time() - $stepLockedAt < 30) {
+                $this->packService->close();
+                return false; // Another process is handling this step
+            }
+            // Claim the lock before AI calls (which take 5-15s)
+            $payload['step_locked_at'] = time();
+            $this->packService->updateJobPayload($jobId, $payload);
+
             // Get AI model
             $aiServiceModel = $this->getExtractionModel();
             if (!$aiServiceModel) {
@@ -2993,6 +3006,8 @@ PROMPT;
                 $payload['extracted_node_ids'] = [$rootNode->getId()];
 
                 $this->packService->updateJobProgress($jobId, 1, 1 + count($pendingBlocks));
+                // Release step lock so next step can be picked up
+                unset($payload['step_locked_at']);
                 $this->packService->updateJobPayload($jobId, $payload);
                 $this->packService->close();
 
@@ -3167,7 +3182,8 @@ PROMPT;
             // Update job in pack DB
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingBlocks));
             
-            // Update payload
+            // Release step lock and update payload
+            unset($payload['step_locked_at']);
             $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
@@ -3214,6 +3230,16 @@ PROMPT;
             }
 
             $payload = $job->getPayload();
+
+            // Concurrent processing guard (same as extraction — see processPackExtractionJobStep)
+            $stepLockedAt = $payload['step_locked_at'] ?? 0;
+            if (time() - $stepLockedAt < 30) {
+                $this->packService->close();
+                return false; // Another process is handling this step
+            }
+            $payload['step_locked_at'] = time();
+            $this->packService->updateJobPayload($jobId, $payload);
+
             $pendingPairs = $payload['pending_pairs'] ?? [];
             $processedCount = $payload['processed_count'] ?? 0;
             $relationshipsCreated = $payload['relationships_created'] ?? 0;
@@ -3337,6 +3363,8 @@ PROMPT;
             $payload['relationships_created'] = $relationshipsCreated;
             
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingPairs));
+            // Release step lock
+            unset($payload['step_locked_at']);
             $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
