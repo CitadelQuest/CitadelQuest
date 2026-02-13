@@ -1335,7 +1335,7 @@ class SpiritConversationService
             'memoryType' => (int) $this->spiritService->getSpiritSetting(
                 $spiritId, 
                 'systemPrompt.config.memoryType', 
-                '1'
+                '2'
             ),
         ];
     }

@@ -208,7 +208,7 @@ export class SpiritPromptBuilder {
         }
         const memoryTypeSelect = document.getElementById('memoryTypeSelect');
         if (memoryTypeSelect && sections.memory) {
-            memoryTypeSelect.value = String(sections.memory.memoryType ?? 1);
+            memoryTypeSelect.value = String(sections.memory.memoryType ?? 2);
         }
         
         // 5. Tools
@@ -249,7 +249,7 @@ export class SpiritPromptBuilder {
         
         container.innerHTML = '';
         
-        const memoryType = this.config.memoryType ?? memorySection.memoryType ?? 1;
+        const memoryType = this.config.memoryType ?? memorySection.memoryType ?? 2;
         const stats = memorySection.stats || {};
         const statsEl = document.createElement('div');
         
