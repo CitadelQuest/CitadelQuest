@@ -11,6 +11,7 @@ use Doctrine\DBAL\DriverManager;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Service for managing CQ Memory Pack (.cqmpack) standalone SQLite files
@@ -30,7 +31,8 @@ class CQMemoryPackService
         private readonly ProjectFileService $projectFileService,
         private readonly Security $security,
         private readonly ParameterBagInterface $params,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly RequestStack $requestStack
     ) {}
     
     /**
@@ -86,6 +88,17 @@ class CQMemoryPackService
         $this->initializeSchema();
         
         // Set default metadata
+        // Build creator metadata from current user and request
+        $user = $this->security->getUser();
+        $request = $this->requestStack->getCurrentRequest();
+        $creatorMeta = [];
+        if ($user) {
+            $creatorMeta['created_by_cq_contact_id'] = (string) $user->getId();
+            if ($request) {
+                $creatorMeta['created_by_cq_contact_url'] = 'https://' . $request->getHost() . '/' . $user->getUsername();
+            }
+        }
+        
         $defaultMetadata = [
             'version' => self::PACK_VERSION,
             'name' => basename($name, '.' . self::FILE_EXTENSION),
@@ -94,7 +107,7 @@ class CQMemoryPackService
             'updated_at' => date('c'),
         ];
         
-        $metadata = array_merge($defaultMetadata, $metadata);
+        $metadata = array_merge($defaultMetadata, $creatorMeta, $metadata);
         
         foreach ($metadata as $key => $value) {
             $this->setMetadata($key, $value);
