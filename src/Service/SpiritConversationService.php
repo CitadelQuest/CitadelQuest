@@ -1470,7 +1470,7 @@ class SpiritConversationService
         // Dynamically build <available-tools> from active memory tools in DB (respects includeTools config)
         $toolsSection = '';
         if ($includeTools) {
-            $memoryToolNames = ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract'];
+            $memoryToolNames = ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract', 'memorySource'];
             $toolsXml = '';
             foreach ($memoryToolNames as $toolName) {
                 $tool = $this->aiToolService->findByName($toolName);

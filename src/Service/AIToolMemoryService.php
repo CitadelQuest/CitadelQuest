@@ -43,7 +43,8 @@ class AIToolMemoryService
         private readonly AnnoService $annoService,
         private readonly NotificationService $notificationService,
         private readonly Security $security,
-        private readonly CQMemoryPackService $packService
+        private readonly CQMemoryPackService $packService,
+        private readonly CQMemoryLibraryService $libraryService
     ) {
         $this->user = $security->getUser();
     }
@@ -391,6 +392,202 @@ class AIToolMemoryService
                 'error' => 'Error forgetting memory: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Retrieve original source content of a memory for fact-checking.
+     * Searches across all CQ Memory Packs in the Spirit's Library.
+     * 
+     * Accepts either a memory node ID (UUID) or a source_ref string.
+     * If a memory_id is given, looks up the node to get its source_ref/source_type,
+     * then fetches the stored source content from memory_sources table.
+     * 
+     * @param array $arguments Tool arguments:
+     *   - source: string (required) - Memory node ID (UUID) or source_ref string
+     *   - range: string (optional) - "all" (default) or "start:end" for line range
+     * 
+     * @return array Tool result with source content
+     */
+    public function memorySource(array $arguments): array
+    {
+        try {
+            $source = $arguments['source'] ?? null;
+            if (empty($source)) {
+                return [
+                    'success' => false,
+                    'error' => 'Source parameter is required (memory node ID or source_ref)'
+                ];
+            }
+
+            $range = $arguments['range'] ?? 'all';
+
+            $spiritId = $arguments['spiritId'] ?? null;
+            if (!$spiritId) {
+                return [
+                    'success' => false,
+                    'error' => 'No Spirit found'
+                ];
+            }
+
+            // Get all packs from Spirit's library
+            $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
+
+            // Strategy 1: Try as memory_id (UUID) — find the node, get its source_ref
+            $sourceRef = null;
+            $sourceType = null;
+            $memoryNode = null;
+
+            foreach ($packsToSearch as $packRef) {
+                try {
+                    $this->packService->open($packRef['projectId'], $packRef['path'], $packRef['name']);
+                    $node = $this->packService->findNodeById($source);
+                    if ($node) {
+                        $memoryNode = $node;
+                        $sourceRef = $node->getSourceRef();
+                        $sourceType = $node->getSourceType();
+                        $this->packService->close();
+                        break;
+                    }
+                    $this->packService->close();
+                } catch (\Exception $e) {
+                    $this->packService->close();
+                }
+            }
+
+            // Strategy 2: If not found as node ID, treat source as source_ref directly
+            if (!$memoryNode) {
+                $sourceRef = $source;
+            }
+
+            if (empty($sourceRef)) {
+                return [
+                    'success' => false,
+                    'error' => 'Memory node found but has no source_ref — original source not tracked for this memory.'
+                ];
+            }
+
+            // Search all packs for the source content in memory_sources table
+            $sourceData = null;
+            foreach ($packsToSearch as $packRef) {
+                try {
+                    $this->packService->open($packRef['projectId'], $packRef['path'], $packRef['name']);
+                    $sourceData = $this->packService->getSourceByRef($sourceRef);
+                    $this->packService->close();
+                    if ($sourceData) {
+                        break;
+                    }
+                } catch (\Exception $e) {
+                    $this->packService->close();
+                }
+            }
+
+            if (!$sourceData || empty($sourceData['content'])) {
+                return [
+                    'success' => false,
+                    'error' => "Source content not found for source_ref: {$sourceRef}. The original source may not have been stored during extraction.",
+                    'sourceRef' => $sourceRef,
+                    'sourceType' => $sourceType
+                ];
+            }
+
+            $content = $sourceData['content'];
+            $totalLines = substr_count($content, "\n") + 1;
+
+            // Apply line range if specified
+            if ($range !== 'all' && strpos($range, ':') !== false) {
+                $parts = explode(':', $range, 2);
+                $start = max(1, (int) $parts[0]);
+                $end = (int) $parts[1];
+
+                $lines = explode("\n", $content);
+                $totalLines = count($lines);
+                $end = min($end, $totalLines);
+
+                if ($start > $totalLines) {
+                    return [
+                        'success' => false,
+                        'error' => "Start line {$start} exceeds total lines {$totalLines}",
+                        'totalLines' => $totalLines
+                    ];
+                }
+
+                $content = implode("\n", array_slice($lines, $start - 1, $end - $start + 1));
+            }
+
+            return [
+                'success' => true,
+                'sourceRef' => $sourceRef,
+                'sourceType' => $sourceData['source_type'] ?? $sourceType,
+                'title' => $sourceData['title'] ?? null,
+                'totalLines' => $totalLines,
+                'range' => $range,
+                'content' => $content,
+                'memoryId' => $memoryNode ? $memoryNode->getId() : null
+            ];
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            $this->logger->error('Error retrieving memory source', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'error' => 'Error retrieving memory source: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get all packs from a Spirit's main CQ Memory Library.
+     * Used by tools that need to search across all packs (memorySource, memoryRecall, etc.)
+     * 
+     * @return array List of pack references: [['projectId' => ..., 'path' => ..., 'name' => ...], ...]
+     */
+    private function getSpiritLibraryPacks(string $spiritId): array
+    {
+        $spirit = $this->spiritService->findById($spiritId);
+        if (!$spirit) {
+            throw new \RuntimeException('Spirit not found');
+        }
+
+        $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+
+        $packsToSearch = [];
+        try {
+            $library = $this->libraryService->loadLibrary(
+                $memoryInfo['projectId'],
+                $memoryInfo['memoryPath'],
+                $memoryInfo['rootLibraryName']
+            );
+
+            foreach ($library['packs'] ?? [] as $packEntry) {
+                if (!($packEntry['enabled'] ?? true)) {
+                    continue;
+                }
+                $packPath = $packEntry['path'] ?? '';
+                if (empty($packPath)) {
+                    continue;
+                }
+                $packsToSearch[] = [
+                    'projectId' => $memoryInfo['projectId'],
+                    'path' => dirname($packPath),
+                    'name' => basename($packPath),
+                ];
+            }
+        } catch (\Exception $e) {
+            $this->logger->debug('memorySource: library load failed, falling back to root pack', [
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        // Fallback: if no packs from library, use root pack
+        if (empty($packsToSearch)) {
+            $packsToSearch[] = [
+                'projectId' => $memoryInfo['projectId'],
+                'path' => $memoryInfo['packsPath'],
+                'name' => $memoryInfo['rootPackName'],
+            ];
+        }
+
+        return $packsToSearch;
     }
 
     /**
