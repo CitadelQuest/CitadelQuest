@@ -1935,12 +1935,25 @@ PROMPT;
                     ];
                 }
                 
-                // send binary PDF file - will be auto-parsed
-                $content = $this->projectFileService->getFileContent($file->getId());
+                // No .anno file — generate on-demand via cheap AI call
+                $pdfContent = $this->projectFileService->getFileContent($file->getId());
+                $parsedText = $this->generatePdfAnnotation($filename, $pdfContent, $projectId);
+                
+                if ($parsedText) {
+                    return [
+                        'success' => true,
+                        'content' => $parsedText,
+                        'fileName' => $filename,
+                        'filePath' => $path,
+                        'usedAnnotation' => true
+                    ];
+                }
+                
+                // Last resort fallback: send binary PDF for multimodal AI processing
                 return [
                     'success' => true,
                     'content' => [
-                        'file_data' => $content,
+                        'file_data' => $pdfContent,
                         'filename' => $filename
                     ],
                     'fileName' => $filename,
@@ -1971,6 +1984,88 @@ PROMPT;
                 'success' => false,
                 'error' => 'Error loading file: ' . $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * Generate PDF annotation (.anno) on-demand by sending PDF to AI for parsing
+     * 
+     * The AI provider parses PDFs at the API level and returns annotations automatically.
+     * Any cheap AI model works — the PDF parsing is provider-side, not model-side.
+     * AiGatewayService::sendRequest() auto-saves annotations from the response.
+     * 
+     * @param string $filename PDF filename
+     * @param string $pdfContent Raw PDF binary content
+     * @param string $projectId Project ID
+     * @return string|null Parsed text content, or null on failure
+     */
+    public function generatePdfAnnotation(string $filename, string $pdfContent, string $projectId = 'general'): ?string
+    {
+        try {
+            // Get cheapest available AI model
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if (!$gateway) {
+                $this->logger->error('generatePdfAnnotation: CQ AI Gateway not found');
+                return null;
+            }
+
+            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            if (!$aiServiceModel) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+            }
+            if (!$aiServiceModel) {
+                $this->logger->error('generatePdfAnnotation: No AI model available');
+                return null;
+            }
+
+            // Build a minimal AI request with the PDF binary
+            // The AI provider parses PDFs at the API level — annotations come back automatically
+            $messages = [
+                ['role' => 'system', 'content' => 'You are a document parser. Return the full text content of the provided PDF document. Preserve structure, headings, lists, and formatting. Output only the document text, no commentary.'],
+                ['role' => 'user', 'content' => [
+                    ['type' => 'text', 'text' => 'Parse and return the full text content of this PDF file: ' . $filename],
+                    ['type' => 'file', 'file' => [
+                        'file_data' => $pdfContent,
+                        'filename' => $filename
+                    ]]
+                ]]
+            ];
+
+            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+                $aiServiceModel->getId(),
+                $messages,
+                null,
+                0.1,
+                null,
+                []
+            );
+
+            // Send request — AiGatewayService::sendRequest() auto-saves annotations from response
+            $this->aiGatewayService->sendRequest(
+                $aiServiceRequest,
+                'PDF Annotation Generation - ' . $filename,
+                'English',
+                $projectId
+            );
+
+            // Read back the newly created .anno file
+            $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
+            if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
+                $this->logger->info('generatePdfAnnotation: Successfully generated .anno for ' . $filename);
+                return $this->annoService->getTextContent($annoData);
+            }
+
+            $this->logger->warning('generatePdfAnnotation: AI response did not include PDF annotations', [
+                'filename' => $filename
+            ]);
+            return null;
+
+        } catch (\Exception $e) {
+            $this->logger->error('generatePdfAnnotation: Failed', [
+                'filename' => $filename,
+                'error' => $e->getMessage()
+            ]);
+            return null;
         }
     }
 
@@ -2730,7 +2825,7 @@ PROMPT;
      */
     public function startPackRecursiveExtractionJob(
         array $targetPack,
-        string $content,
+        string|array $content,
         string $sourceType,
         string $sourceRef,
         string $documentTitle,
@@ -2771,7 +2866,7 @@ PROMPT;
             'jobId' => $job->getId(),
             'packName' => $targetPack['name'],
             'sourceRef' => $sourceRef,
-            'contentLength' => strlen($content)
+            'contentLength' => is_string($content) ? strlen($content) : 0
         ]);
 
         // Close pack - polling endpoint will reopen it for processing

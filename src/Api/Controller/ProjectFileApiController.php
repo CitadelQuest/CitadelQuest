@@ -3,6 +3,8 @@
 namespace App\Api\Controller;
 
 use App\Service\ProjectFileService;
+use App\Service\AIToolMemoryService;
+use App\Service\AnnoService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,6 +24,8 @@ class ProjectFileApiController extends AbstractController
 {
     public function __construct(
         private readonly ProjectFileService $projectFileService,
+        private readonly AIToolMemoryService $aiToolMemoryService,
+        private readonly AnnoService $annoService,
         private readonly Security $security,
         private readonly LoggerInterface $logger
     ) {
@@ -306,6 +310,66 @@ class ProjectFileApiController extends AbstractController
                 'success' => false,
                 'error' => $e->getMessage()
             ], 400);
+        }
+    }
+
+    /**
+     * Generate PDF annotations (.anno) for a file
+     * Called proactively after File Browser PDF upload to pre-generate parsed text.
+     * Uses a cheap AI model — the provider parses PDFs at the API level.
+     */
+    #[Route('/{fileId}/generate-annotations', name: 'app_api_project_file_generate_annotations', methods: ['POST'])]
+    public function generateAnnotations(string $fileId, Request $request): JsonResponse
+    {
+        try {
+            $file = $this->projectFileService->findById($fileId);
+            if (!$file) {
+                return $this->json(['success' => false, 'error' => 'File not found'], 404);
+            }
+
+            $filename = $file->getName();
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+            if ($extension !== 'pdf') {
+                return $this->json(['success' => false, 'error' => 'Only PDF files supported'], 400);
+            }
+
+            $projectId = $file->getProjectId();
+
+            // Check if .anno already exists
+            if ($this->annoService->hasAnnotation(AnnoService::TYPE_PDF, $filename, $projectId)) {
+                return $this->json(['success' => true, 'message' => 'Annotations already exist', 'alreadyExists' => true]);
+            }
+
+            // Release session lock early — AI call can take 3-15s
+            $request->getSession()->save();
+
+            // Generate .anno via cheap AI call
+            $pdfContent = $this->projectFileService->getFileContent($fileId);
+            $parsedText = $this->aiToolMemoryService->generatePdfAnnotation($filename, $pdfContent, $projectId);
+
+            if ($parsedText) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'PDF annotations generated successfully',
+                    'textLength' => strlen($parsedText)
+                ]);
+            }
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to generate PDF annotations — AI response did not include annotations'
+            ], 500);
+
+        } catch (\Exception $e) {
+            $this->logger->error('generateAnnotations failed', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to generate annotations: ' . $e->getMessage()
+            ], 500);
         }
     }
     

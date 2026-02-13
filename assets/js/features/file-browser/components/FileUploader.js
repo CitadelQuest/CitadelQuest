@@ -179,7 +179,7 @@ export class FileUploader {
         
         try {
             // Upload with progress tracking
-            await this.uploadFileWithProgress(file, (progress) => {
+            const uploadResult = await this.uploadFileWithProgress(file, (progress) => {
                 progressBar.style.width = `${progress}%`;
             });
             
@@ -192,6 +192,11 @@ export class FileUploader {
             const successIcon = document.createElement('i');
             successIcon.className = 'mdi mdi-check-circle text-success';
             infoElement.appendChild(successIcon);
+            
+            // For PDF files, trigger background annotation generation
+            if (uploadResult?.file?.id && file.name.toLowerCase().endsWith('.pdf')) {
+                this.apiService.generateAnnotations(uploadResult.file.id).catch(() => {});
+            }
             
             // Remove success items after delay
             setTimeout(() => {

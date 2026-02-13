@@ -289,4 +289,18 @@ export class FileBrowserApiService {
             { path, name: newName }
         );
     }
+
+    /**
+     * Generate PDF annotations (.anno) for a file
+     * Called proactively after PDF upload to pre-parse the document.
+     * @param {string} fileId - The file ID
+     * @returns {Promise<Object>} - JSON response with generation result
+     */
+    async generateAnnotations(fileId) {
+        const response = await fetch(`${this.baseUrl}/${fileId}/generate-annotations`, {
+            method: 'POST'
+        });
+        
+        return await response.json();
+    }
 }

@@ -1153,7 +1153,12 @@ export class FileBrowser {
      */
     async uploadFile(file) {
         try {
-            await this.apiService.uploadFile(this.projectId, this.currentPath, file);
+            const uploadResult = await this.apiService.uploadFile(this.projectId, this.currentPath, file);
+            
+            // For PDF files, trigger background annotation generation
+            if (uploadResult?.file?.id && file.name.toLowerCase().endsWith('.pdf')) {
+                this.apiService.generateAnnotations(uploadResult.file.id).catch(() => {});
+            }
             
             // Refresh project size
             await this.loadProjectSize();
