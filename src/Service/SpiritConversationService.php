@@ -550,7 +550,7 @@ class SpiritConversationService
      * Phase 4: Determine whether the Subconsciousness sub-agent should be triggered.
      * 
      * Aggressive strategy: trigger on every non-trivial message that has recalled nodes.
-     * Cost per call is negligible (~$0.0003), so we maximize the "magic" experience.
+     * Cost per call is negligible (~0.7 Credit), so we maximize the "magic" experience.
      */
     private function shouldTriggerSubAgent(
         string $userMessageText,

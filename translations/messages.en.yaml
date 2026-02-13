@@ -249,8 +249,11 @@ spirit:
     memory:
         title: 'Memory Explorer'
         explore: 'Explore'
+        packs: 'packs'
         nodes: 'nodes'
         relationships: 'relationships'
+        type: 'Spirit Memory Type'
+        type_saved: 'Memory type updated'
         reset_view: 'Default View'
         top_view: 'Top View'
         loading_graph: 'Loading memory graph...'

@@ -57,24 +57,8 @@ export class ProfileMemoryGraph {
         const loadingEl = document.getElementById('profile-memory-loading');
         
         try {
-            // Get Spirit's root pack info
-            const initResponse = await fetch(`/spirit/${this.spiritId}/memory/init`);
-            if (!initResponse.ok) {
-                throw new Error(`HTTP ${initResponse.status}`);
-            }
-            const initData = await initResponse.json();
-
-            // Load graph from Spirit's root pack
-            const response = await fetch('/api/memory/pack/open', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectId: initData.projectId,
-                    path: initData.packsPath,
-                    name: initData.rootPackName
-                })
-            });
-            
+            // Load merged graph from all packs in Spirit's library
+            const response = await fetch(`/spirit/${this.spiritId}/memory/library-graph`);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -83,7 +67,8 @@ export class ProfileMemoryGraph {
             this.graphData = {
                 nodes: data.nodes || [],
                 edges: data.edges || [],
-                stats: data.stats || {}
+                stats: data.stats || {},
+                packs: data.packs || {}
             };
 
             // Update stats
@@ -116,12 +101,17 @@ export class ProfileMemoryGraph {
     updateStats() {
         const nodesEl = document.getElementById('profile-stats-nodes');
         const edgesEl = document.getElementById('profile-stats-edges');
+        const packsEl = document.getElementById('profile-stats-packs');
 
         if (nodesEl && this.graphData) {
             nodesEl.textContent = this.graphData.nodes?.length || 0;
         }
         if (edgesEl && this.graphData) {
             edgesEl.textContent = this.graphData.edges?.length || 0;
+        }
+        if (packsEl && this.graphData) {
+            const packCount = this.graphData.stats?.packCount || Object.keys(this.graphData.packs || {}).length || 0;
+            packsEl.textContent = packCount;
         }
     }
 

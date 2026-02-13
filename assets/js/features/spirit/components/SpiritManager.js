@@ -382,6 +382,74 @@ export class SpiritManager {
 
         // Initialize the memory graph
         this.profileMemoryGraph = new ProfileMemoryGraph(this.spirit.id);
+
+        // Initialize Memory Type select
+        this.initProfileMemoryType();
+    }
+
+    /**
+     * Initialize the profile Memory Type select
+     * Loads current config from API and wires up change handler
+     */
+    async initProfileMemoryType() {
+        const select = document.getElementById('profileMemoryTypeSelect');
+        const infoEl = document.getElementById('profileMemoryTypeInfo');
+        if (!select || !this.spirit?.id) return;
+
+        // Load current prompt config
+        try {
+            const response = await fetch(`/api/spirit/${this.spirit.id}/system-prompt-preview`);
+            if (response.ok) {
+                const data = await response.json();
+                const includeMemory = data.config?.includeMemory ?? true;
+                const memoryType = data.config?.memoryType ?? 2;
+                // If memory is disabled, show "No memory" regardless of memoryType
+                select.value = includeMemory ? String(memoryType) : '0';
+                this.updateMemoryTypeInfo(includeMemory ? memoryType : 0, infoEl);
+            }
+        } catch (e) {
+            console.error('Failed to load memory type config:', e);
+        }
+
+        // Handle change — save immediately with both includeMemory and memoryType
+        select.addEventListener('change', async (e) => {
+            const val = parseInt(e.target.value, 10);
+            const includeMemory = val !== 0;
+            const memoryType = includeMemory ? val : 2; // keep last real type as default
+            this.updateMemoryTypeInfo(val, infoEl);
+
+            try {
+                const response = await fetch(`/api/spirit/${this.spirit.id}/system-prompt-config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ includeMemory, memoryType })
+                });
+                if (response.ok && window.toast) {
+                    window.toast.success(this.translate('spirit.memory.type_saved', 'Memory type updated'));
+                }
+            } catch (err) {
+                console.error('Failed to save memory type:', err);
+                if (window.toast) {
+                    window.toast.error(this.translate('error.saving_memory_type', 'Failed to save memory type'));
+                }
+            }
+        });
+    }
+
+    /**
+     * Update the Memory Type info text below the select
+     */
+    updateMemoryTypeInfo(memoryType, infoEl) {
+        if (!infoEl) return;
+
+        const descriptions = {
+            '0': '<i class="mdi mdi-cancel me-1 text-secondary"></i>Memory disabled. Spirit will not use any memory context.',
+            '-1': '<i class="mdi mdi-file-document-outline me-1 text-warning"></i>Legacy .md files dumped into system prompt each message — uses more tokens.',
+            '1': '<i class="mdi mdi-brain me-1 text-cyber"></i>FTS5 keyword search with automatic recall. On-demand, token-efficient.',
+            '2': '<i class="mdi mdi-robot-outline me-1 text-cyber"></i>Reflexes + AI Sub-Agent synthesis. Most contextual, adds ~0.7 Credit/message.'
+        };
+
+        infoEl.innerHTML = descriptions[String(memoryType)] || '';
     }
     
     /**

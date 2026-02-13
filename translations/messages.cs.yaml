@@ -249,8 +249,11 @@ spirit:
     memory:
         title: 'Průzkumník Paměti'
         explore: 'Prozkoumat'
+        packs: 'balíčky'
         nodes: 'uzly'
         relationships: 'vztahy'
+        type: 'Typ Paměti Ducha'
+        type_saved: 'Typ paměti aktualizován'
         reset_view: 'Výchozí pohled'
         top_view: 'Pohled shora'
         loading_graph: 'Načítání grafu paměti...'

@@ -288,7 +288,7 @@ export class SpiritPromptBuilder {
                     </p>
                     <p class="small text-muted mb-0">
                         <i class="mdi mdi-brain me-1 text-cyber"></i>
-                        Three-step flow: Reflexes recall → AI synthesis → Spirit response. Adds ~$0.0003 per message.
+                        Three-step flow: Reflexes recall → AI synthesis → Spirit response. Adds ~0.7 Credit/message.
                     </p>
                 </div>
             `;
