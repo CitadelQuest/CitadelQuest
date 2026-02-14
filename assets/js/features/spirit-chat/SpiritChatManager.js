@@ -644,11 +644,11 @@ export class SpiritChatManager {
 
                         <small class="text-muted float-end d-none_d-md-inline-block pt-1 me-2">
                             <span class="" title="Context window size"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1 ms-2"></i>${conversation.lastMsgUsage?.totalTokensFormatted || '0'}</span>
-                            <span class="" title="Conversation data size"><i class="mdi mdi-database text-cyber opacity-75 me-1 ms-2"></i>${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
+                            <span class="d-none d-lg-inline" title="Conversation data size"><i class="mdi mdi-database text-cyber opacity-75 me-1 ms-2"></i>${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
                             <span class="" title="Messages count"><i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.messagesCount || '0'}</span> <span class="text-cyber d-none">/</span>
-                            <span class="" title="User images count"><i class="mdi mdi-image-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.imagesCount || '0'}</span>
-                            <span class="" title="Tool use count"><i class="mdi mdi-tools text-cyber opacity-75 me-1 ms-2"></i>${conversation.toolsCount || '0'}</span>
-                            <span class="" title="Tokens"><i class="mdi mdi-tally-mark-5 text-cyber opacity-75 me-1 ms-2"></i>${conversation.tokens?.total_tokens_formatted || '0'}</span>
+                            <span class="d-none d-lg-inline" title="User images count"><i class="mdi mdi-image-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.imagesCount || '0'}</span>
+                            <span class="d-none d-lg-inline" title="Tool use count"><i class="mdi mdi-tools text-cyber opacity-75 me-1 ms-2"></i>${conversation.toolsCount || '0'}</span>
+                            <span class="d-none d-lg-inline" title="Tokens"><i class="mdi mdi-tally-mark-5 text-cyber opacity-75 me-1 ms-2"></i>${conversation.tokens?.total_tokens_formatted || '0'}</span>
                             <span class="" title="Credits - img gen not included"><i class="mdi mdi-circle-multiple-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.price?.total_price.toFixed(0) || '0'}</span>
                             <span class="" title="Conversation start"><i class="mdi mdi-clock-outline text-cyber opacity-75 me-1 ms-2"></i>${formattedDate} <span class="text-cyber">/</span> ${formattedTime}</span>
                         </small>
@@ -2396,7 +2396,7 @@ export class SpiritChatManager {
         if (!this.chatInfoPrimaryAiModel) return;
         this.chatInfoPrimaryAiModel.innerHTML = 
             '<span class="me-1 fw-bold">' + data.modelName + '</span> ' +
-            '[<span class="d-md-inline_ d-none">context window: </span><span class="fw-bold_">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span>]';
+            '<span class="d-md-inline d-none">[context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span>]</span>';
         // Store context window for usage calculation
         this.primaryModelContextWindow = data.contextWindow || null;
     }
@@ -2469,7 +2469,7 @@ export class SpiritChatManager {
             if (modelData.model) {
                 this.chatInfoSecondaryAiModel.innerHTML = 
                     '<span class="me-1 fw-bold">' + modelData.model.modelName + '</span> ' +
-                    '[<span class="d-md-inline_ d-none">context window: </span><span class="fw-bold_">' + Number(modelData.model.contextWindow).toLocaleString('sk-SK') + '</span>]';
+                    '[<span class="d-md-inline d-none">context window: </span><span class="fw-bold_">' + Number(modelData.model.contextWindow).toLocaleString('sk-SK') + '</span>]';
             }
         } catch (error) {
             console.error('Error fetching secondary model:', error);

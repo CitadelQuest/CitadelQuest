@@ -18,7 +18,7 @@
             </div>
             <div class="modal-body pt-0">
                 <div id="spiritChatToolsAndConversations" class="d-none row position-fixed start-0 end-0 bg-dark glow-cyber p-4 border-bottom-1 border-success border-opacity-50" style="z-index: 10;">
-                    <div class="col-md-8_">
+                    <div class="col-md-8_ px-0">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="d-none d-md-inline">
                                 <i class="mdi mdi-forum-outline text-cyber me-2"></i>
@@ -29,7 +29,7 @@
                                 <input type="text" class="form-control" id="conversationSearch" placeholder="{{ 'spirit.chat.search_conversations'|trans }}">
                             </div>
                             <button id="newConversationBtn" class="btn btn-sm btn-cyber">
-                                <i class="mdi mdi-message-plus"></i><span class="ms-2 d-none d-md-inline">{{ 'spirit.chat.new_conversation'|trans }}</span>
+                                <i class="mdi mdi-message-plus"></i><span class="ms-2 d-inline">{{ 'spirit.chat.new_conversation'|trans }}</span>
                             </button>
                         </div>
                         <div id="conversationsList" class="list-group conversation-list">
@@ -109,9 +109,9 @@
                                         <i class="mdi mdi-brain text-cyber"></i>
                                         <span id="chatInfoPrimaryAiModel" class="small" title="{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}">-</span>
                                     </div>
-                                    <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex_ d-none align-items-center gap-2">
                                         <i class="mdi mdi-image-edit-outline text-cyber"></i>
-                                        <span id="chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
+                                        <span id="_chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
                                     </div>
                                 </div>
                             </div>

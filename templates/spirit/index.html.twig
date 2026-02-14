@@ -123,7 +123,7 @@
                                 </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
-                                    <textarea id="spirit-system-prompt" class="form-control" rows="9" 
+                                    <textarea id="spirit-system-prompt" class="form-control" rows="13" 
                                         placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}" 
                                         oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
                                     <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>

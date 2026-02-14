@@ -38,6 +38,10 @@ $file-browser-preview-header-height: 4rem;
   box-shadow: 0 0 15px rgba(149, 236, 134, 0.2);
   
   @media (max-width: 768px) {
+    grid-template-columns: 0.5fr 0.5fr;
+  }
+
+  @media (max-width: 480px) {
     grid-template-rows: auto auto 2fr 3fr;
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -59,7 +63,7 @@ $file-browser-preview-header-height: 4rem;
   margin-bottom: 0rem;
   height: $file-browser-header-height;
   
-  @media (max-width: 576px) {
+  @media (max-width: 480px) {
     flex-direction: column;
     align-items: flex-start;
     height: auto;

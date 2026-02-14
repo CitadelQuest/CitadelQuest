@@ -591,7 +591,7 @@ export class MemoryExtractPanel {
             if (isComplete) {
                 icon = 'check-circle';
             } else /* if (job.status === 'processing') */ {
-                icon = 'cog mdi-spin text-cyber';
+                icon = 'cog mdi-spin text-info';
             }
             
             return `

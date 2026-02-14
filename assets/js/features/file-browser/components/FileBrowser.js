@@ -278,7 +278,7 @@ export class FileBrowser {
      * Update breadcrumbs based on current path
      */
     updateBreadcrumbs() {
-        this.breadcrumbsElement.innerHTML = '</i>' + this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
+        this.breadcrumbsElement.innerHTML = '</i>';// + this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
     }
     
     /**
