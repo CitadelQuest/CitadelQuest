@@ -222,6 +222,12 @@ spirit:
         load_older: 'Load older messages'
         loading: 'Loading...'
         context_window_usage: 'Context window usage'
+        extract_memory: 'Extract Memory'
+        extract_memory_confirm: 'Memory will be extracted from this conversation.'
+        extract_memory_close_warning: 'Conversation will be closed after extraction.'
+        extract_memory_start: 'Extract Memory'
+        extract_memory_started: 'Memory extraction started!'
+        conversation_closed: 'Conversation closed — memory extracted'
     prompt_builder:
         title: 'Spirit System Prompt Builder'
         button: 'Advanced Prompt Builder'

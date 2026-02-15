@@ -117,7 +117,7 @@
                             </div>
                         </div>
                         
-                        <div class="d-flex flex-column gap-2 pt-1"> 
+                        <div class="d-flex flex-column gap-1 pt-1"> 
                             <button type="submit" id="sendMessageBtn" class="btn btn-cyber" style="max-height: min-content !important; padding: 0.4rem 1.2rem !important;">
                                 <i class="mdi mdi-message-check"></i>
                             </button>
@@ -128,6 +128,10 @@
 
                             <div id="creditIndicator" class="d-flex gap-2 align-items-center">                           
                             </div>
+
+                            <button type="button" id="extractMemoryBtn" class="btn btn-sm p-0 btn-outline-secondary d-none" style="padding: 0 !important;" title="{{ 'spirit.chat.extract_memory'|trans|default('Extract memory from this conversation') }}">
+                                <i class="mdi mdi-graph text-info"></i>
+                            </button>
                         </div>
 
                     </div>
@@ -179,6 +183,27 @@
                         <button type="submit" class="btn btn-danger" id="deleteConversationModalSubmit"><i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="extractMemoryModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-info bg-opacity-25 border-info">
+                <i class="mdi mdi-graph me-2 text-info"></i> <span class="modal-title text-light">{{ 'spirit.chat.extract_memory'|trans|default('Extract Memory') }}</span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 w-100 py-2 text-center">
+                    <p class="mb-2"><i class="mdi mdi-brain text-info me-1"></i> {{ 'spirit.chat.extract_memory_confirm'|trans|default('Memory will be extracted from this conversation.') }}</p>
+                    <p class="small text-warning mb-0"><i class="mdi mdi-lock-outline me-1"></i> {{ 'spirit.chat.extract_memory_close_warning'|trans|default('Conversation will be closed after extraction.') }}</p>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
+                    <button type="button" class="btn btn-cyber" id="extractMemoryConfirmBtn"><i class="mdi mdi-graph me-2"></i>{{ 'spirit.chat.extract_memory_start'|trans|default('Extract Memory') }}</button>
+                </div>
             </div>
         </div>
     </div>

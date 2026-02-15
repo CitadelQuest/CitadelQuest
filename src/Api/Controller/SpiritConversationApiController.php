@@ -137,7 +137,13 @@ class SpiritConversationApiController extends AbstractController
     }
     
     #[Route('/{id}', name: 'api_spirit_conversation_get', methods: ['GET'])]
-    public function getConversation(string $id, Request $request, \App\Service\SpiritConversationMessageService $messageService): JsonResponse
+    public function getConversation(
+        string $id,
+        Request $request,
+        \App\Service\SpiritConversationMessageService $messageService,
+        \App\Service\AIToolMemoryService $aiToolMemoryService,
+        \App\Service\CQMemoryPackService $packService
+    ): JsonResponse
     {
         try {
             // Get conversation
@@ -175,12 +181,25 @@ class SpiritConversationApiController extends AbstractController
                 return $msgData;
             }, $messages);
             
+            // Check if conversation has been memory-extracted (closed)
+            $memoryExtracted = false;
+            try {
+                $targetPack = $aiToolMemoryService->getSpiritTargetPack($conversation->getSpiritId());
+                $packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+                $extracted = $packService->hasExtractedFromSource('spirit_conversation', $id);
+                $memoryExtracted = $extracted !== null;
+                $packService->close();
+            } catch (\Exception $e) {
+                // Non-fatal — if pack doesn't exist yet, conversation is not extracted
+            }
+            
             $conversationData = [
                 'id' => $conversation->getId(),
                 'spiritId' => $conversation->getSpiritId(),
                 'title' => $conversation->getTitle(),
                 'createdAt' => $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 'lastInteraction' => $conversation->getLastInteraction()->format('Y-m-d H:i:s'),
+                'memoryExtracted' => $memoryExtracted,
                 'messages' => $messagesWithUsage,
                 'pagination' => [
                     'total' => $totalMessages,

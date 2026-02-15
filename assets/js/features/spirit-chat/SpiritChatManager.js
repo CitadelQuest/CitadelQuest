@@ -74,6 +74,9 @@ export class SpiritChatManager {
         this.creditIndicator = document.getElementById('creditIndicator');
         this.sendMessageBtn = document.getElementById('sendMessageBtn');
         this.stopExecutionBtn = document.getElementById('stopExecutionBtn');
+        this.extractMemoryBtn = document.getElementById('extractMemoryBtn');
+        this.extractMemoryModal = document.getElementById('extractMemoryModal');
+        this.extractMemoryConfirmBtn = document.getElementById('extractMemoryConfirmBtn');
         this.imageUpload = document.getElementById('imageUpload');
         this.imageUploadPreview = document.getElementById('imageUploadPreview');
         this.chatInfoPrimaryAiModel = document.getElementById('chatInfoPrimaryAiModel');
@@ -87,6 +90,9 @@ export class SpiritChatManager {
         // Context window tracking
         this.primaryModelContextWindow = null;
         this.currentContextUsage = 0;
+        
+        // Conversation closed state (memory already extracted)
+        this.isConversationClosed = false;
         
         // Image showcase for fullscreen viewing (uses existing modal)
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
@@ -247,6 +253,22 @@ export class SpiritChatManager {
             this.deleteConversationForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.deleteConversation();
+            });
+        }
+
+        // Extract memory button — show confirmation modal
+        if (this.extractMemoryBtn && this.extractMemoryModal) {
+            this.extractMemoryBtn.addEventListener('click', () => {
+                if (!this.currentConversationId || this.isConversationClosed) return;
+                const modal = new bootstrap.Modal(this.extractMemoryModal);
+                modal.show();
+            });
+        }
+
+        // Extract memory confirm button — trigger extraction
+        if (this.extractMemoryConfirmBtn) {
+            this.extractMemoryConfirmBtn.addEventListener('click', () => {
+                this.extractMemoryFromConversation();
             });
         }
 
@@ -796,6 +818,9 @@ export class SpiritChatManager {
             });
             this.updateContextWindowUsage(parseInt(lastMsgUsage?.totalTokens || 0));
             
+            // Check if conversation has been memory-extracted (closed)
+            this.setConversationClosed(conversation.memoryExtracted === true);
+            
         } catch (error) {
             console.error('Error loading conversation:', error);
             if (this.chatMessages) {
@@ -810,6 +835,112 @@ export class SpiritChatManager {
         }
     }
     
+    /**
+     * Set conversation closed state (memory already extracted)
+     * Disables input and shows appropriate UI
+     */
+    setConversationClosed(closed) {
+        this.isConversationClosed = closed;
+        
+        const imageUploadButton = document.getElementById('imageUploadButton');
+        
+        if (closed) {
+            // Disable input
+            if (this.messageInput) {
+                this.messageInput.disabled = true;
+                this.messageInput.placeholder = window.translations?.['spirit.chat.conversation_closed'] || 'Conversation closed — memory extracted';
+            }
+            if (this.sendMessageBtn) {
+                this.sendMessageBtn.disabled = true;
+            }
+            if (imageUploadButton) {
+                imageUploadButton.disabled = true;
+            }
+            // Hide extract button (already extracted)
+            if (this.extractMemoryBtn) {
+                this.extractMemoryBtn.classList.add('d-none');
+            }
+        } else {
+            // Enable input
+            if (this.messageInput) {
+                this.messageInput.disabled = false;
+                this.messageInput.placeholder = window.translations?.['spirit.chat.type_message'] || 'Type your message here...';
+            }
+            if (this.sendMessageBtn) {
+                this.sendMessageBtn.disabled = false;
+            }
+            if (imageUploadButton) {
+                imageUploadButton.disabled = false;
+            }
+            // Show extract button
+            if (this.extractMemoryBtn) {
+                this.extractMemoryBtn.classList.remove('d-none');
+            }
+        }
+    }
+
+    /**
+     * Extract memory from the current conversation
+     * Calls the existing CQ Memory extraction API with sourceType=spirit_conversation
+     */
+    async extractMemoryFromConversation() {
+        if (!this.currentConversationId || !this.currentSpiritId) return;
+
+        // Close the confirmation modal
+        const modalEl = this.extractMemoryModal;
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Show progress in the extract button
+        if (this.extractMemoryBtn) {
+            this.extractMemoryBtn.disabled = true;
+            this.extractMemoryBtn.innerHTML = '<span class="spinner-border spinner-border-sm text-info"></span>';
+        }
+
+        try {
+            const response = await fetch(`/memory/extract/${this.currentSpiritId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceType: 'spirit_conversation',
+                    sourceRef: this.currentConversationId,
+                    maxDepth: 3
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Mark conversation as closed
+                this.setConversationClosed(true);
+                
+                if (window.toast) {
+                    window.toast.success(
+                        window.translations?.['spirit.chat.extract_memory_started'] || 'Memory extraction started!'
+                    );
+                }
+            } else if (result.alreadyExtracted) {
+                // Already extracted — just close
+                this.setConversationClosed(true);
+                if (window.toast) {
+                    window.toast.info(result.message || 'Memory already extracted from this conversation.');
+                }
+            } else {
+                throw new Error(result.error || 'Extraction failed');
+            }
+        } catch (error) {
+            console.error('Memory extraction failed:', error);
+            if (window.toast) {
+                window.toast.error(error.message || 'Failed to extract memory');
+            }
+            // Restore button
+            if (this.extractMemoryBtn) {
+                this.extractMemoryBtn.disabled = false;
+                this.extractMemoryBtn.innerHTML = '<i class="mdi mdi-graph text-info"></i>';
+            }
+        }
+    }
+
     /**
      * Load older messages (pagination)
      */

@@ -277,7 +277,15 @@
         font-size: 1.2rem;
     }
 }
-    
+
+.chat-message-memory-recall {
+    max-width: 100%;
+}
+
+#messageInput:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
 
 // Animations

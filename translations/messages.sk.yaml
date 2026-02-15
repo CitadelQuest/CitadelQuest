@@ -214,6 +214,12 @@ spirit:
         load_older: 'Načítať staršie správy'
         loading: 'Načítavam...'
         context_window_usage: 'Využitie kontextového okna'
+        extract_memory: 'Extrahovať Pamäť'
+        extract_memory_confirm: 'Z tejto konverzácie bude extrahovaná pamäť.'
+        extract_memory_close_warning: 'Konverzácia bude po extrakcii uzavretá.'
+        extract_memory_start: 'Extrahovať Pamäť'
+        extract_memory_started: 'Extrakcia pamäte spustená!'
+        conversation_closed: 'Konverzácia uzavretá — pamäť extrahovaná'
     prompt_builder:
         title: 'Staviteľ systémového promptu Ducha'
         button: 'Pokročilý staviteľ promptu'
