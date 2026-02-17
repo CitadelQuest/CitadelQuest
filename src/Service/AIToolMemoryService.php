@@ -2897,6 +2897,23 @@ PROMPT;
 
             $payload = $job->getPayload();
 
+            // Guard: verify pack file exists on this instance before burning AI credits
+            // Foreign .cqmpack files (uploaded from another instance) may contain jobs
+            // with target_pack paths that don't exist here — skip those gracefully.
+            $payloadPack = $payload['target_pack'] ?? null;
+            if ($payloadPack) {
+                $packFile = $this->projectFileService->findByPathAndName(
+                    $payloadPack['projectId'] ?? 'general',
+                    $payloadPack['path'] ?? '',
+                    $payloadPack['name'] ?? ''
+                );
+                if (!$packFile) {
+                    $this->packService->failJob($jobId, 'Pack file not found on this instance: ' . ($payloadPack['path'] ?? '') . '/' . ($payloadPack['name'] ?? ''));
+                    $this->packService->close();
+                    return true;
+                }
+            }
+
             // Concurrent processing guard: prevent duplicate step execution
             // Two paths process steps: GUI (/api/memory/pack/step) and polling (/api/updates)
             // Without this lock, both can process the same needs_init step simultaneously,
@@ -3100,6 +3117,7 @@ PROMPT;
                             ]
                         );
                         $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));
+                        $this->packService->startJob($analysisJob->getId());
                     }
                 }
 
@@ -3230,6 +3248,23 @@ PROMPT;
             }
 
             $payload = $job->getPayload();
+
+            // Guard: verify pack file exists on this instance before burning AI credits
+            // Foreign .cqmpack files (uploaded from another instance) may contain jobs
+            // with target_pack paths that don't exist here — skip those gracefully.
+            $payloadPack = $payload['target_pack'] ?? null;
+            if ($payloadPack) {
+                $packFile = $this->projectFileService->findByPathAndName(
+                    $payloadPack['projectId'] ?? 'general',
+                    $payloadPack['path'] ?? '',
+                    $payloadPack['name'] ?? ''
+                );
+                if (!$packFile) {
+                    $this->packService->failJob($jobId, 'Pack file not found on this instance: ' . ($payloadPack['path'] ?? '') . '/' . ($payloadPack['name'] ?? ''));
+                    $this->packService->close();
+                    return true;
+                }
+            }
 
             // Concurrent processing guard (same as extraction — see processPackExtractionJobStep)
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
