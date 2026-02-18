@@ -99,6 +99,10 @@
 
         <footer class="footer py-1 position-fixed bottom-0 start-0 end-0" style="z-index: 1020;">
             <div class="container text-center">
+                <small id="memory-jobs-indicator" class="text-muted me-2 d-none">
+                    <i class="mdi mdi-graph text-info memory-jobs-pulse" title="Active CQ Memory jobs"></i>
+                    <span id="memory-jobs-processing" title="processing">0</span>
+                </small>
                 <small>
                     &copy; {{ date('now')|date('Y') }} 
                     <span class="text-cyber">&bull; {{ 'app.name'|trans }}</span> {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} 

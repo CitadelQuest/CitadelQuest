@@ -607,3 +607,12 @@ div[data-type="tool_calls_frontend_data"] pre
     max-height: 50vh;
     @include mix.cyber-scrollbar;
 }
+
+@keyframes memory-jobs-pulse {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1;   }
+}
+
+.memory-jobs-pulse {
+    animation: memory-jobs-pulse 2.5s ease-in-out infinite;
+}
