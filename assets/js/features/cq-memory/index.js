@@ -76,9 +76,7 @@ class CQMemoryExplorer {
         this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
 
         // Register listener with global updates service (polling already started in app)
-        if (this.spiritId) {
-            this.setupPolling();
-        }
+        this.setupPolling();
 
         // Setup UI event listeners
         this.setupEventListeners();
@@ -112,24 +110,28 @@ class CQMemoryExplorer {
         // Register listener for memory job updates with global singleton
         // Polling is already started globally in cq-chat-modal.js entry point
         updatesService.addListener('memoryExplorer', async (updates) => {
+            const packKey = this.getCurrentPackKey();
+            if (!packKey) return;
+
             if (updates.memoryJobs?.active?.length > 0) {
-                // Filter jobs for this spirit
-                const spiritJobs = updates.memoryJobs.active.filter(job => job.spiritId === this.spiritId);
+                // Filter jobs for the currently viewed pack
+                const packJobs = updates.memoryJobs.active.filter(job => job.packKey === packKey);
                 
-                if (spiritJobs.length > 0) {
+                if (packJobs.length > 0) {
                     // Switch to manual polling to prevent request stacking
-                    // (handles Spirit-initiated jobs detected on page load / global poll)
+                    // (handles jobs detected on page load / global poll, e.g. Spirit-initiated)
                     if (!this.manualPollingActive) {
                         updatesService.pause('memoryExplorer');
                         this.startManualPolling();
                     }
                     
                     // Update extract panel progress
-                    this.extractPanel.updateJobProgress(spiritJobs);
+                    this.extractPanel.updateJobProgress(packJobs);
                     
-                    // Apply graph delta if included in updates
-                    if (updates.memoryJobs.graphDeltas && updates.memoryJobs.graphDeltas[this.spiritId]) {
-                        this.applyGraphDelta(updates.memoryJobs.graphDeltas[this.spiritId]);
+                    // Apply graph delta only when /step loop is NOT driving
+                    // (when /step is active, deltas come directly per-step to avoid duplicates)
+                    if (!this.extractPanel?.isProcessingSteps && updates.memoryJobs.graphDeltas?.[packKey]) {
+                        this.applyGraphDelta(updates.memoryJobs.graphDeltas[packKey]);
                     }
                 }
             }
@@ -137,20 +139,20 @@ class CQMemoryExplorer {
             // Handle completed jobs
             if (updates.memoryJobs?.completed?.length > 0) {
                 updates.memoryJobs.completed.forEach(job => {
-                    if (job.spiritId === this.spiritId) {
+                    if (job.packKey === packKey) {
                         this.extractPanel.removeCompletedJob(job.id);
                         
                         // Show notification
                         if (job.status === 'completed') {
-                            window.toast?.success('Memory extraction completed!');
+                            window.toast?.success('Memory job completed!');
                         } else if (job.status === 'failed') {
-                            window.toast?.error('Memory extraction failed: ' + (job.error || 'Unknown error'));
+                            window.toast?.error('Memory job failed: ' + (job.error || 'Unknown error'));
                         }
                         
                         // Reload stats
                         this.updateStats();
                         
-                        // Check if all jobs for this spirit are done
+                        // Check if all jobs for this pack are done
                         this.checkAndResumePolling(updates.memoryJobs.active);
                     }
                 });
@@ -198,12 +200,21 @@ class CQMemoryExplorer {
     }
     
     /**
-     * Check if all jobs for this spirit are complete and resume global polling
+     * Get the packKey for the currently viewed pack (matches backend keying)
+     */
+    getCurrentPackKey() {
+        if (!this.currentPackPath) return null;
+        return this.currentPackPath.path + '/' + this.currentPackPath.name;
+    }
+
+    /**
+     * Check if all jobs for the current pack are complete and resume global polling
      */
     checkAndResumePolling(activeJobs) {
-        const spiritHasActiveJobs = activeJobs?.some(job => job.spiritId === this.spiritId);
+        const packKey = this.getCurrentPackKey();
+        const packHasActiveJobs = activeJobs?.some(job => job.packKey === packKey);
         
-        if (!spiritHasActiveJobs && this.manualPollingActive) {
+        if (!packHasActiveJobs && this.manualPollingActive) {
             // All jobs done - stop manual polling and resume global
             this.manualPollingActive = false;
             

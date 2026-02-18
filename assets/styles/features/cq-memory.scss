@@ -92,6 +92,28 @@ $panel-min-height: 500px;
             color: colors.$text-light;
         }
 
+        // Extract / Analyze sub-tabs (inner nav-tabs inside extraction panel)
+        #extract-analyze-tabs {
+            border-bottom: 1px solid rgba(colors.$cyber, 0.2);
+
+            .nav-link {
+                color: rgba(colors.$secondary, 0.7);
+                background: transparent;
+                border: none;
+                font-size: 0.8rem;
+                padding: 0.35rem 0.75rem;
+                transition: all vars.$duration-quick;
+
+                &:hover {
+                    color: colors.$cyber;
+                }
+
+                &.active {
+                    color: colors.$cyber;
+                }
+            }
+        }
+
         // Extraction source type pills
         .extract-source-tabs {
             gap: 0.25rem;

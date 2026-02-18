@@ -343,6 +343,12 @@ spirit:
             no_spirits: 'No Spirits found'
             no_conversations: 'No conversations'
             select_conversation_first: 'Please select a conversation first'
+            tab_extract_analyze: 'Extract & Analyze'
+            tab_extract: 'Extract'
+            tab_analyze: 'Analyze'
+            auto_analyze_label: 'Auto-analyze relationships after extraction'
+            analyze_description: 'Runs full relationship analysis for all nodes in the selected pack — same hierarchical pairwise process as the auto-triggered analysis.'
+            start_analysis: 'Start Full Pack Analysis'
         library_selector:
             all_packs: 'All Packs'
             menu: 'Library options'

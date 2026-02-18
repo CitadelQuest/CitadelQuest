@@ -2785,6 +2785,37 @@ PROMPT;
             $sourceContentToStore = is_string($content) ? $content : null;
             $contentLength = is_string($content) ? strlen($content) : 0;
 
+            // Guard: prevent duplicate extraction for the same source_ref
+            $effectiveSourceRef = $sourceRef ?? 'direct-content';
+            if ($sourceRef) {
+                $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+                // Check for active extraction job with the same source_ref
+                $activeJobs = $this->packService->getActiveJobs();
+                foreach ($activeJobs as $activeJob) {
+                    $activePayload = $activeJob->getPayload();
+                    if ($activeJob->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE
+                        && ($activePayload['source_ref'] ?? null) === $effectiveSourceRef) {
+                        $this->packService->close();
+                        return [
+                            'success' => false,
+                            'error' => "An extraction job for this source is already in progress."
+                        ];
+                    }
+                }
+
+                // Check if nodes already exist for this source_ref
+                $existing = $this->packService->hasExtractedFromSource($sourceType, $effectiveSourceRef);
+                $this->packService->close();
+
+                if ($existing) {
+                    return [
+                        'success' => false,
+                        'error' => "This source has already been extracted ({$existing['count']} nodes). Delete the existing extraction first to re-extract."
+                    ];
+                }
+            }
+
             // Always use async extraction — job creation is instant (deferred init)
             $job = $this->startPackRecursiveExtractionJob(
                 $targetPack,
@@ -2793,7 +2824,8 @@ PROMPT;
                 $sourceRef ?? 'direct-content',
                 $documentTitle,
                 $maxDepth,
-                $sourceContentToStore
+                $sourceContentToStore,
+                $arguments['skipAnalysis'] ?? false
             );
 
             return [
@@ -2830,7 +2862,8 @@ PROMPT;
         string $sourceRef,
         string $documentTitle,
         int $maxDepth = 3,
-        ?string $sourceContentToStore = null
+        ?string $sourceContentToStore = null,
+        bool $skipAnalysis = false
     ): MemoryJob {
         // Open pack
         $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
@@ -2855,7 +2888,8 @@ PROMPT;
                 'pending_blocks' => [],
                 'processed_count' => 0,
                 'current_depth' => 1,
-                'extracted_node_ids' => []
+                'extracted_node_ids' => [],
+                'skip_analysis' => $skipAnalysis
             ]
         );
 
@@ -2873,6 +2907,109 @@ PROMPT;
         $this->packService->close();
 
         return $job;
+    }
+
+    /**
+     * Create a full-pack relationship analysis job
+     * Generates all intra-doc + cross-doc candidate pairs for the entire pack
+     * Used for manual "Analyze" action from the GUI
+     */
+    public function createFullPackAnalysisJob(array $targetPack): MemoryJob
+    {
+        $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+
+        // Guard: prevent duplicate analysis — check for any active jobs (extraction or analysis)
+        $activeJobs = $this->packService->getActiveJobs();
+        if (!empty($activeJobs)) {
+            $this->packService->close();
+            throw new \RuntimeException('Cannot start analysis while jobs are active in this pack.');
+        }
+
+        $pendingPairs = [];
+        $seenPairs = [];
+
+        // Load existing semantic relationships for O(1) duplicate filtering
+        $existingPairs = $this->packService->getExistingSemanticPairKeys();
+
+        // Get all root nodes (one per document/source_ref)
+        $allRoots = $this->packService->getRootNodes();
+
+        // 1. Intra-document leaf pairs for every document
+        foreach ($allRoots as $root) {
+            $sourceRef = $root->getSourceRef();
+            if (!$sourceRef) continue;
+
+            $leaves = $this->packService->getLeafNodes($sourceRef);
+            $leafIds = array_map(fn($n) => $n->getId(), $leaves);
+
+            foreach ($leafIds as $leafId) {
+                $structuralIds = $this->packService->getStructurallyRelatedNodeIds($leafId);
+
+                foreach ($leafIds as $otherLeafId) {
+                    if ($otherLeafId === $leafId) continue;
+                    if (in_array($otherLeafId, $structuralIds)) continue;
+
+                    $pairKey = $leafId < $otherLeafId
+                        ? $leafId . ':' . $otherLeafId
+                        : $otherLeafId . ':' . $leafId;
+                    if (isset($seenPairs[$pairKey])) continue;
+                    $seenPairs[$pairKey] = true;
+
+                    // Skip pairs that already have a semantic relationship
+                    if (isset($existingPairs[$pairKey])) continue;
+
+                    $pendingPairs[] = [$leafId, $otherLeafId, 'intra'];
+                }
+            }
+        }
+
+        // 2. Cross-document root gate pairs (all roots × all roots)
+        $rootCount = count($allRoots);
+        for ($i = 0; $i < $rootCount; $i++) {
+            for ($j = $i + 1; $j < $rootCount; $j++) {
+                $rootA = $allRoots[$i];
+                $rootB = $allRoots[$j];
+
+                if ($rootA->getSourceRef() === $rootB->getSourceRef()) continue;
+
+                $pairKey = $rootA->getId() < $rootB->getId()
+                    ? $rootA->getId() . ':' . $rootB->getId()
+                    : $rootB->getId() . ':' . $rootA->getId();
+                if (isset($seenPairs[$pairKey])) continue;
+                $seenPairs[$pairKey] = true;
+
+                // Skip pairs that already have a semantic relationship
+                if (isset($existingPairs[$pairKey])) continue;
+
+                $pendingPairs[] = [$rootA->getId(), $rootB->getId(), 'root_gate'];
+            }
+        }
+
+        // If no new pairs to analyze, don't create a job
+        if (empty($pendingPairs)) {
+            $this->packService->close();
+            throw new \RuntimeException('All node pairs in this pack have already been analyzed. No new relationships to discover.');
+        }
+
+        $analysisJob = $this->packService->createJob(
+            MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
+            [
+                'target_pack'           => $targetPack,
+                'pending_pairs'         => $pendingPairs,
+                'processed_count'       => 0,
+                'relationships_created' => 0,
+                'source_job_id'         => null,
+                'document_title'        => null,
+                'new_source_ref'        => null,
+                'full_pack_analysis'    => true
+            ]
+        );
+
+        $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));
+        $this->packService->startJob($analysisJob->getId());
+        $this->packService->close();
+
+        return $analysisJob;
     }
 
     /**
@@ -3050,7 +3187,7 @@ PROMPT;
                 ]);
 
                 // Create relationship analysis job with hierarchical pair strategy
-                if (!empty($extractedNodeIds)) {
+                if (!empty($extractedNodeIds) && !($payload['skip_analysis'] ?? false)) {
                     $pendingPairs = [];
                     $seenPairs = [];
                     
@@ -3337,6 +3474,11 @@ PROMPT;
                     
                     // leaf_A × root_child_B for each new doc leaf
                     $newSourceRef = $payload['new_source_ref'] ?? null;
+                    // For full-pack analysis (no new_source_ref), derive from nodeA's source_ref
+                    if (!$newSourceRef) {
+                        $nodeAObj = $this->packService->findNodeById($nodeAId);
+                        $newSourceRef = $nodeAObj?->getSourceRef();
+                    }
                     if ($newSourceRef) {
                         $newLeaves = $this->packService->getLeafNodes($newSourceRef);
                         $existingRootChildren = $this->packService->getChildNodes($nodeBId);

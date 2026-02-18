@@ -117,6 +117,22 @@ export class MemoryExtractPanel {
                 }
             });
         }
+
+        // Start analysis button
+        const analyzeBtn = document.getElementById('btn-start-analysis');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', () => this.startAnalysis());
+        }
+
+        // Auto-analyze toggle — persist state
+        const autoAnalyzeToggle = document.getElementById('toggle-auto-analyze');
+        if (autoAnalyzeToggle) {
+            const saved = localStorage.getItem('cq_memory_auto_analyze');
+            if (saved === 'false') autoAnalyzeToggle.checked = false;
+            autoAnalyzeToggle.addEventListener('change', () => {
+                localStorage.setItem('cq_memory_auto_analyze', autoAnalyzeToggle.checked);
+            });
+        }
     }
 
     togglePanel() {
@@ -191,9 +207,17 @@ export class MemoryExtractPanel {
     setTargetPack(targetPack, projectId = 'general') {
         this.targetPack = targetPack;
         this.projectId = projectId;
+
+        this.updateAnalyzeButtonState();
         
         // Check for stalled jobs in this pack (e.g. after page refresh)
         this.checkForActiveJobs();
+    }
+
+    updateAnalyzeButtonState() {
+        const btn = document.getElementById('btn-start-analysis');
+        if (!btn) return;
+        btn.disabled = !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
     }
 
     /**
@@ -223,8 +247,7 @@ export class MemoryExtractPanel {
                 });
                 this.renderJobsList();
                 
-                // Pause global polling and resume step processing
-                updatesService.pause('extractPanel');
+                // Resume step processing for stalled jobs
                 this.processStepsSequentially();
             }
         } catch (e) {
@@ -237,9 +260,11 @@ export class MemoryExtractPanel {
      * Build extraction request body based on active source type
      */
     getExtractionParams(maxDepth) {
+        const autoAnalyzeToggle = document.getElementById('toggle-auto-analyze');
         const params = {
             targetPack: this.targetPack,
-            maxDepth: maxDepth
+            maxDepth: maxDepth,
+            skipAnalysis: autoAnalyzeToggle ? !autoAnalyzeToggle.checked : false
         };
 
         switch (this.activeSourceType) {
@@ -295,9 +320,6 @@ export class MemoryExtractPanel {
 
         const maxDepth = depthSlider ? parseInt(depthSlider.value) : 3;
         const extractionParams = this.getExtractionParams(maxDepth);
-
-        // Pause global polling BEFORE fetch to prevent pile-up
-        updatesService.pause('extractPanel');
 
         // Disable button during request
         if (startBtn) {
@@ -392,7 +414,6 @@ export class MemoryExtractPanel {
             } else if (result.success) {
                 // Direct extraction (small file) - notify completion
                 this.showSuccess(t.extraction_completed || 'Extraction completed!');
-                updatesService.resume('extractPanel');
                 
                 // Build graph delta from extraction result and push to 3D scene
                 if (this.onGraphDelta && result.memories) {
@@ -450,7 +471,6 @@ export class MemoryExtractPanel {
         } catch (error) {
             console.error('Extraction failed:', error);
             this.showError(error.message);
-            updatesService.resume('extractPanel');
         } finally {
             if (startBtn) {
                 // Restore button label but keep disabled if async jobs are running
@@ -512,16 +532,14 @@ export class MemoryExtractPanel {
                 }
                 
                 // Apply graph delta immediately
-                if (data.delta && this.onGraphDelta) {
+                const hasNewData = (data.delta?.nodes?.length > 0) || (data.delta?.edges?.length > 0);
+                if (hasNewData && this.onGraphDelta) {
                     this.onGraphDelta(data.delta);
                 }
                 
                 // Check if more steps remain
                 if (!data.hasMoreSteps) {
                     this.isProcessingSteps = false;
-                    
-                    // Resume global polling
-                    updatesService.resume('extractPanel');
                     
                     // Clear jobs after delay and re-enable extraction button
                     setTimeout(() => {
@@ -536,8 +554,9 @@ export class MemoryExtractPanel {
                     break;
                 }
                 
-                // Small delay between steps for UI responsiveness
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Back off when no work was done (e.g. concurrent lock held by backend)
+                // Short delay for real steps, longer delay for no-ops to avoid flooding
+                await new Promise(resolve => setTimeout(resolve, hasNewData ? 100 : 2000));
             }
             
         } catch (error) {
@@ -545,7 +564,6 @@ export class MemoryExtractPanel {
             this.isProcessingSteps = false;
             this.showError('Extraction failed: ' + error.message);
             this.enableStartButton();
-            updatesService.resume('extractPanel');
         }
     }
     
@@ -554,6 +572,66 @@ export class MemoryExtractPanel {
      */
     stopStepProcessing() {
         this.isProcessingSteps = false;
+    }
+
+    /**
+     * Start a full-pack relationship analysis job manually
+     */
+    async startAnalysis() {
+        if (!this.targetPack) {
+            this.showAnalyzeError('Please select a Memory Pack first');
+            return;
+        }
+
+        const btn = document.getElementById('btn-start-analysis');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
+        }
+
+        try {
+            const response = await fetch('/api/memory/pack/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.targetPack.projectId,
+                    path: this.targetPack.path,
+                    name: this.targetPack.name
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) throw new Error(result.error || 'Failed to start analysis');
+
+            this.addJobToList(result.jobId, {
+                type: result.initialProgress?.type || 'analyze_relationships',
+                progress: result.initialProgress?.progress || 0,
+                totalSteps: result.initialProgress?.totalSteps || 0,
+                status: 'processing',
+                packContext: this.targetPack
+            });
+
+            this.processStepsSequentially();
+
+        } catch (error) {
+            console.error('Analysis failed:', error);
+            this.showAnalyzeError(error.message);
+        } finally {
+            if (btn) {
+                const t = window.memoryExplorerTranslations?.extract_panel || {};
+                btn.innerHTML = `<i class="mdi mdi-graph me-1"></i> ${t.start_analysis || 'Start Full Pack Analysis'}`;
+                this.updateAnalyzeButtonState();
+            }
+        }
+    }
+
+    showAnalyzeError(message) {
+        const alert = document.getElementById('analyze-alert');
+        if (!alert) return;
+        alert.className = 'alert alert-danger alert-sm mt-2 small p-2';
+        alert.textContent = message;
+        setTimeout(() => alert.classList.add('d-none'), 5000);
     }
 
     /**
@@ -603,6 +681,7 @@ export class MemoryExtractPanel {
         if (startBtn && this.hasValidSourceInput()) {
             startBtn.disabled = false;
         }
+        this.updateAnalyzeButtonState();
     }
 
     addJobToList(jobId, jobData) {
@@ -681,6 +760,7 @@ export class MemoryExtractPanel {
         }).join('');
 
         container.innerHTML = html;
+        this.updateAnalyzeButtonState();
     }
 
     removeCompletedJob(jobId) {

@@ -343,52 +343,54 @@ class CQMemoryLibraryService
         }
     }
     
-    /**
-     * Find all pack files in a project directory (recursive)
-     * 
-     * @param string $projectId Project ID
-     * @param string $path Directory path to search
-     * @param bool $recursive Search subdirectories (default true)
-     */
+    public function findPackFilesInDirectory(string $projectId, string $path, bool $recursive = true): array
+    {
+        $packFiles = [];
+
+        $files = $this->projectFileService->listFiles($projectId, $path);
+
+        foreach ($files as $file) {
+            if ($file->isDirectory() && $recursive) {
+                $subPath = rtrim($path, '/') . '/' . $file->getName();
+                $packFiles = array_merge($packFiles, $this->findPackFilesInDirectory($projectId, $subPath, true));
+            } elseif (!$file->isDirectory() && pathinfo($file->getName(), PATHINFO_EXTENSION) === CQMemoryPackService::FILE_EXTENSION) {
+                $packFiles[] = ['path' => $path, 'name' => $file->getName()];
+            }
+        }
+
+        return $packFiles;
+    }
+
     public function findPacksInDirectory(string $projectId, string $path, bool $recursive = true): array
     {
         $packs = [];
-        
-        // Get all files in directory from database
-        $files = $this->projectFileService->listFiles($projectId, $path);
-        
-        foreach ($files as $file) {
-            if ($file->isDirectory() && $recursive) {
-                // Recursively search subdirectories
-                $subPath = rtrim($path, '/') . '/' . $file->getName();
-                $packs = array_merge($packs, $this->findPacksInDirectory($projectId, $subPath, true));
-            } elseif (!$file->isDirectory() && pathinfo($file->getName(), PATHINFO_EXTENSION) === CQMemoryPackService::FILE_EXTENSION) {
-                try {
-                    $this->packService->open($projectId, $path, $file->getName());
-                    $metadata = $this->packService->getAllMetadata();
-                    $stats = $this->packService->getStats();
-                    $this->packService->close();
-                    
-                    $packs[] = [
-                        'path' => $path,
-                        'name' => $file->getName(),
-                        'displayName' => $metadata['name'] ?? basename($file->getName(), '.' . CQMemoryPackService::FILE_EXTENSION),
-                        'description' => $metadata['description'] ?? '',
-                        'totalNodes' => $stats['totalNodes'],
-                        'totalRelationships' => $stats['totalRelationships'],
-                        'createdAt' => $metadata['created_at'] ?? null,
-                        'updatedAt' => $metadata['updated_at'] ?? null
-                    ];
-                } catch (\Exception $e) {
-                    $this->logger->warning('Invalid pack file', [
-                        'path' => $path,
-                        'name' => $file->getName(),
-                        'error' => $e->getMessage()
-                    ]);
-                }
+
+        foreach ($this->findPackFilesInDirectory($projectId, $path, $recursive) as $packFile) {
+            try {
+                $this->packService->open($projectId, $packFile['path'], $packFile['name']);
+                $metadata = $this->packService->getAllMetadata();
+                $stats = $this->packService->getStats();
+                $this->packService->close();
+
+                $packs[] = [
+                    'path' => $packFile['path'],
+                    'name' => $packFile['name'],
+                    'displayName' => $metadata['name'] ?? basename($packFile['name'], '.' . CQMemoryPackService::FILE_EXTENSION),
+                    'description' => $metadata['description'] ?? '',
+                    'totalNodes' => $stats['totalNodes'],
+                    'totalRelationships' => $stats['totalRelationships'],
+                    'createdAt' => $metadata['created_at'] ?? null,
+                    'updatedAt' => $metadata['updated_at'] ?? null
+                ];
+            } catch (\Exception $e) {
+                $this->logger->warning('Invalid pack file', [
+                    'path' => $packFile['path'],
+                    'name' => $packFile['name'],
+                    'error' => $e->getMessage()
+                ]);
             }
         }
-        
+
         return $packs;
     }
     

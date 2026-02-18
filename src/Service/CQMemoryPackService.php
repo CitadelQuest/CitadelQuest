@@ -1390,6 +1390,9 @@ class CQMemoryPackService
         $db = $this->getConnection();
         $deletedIds = [];
         
+        // Read root node before deletion to check if it's a document root (depth=0)
+        $rootNode = $this->findNodeById($nodeId);
+        
         // Collect all descendant node IDs via PART_OF relationships (BFS)
         $queue = [$nodeId];
         $visited = [$nodeId => true];
@@ -1417,6 +1420,14 @@ class CQMemoryPackService
         // Delete all collected nodes, their tags and relationships
         foreach ($deletedIds as $id) {
             $this->deleteNode($id);
+        }
+        
+        // If the deleted root was a document root (depth=0), also clean up memory_sources
+        if ($rootNode && $rootNode->getDepth() === 0 && $rootNode->getSourceRef()) {
+            $db->executeStatement(
+                'DELETE FROM memory_sources WHERE source_ref = ?',
+                [$rootNode->getSourceRef()]
+            );
         }
         
         $this->logger->info('Deleted node with children', [
@@ -1805,6 +1816,29 @@ class CQMemoryPackService
         return (int)$result->fetchOne() > 0;
     }
     
+    /**
+     * Get a set of all existing relationship pair keys (any type)
+     * Returns array with keys like "nodeA:nodeB" (sorted) for O(1) lookup
+     */
+    public function getExistingSemanticPairKeys(): array
+    {
+        $db = $this->getConnection();
+        
+        $result = $db->executeQuery(
+            'SELECT source_id, target_id FROM memory_relationships'
+        );
+        
+        $pairKeys = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $a = $row['source_id'];
+            $b = $row['target_id'];
+            $key = $a < $b ? $a . ':' . $b : $b . ':' . $a;
+            $pairKeys[$key] = true;
+        }
+        
+        return $pairKeys;
+    }
+
     // ========================================
     // Tag Operations
     // ========================================

@@ -360,7 +360,8 @@ class CQMemoryPackApiController extends AbstractController
                 'sourceRef' => $sourceRef,
                 'content' => $content,
                 'maxDepth' => $data['maxDepth'] ?? 3,
-                'documentTitle' => $data['documentTitle'] ?? null
+                'documentTitle' => $data['documentTitle'] ?? null,
+                'skipAnalysis' => (bool)($data['skipAnalysis'] ?? false)
             ];
 
             // Call pack-based extraction
@@ -372,6 +373,52 @@ class CQMemoryPackApiController extends AbstractController
             return new JsonResponse([
                 'success' => false,
                 'error' => 'Extraction failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Start a full-pack relationship analysis job (manual trigger from GUI)
+     * Generates all intra-doc + cross-doc candidate pairs for the entire pack
+     */
+    #[Route('/pack/analyze', name: 'api_memory_pack_analyze', methods: ['POST'])]
+    public function analyzeManual(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+
+        if (!$path || !$name) {
+            return new JsonResponse(['error' => 'path and name are required'], 400);
+        }
+
+        $request->getSession()->save();
+
+        try {
+            $targetPack = [
+                'projectId' => $projectId,
+                'path' => $path,
+                'name' => $name
+            ];
+
+            $job = $this->aiToolMemoryService->createFullPackAnalysisJob($targetPack);
+
+            return new JsonResponse([
+                'success' => true,
+                'async' => true,
+                'jobId' => $job->getId(),
+                'initialProgress' => [
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'type' => $job->getType()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to start analysis: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -625,6 +672,12 @@ class CQMemoryPackApiController extends AbstractController
             
             $job = $jobsToProcess[0];
             $jobId = $job->getId();
+            
+            // Signal that the frontend /step loop is actively driving this job
+            // Backend processMemoryJobs() checks this and skips step processing
+            $payload = $job->getPayload();
+            $payload['last_step_request_at'] = time();
+            $this->packService->updateJobPayload($jobId, $payload);
             
             // Get timestamp before processing to capture new nodes/edges
             $beforeTimestamp = date('Y-m-d H:i:s');

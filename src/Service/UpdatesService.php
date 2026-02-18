@@ -22,7 +22,6 @@ class UpdatesService
         private readonly CqChatMsgService $cqChatMsgService,
         private readonly CqContactService $cqContactService,
         private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly SpiritService $spiritService,
         private readonly CQMemoryPackService $packService,
         private readonly CQMemoryLibraryService $libraryService
     ) {
@@ -309,9 +308,8 @@ class UpdatesService
     }
 
     /**
-     * Process pending memory jobs from Spirit packs and return status updates
-     * Iterates over user's Spirits, checks each pack for pending jobs
-     * Processes ONE job step per poll to avoid blocking
+     * Process pending memory jobs across all packs and return status updates
+     * Discovers all .cqmpack files, processes ONE job step per poll to avoid blocking
      * 
      * @param string $since Timestamp for delta queries
      */
@@ -325,116 +323,120 @@ class UpdatesService
         ];
 
         try {
-            // Get all user's Spirits
-            $spirits = $this->spiritService->findAll();
-            
-            foreach ($spirits as $spirit) {
+            // Discover all packs (lightweight, no opens)
+            $allPackFiles = $this->libraryService->findPackFilesInDirectory('general', '/');
+
+            foreach ($allPackFiles as $packFile) {
+                $packKey = $packFile['path'] . '/' . $packFile['name'];
+                $targetPack = ['projectId' => 'general', 'path' => $packFile['path'], 'name' => $packFile['name']];
+
                 try {
-                    $targetPack = $this->aiToolMemoryService->getSpiritTargetPack($spirit->getId());
-                    
-                    $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
-                    
-                    // Process ONE pending job step (if any)
+                    $this->packService->open('general', $packFile['path'], $packFile['name']);
+
+                    // Process ONE pending job step — only if no frontend /step loop is driving
                     if (!$result['processed']) {
                         $jobsToProcess = $this->packService->getJobsToProcess(1);
-                        
+
                         if (!empty($jobsToProcess)) {
                             $job = $jobsToProcess[0];
-                            $jobId = $job->getId();
-                            
-                            $this->packService->close();
-                            
-                            // Process step (opens/closes pack internally)
-                            if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE) {
-                                $this->aiToolMemoryService->processPackExtractionJobStep($targetPack, $jobId);
-                                $result['processed'] = true;
-                            } elseif ($job->getType() === MemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
-                                $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($targetPack, $jobId);
-                                $result['processed'] = true;
+                            $jobPayload = $job->getPayload();
+
+                            // Skip if frontend /step endpoint is actively processing this job
+                            // (last_step_request_at is refreshed on every /step call)
+                            $lastStepRequestAt = $jobPayload['last_step_request_at'] ?? 0;
+                            if (time() - $lastStepRequestAt >= 60) {
+                                // No frontend activity — backend drives this step
+                                $jobId = $job->getId();
+                                $this->packService->close();
+
+                                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE) {
+                                    $this->aiToolMemoryService->processPackExtractionJobStep($targetPack, $jobId);
+                                    $result['processed'] = true;
+                                } elseif ($job->getType() === MemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
+                                    $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($targetPack, $jobId);
+                                    $result['processed'] = true;
+                                }
+
+                                // Reopen to get status and deltas
+                                $this->packService->open('general', $packFile['path'], $packFile['name']);
                             }
-                            
-                            // Reopen pack to get status and deltas
-                            $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
+                            // else: frontend is driving — just observe (collect status below)
                         }
                     }
-                    
-                    // Get active jobs for status display
+
+                    // Collect active jobs
                     $activeJobs = $this->packService->getActiveJobs();
                     foreach ($activeJobs as $job) {
                         $payload = $job->getPayload();
-                        
+
                         $currentBlock = null;
                         if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE && isset($payload['pending_blocks'])) {
-                            $pendingBlocks = $payload['pending_blocks'];
-                            if (!empty($pendingBlocks)) {
-                                $currentBlockData = $pendingBlocks[0] ?? null;
-                                if ($currentBlockData && isset($currentBlockData['title'])) {
-                                    $currentBlock = $currentBlockData['title'];
-                                }
+                            $currentBlockData = $payload['pending_blocks'][0] ?? null;
+                            if ($currentBlockData && isset($currentBlockData['title'])) {
+                                $currentBlock = $currentBlockData['title'];
                             }
                         }
-                        
+
                         $recentNodeIds = [];
                         if (isset($payload['extracted_node_ids']) && is_array($payload['extracted_node_ids'])) {
                             $recentNodeIds = array_slice($payload['extracted_node_ids'], -5);
                         }
-                        
+
                         $result['active'][] = [
-                            'id' => $job->getId(),
-                            'type' => $job->getType(),
-                            'status' => $job->getStatus(),
-                            'progress' => $job->getProgress(),
-                            'totalSteps' => $job->getTotalSteps(),
-                            'createdAt' => $job->getCreatedAt()->format('c'),
+                            'id'           => $job->getId(),
+                            'type'         => $job->getType(),
+                            'status'       => $job->getStatus(),
+                            'progress'     => $job->getProgress(),
+                            'totalSteps'   => $job->getTotalSteps(),
+                            'createdAt'    => $job->getCreatedAt()->format('c'),
                             'currentBlock' => $currentBlock,
-                            'recentNodeIds' => $recentNodeIds,
-                            'spiritId' => $spirit->getId()
+                            'recentNodeIds'=> $recentNodeIds,
+                            'packKey'      => $packKey
                         ];
                     }
-                    
-                    // Fetch graph deltas
+
+                    // Fetch graph deltas (keyed uniformly by packKey)
                     if (!empty($activeJobs)) {
                         try {
                             $delta = $this->packService->getGraphDelta($since);
                             if (!empty($delta['nodes']) || !empty($delta['edges'])) {
-                                $result['graphDeltas'][$spirit->getId()] = $delta;
+                                $result['graphDeltas'][$packKey] = $delta;
                             }
                         } catch (\Exception $e) {
                             // Silently continue - delta is optional
                         }
                     }
-                    
-                    // Get recently completed jobs
+
+                    // Collect recently completed jobs
                     $completedJobs = $this->packService->getRecentlyCompletedJobs($since);
                     foreach ($completedJobs as $job) {
                         $result['completed'][] = [
-                            'id' => $job->getId(),
-                            'type' => $job->getType(),
-                            'status' => $job->getStatus(),
-                            'result' => $job->getResult(),
-                            'error' => $job->getError(),
-                            'completedAt' => $job->getCompletedAt()?->format('c')
+                            'id'          => $job->getId(),
+                            'type'        => $job->getType(),
+                            'status'      => $job->getStatus(),
+                            'result'      => $job->getResult(),
+                            'error'       => $job->getError(),
+                            'completedAt' => $job->getCompletedAt()?->format('c'),
+                            'packKey'     => $packKey
                         ];
                     }
-                    
+
                     $this->packService->close();
-                    
-                    // Sync library stats when jobs have completed
+
+                    // Sync parent library stats when pack's jobs complete
                     if (!empty($completedJobs) && empty($activeJobs)) {
                         try {
-                            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-                            $this->libraryService->syncPackStats(
-                                $memoryInfo['projectId'],
-                                $memoryInfo['memoryPath'],
-                                $memoryInfo['rootLibraryName']
+                            $this->libraryService->syncLibraryForPack(
+                                'general',
+                                $packFile['path'],
+                                $packFile['name']
                             );
                         } catch (\Exception $e) {
                             // Non-fatal — library sync is optional
                         }
                     }
-                    
+
                 } catch (\Exception $e) {
-                    // Spirit pack not available, skip
                     try { $this->packService->close(); } catch (\Exception $e2) {}
                 }
             }

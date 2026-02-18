@@ -114,8 +114,8 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-extraction" data-bs-toggle="tab" data-bs-target="#panel-extraction" type="button" role="tab" aria-controls="panel-extraction" aria-selected="false">
-                            <i class="mdi mdi-excavator"></i>
-                            <span class="tab-label">{{ 'spirit.memory.extract_panel.title'|trans }}</span>
+                            <i class="mdi mdi-excavator"></i><span class="text-secondary"> / </span><i class="mdi mdi-graph"></i>
+                            <span class="tab-label">{{ 'spirit.memory.extract_panel.tab_extract_analyze'|trans }}</span>
                         </button>
                     </li>
                 </ul>
@@ -183,6 +183,25 @@
 
                     {# Extraction Tab #}
                     <div class="tab-pane fade" id="panel-extraction" role="tabpanel" aria-labelledby="tab-extraction">
+
+                        {# Sub-tab navigation: Extract | Analyze #}
+                        <ul class="nav nav-tabs nav-tabs-sm mb-3" id="extract-analyze-tabs" role="tablist" style="font-size:0.85rem;">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active px-3 py-1" id="sub-tab-extract" data-bs-toggle="tab" data-bs-target="#sub-panel-extract" type="button" role="tab">
+                                    <i class="mdi mdi-excavator me-1"></i>{{ 'spirit.memory.extract_panel.tab_extract'|trans }}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link px-3 py-1" id="sub-tab-analyze" data-bs-toggle="tab" data-bs-target="#sub-panel-analyze" type="button" role="tab">
+                                    <i class="mdi mdi-graph me-1"></i>{{ 'spirit.memory.extract_panel.tab_analyze'|trans }}
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content">
+
+                        {# Extract sub-panel #}
+                        <div class="tab-pane fade show active" id="sub-panel-extract" role="tabpanel">
                         {# Source type selector pills #}
                         <div class="mb-3">
                             <label class="form-label small text-cyber mb-2">
@@ -266,9 +285,36 @@
                             </div>
                         </div>
                         
-                        <button id="btn-start-extraction" class="btn btn-sm btn-cyber w-100 mb-4" disabled>
+                        {# Auto-analyze toggle #}
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggle-auto-analyze" checked>
+                            <label class="form-check-label small text-secondary" for="toggle-auto-analyze">
+                                <i class="mdi mdi-graph me-1 text-cyber opacity-50"></i>{{ 'spirit.memory.extract_panel.auto_analyze_label'|trans }}
+                            </label>
+                        </div>
+
+                        <button id="btn-start-extraction" class="btn btn-sm btn-cyber w-100 mb-5" disabled>
                             <i class="mdi mdi-excavator"></i> {{ 'spirit.memory.extract_panel.start_extraction'|trans }}
                         </button>
+                        </div>{# /sub-panel-extract #}
+
+                        {# Analyze sub-panel #}
+                        <div class="tab-pane fade" id="sub-panel-analyze" role="tabpanel">
+                            <div class="mb-3">
+                                <p class="small text-secondary mb-3">
+                                    <i class="mdi mdi-information-outline me-1 text-cyber opacity-50"></i>
+                                    {{ 'spirit.memory.extract_panel.analyze_description'|trans }}
+                                </p>
+                                <button id="btn-start-analysis" class="btn btn-sm btn-cyber w-100 mb-4" disabled>
+                                    <i class="mdi mdi-graph me-1"></i> {{ 'spirit.memory.extract_panel.start_analysis'|trans }}
+                                </button>
+                                <div id="analyze-alert" class="mt-2 d-none"></div>
+                            </div>
+                        </div>{# /sub-panel-analyze #}
+
+                        </div>{# /tab-content #}
+
+                        {# Active Jobs — shared between both sub-panels #}
                         <h6 class="small text-cyber mb-2">
                             <i class="mdi mdi-progress-clock me-1"></i>
                             {{ 'spirit.memory.extract_panel.active_jobs'|trans }}
@@ -280,25 +326,6 @@
                             <div class="text-secondary small text-center py-3">{{ 'spirit.memory.extract_panel.no_jobs'|trans }}</div>
                         </div>
 
-                        <div class="small text-secondary pt-5">
-                            <h6 class="small text-cyber mb-2">
-                                <i class="mdi mdi-information-outline me-1"></i>
-                                {{ 'spirit.memory.extract_panel.how_it_works'|trans }}
-                            </h6>
-                            <ul class="mb-0" style="font-size: 0.85rem;">
-                                <li>{{ 'spirit.memory.extract_panel.instruction_1'|trans }}</li>
-                                <li>{{ 'spirit.memory.extract_panel.instruction_2'|trans }}</li>
-                                <li>{{ 'spirit.memory.extract_panel.instruction_3'|trans }}</li>
-                                <li>{{ 'spirit.memory.extract_panel.instruction_4'|trans }}</li>
-                                <li>{{ 'spirit.memory.extract_panel.instruction_5'|trans }}</li>
-                            </ul>
-                            <div class="mt-3 p-2 bg-secondary bg-opacity-25 rounded d-none">
-                                <div class="small">
-                                    <i class="mdi mdi-lightbulb-on-outline text-cyber me-1"></i>
-                                    {{ 'spirit.memory.extract_panel.tip'|trans }}
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -795,7 +822,9 @@
                 select_conversation: '{{ 'spirit.memory.extract_panel.select_conversation'|trans }}',
                 no_spirits: '{{ 'spirit.memory.extract_panel.no_spirits'|trans }}',
                 no_conversations: '{{ 'spirit.memory.extract_panel.no_conversations'|trans }}',
-                select_conversation_first: '{{ 'spirit.memory.extract_panel.select_conversation_first'|trans }}'
+                select_conversation_first: '{{ 'spirit.memory.extract_panel.select_conversation_first'|trans }}',
+                start_analysis: '{{ 'spirit.memory.extract_panel.start_analysis'|trans }}',
+                abort_job: '{{ 'spirit.memory.extract_panel.abort_job'|trans|default('Abort job') }}'
             },
             library_selector: {
                 all_packs: '{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}',
