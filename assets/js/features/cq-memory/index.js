@@ -583,10 +583,10 @@ class CQMemoryExplorer {
 
     getRelationshipColor(type) {
         const colors = {
-            PART_OF: '#00ff00',
-            RELATES_TO: '#ffffff',
+            PART_OF: '#ffffff',
+            RELATES_TO: '#0088ff',
             CONTRADICTS: '#ff0000',
-            REINFORCES: '#0088ff'
+            REINFORCES: '#00ff00'
         };
         return colors[type] || '#666666';
     }

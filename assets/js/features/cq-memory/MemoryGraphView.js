@@ -28,10 +28,10 @@ export class MemoryGraphView {
 
         // Relationship colors
         this.relationshipColors = {
-            PART_OF: 0x00ff00,
-            RELATES_TO: 0xffffff,
+            PART_OF: 0xffffff,
+            RELATES_TO: 0x0088ff,
             CONTRADICTS: 0xff0000,
-            REINFORCES: 0x0088ff,
+            REINFORCES: 0x00ff00,
             default: 0x666666
         };
 
@@ -84,7 +84,7 @@ export class MemoryGraphView {
         this.scene.background = new THREE.Color(this.options.backgroundColor);
 
         // Camera
-        this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
+        this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 50000);
         this.camera.position.set(0, 0, 200);
 
         // Renderer
@@ -112,7 +112,7 @@ export class MemoryGraphView {
         this.controls.rotateSpeed = 0.5;
         this.controls.zoomSpeed = 1.2;
         this.controls.minDistance = 50;
-        this.controls.maxDistance = 500;
+        this.controls.maxDistance = 20000;
 
         // Groups
         this.nodeGroup = new THREE.Group();
@@ -847,8 +847,8 @@ export class MemoryGraphView {
         // Add to layout engine
         this.layoutEngine.addLink(edgeData);
 
-        // Edge line will be created/updated on next tick
-        this.createEdgeLines(this.graphData.edges);
+        // Create line only for the new edge, not all edges (prevents duplicate lines)
+        this.createEdgeLines([edgeData]);
     }
 
     /**

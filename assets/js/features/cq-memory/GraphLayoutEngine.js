@@ -1,4 +1,4 @@
-import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force';
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide, forceX, forceY } from 'd3-force';
 
 /**
  * GraphLayoutEngine - Uses d3-force for node positioning in 3D space
@@ -62,6 +62,8 @@ export class GraphLayoutEngine {
                 .strength(this.options.chargeStrength))
             .force('center', forceCenter(0, 0)
                 .strength(this.options.centerStrength))
+            .force('gravityX', forceX(0).strength(0.03))
+            .force('gravityY', forceY(0).strength(0.03))
             .force('collision', forceCollide()
                 .radius(d => this.getNodeRadius(d) + 5))
             .alphaDecay(this.options.alphaDecay)
