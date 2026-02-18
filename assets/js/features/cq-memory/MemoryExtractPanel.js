@@ -10,6 +10,7 @@ export class MemoryExtractPanel {
     constructor(spiritId) {
         this.spiritId = spiritId;
         this.activeJobs = new Map();
+        this.abortedJobIds = new Set();
         this.isPanelVisible = false;
         
         // Pack target for extraction (set by parent)
@@ -102,6 +103,18 @@ export class MemoryExtractPanel {
         if (startBtn) {
             startBtn.addEventListener('click', () => {
                 this.startExtraction();
+            });
+        }
+
+        // Event delegation for abort buttons in jobs list
+        const jobsList = document.getElementById('extract-jobs-list');
+        if (jobsList) {
+            jobsList.addEventListener('click', (e) => {
+                const abortBtn = e.target.closest('.btn-abort-job');
+                if (abortBtn) {
+                    const jobId = abortBtn.dataset.jobId;
+                    if (jobId) this.abortJob(jobId);
+                }
             });
         }
     }
@@ -492,8 +505,8 @@ export class MemoryExtractPanel {
                     throw new Error(data.error || 'Step processing failed');
                 }
                 
-                // Update job status
-                if (data.job) {
+                // Update job status (skip if user aborted this job)
+                if (data.job && !this.abortedJobIds.has(data.job.id)) {
                     this.activeJobs.set(data.job.id, data.job);
                     this.renderJobsList();
                 }
@@ -544,6 +557,45 @@ export class MemoryExtractPanel {
     }
 
     /**
+     * Abort (cancel) a specific active job
+     * Marks job as cancelled on server; step loop continues and skips cancelled jobs naturally
+     */
+    async abortJob(jobId) {
+        if (!this.targetPack) return;
+
+        const t = window.memoryExplorerTranslations?.extract_panel || {};
+        if (!confirm(t.abort_confirm || 'Abort this job? This cannot be undone.')) return;
+
+        this.abortedJobIds.add(jobId);
+
+        try {
+            const response = await fetch('/api/memory/pack/job/abort', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.targetPack.projectId,
+                    path: this.targetPack.path,
+                    name: this.targetPack.name,
+                    jobId: jobId
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                this.abortedJobIds.delete(jobId);
+                throw new Error(data.error || 'Failed to abort job');
+            }
+
+            this.activeJobs.delete(jobId);
+            this.renderJobsList();
+
+        } catch (error) {
+            console.error('Failed to abort job:', error);
+            this.showError('Failed to abort: ' + error.message);
+        }
+    }
+
+    /**
      * Re-enable extraction start button (called when all jobs finish)
      */
     enableStartButton() {
@@ -580,7 +632,12 @@ export class MemoryExtractPanel {
             return;
         }
 
-        const html = Array.from(this.activeJobs.values()).map(job => {
+        const statusOrder = { 'processing': 0, 'pending': 1, 'completed': 2, 'cancelled': 3, 'failed': 3 };
+        const sortedJobs = Array.from(this.activeJobs.values()).sort((a, b) =>
+            (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4)
+        );
+
+        const html = sortedJobs.map(job => {
             const percentage = job.totalSteps > 0 ? Math.round((job.progress / job.totalSteps) * 100) : 0;
             // Job is complete when status is 'completed' OR progress reaches totalSteps
             const isComplete = job.status === 'completed' || (job.progress === job.totalSteps && job.totalSteps > 0);
@@ -601,7 +658,10 @@ export class MemoryExtractPanel {
                             <i class="mdi mdi-${icon}"></i>
                             ${this.getJobTypeLabel(job.type)}
                         </small>
-                        <small class="text-secondary">${job.progress}/${job.totalSteps} ${t.steps || 'steps'}</small>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-secondary">${job.progress}/${job.totalSteps} ${t.steps || 'steps'}</small>
+                            ${!isComplete ? `<button class="btn btn-abort-job p-0 border-0 bg-transparent text-danger" data-job-id="${job.id}" title="${t.abort_job || 'Abort job'}" style="line-height:1;"><i class="mdi mdi-close-circle" style="font-size:1rem;"></i></button>` : ''}
+                        </div>
                     </div>
                     <div class="progress mb-1" style="height: 6px;">
                         <div class="progress-bar ${isComplete ? 'bg-success' : 'bg-cyber'}" role="progressbar" 

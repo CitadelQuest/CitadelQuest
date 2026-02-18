@@ -34,6 +34,7 @@ class MemoryJob implements JsonSerializable
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     public function __construct(string $type, array $payload = [])
     {

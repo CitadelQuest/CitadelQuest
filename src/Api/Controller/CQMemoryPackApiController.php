@@ -475,6 +475,43 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
+     * Abort (cancel) an active job in a pack
+     * Marks the job as cancelled so the step processor skips it on next iteration
+     */
+    #[Route('/pack/job/abort', name: 'api_memory_pack_job_abort', methods: ['POST'])]
+    public function abortJob(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+        $jobId = $data['jobId'] ?? null;
+
+        if (!$path || !$name || !$jobId) {
+            return new JsonResponse(['error' => 'path, name, and jobId are required'], 400);
+        }
+
+        try {
+            $this->packService->open($projectId, $path, $name);
+            $job = $this->packService->findJobById($jobId);
+
+            if (!$job) {
+                $this->packService->close();
+                return new JsonResponse(['error' => 'Job not found'], 404);
+            }
+
+            $this->packService->cancelJob($jobId);
+            $this->packService->close();
+
+            return new JsonResponse(['success' => true]);
+
+        } catch (\Exception $e) {
+            try { $this->packService->close(); } catch (\Exception $e2) {}
+            return new JsonResponse(['error' => 'Failed to abort job: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Search memories in a pack using FTS5 full-text search
      * Returns ranked results with scores, categories, and tags
      */

@@ -1950,6 +1950,16 @@ class CQMemoryPackService
         );
     }
     
+    public function cancelJob(string $jobId): void
+    {
+        $db = $this->getConnection();
+        
+        $db->executeStatement(
+            'UPDATE memory_jobs SET status = ?, completed_at = ?, error = ? WHERE id = ?',
+            [MemoryJob::STATUS_CANCELLED, date('Y-m-d H:i:s'), 'Cancelled by user', $jobId]
+        );
+    }
+    
     public function getActiveJobs(): array
     {
         $db = $this->getConnection();
