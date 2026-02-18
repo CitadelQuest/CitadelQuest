@@ -552,6 +552,9 @@ export class MemoryGraphView {
         const nodeById = new Map(this.graphData.nodes.map(n => [n.id, n]));
 
         edges.forEach(edge => {
+            // NOT_DETECTED edges are metadata-only (pair was analyzed, no relationship found)
+            if (edge.type === 'NOT_DETECTED') return;
+
             const sourceNode = nodeById.get(edge.source);
             const targetNode = nodeById.get(edge.target);
 

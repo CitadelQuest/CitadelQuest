@@ -1517,8 +1517,9 @@ PROMPT;
 
         // Check if relationship already exists (both directions)
         // This covers cases where a previous analysis already created this edge
-        $validTypes = $allowedTypes;
-        foreach ($validTypes as $type) {
+        // Also check NOT_DETECTED — pair was already analyzed with no result
+        $checkTypes = array_merge($allowedTypes, [MemoryNode::RELATION_NOT_DETECTED]);
+        foreach ($checkTypes as $type) {
             if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
                 return [
                     'success' => true,
@@ -1598,44 +1599,51 @@ PROMPT;
 
         // Create relationship if one was detected
         $rel = $analysisResult['relationship'] ?? null;
-        if (!$rel || !isset($rel['type'])) {
+        $type = null;
+        $strength = 0.8;
+        $context = null;
+
+        if ($rel && isset($rel['type'])) {
+            $type = strtoupper($rel['type']);
+            $strength = $rel['strength'] ?? 0.8;
+            $context = $rel['context'] ?? null;
+
+            // Hard reject PART_OF — AI shouldn't produce structural edges
+            if ($type === MemoryNode::RELATION_PART_OF) {
+                $type = null;
+            }
+
+            // Reject types not allowed for this pair context
+            if ($type && !in_array($type, $allowedTypes)) {
+                $type = null;
+            }
+
+            // Validate type
+            if ($type && !in_array($type, MemoryNode::getValidRelationTypes())) {
+                $this->logger->warning('Invalid relationship type from pairwise analyzer', [
+                    'type' => $type, 'nodeAId' => $nodeAId, 'nodeBId' => $nodeBId
+                ]);
+                $type = null;
+            }
+        }
+
+        // If no valid semantic relationship was found, store NOT_DETECTED
+        // so this pair is skipped on future re-analysis (saves AI credits)
+        if (!$type) {
+            try {
+                $this->packService->createRelationship(
+                    $nodeAId, $nodeBId,
+                    MemoryNode::RELATION_NOT_DETECTED,
+                    0.0,
+                    $analysisResult['analysis'] ?? null
+                );
+            } catch (\Exception $e) {
+                // Non-fatal — dedup record is optional
+            }
             return [
                 'success' => true,
                 'relationshipCreated' => false,
                 'analysis' => $analysisResult['analysis'] ?? null
-            ];
-        }
-
-        $type = strtoupper($rel['type']);
-        $strength = $rel['strength'] ?? 0.8;
-        $context = $rel['context'] ?? null;
-
-        // Hard reject PART_OF
-        if ($type === MemoryNode::RELATION_PART_OF) {
-            return [
-                'success' => true,
-                'relationshipCreated' => false,
-                'analysis' => $analysisResult['analysis'] ?? null
-            ];
-        }
-
-        // Reject types not allowed for this pair context
-        if (!in_array($type, $allowedTypes)) {
-            return [
-                'success' => true,
-                'relationshipCreated' => false,
-                'analysis' => $analysisResult['analysis'] ?? null
-            ];
-        }
-
-        // Validate type
-        if (!in_array($type, MemoryNode::getValidRelationTypes())) {
-            $this->logger->warning('Invalid relationship type from pairwise analyzer', [
-                'type' => $type, 'nodeAId' => $nodeAId, 'nodeBId' => $nodeBId
-            ]);
-            return [
-                'success' => true,
-                'relationshipCreated' => false
             ];
         }
 

@@ -2114,11 +2114,12 @@ class CQMemoryPackService
         );
         $tagsCount = (int) $tagsResult->fetchOne();
         
-        // Relationships count
+        // Relationships count (exclude NOT_DETECTED — metadata-only)
         $relResult = $db->executeQuery(
             "SELECT COUNT(*) as count FROM memory_relationships r
              JOIN memory_nodes n ON r.source_id = n.id
-             WHERE n.is_active = 1"
+             WHERE n.is_active = 1 AND r.type != ?",
+            [MemoryNode::RELATION_NOT_DETECTED]
         );
         $relationshipsCount = (int) $relResult->fetchOne();
         
@@ -2200,6 +2201,8 @@ class CQMemoryPackService
         
         $graphEdges = [];
         foreach ($relationships as $rel) {
+            // NOT_DETECTED edges are metadata-only — don't send to frontend
+            if ($rel->getType() === MemoryNode::RELATION_NOT_DETECTED) continue;
             $graphEdges[] = [
                 'id' => $rel->getId(),
                 'source' => $rel->getSourceId(),
@@ -2249,12 +2252,12 @@ class CQMemoryPackService
             ];
         }
         
-        // Get edges created after timestamp
+        // Get edges created after timestamp (exclude NOT_DETECTED — metadata-only)
         $edgesResult = $db->executeQuery(
             "SELECT r.* FROM memory_relationships r
              JOIN memory_nodes n ON r.source_id = n.id
-             WHERE r.created_at > ?",
-            [$since]
+             WHERE r.created_at > ? AND r.type != ?",
+            [$since, MemoryNode::RELATION_NOT_DETECTED]
         );
         
         $edges = [];

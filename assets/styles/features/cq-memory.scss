@@ -582,7 +582,7 @@ $panel-min-height: 500px;
 }
 
 // Memory Extract Panel
-#memory-extract-panel {
+//#memory-extract-panel {
     .extraction-jobs-container {
         max-height: 300px;
         overflow-y: auto;
@@ -672,7 +672,7 @@ $panel-min-height: 500px;
             transform: translateY(0);
         }
     }
-}
+//}
 
 // Toggle button for extract panel
 #btn-toggle-extract-panel {

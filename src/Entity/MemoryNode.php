@@ -32,6 +32,7 @@ class MemoryNode implements JsonSerializable
     public const RELATION_RELATES_TO = 'RELATES_TO';
     public const RELATION_CONTRADICTS = 'CONTRADICTS';
     public const RELATION_REINFORCES = 'REINFORCES';
+    public const RELATION_NOT_DETECTED = 'NOT_DETECTED';
 
     // Category types as constants
     public const CATEGORY_CONVERSATION = 'conversation';
@@ -298,6 +299,7 @@ class MemoryNode implements JsonSerializable
             self::RELATION_RELATES_TO,
             self::RELATION_CONTRADICTS,
             self::RELATION_REINFORCES,
+            self::RELATION_NOT_DETECTED,
         ];
     }
 }
