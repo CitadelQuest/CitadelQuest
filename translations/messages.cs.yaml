@@ -349,6 +349,11 @@ spirit:
             auto_analyze_label: 'Automatická analýza vztahů po extrakci'
             analyze_description: 'Spustí kompletní analýzu vztahů pro všechny uzly ve vybraném balíčku — stejný hierarchický párový proces jako automaticky spouštěná analýza.'
             start_analysis: 'Spustit Kompletní Analýzu Balíčku'
+            select_roots: 'Vybrat Dokumenty'
+            select_all: 'Všechny'
+            deselect_all: 'Žádné'
+            no_roots: 'Žádné dokumenty v tomto balíčku'
+            analyze_selected: 'Analyzovat Vybrané'
         library_selector:
             all_packs: 'Všechny Packy'
             menu: 'Možnosti knihovny'

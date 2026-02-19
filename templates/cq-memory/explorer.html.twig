@@ -305,9 +305,39 @@
                                     <i class="mdi mdi-information-outline me-1 text-cyber opacity-50"></i>
                                     {{ 'spirit.memory.extract_panel.analyze_description'|trans }}
                                 </p>
-                                <button id="btn-start-analysis" class="btn btn-sm btn-cyber w-100 mb-4" disabled>
+                                <button id="btn-start-analysis" class="btn btn-sm btn-cyber w-100 mb-2" disabled>
                                     <i class="mdi mdi-graph me-1"></i> {{ 'spirit.memory.extract_panel.start_analysis'|trans }}
                                 </button>
+
+                                <div class="d-block text-center small text-muted">
+                                    {{ 'file_browser.or'|trans }}
+                                </div>
+
+                                {# Selective root analysis #}
+                                <div class="analyze-roots-section mt-3 mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="small text-cyber mb-0">
+                                            <i class="mdi mdi-file-tree-outline me-1"></i>
+                                            {{ 'spirit.memory.extract_panel.select_roots'|trans|default('Select Documents') }}
+                                        </h6>
+                                        <div class="d-flex gap-1">
+                                            <button id="btn-select-all-roots" class="btn btn-outline-secondary border-0 btn-sm py-0 px-1" title="{{ 'spirit.memory.extract_panel.select_all'|trans|default('Select all') }}" style="font-size:0.7rem;">
+                                                {{ 'spirit.memory.extract_panel.select_all'|trans|default('All') }}
+                                            </button>
+                                            <button id="btn-deselect-all-roots" class="btn btn-outline-secondary border-0 btn-sm py-0 px-1" title="{{ 'spirit.memory.extract_panel.deselect_all'|trans|default('Deselect all') }}" style="font-size:0.7rem;">
+                                                {{ 'spirit.memory.extract_panel.deselect_all'|trans|default('None') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="analyze-roots-list" class="analyze-roots-list mb-2">
+                                        <div class="text-secondary small text-center py-2">{{ 'spirit.memory.extract_panel.no_roots'|trans|default('No documents in this pack') }}</div>
+                                    </div>
+                                    <button id="btn-start-selected-analysis" class="btn btn-sm btn-outline-cyber w-100" disabled>
+                                        <i class="mdi mdi-graph me-1"></i> {{ 'spirit.memory.extract_panel.analyze_selected'|trans|default('Analyze Selected') }}
+                                        <span id="selected-roots-count" class="badge bg-cyber text-dark ms-1 d-none">0</span>
+                                    </button>
+                                </div>
+
                                 <div id="analyze-alert" class="mt-2 d-none"></div>
                             </div>
                         </div>{# /sub-panel-analyze #}
@@ -824,6 +854,9 @@
                 no_conversations: '{{ 'spirit.memory.extract_panel.no_conversations'|trans }}',
                 select_conversation_first: '{{ 'spirit.memory.extract_panel.select_conversation_first'|trans }}',
                 start_analysis: '{{ 'spirit.memory.extract_panel.start_analysis'|trans }}',
+                analyze_selected: '{{ 'spirit.memory.extract_panel.analyze_selected'|trans|default('Analyze Selected') }}',
+                select_roots: '{{ 'spirit.memory.extract_panel.select_roots'|trans|default('Select Documents') }}',
+                no_roots: '{{ 'spirit.memory.extract_panel.no_roots'|trans|default('No documents in this pack') }}',
                 abort_job: '{{ 'spirit.memory.extract_panel.abort_job'|trans|default('Abort job') }}'
             },
             library_selector: {

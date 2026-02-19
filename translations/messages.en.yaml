@@ -349,6 +349,11 @@ spirit:
             auto_analyze_label: 'Auto-analyze relationships after extraction'
             analyze_description: 'Runs full relationship analysis for all nodes in the selected pack — same hierarchical pairwise process as the auto-triggered analysis.'
             start_analysis: 'Start Full Pack Analysis'
+            select_roots: 'Select Documents'
+            select_all: 'All'
+            deselect_all: 'None'
+            no_roots: 'No documents in this pack'
+            analyze_selected: 'Analyze Selected'
         library_selector:
             all_packs: 'All Packs'
             menu: 'Library options'

@@ -424,6 +424,56 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
+     * Start a selective relationship analysis job for chosen root nodes only
+     * Pair generation: selected×selected intra-doc + cross-doc root gate
+     */
+    #[Route('/pack/analyze-selected', name: 'api_memory_pack_analyze_selected', methods: ['POST'])]
+    public function analyzeSelected(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+        $rootNodeIds = $data['rootNodeIds'] ?? [];
+
+        if (!$path || !$name) {
+            return new JsonResponse(['error' => 'path and name are required'], 400);
+        }
+        if (empty($rootNodeIds) || !is_array($rootNodeIds)) {
+            return new JsonResponse(['error' => 'rootNodeIds array is required'], 400);
+        }
+
+        $request->getSession()->save();
+
+        try {
+            $targetPack = [
+                'projectId' => $projectId,
+                'path' => $path,
+                'name' => $name
+            ];
+
+            $job = $this->aiToolMemoryService->createSelectedRootsAnalysisJob($targetPack, $rootNodeIds);
+
+            return new JsonResponse([
+                'success' => true,
+                'async' => true,
+                'jobId' => $job->getId(),
+                'initialProgress' => [
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'type' => $job->getType()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to start analysis: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Delete a memory node and its PART_OF children from a pack
      */
     #[Route('/pack/node/delete', name: 'api_memory_pack_node_delete', methods: ['POST'])]

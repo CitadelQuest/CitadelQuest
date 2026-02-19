@@ -2924,6 +2924,25 @@ PROMPT;
      */
     public function createFullPackAnalysisJob(array $targetPack): MemoryJob
     {
+        return $this->buildAnalysisJob($targetPack);
+    }
+
+    /**
+     * Create a selective relationship analysis job for chosen root nodes only.
+     * Pair generation: selected×selected (not selected×all).
+     */
+    public function createSelectedRootsAnalysisJob(array $targetPack, array $rootNodeIds): MemoryJob
+    {
+        return $this->buildAnalysisJob($targetPack, $rootNodeIds);
+    }
+
+    /**
+     * Shared pair-generation + job-creation logic for relationship analysis.
+     * When $rootNodeIds is null  → full pack (all roots).
+     * When $rootNodeIds is array → selective (only those roots).
+     */
+    private function buildAnalysisJob(array $targetPack, ?array $rootNodeIds = null): MemoryJob
+    {
         $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
 
         // Guard: prevent duplicate analysis — check for any active jobs (extraction or analysis)
@@ -2933,17 +2952,33 @@ PROMPT;
             throw new \RuntimeException('Cannot start analysis while jobs are active in this pack.');
         }
 
+        // Resolve roots to analyze
+        if ($rootNodeIds === null) {
+            // Full pack — all root nodes
+            $roots = $this->packService->getRootNodes();
+        } else {
+            // Selective — validate provided IDs (depth=0 + active)
+            $roots = [];
+            foreach ($rootNodeIds as $rootId) {
+                $node = $this->packService->findNodeById($rootId);
+                if ($node && $node->getDepth() === 0 && $node->isActive()) {
+                    $roots[] = $node;
+                }
+            }
+            if (empty($roots)) {
+                $this->packService->close();
+                throw new \RuntimeException('No valid root nodes selected.');
+            }
+        }
+
         $pendingPairs = [];
         $seenPairs = [];
 
         // Load existing semantic relationships for O(1) duplicate filtering
         $existingPairs = $this->packService->getExistingSemanticPairKeys();
 
-        // Get all root nodes (one per document/source_ref)
-        $allRoots = $this->packService->getRootNodes();
-
-        // 1. Intra-document leaf pairs for every document
-        foreach ($allRoots as $root) {
+        // 1. Intra-document leaf pairs for each root's document
+        foreach ($roots as $root) {
             $sourceRef = $root->getSourceRef();
             if (!$sourceRef) continue;
 
@@ -2971,12 +3006,12 @@ PROMPT;
             }
         }
 
-        // 2. Cross-document root gate pairs (all roots × all roots)
-        $rootCount = count($allRoots);
+        // 2. Cross-document root gate pairs (roots × roots)
+        $rootCount = count($roots);
         for ($i = 0; $i < $rootCount; $i++) {
             for ($j = $i + 1; $j < $rootCount; $j++) {
-                $rootA = $allRoots[$i];
-                $rootB = $allRoots[$j];
+                $rootA = $roots[$i];
+                $rootB = $roots[$j];
 
                 if ($rootA->getSourceRef() === $rootB->getSourceRef()) continue;
 
@@ -2996,21 +3031,32 @@ PROMPT;
         // If no new pairs to analyze, don't create a job
         if (empty($pendingPairs)) {
             $this->packService->close();
-            throw new \RuntimeException('All node pairs in this pack have already been analyzed. No new relationships to discover.');
+            $msg = $rootNodeIds !== null
+                ? 'All selected node pairs have already been analyzed. No new relationships to discover.'
+                : 'All node pairs in this pack have already been analyzed. No new relationships to discover.';
+            throw new \RuntimeException($msg);
+        }
+
+        $payload = [
+            'target_pack'           => $targetPack,
+            'pending_pairs'         => $pendingPairs,
+            'processed_count'       => 0,
+            'relationships_created' => 0,
+            'source_job_id'         => null,
+            'document_title'        => null,
+            'new_source_ref'        => null,
+        ];
+
+        if ($rootNodeIds !== null) {
+            $payload['selected_roots'] = true;
+            $payload['root_node_ids'] = $rootNodeIds;
+        } else {
+            $payload['full_pack_analysis'] = true;
         }
 
         $analysisJob = $this->packService->createJob(
             MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
-            [
-                'target_pack'           => $targetPack,
-                'pending_pairs'         => $pendingPairs,
-                'processed_count'       => 0,
-                'relationships_created' => 0,
-                'source_job_id'         => null,
-                'document_title'        => null,
-                'new_source_ref'        => null,
-                'full_pack_analysis'    => true
-            ]
+            $payload
         );
 
         $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));

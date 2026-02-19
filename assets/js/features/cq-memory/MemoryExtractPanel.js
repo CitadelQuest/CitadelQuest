@@ -24,6 +24,13 @@ export class MemoryExtractPanel {
         // Active source type: 'file', 'url', 'text', 'conversation'
         this.activeSourceType = 'file';
         
+        // Selective root analysis state
+        this.rootNodes = [];
+        this.selectedRootIds = new Set();
+        
+        // Reference to 3D graph view for bidirectional hover sync
+        this.graphView = null;
+        
         // Conversation source data (cached after first load)
         this.conversationData = null;
         
@@ -124,6 +131,61 @@ export class MemoryExtractPanel {
             analyzeBtn.addEventListener('click', () => this.startAnalysis());
         }
 
+        // Selective root analysis buttons
+        const selectAllBtn = document.getElementById('btn-select-all-roots');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                this.rootNodes.forEach(n => this.selectedRootIds.add(n.id));
+                this.renderRootsList();
+                this.updateSelectedAnalysisButton();
+            });
+        }
+        const deselectAllBtn = document.getElementById('btn-deselect-all-roots');
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', () => {
+                this.selectedRootIds.clear();
+                this.renderRootsList();
+                this.updateSelectedAnalysisButton();
+            });
+        }
+        const startSelectedBtn = document.getElementById('btn-start-selected-analysis');
+        if (startSelectedBtn) {
+            startSelectedBtn.addEventListener('click', () => this.startSelectedAnalysis());
+        }
+
+        // Event delegation for root checkboxes + hover sync
+        const rootsList = document.getElementById('analyze-roots-list');
+        if (rootsList) {
+            rootsList.addEventListener('change', (e) => {
+                const cb = e.target.closest('.root-node-checkbox');
+                if (cb) {
+                    if (cb.checked) {
+                        this.selectedRootIds.add(cb.value);
+                    } else {
+                        this.selectedRootIds.delete(cb.value);
+                    }
+                    this.updateSelectedAnalysisButton();
+                }
+            });
+
+            // Panel → 3D: hover root item glows corresponding node
+            rootsList.addEventListener('mouseenter', (e) => {
+                const item = e.target.closest('.root-node-item');
+                if (item && this.graphView) {
+                    const nodeId = item.dataset.nodeId;
+                    if (nodeId) this.graphView.glowNodeById(nodeId, true);
+                }
+            }, true);
+
+            rootsList.addEventListener('mouseleave', (e) => {
+                const item = e.target.closest('.root-node-item');
+                if (item && this.graphView) {
+                    const nodeId = item.dataset.nodeId;
+                    if (nodeId) this.graphView.glowNodeById(nodeId, false);
+                }
+            }, true);
+        }
+
         // Auto-analyze toggle — persist state
         const autoAnalyzeToggle = document.getElementById('toggle-auto-analyze');
         if (autoAnalyzeToggle) {
@@ -210,14 +272,19 @@ export class MemoryExtractPanel {
 
         this.updateAnalyzeButtonState();
         
+        // Load root nodes for selective analysis
+        this.loadRootNodes();
+        
         // Check for stalled jobs in this pack (e.g. after page refresh)
         this.checkForActiveJobs();
     }
 
     updateAnalyzeButtonState() {
         const btn = document.getElementById('btn-start-analysis');
-        if (!btn) return;
-        btn.disabled = !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
+        if (btn) {
+            btn.disabled = !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
+        }
+        this.updateSelectedAnalysisButton();
     }
 
     /**
@@ -622,6 +689,139 @@ export class MemoryExtractPanel {
                 const t = window.memoryExplorerTranslations?.extract_panel || {};
                 btn.innerHTML = `<i class="mdi mdi-graph me-1"></i> ${t.start_analysis || 'Start Full Pack Analysis'}`;
                 this.updateAnalyzeButtonState();
+            }
+        }
+    }
+
+    /**
+     * Load root nodes (depth=0) from current pack's graph data for selective analysis
+     */
+    async loadRootNodes() {
+        this.rootNodes = [];
+        this.selectedRootIds.clear();
+
+        if (!this.targetPack) {
+            this.renderRootsList();
+            this.updateSelectedAnalysisButton();
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/memory/pack/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.targetPack.projectId,
+                    path: this.targetPack.path,
+                    name: this.targetPack.name
+                })
+            });
+
+            if (!response.ok) return;
+            const data = await response.json();
+
+            if (data.success && data.nodes) {
+                this.rootNodes = data.nodes.filter(n => n.depth === 0);
+            }
+        } catch (e) {
+            console.warn('Failed to load root nodes:', e.message);
+        }
+
+        this.renderRootsList();
+        this.updateSelectedAnalysisButton();
+    }
+
+    /**
+     * Render the root nodes checklist in the Analyze tab
+     */
+    renderRootsList() {
+        const container = document.getElementById('analyze-roots-list');
+        if (!container) return;
+
+        const t = window.memoryExplorerTranslations?.extract_panel || {};
+
+        if (this.rootNodes.length === 0) {
+            container.innerHTML = `<div class="text-secondary small text-center py-2">${t.no_roots || 'No documents in this pack'}</div>`;
+            return;
+        }
+
+        const html = this.rootNodes.map(node => {
+            const checked = this.selectedRootIds.has(node.id) ? 'checked' : '';
+            const title = this.truncate(node.title || node.content || node.id, 45);
+            return `
+                <label class="root-node-item d-flex align-items-start gap-2 py-1 px-1" data-node-id="${node.id}">
+                    <input type="checkbox" class="root-node-checkbox form-check-input mt-1" value="${node.id}" ${checked}>
+                    <span class="small text-light" title="${(node.title || '').replace(/"/g, '&quot;')}">${title}</span>
+                </label>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
+    }
+
+    /**
+     * Update the "Analyze Selected" button state based on selection count
+     */
+    updateSelectedAnalysisButton() {
+        const btn = document.getElementById('btn-start-selected-analysis');
+        const badge = document.getElementById('selected-roots-count');
+        if (!btn) return;
+
+        const count = this.selectedRootIds.size;
+        btn.disabled = count === 0 || !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
+
+        if (badge) {
+            badge.textContent = count;
+            badge.classList.toggle('d-none', count === 0);
+        }
+    }
+
+    /**
+     * Start selective relationship analysis for chosen root nodes only
+     */
+    async startSelectedAnalysis() {
+        if (!this.targetPack || this.selectedRootIds.size === 0) return;
+
+        const btn = document.getElementById('btn-start-selected-analysis');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
+        }
+
+        try {
+            const response = await fetch('/api/memory/pack/analyze-selected', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.targetPack.projectId,
+                    path: this.targetPack.path,
+                    name: this.targetPack.name,
+                    rootNodeIds: Array.from(this.selectedRootIds)
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) throw new Error(result.error || 'Failed to start analysis');
+
+            this.addJobToList(result.jobId, {
+                type: result.initialProgress?.type || 'analyze_relationships',
+                progress: result.initialProgress?.progress || 0,
+                totalSteps: result.initialProgress?.totalSteps || 0,
+                status: 'processing',
+                packContext: this.targetPack
+            });
+
+            this.processStepsSequentially();
+
+        } catch (error) {
+            console.error('Selected analysis failed:', error);
+            this.showAnalyzeError(error.message);
+        } finally {
+            if (btn) {
+                const t = window.memoryExplorerTranslations?.extract_panel || {};
+                btn.innerHTML = `<i class="mdi mdi-graph me-1"></i> ${t.analyze_selected || 'Analyze Selected'} <span id="selected-roots-count" class="badge bg-cyber text-dark ms-1 ${this.selectedRootIds.size === 0 ? 'd-none' : ''}">${this.selectedRootIds.size}</span>`;
+                this.updateSelectedAnalysisButton();
             }
         }
     }

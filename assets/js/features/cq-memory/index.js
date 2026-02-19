@@ -66,6 +66,7 @@ class CQMemoryExplorer {
 
         // Initialize extract panel
         this.extractPanel = new MemoryExtractPanel(this.spiritId);
+        this.extractPanel.graphView = this.graphView;
         
         // Set callbacks for extraction
         this.extractPanel.onExtractionStart = () => {
@@ -471,6 +472,9 @@ class CQMemoryExplorer {
             document.querySelectorAll('.compilation-block.hover-highlight').forEach(block => {
                 block.classList.remove('hover-highlight');
             });
+            document.querySelectorAll('.root-node-item.hover-highlight').forEach(item => {
+                item.classList.remove('hover-highlight');
+            });
             return;
         }
 
@@ -487,6 +491,18 @@ class CQMemoryExplorer {
                 block.classList.add('hover-highlight');
                 // Scroll block into view if not visible
                 block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // Remove highlight from all root-node items
+            document.querySelectorAll('.root-node-item.hover-highlight').forEach(item => {
+                item.classList.remove('hover-highlight');
+            });
+
+            // Highlight corresponding root-node item in Analyze tab
+            const rootItem = document.querySelector(`.root-node-item[data-node-id="${node.id}"]`);
+            if (rootItem) {
+                rootItem.classList.add('hover-highlight');
+                rootItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }, 200);
     }
