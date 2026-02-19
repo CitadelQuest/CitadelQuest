@@ -352,29 +352,31 @@ class AIToolFileService
     }
     
     /**
-     * Find a file by path and name
+     * Search files by query string matching against path and name
      */
-    /* public function findFileByPath(array $arguments): array
+    public function searchFile(array $arguments): array
     {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
+        $this->validateArguments($arguments, ['projectId', 'query']);
         
         try {
-            $file = $this->projectFileService->findByPathAndName(
+            $files = $this->projectFileService->searchFiles(
                 $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name']
+                $arguments['query']
             );
             
-            if (!$file) {
+            if (empty($files)) {
                 return [
-                    'success' => false,
-                    'error' => 'File not found'
+                    'success' => true,
+                    'files' => [],
+                    'count' => 0,
+                    'message' => 'No files found matching "' . $arguments['query'] . '"'
                 ];
             }
             
             return [
                 'success' => true,
-                'file' => $file->jsonSerialize()
+                'files' => array_map(fn($f) => $f->jsonSerialize(), $files),
+                'count' => count($files)
             ];
         } catch (\Exception $e) {
             return [
@@ -382,7 +384,7 @@ class AIToolFileService
                 'error' => $e->getMessage()
             ];
         }
-    } */
+    }
     
     /**
      * Unified file management operations for AI tools

@@ -48,7 +48,7 @@ class AIToolCallService
             }
             
             // For file management tools, delegate to AIToolFileService
-            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'updateFileEfficient', 'manageFile', 'getFileVersions', 'getProjectTree'/* , 'findFileByPath', 'ensureProjectStructure' */])) {
+            if (in_array($toolName, ['listFiles', 'getFileContent', 'createDirectory', 'updateFileEfficient', 'manageFile', 'getFileVersions', 'getProjectTree', 'searchFile'/* , 'ensureProjectStructure' */])) {
                 return $this->aiToolFileService->{$toolName}($arguments);
             }
 

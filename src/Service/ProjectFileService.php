@@ -652,6 +652,22 @@ class ProjectFileService
     }
     
     /**
+     * Search files by query string matching against path and name
+     */
+    public function searchFiles(string $projectId, string $query): array
+    {
+        $userDb = $this->getUserDb();
+        $likeQuery = '%' . $query . '%';
+        
+        $results = $userDb->executeQuery(
+            'SELECT * FROM project_file WHERE project_id = ? AND (path LIKE ? OR name LIKE ?) ORDER BY is_directory DESC, path ASC, name ASC',
+            [$projectId, $likeQuery, $likeQuery]
+        )->fetchAllAssociative();
+        
+        return array_map(fn($data) => ProjectFile::fromArray($data), $results);
+    }
+    
+    /**
      * List files in a directory
      */
     public function listFiles(string $projectId, string $path = '/'): array
