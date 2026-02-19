@@ -30,7 +30,6 @@ security:
         - { path: ^/api, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/language, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/site\.webmanifest$, roles: PUBLIC_ACCESS, requires_channel: https }
-        - { path: ^/update-fg, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/friend-request, roles: PUBLIC_ACCESS, requires_channel: https }   
         - { path: ^/.*/api/federation/chat-message, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/group-message, roles: PUBLIC_ACCESS, requires_channel: https }

@@ -456,21 +456,13 @@ class CqChatApiController extends AbstractController
                 return $this->json(['error' => 'Group name and contact IDs are required'], Response::HTTP_BAD_REQUEST);
             }
             
-            // Log for debugging
-            $this->logger->info('Creating group: ' . $groupName . ' with ' . count($contactIds) . ' members');
-            $this->logger->info('Contact IDs: ' . json_encode($contactIds));
-            
             $chat = $this->groupChatService->createGroupChat($groupName, $contactIds);
-            
-            $this->logger->info('Group created successfully: ' . $chat->getId());
             
             return $this->json([
                 'success' => true,
                 'chat' => $chat
             ], Response::HTTP_CREATED);
         } catch (\Exception $e) {
-            $this->logger->error('Error creating group: ' . $e->getMessage());
-            $this->logger->error('Stack trace: ' . $e->getTraceAsString());
             return $this->json([
                 'error' => $e->getMessage(),
                 'details' => $e->getFile() . ':' . $e->getLine()

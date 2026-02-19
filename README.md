@@ -142,7 +142,7 @@ See /docker/README.md for Coolify deployment instructions.
   ```
 - One entry point per feature in `assets/entries/`
 - Feature-specific code in dedicated directories under `features/`
-- Shared utilities (crypto, translations) in `shared/`
+- Shared utilities (translations) in `shared/`
 - UI components in `ui/`
 - Descriptive, purpose-indicating filenames
 - Webpack-based bundling with code splitting

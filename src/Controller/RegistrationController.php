@@ -6,7 +6,6 @@ use App\Entity\User;
 use App\Form\RegistrationType;
 use App\Repository\UserRepository;
 use App\Service\UserDatabaseManager;
-use App\Service\UserKeyManager;
 use App\Service\SettingsService;
 use App\Service\AiModelsSyncService;
 use App\Service\SystemSettingsService;
@@ -39,7 +38,6 @@ class RegistrationController extends AbstractController
         UserPasswordHasherInterface $userPasswordHasher,
         EntityManagerInterface $entityManager,
         UserDatabaseManager $databaseManager,
-        UserKeyManager $keyManager,
         UserAuthenticatorInterface $userAuthenticator,
         LoginFormAuthenticator $authenticator,
         HttpClientInterface $httpClient,
@@ -78,14 +76,6 @@ class RegistrationController extends AbstractController
 
             // Create user's personal database first
             $databaseManager->createUserDatabase($user);
-
-            // Store the keys in user's personal database
-            $keyManager->storeKeys(
-                $user,
-                $form->get('publicKey')->getData(),
-                $form->get('encryptedPrivateKey')->getData(),
-                $form->get('keySalt')->getData()
-            );
 
             try {
                 // Now save the user with the database path
@@ -134,7 +124,6 @@ class RegistrationController extends AbstractController
                     
                     // If email already exists on CQ AI Gateway, skip registration but continue with local flow
                     if (isset($verifyData['exists']) && $verifyData['exists'] === true) {
-                        $this->logger->info('CQAIGateway: Email already registered, skipping auto-create for user ' . $user->getEmail());
                         $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_email_exists'));
                         return $this->redirectToRoute('app_welcome_onboarding');
                     }
@@ -166,10 +155,8 @@ class RegistrationController extends AbstractController
                     if ($statusCode === Response::HTTP_CONFLICT) {
                         $errorCode = $data['error_code'] ?? '';
                         if ($errorCode === 'EMAIL_EXISTS') {
-                            $this->logger->info('CQAIGateway: Email already registered (race condition), skipping for user ' . $user->getEmail());
                             $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_email_exists'));
                         } elseif ($errorCode === 'USERNAME_EXISTS') {
-                            $this->logger->info('CQAIGateway: Username already registered, skipping for user ' . $user->getEmail());
                             $this->addFlash('warning', $this->translator->trans('auth.register.cqaigateway_username_exists'));
                         } else {
                             $this->logger->warning('CQAIGateway: Registration conflict for user ' . $user->getEmail() . ': ' . ($data['error'] ?? 'Unknown'));
@@ -210,10 +197,6 @@ class RegistrationController extends AbstractController
                         $syncModelsResult = $this->aiModelsSyncService->syncModels($user);
                         
                         if ($syncModelsResult['success']) {
-
-                            $this->logger->info('RegistrationController: AI models updated successfully', [
-                                'models_count' => count($syncModelsResult['models'] ?? [])
-                            ]);
                         } else {
                             $this->logger->warning('RegistrationController: AI models sync failed', [
                                 'error' => $syncModelsResult['message'],
@@ -226,8 +209,6 @@ class RegistrationController extends AbstractController
                         ]);
                     }
 
-                    $this->logger->info('CQAIGateway registration successful for user ' . $user->getEmail());
-                    
                 } catch (\Exception $e) {
                     $this->logger->error('CQAIGateway registration failed for user ' . $user->getEmail() . ': ' . $e->getMessage());
                     // Don't show error to user, just continue with onboarding - they can link account later

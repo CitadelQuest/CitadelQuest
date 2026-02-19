@@ -52,15 +52,6 @@ class PasswordResetService
         // Save changes
         $this->entityManager->flush();
         
-        // Log the action
-        $this->logger->info('Password reset by admin', [
-            'user_id' => $user->getId(),
-            'username' => $user->getUsername(),
-            'admin_id' => $admin->getId(),
-            'admin_username' => $admin->getUsername(),
-            'timestamp' => new \DateTime()
-        ]);
-        
         return $temporaryPassword;
     }
 
@@ -77,11 +68,5 @@ class PasswordResetService
         $user->setRequirePasswordChange(false);
         
         $this->entityManager->flush();
-        
-        $this->logger->info('User changed password', [
-            'user_id' => $user->getId(),
-            'username' => $user->getUsername(),
-            'timestamp' => new \DateTime()
-        ]);
     }
 }

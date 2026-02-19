@@ -226,13 +226,6 @@ class CqContactApiController extends AbstractController
         $user = $this->getUser();
         $targetUrl = $contact->getCqContactUrl() . '/api/federation/friend-request';
         
-        $this->logger->info('CqContactApiController::sendFriendRequestToContact - Starting federation request', [
-            'target_url' => $targetUrl,
-            'friend_request_status' => $friendRequestStatus,
-            'current_domain' => $currentDomain,
-            'contact_username' => $contact->getCqContactUsername()
-        ]);
-        
         try {
             $requestData = [
                 'cq_contact_url' => 'https://' . $currentDomain . '/' . $user->getUsername(),
@@ -241,10 +234,6 @@ class CqContactApiController extends AbstractController
                 'cq_contact_id' => $user->getId(),
                 'friend_request_status' => $friendRequestStatus,
             ];
-            
-            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Sending request', [
-                'request_data' => $requestData
-            ]);
 
             $response = $this->httpClient->request(
                 'POST',
@@ -261,9 +250,6 @@ class CqContactApiController extends AbstractController
             );
             
             $statusCode = $response->getStatusCode(false);
-            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Response received', [
-                'status_code' => $statusCode
-            ]);
             
             if ($statusCode !== Response::HTTP_OK) {
                 $content = $response->getContent(false);
@@ -287,10 +273,6 @@ class CqContactApiController extends AbstractController
             // Update contact with new friend request status
             $contact->setFriendRequestStatus($friendRequestStatus);
             $this->cqContactService->updateContact($contact);
-            
-            $this->logger->info('CqContactApiController::sendFriendRequestToContact - Request successful', [
-                'new_status' => $friendRequestStatus
-            ]);
             
             return [
                 'success' => true,

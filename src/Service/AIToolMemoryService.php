@@ -158,11 +158,6 @@ class AIToolMemoryService
                 $relatesTo
             );
 
-            $this->logger->info('Memory stored via AI tool', [
-                'memoryId' => $memory->getId(),
-                'category' => $arguments['category']
-            ]);
-
             // Auto-analyze relationships if enabled (pack is already open)
             $relationshipAnalysis = null;
             if ($analyzeRelationships) {
@@ -314,11 +309,6 @@ class AIToolMemoryService
             );
             $this->packService->close();
 
-            $this->logger->info('Memory updated via AI tool', [
-                'oldMemoryId' => $arguments['memoryId'],
-                'newMemoryId' => $newMemory->getId()
-            ]);
-
             return [
                 'success' => true,
                 'oldMemoryId' => $arguments['memoryId'],
@@ -372,11 +362,6 @@ class AIToolMemoryService
                     'error' => 'Memory not found'
                 ];
             }
-
-            $this->logger->info('Memory forgotten via AI tool', [
-                'memoryId' => $arguments['memoryId'],
-                'reason' => $reason
-            ]);
 
             return [
                 'success' => true,
@@ -1317,13 +1302,6 @@ PROMPT;
                 }
             }
 
-            $this->logger->info('Memory relationships analyzed', [
-                'memoryId' => $memoryId,
-                'memoriesCompared' => count($existingMemories),
-                'skippedStructural' => $skippedStructural,
-                'relationshipsCreated' => count($createdRelationships)
-            ]);
-
             if ($packOpenedHere) $this->packService->close();
 
             return [
@@ -2059,7 +2037,6 @@ PROMPT;
             // Read back the newly created .anno file
             $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
             if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
-                $this->logger->info('generatePdfAnnotation: Successfully generated .anno for ' . $filename);
                 return $this->annoService->getTextContent($annoData);
             }
 
@@ -2904,13 +2881,6 @@ PROMPT;
         $this->packService->updateJobProgress($job->getId(), 0, 1);
         $this->packService->startJob($job->getId());
 
-        $this->logger->info('Started pack extraction job (deferred init)', [
-            'jobId' => $job->getId(),
-            'packName' => $targetPack['name'],
-            'sourceRef' => $sourceRef,
-            'contentLength' => is_string($content) ? strlen($content) : 0
-        ]);
-
         // Close pack - polling endpoint will reopen it for processing
         $this->packService->close();
 
@@ -3219,12 +3189,6 @@ PROMPT;
                 $this->packService->updateJobPayload($jobId, $payload);
                 $this->packService->close();
 
-                $this->logger->info('Initialized pack extraction job', [
-                    'jobId' => $jobId,
-                    'documentTitle' => $documentTitle,
-                    'initialBlocks' => count($pendingBlocks)
-                ]);
-
                 return false; // More steps to process
             }
 
@@ -3396,13 +3360,6 @@ PROMPT;
             $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();
-
-            $this->logger->info('Processed pack extraction job step', [
-                'jobId' => $jobId,
-                'blockTitle' => $blockTitle,
-                'processedCount' => $processedCount,
-                'pendingCount' => count($pendingBlocks)
-            ]);
 
             return empty($pendingBlocks);
 

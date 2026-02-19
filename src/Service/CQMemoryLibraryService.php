@@ -63,8 +63,6 @@ class CQMemoryLibraryService
         
         $this->saveLibrary($projectId, $path, $name, $library);
         
-        $this->logger->info('Created new memory library', ['projectId' => $projectId, 'path' => $path, 'name' => $name]);
-        
         return $library;
     }
     
@@ -173,11 +171,6 @@ class CQMemoryLibraryService
         
         $this->saveLibrary($projectId, $libraryPath, $libraryName, $library);
         
-        $this->logger->info('Added pack to library', [
-            'library' => $libraryName,
-            'pack' => $packName
-        ]);
-        
         return $library;
     }
     
@@ -209,11 +202,6 @@ class CQMemoryLibraryService
         
         $this->saveLibrary($projectId, $libraryPath, $libraryName, $library);
         
-        $this->logger->info('Removed pack from library', [
-            'library' => $libraryName,
-            'pack' => $packPath
-        ]);
-        
         return $library;
     }
     
@@ -238,7 +226,7 @@ class CQMemoryLibraryService
                 // Pack file no longer exists — mark for removal
                 $packsToRemove[] = $index;
                 $changed = true;
-                $this->logger->info('Pruning stale pack from library', ['pack' => $packRelPath]);
+                
                 continue;
             }
             
@@ -279,11 +267,7 @@ class CQMemoryLibraryService
         
         if ($changed) {
             $this->updateLibraryMetadata($library);
-            $this->saveLibrary($projectId, $libraryPath, $libraryName, $library);
-            
-            $this->logger->info('Synced pack stats in library', [
-                'library' => $libraryName
-            ]);
+            $this->saveLibrary($projectId, $libraryPath, $libraryName, $library);            
         }
         
         return $library;

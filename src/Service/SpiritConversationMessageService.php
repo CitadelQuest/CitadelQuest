@@ -226,10 +226,6 @@ class SpiritConversationMessageService
     {
         $db = $this->getUserDb();
         
-        $this->logger->info('Deleting messages for conversation', [
-            'conversation_id' => $conversationId
-        ]);
-        
         $db->executeStatement(
             'DELETE FROM spirit_conversation_message WHERE conversation_id = ?',
             [$conversationId]

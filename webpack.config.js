@@ -21,14 +21,12 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('app', './assets/entries/app.js')
-    .addEntry('crypto', './assets/entries/crypto.js')
     .addEntry('backup', './assets/entries/backup.js')
     .addEntry('translations', './assets/entries/translations.js')
     .addEntry('visual-design', './assets/entries/visual-design.js')
     .addEntry('settings-general', './assets/entries/settings-general.js')
     .addEntry('js/toast', './assets/js/shared/toast.js')
     .addEntry('language-switcher', './assets/entries/language-switcher.js')
-    .addEntry('diary', './assets/entries/diary.js')
     .addEntry('spirit', './assets/entries/spirit.js')
     .addEntry('spirits', './assets/entries/spirits.js')
     .addEntry('spirit-chat', './assets/entries/spirit-chat.js')

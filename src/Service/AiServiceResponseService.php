@@ -266,8 +266,6 @@ class AiServiceResponseService
                             'size' => $newFile->getSize(),
                             'base64data' => $base64Data
                         ];
-
-                        $this->logger->info('saveImageFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
                     } catch (\Exception $e) {
                         $this->logger->error('saveImageFromMessage(): Error creating file: ' . $e->getMessage());
                     }

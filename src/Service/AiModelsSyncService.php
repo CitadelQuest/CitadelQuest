@@ -42,7 +42,6 @@ class AiModelsSyncService
         $lastUpdate = $this->settingsService->getSettingValue(self::SETTINGS_KEY_LAST_UPDATE);
         
         if (!$lastUpdate) {
-            $this->logger->info('AiModelsSyncService: No previous update timestamp found, update needed');
             return true;
         }
         
@@ -51,13 +50,6 @@ class AiModelsSyncService
         $hoursSinceUpdate = ($now->getTimestamp() - $lastUpdateTime->getTimestamp()) / 3600;
         
         $shouldUpdate = $hoursSinceUpdate >= self::MODELS_CACHE_DURATION_HOURS;
-        
-        $this->logger->info('AiModelsSyncService: Checking if models need update', [
-            'last_update' => $lastUpdate,
-            'hours_since_update' => round($hoursSinceUpdate, 2),
-            'cache_duration_hours' => self::MODELS_CACHE_DURATION_HOURS,
-            'should_update' => $shouldUpdate
-        ]);
         
         return $shouldUpdate;
     }
@@ -69,8 +61,6 @@ class AiModelsSyncService
      */
     public function syncModels(?User $user = null): array
     {
-        //$this->logger->info('AiModelsSyncService: Starting models synchronization');
-
         if ($user) {
             $this->settingsService->setUser($user);
         }
@@ -120,10 +110,6 @@ class AiModelsSyncService
                         $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $defaultSecondaryAiModel->getId());
                     }
                 }
-
-                /* $this->logger->info('AiModelsSyncService: Models synchronization completed successfully', [
-                    'models_count' => count($result['models'])
-                ]); */
             }
                         
             return $result;
@@ -146,12 +132,7 @@ class AiModelsSyncService
      * Fetch models from CQ AI Gateway API
      */
     private function fetchModelsFromApi(AiGateway $gateway): array
-    {
-        //$this->logger->info('AiModelsSyncService: Fetching models from API', [
-        //    'gateway_id' => $gateway->getId(),
-        //    'api_endpoint' => $gateway->getApiEndpointUrl()
-        //]);
-        
+    {        
         try {
             $response = $this->httpClient->request(
                 'GET',
@@ -167,9 +148,6 @@ class AiModelsSyncService
             );
             
             $statusCode = $response->getStatusCode(false);
-            /* $this->logger->info('AiModelsSyncService: Received API response', [
-                'status_code' => $statusCode
-            ]); */
             
             if ($statusCode !== Response::HTTP_OK) {
                 return $this->handleApiError($statusCode);
@@ -186,10 +164,6 @@ class AiModelsSyncService
                     'error_code' => 'NO_MODELS'
                 ];
             }
-            
-            /* $this->logger->info('AiModelsSyncService: Successfully fetched models', [
-                'models_count' => count($models)
-            ]); */
             
             return [
                 'success' => true,
@@ -252,11 +226,6 @@ class AiModelsSyncService
      */
     private function processAndStoreModels(AiGateway $gateway, array $modelsData): array
     {
-        /* $this->logger->info('AiModelsSyncService: Processing and storing models', [
-            'gateway_id' => $gateway->getId(),
-            'models_count' => count($modelsData)
-        ]); */
-        
         $processedModels = [];
         $firstModelId = null;
         

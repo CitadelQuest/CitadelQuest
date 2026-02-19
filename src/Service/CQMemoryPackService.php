@@ -119,8 +119,6 @@ class CQMemoryPackService
         // Register the pack file with ProjectFileService (database record only, don't overwrite file)
         $this->projectFileService->registerExistingFile($projectId, $path, $name, 'application/x-sqlite3');
         
-        $this->logger->info('Created new memory pack', ['projectId' => $projectId, 'path' => $path, 'name' => $name]);
-        
         return true;
     }
     
@@ -155,8 +153,6 @@ class CQMemoryPackService
         // Migrate: ensure memory_sources table exists for older packs
         $this->migrateSchema();
         
-        $this->logger->info('Opened memory pack', ['projectId' => $projectId, 'path' => $path, 'name' => $name]);
-        
         return true;
     }
     
@@ -182,7 +178,6 @@ class CQMemoryPackService
                     PRIMARY KEY (source_ref, source_type)
                 )
             ");
-            $this->logger->info('Migrated pack: added memory_sources table');
         }
         
         // Check if ai_usage_log table exists
@@ -204,7 +199,6 @@ class CQMemoryPackService
                     FOREIGN KEY (job_id) REFERENCES memory_jobs(id) ON DELETE SET NULL
                 )
             ");
-            $this->logger->info('Migrated pack: added ai_usage_log table');
         }
         
         // Check if depth column exists on memory_nodes
@@ -212,7 +206,6 @@ class CQMemoryPackService
         $columns = array_column($result->fetchAllAssociative(), 'name');
         if (!in_array('depth', $columns)) {
             $db->executeStatement("ALTER TABLE memory_nodes ADD COLUMN depth INTEGER DEFAULT NULL");
-            $this->logger->info('Migrated pack: added depth column to memory_nodes');
         }
         
         // FTS5 full-text search index migration
@@ -257,7 +250,6 @@ class CQMemoryPackService
             ");
             
             $count = $db->executeQuery('SELECT COUNT(*) FROM memory_nodes_fts')->fetchOne();
-            $this->logger->info('Migrated pack: added FTS5 index (with tags), populated with ' . $count . ' nodes');
         }
     }
     
@@ -796,8 +788,6 @@ class CQMemoryPackService
             }
         }
         
-        $this->logger->debug('Stored memory node', ['id' => $node->getId()]);
-        
         return $node;
     }
     
@@ -901,10 +891,6 @@ class CQMemoryPackService
             $result = $db->executeQuery($sql, $params);
             $rows = $result->fetchAllAssociative();
         } catch (\Exception $e) {
-            $this->logger->warning('FTS5 search failed, falling back to LIKE', [
-                'query' => $query,
-                'error' => $e->getMessage()
-            ]);
             return $this->searchLikeFallback($query, $category, $tags, $limit);
         }
         
@@ -1121,9 +1107,6 @@ class CQMemoryPackService
                     $result = $db->executeQuery($sql, $params);
                     $rows = $result->fetchAllAssociative();
                 } catch (\Exception $e) {
-                    $this->logger->warning('FTS5 recall failed, falling back to LIKE', [
-                        'query' => $query, 'error' => $e->getMessage()
-                    ]);
                     $useFTS5 = false;
                 }
             }
@@ -1429,11 +1412,6 @@ class CQMemoryPackService
                 [$rootNode->getSourceRef()]
             );
         }
-        
-        $this->logger->info('Deleted node with children', [
-            'rootNodeId' => $nodeId,
-            'totalDeleted' => count($deletedIds)
-        ]);
         
         return $deletedIds;
     }

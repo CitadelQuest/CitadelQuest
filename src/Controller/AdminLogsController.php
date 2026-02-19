@@ -66,12 +66,6 @@ class AdminLogsController extends AbstractController
             throw $this->createNotFoundException('Log file not found or not readable');
         }
 
-        $this->logger->info('AdminLogsController::download - Log file downloaded', [
-            'filename' => $filename,
-            'admin_user' => $this->getUser()->getUsername(),
-            'file_size' => filesize($filePath)
-        ]);
-
         $response = new BinaryFileResponse($filePath);
         $response->setContentDisposition(
             ResponseHeaderBag::DISPOSITION_ATTACHMENT,
@@ -178,12 +172,6 @@ class AdminLogsController extends AbstractController
 
         // Clear the log file
         file_put_contents($filePath, '');
-
-        $this->logger->info('AdminLogsController::clear - Log file cleared', [
-            'filename' => $filename,
-            'admin_user' => $this->getUser()->getUsername(),
-            'backup_created' => $backupPath
-        ]);
 
         $this->addFlash('success', "Log file '{$filename}' has been cleared. Backup created.");
         return $this->redirectToRoute('app_admin_logs');

@@ -115,11 +115,6 @@ class MigrationAdminController extends AbstractController
         try {
             $result = $this->migrationService->acceptMigration($request, $admin);
 
-            $this->logger->info('Migration request accepted by admin', [
-                'request_id' => $id,
-                'admin_id' => (string) $admin->getId(),
-            ]);
-
             return $this->json($result);
 
         } catch (\Exception $e) {
@@ -158,12 +153,6 @@ class MigrationAdminController extends AbstractController
 
         try {
             $result = $this->migrationService->rejectMigration($request, $admin, $reason);
-
-            $this->logger->info('Migration request rejected by admin', [
-                'request_id' => $id,
-                'admin_id' => (string) $admin->getId(),
-                'reason' => $reason,
-            ]);
 
             return $this->json($result);
 
@@ -213,12 +202,6 @@ class MigrationAdminController extends AbstractController
                 . '/' . $migrationRequest->getUsername();
             $token = $migrationRequest->getMigrationToken();
 
-            $this->logger->info('Starting chunked backup download for migration', [
-                'request_id' => $id,
-                'source_domain' => $migrationRequest->getSourceDomain(),
-                'expected_size' => $migrationRequest->getBackupSize(),
-            ]);
-
             // Update status
             $migrationRequest->setStatus(MigrationRequest::STATUS_TRANSFERRING);
             $this->entityManager->flush();
@@ -248,11 +231,6 @@ class MigrationAdminController extends AbstractController
                 throw new \RuntimeException('Failed to prepare backup: ' . ($manifest['error'] ?? 'Unknown error'));
             }
             
-            $this->logger->info('Backup chunks prepared', [
-                'total_size' => $manifest['manifest']['total_size'],
-                'total_chunks' => $manifest['manifest']['total_chunks'],
-            ]);
-            
             // Step 2: Download each chunk
             $tempFile = sys_get_temp_dir() . '/migration_' . $migrationRequest->getId() . '.citadel';
             $fp = fopen($tempFile, 'wb');
@@ -271,13 +249,6 @@ class MigrationAdminController extends AbstractController
                 $chunkSuccess = false;
                 
                 while ($retryCount < $maxRetries && !$chunkSuccess) {
-                    $this->logger->info('Downloading chunk', [
-                        'chunk' => $chunkIndex,
-                        'total' => $totalChunks,
-                        'retry' => $retryCount,
-                        'expected_size' => $expectedChunk['size'],
-                    ]);
-                    
                     // Download chunk to temp buffer
                     $chunkTempFile = sys_get_temp_dir() . '/migration_chunk_' . $migrationRequest->getId() . '_' . $chunkIndex . '.tmp';
                     $chunkFp = fopen($chunkTempFile, 'wb');
@@ -340,10 +311,6 @@ class MigrationAdminController extends AbstractController
                     @unlink($chunkTempFile);
                     
                     $chunkSuccess = true;
-                    $this->logger->info('Chunk downloaded and verified', [
-                        'chunk' => $chunkIndex,
-                        'size' => $downloadedSize,
-                    ]);
                 }
                 
                 if (!$chunkSuccess) {
@@ -379,12 +346,6 @@ class MigrationAdminController extends AbstractController
             curl_exec($ch);
             curl_close($ch);
 
-            $this->logger->info('Backup downloaded successfully via chunked transfer', [
-                'request_id' => $id,
-                'file_size' => $finalSize,
-                'chunks' => $totalChunks,
-            ]);
-
             // Restore the backup (creates new user with same UUID)
             $restoredUser = $this->restoreMigratedUser($migrationRequest, $tempFile);
 
@@ -406,12 +367,6 @@ class MigrationAdminController extends AbstractController
                 $migrationRequest->getSourceDomain(),
                 $newDomain
             );
-
-            $this->logger->info('Migration transfer completed', [
-                'request_id' => $id,
-                'new_user_id' => (string) $restoredUser->getId(),
-                'contact_notifications' => $contactResults,
-            ]);
 
             return $this->json([
                 'success' => true,
@@ -479,11 +434,6 @@ class MigrationAdminController extends AbstractController
 
         // Restore the user's database from backup
         $this->backupManager->restoreBackup($user, $backupPath);
-
-        $this->logger->info('Migrated user restored', [
-            'user_id' => (string) $user->getId(),
-            'username' => $user->getUsername(),
-        ]);
 
         return $user;
     }

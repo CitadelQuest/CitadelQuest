@@ -338,16 +338,10 @@ class UserSettingsController extends AbstractController
 
                 // Check if models need updating and sync if necessary
                 if ($this->aiModelsSyncService->shouldUpdateModels()) {
-                    $this->logger->info('UserSettingsController::aiSettings - Models need updating, syncing from CQ AI Gateway');
-                    
                     try {
                         $syncResult = $this->aiModelsSyncService->syncModels();
                         
-                        if ($syncResult['success']) {
-                            $this->logger->info('UserSettingsController::aiSettings - Models updated successfully', [
-                                'models_count' => count($syncResult['models'] ?? [])
-                            ]);
-                            
+                        if ($syncResult['success']) {                            
                             if (count($syncResult['models'] ?? []) > 0) {
                                 $this->addFlash('success', 'AI models updated successfully from CQ AI Gateway.');
                             }
@@ -363,8 +357,6 @@ class UserSettingsController extends AbstractController
                         ]);
                         $this->addFlash('warning', 'Could not update AI models: ' . $e->getMessage());
                     }
-                } else {
-                    $this->logger->info('UserSettingsController::aiSettings - Models are up to date, no sync needed');
                 }
                 
                 // Get all available AI models

@@ -65,11 +65,6 @@ class ContactUpdateService
             }
         }
 
-        $this->logger->info('Contact notification completed', [
-            'user_id' => (string) $user->getId(),
-            'results' => $results,
-        ]);
-
         return $results;
     }
 
@@ -100,9 +95,6 @@ class ContactUpdateService
             $data = $response->toArray();
             
             if ($data['success'] ?? false) {
-                $this->logger->info('Contact notified successfully', [
-                    'contact_domain' => $contact->getCqContactDomain(),
-                ]);
                 return true;
             }
 
@@ -155,11 +147,6 @@ class ContactUpdateService
                 $now->format('Y-m-d H:i:s'),
             ]
         );
-
-        $this->logger->info('Added contact to retry queue', [
-            'contact_id' => $contact->getId(),
-            'next_attempt' => $nextAttempt->format('Y-m-d H:i:s'),
-        ]);
     }
 
     /**

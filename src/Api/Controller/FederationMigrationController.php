@@ -42,11 +42,6 @@ class FederationMigrationController extends AbstractController
     {
         $ip = $request->headers->get('CF-Connecting-IP') ?? $request->headers->get('X-Forwarded-For') ?? $request->getClientIp();
         
-        $this->logger->info('FederationMigrationController::migrationRequest - Incoming migration request', [
-            'username' => $username,
-            'client_ip' => $ip,
-        ]);
-
         try {
             // Validate Authorization header
             $authHeader = $request->headers->get('Authorization');
@@ -91,11 +86,6 @@ class FederationMigrationController extends AbstractController
             // SECURITY: Check if target user is an admin
             // If not admin, auto-reject (admin status is not public info)
             if (!$targetUser->hasAdminRole()) {
-                $this->logger->info('FederationMigrationController::migrationRequest - Auto-rejecting: target user is not admin', [
-                    'username' => $username,
-                    'source_domain' => $data['source_domain']
-                ]);
-                
                 return $this->json([
                     'success' => false,
                     'error' => 'Migration request rejected'
@@ -249,8 +239,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-reject', name: 'api_federation_migration_reject_incoming', methods: ['POST'])]
     public function migrationRejectIncoming(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::migrationRejectIncoming - Received rejection notification');
-
         try {
             $data = json_decode($request->getContent(), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -315,8 +303,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-backup', name: 'api_federation_migration_backup', methods: ['GET'])]
     public function migrationBackup(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::migrationBackup - Backup download requested');
-
         try {
             $token = $request->query->get('token');
             if (!$token) {
@@ -372,14 +358,8 @@ class FederationMigrationController extends AbstractController
                 $backupDir = $this->getParameter('app.backup_dir') . '/' . $user->getId();
                 $backupPath = $backupDir . '/' . $prestagedBackup;
                 $deleteAfterTransfer = false; // Don't delete pre-staged backups
-                
-                $this->logger->info('FederationMigrationController::migrationBackup - Using pre-staged backup', [
-                    'backup_filename' => $prestagedBackup
-                ]);
             } else {
                 $backupPath = $this->backupManager->createBackup($user);
-                
-                $this->logger->info('FederationMigrationController::migrationBackup - Created new backup');
             }
 
             if (!file_exists($backupPath)) {
@@ -390,12 +370,6 @@ class FederationMigrationController extends AbstractController
             }
 
             $fileSize = filesize($backupPath);
-            
-            $this->logger->info('FederationMigrationController::migrationBackup - Streaming backup', [
-                'user_id' => (string) $user->getId(),
-                'backup_size' => $fileSize,
-                'prestaged' => $prestagedBackup ? true : false
-            ]);
 
             // Stream the backup file
             $response = new StreamedResponse(function() use ($backupPath, $fileSize, $deleteAfterTransfer) {
@@ -461,8 +435,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-backup-prepare', name: 'api_federation_migration_backup_prepare', methods: ['POST'])]
     public function migrationBackupPrepare(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::migrationBackupPrepare - Preparing backup chunks');
-
         try {
             $data = json_decode($request->getContent(), true);
             $token = $data['token'] ?? null;
@@ -506,11 +478,8 @@ class FederationMigrationController extends AbstractController
             if ($prestagedBackup) {
                 $backupDir = $this->getParameter('app.backup_dir') . '/' . $user->getId();
                 $backupPath = $backupDir . '/' . $prestagedBackup;
-                
-                $this->logger->info('Using pre-staged backup', ['backup_filename' => $prestagedBackup]);
             } else {
                 $backupPath = $this->backupManager->createBackup($user);
-                $this->logger->info('Created new backup');
             }
 
             if (!file_exists($backupPath)) {
@@ -556,12 +525,6 @@ class FederationMigrationController extends AbstractController
             $migrationRequest->setStatus('transferring');
             $this->entityManager->flush();
             
-            $this->logger->info('Backup split into chunks', [
-                'total_size' => $fileSize,
-                'chunk_count' => $totalChunks,
-                'chunk_size' => $chunkSize,
-            ]);
-
             return $this->json([
                 'success' => true,
                 'manifest' => [
@@ -590,8 +553,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-backup-chunk/{chunkIndex}', name: 'api_federation_migration_backup_chunk', methods: ['GET'])]
     public function migrationBackupChunk(Request $request, string $username, int $chunkIndex): Response
     {
-        $this->logger->info('migrationBackupChunk - Chunk requested', ['chunk' => $chunkIndex]);
-
         try {
             $token = $request->query->get('token');
             if (!$token) {
@@ -632,12 +593,6 @@ class FederationMigrationController extends AbstractController
             $chunkSize = filesize($chunkPath);
             $chunkHash = md5_file($chunkPath);
             
-            $this->logger->info('Serving chunk', [
-                'chunk' => $chunkIndex,
-                'size' => $chunkSize,
-                'hash' => $chunkHash,
-            ]);
-
             // Stream the chunk
             $response = new StreamedResponse(function() use ($chunkPath) {
                 set_time_limit(0);
@@ -673,8 +628,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-backup-cleanup', name: 'api_federation_migration_backup_cleanup', methods: ['POST'])]
     public function migrationBackupCleanup(Request $request, string $username): Response
     {
-        $this->logger->info('migrationBackupCleanup - Cleanup requested');
-
         try {
             $data = json_decode($request->getContent(), true);
             $token = $data['token'] ?? null;
@@ -703,8 +656,6 @@ class FederationMigrationController extends AbstractController
                     @unlink($file);
                 }
                 @rmdir($chunksDir);
-                
-                $this->logger->info('Chunks cleaned up', ['dir' => $chunksDir]);
             }
 
             return $this->json([
@@ -732,10 +683,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/contact-update', name: 'api_federation_contact_update', methods: ['POST'])]
     public function contactUpdate(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::contactUpdate - Contact update received', [
-            'username' => $username
-        ]);
-
         try {
             // Validate Authorization
             $authHeader = $request->headers->get('Authorization');
@@ -802,12 +749,6 @@ class FederationMigrationController extends AbstractController
                 'info'
             );
 
-            $this->logger->info('FederationMigrationController::contactUpdate - Contact domain updated', [
-                'contact_id' => $contact->getId(),
-                'old_domain' => $data['old_domain'],
-                'new_domain' => $data['new_domain']
-            ]);
-
             return $this->json([
                 'success' => true,
                 'message' => 'Contact domain updated'
@@ -833,8 +774,6 @@ class FederationMigrationController extends AbstractController
     #[Route('/{username}/api/federation/migration-complete', name: 'api_federation_migration_complete', methods: ['POST'])]
     public function migrationComplete(Request $request, string $username): Response
     {
-        $this->logger->info('FederationMigrationController::migrationComplete - Migration complete notification');
-
         try {
             $data = json_decode($request->getContent(), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -879,11 +818,6 @@ class FederationMigrationController extends AbstractController
             $user->setMigrationStatus('migrated');
 
             $this->entityManager->flush();
-
-            $this->logger->info('FederationMigrationController::migrationComplete - User marked as migrated', [
-                'user_id' => (string) $user->getId(),
-                'migrated_to' => $migrationRequest->getTargetDomain()
-            ]);
 
             return $this->json([
                 'success' => true,

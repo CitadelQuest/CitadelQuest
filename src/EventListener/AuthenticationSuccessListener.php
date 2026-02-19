@@ -32,13 +32,10 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
     
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {
-        $this->logger->info('AuthenticationSuccessListener: User login successful');
-        
         $user = $event->getUser();
         
         // Check if user needs to change password
         if ($user->isRequirePasswordChange()) {
-            $this->logger->info('AuthenticationSuccessListener: User requires password change, redirecting');
             $response = new RedirectResponse($this->router->generate('app_change_password'));
             $event->setResponse($response);
             return;
@@ -58,24 +55,17 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
             
             // Set the locale in the request (for the current request)
             $request->setLocale($locale);
-            
-            $this->logger->info('AuthenticationSuccessListener: Set user locale', ['locale' => $locale]);
         }
 
         // Check if AI models need updating (instead of redirect workaround), only if setting `onboarding.completed` is set and 1
         $onboardingCompleted = (int)($this->settingsService->getSettingValue('onboarding.completed', '0'));
 
         if ($onboardingCompleted === 1 && $this->aiModelsSyncService->shouldUpdateModels()) {
-            $this->logger->info('AuthenticationSuccessListener: AI models need updating, starting background sync');
-            
             try {
                 // Attempt to sync models in background
                 $result = $this->aiModelsSyncService->syncModels();
                 
                 if ($result['success']) {
-                    $this->logger->info('AuthenticationSuccessListener: AI models updated successfully', [
-                        'models_count' => count($result['models'] ?? [])
-                    ]);
                 } else {
                     $this->logger->warning('AuthenticationSuccessListener: AI models sync failed', [
                         'error' => $result['message'],
@@ -87,8 +77,6 @@ class AuthenticationSuccessListener implements EventSubscriberInterface
                     'error' => $e->getMessage()
                 ]);
             }
-        } else {
-            $this->logger->info('AuthenticationSuccessListener: AI models are up to date, no sync needed');
         }
         
         // No redirect needed - let normal login flow continue

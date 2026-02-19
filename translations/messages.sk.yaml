@@ -629,59 +629,6 @@ backup:
         file_too_large: 'Súbor je príliš veľký. Maximálna veľkosť je'
         network_error: 'Nastala chyba siete'
 
-diary:
-    title: 'Denník'
-    loading: 'Načítavam...'
-    new_entry: 'Nový záznam do denníka'
-    encrypt_entry: 'Zašifrovať tento záznam'
-    actions:
-        new: 'Nový záznam'
-        edit: 'Upraviť'
-        delete: 'Zmazať'
-        save: 'Uložiť'
-        cancel: 'Zrušiť'
-        back: 'Späť'
-    favorite:
-        title: 'Obľúbené'
-        not_favorite: 'Nie je obľúbené'
-        toggle: 'Prepnúť obľúbené'
-    messages:
-        no_entries: 'Zatiaľ žiadne záznamy v denníku. Vytvorte svoj prvý kliknutím na tlačidlo "Nový záznam".'
-        confirm_delete: 'Naozaj chcete zmazať tento záznam?'
-        entry_not_found: 'Záznam nenájdený'
-        failed_delete: 'Nepodarilo sa zmazať záznam'
-        failed_save: 'Nepodarilo sa uložiť záznam'
-        failed_load: 'Nepodarilo sa načítať záznam'
-        failed_load_edit: 'Nepodarilo sa načítať záznam pre úpravu'
-        failed_load_edit_content: 'Nepodarilo sa načítať záznam pre úpravu. Skúste to prosím neskôr.'
-        failed_favorite: 'Nepodarilo sa prepnúť obľúbené'
-        error_executing_command: 'Chyba pri vykonávaní príkazu'
-        saving: 'Ukladám...'
-        title_required: 'Názov je povinný'
-        entry_saved: 'Záznam bol úspešne uložený'
-        entry_deleted: 'Záznam bol úspešne zmazaný'
-        failed_load_content: 'Nepodarilo sa načítať obsah záznamu'
-        failed_load_list_content: 'Nepodarilo sa načítať záznamy. Skúste to prosím neskôr.'
-        failed_refresh: 'Nepodarilo sa obnoviť záznamy'
-        update_reload_error: 'Záznam bol aktualizovaný, ale nepodarilo sa znovu načítať obsah. Prosím obnovte stránku.'
-    form:
-        title: 'Názov'
-        content: 'Obsah'
-        mood: 'Nálada'
-        mood_select: 'Vyberte náladu...'
-        tags: 'Štítky'
-        tags_help: 'Oddeľte štítky čiarkami'
-        moods:
-            happy: 'Šťastný'
-            calm: 'Pokojný'
-            thoughtful: 'Zamýšľavý'
-            excited: 'Nadšený'
-            sad: 'Smutný'
-            anxious: 'Úzkostný'
-    placeholders:
-        content: 'Napíšte svoje myšlienky...'
-        tags: 'Pridajte štítky (voliteľné)'
-
 welcome:
     onboarding:
         welcome: "Vitajte v CitadelQuest"

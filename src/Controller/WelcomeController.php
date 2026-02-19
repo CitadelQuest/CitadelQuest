@@ -160,9 +160,6 @@ class WelcomeController extends AbstractController
         $name = $request->request->get('name');
         $color = $request->request->get('color', '#6c5ce7');
         
-        // Log the request data
-        $this->logger->info('Create Spirit Request - Name: ' . $name . ', Color: ' . $color);
-        
         if (!$name) {
             $this->logger->error('Create Spirit Error: Name is required');
             return new JsonResponse([
@@ -179,9 +176,7 @@ class WelcomeController extends AbstractController
             }
             
             // Create spirit
-            $this->logger->info('Creating spirit with name: ' . $name . ' and color: ' . $color);
             $spirit = $this->spiritService->createSpirit($name, $color);
-            $this->logger->info('Spirit created with ID: ' . $spirit->getId());
             
             // Set model for spirit
             $this->spiritService->updateSpiritModel($spirit->getId(), $model->getId());

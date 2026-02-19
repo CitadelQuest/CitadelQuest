@@ -116,11 +116,6 @@ class MigrationService
                 throw new \RuntimeException($response['error'] ?? 'Migration request was rejected');
             }
 
-            $this->logger->info('Migration request sent successfully', [
-                'request_id' => (string) $migrationRequest->getId(),
-                'target_domain' => $targetContact->getCqContactDomain()
-            ]);
-
         } catch (\Exception $e) {
             $migrationRequest->setStatus(MigrationRequest::STATUS_FAILED);
             $migrationRequest->setErrorMessage($e->getMessage());
@@ -225,12 +220,6 @@ class MigrationService
 
         $this->migrationRequestRepository->save($migrationRequest, true);
 
-        $this->logger->info('Incoming migration request received', [
-            'request_id' => (string) $migrationRequest->getId(),
-            'source_domain' => $data['source_domain'],
-            'username' => $data['username']
-        ]);
-
         return [
             'success' => true,
             'request_id' => (string) $migrationRequest->getId(),
@@ -263,11 +252,6 @@ class MigrationService
         // Notify source server that migration was accepted
         $this->notifySourceServerAccepted($request);
 
-        $this->logger->info('Migration request accepted', [
-            'request_id' => (string) $request->getId(),
-            'admin_id' => (string) $admin->getId()
-        ]);
-
         return [
             'success' => true,
             'request_id' => (string) $request->getId(),
@@ -293,12 +277,6 @@ class MigrationService
 
         // Notify source server that migration was rejected
         $this->notifySourceServerRejected($request, $reason);
-
-        $this->logger->info('Migration request rejected', [
-            'request_id' => (string) $request->getId(),
-            'admin_id' => (string) $admin->getId(),
-            'reason' => $reason
-        ]);
 
         return [
             'success' => true,

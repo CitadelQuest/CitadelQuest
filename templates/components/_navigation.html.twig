@@ -26,21 +26,6 @@
                     <span class="d-none d-sm-inline ms-1">{{ app.user.userIdentifier }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
-                    {# <li>
-                        <a class="dropdown-item nav-link ps-3" href="{{ path('diary_index') }}">
-                            <i class="mdi mdi-book me-3{% if app.request.pathInfo == path('diary_index') %} text-cyber{% endif %}"></i>
-                            {{ 'diary.title'|trans }}
-                        </a>
-                    </li> #}
-                    {# <li>
-                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_visual_design') }}">
-                            <i class="mdi mdi-palette me-3{% if app.request.pathInfo == path('app_visual_design') %} text-cyber{% endif %}"></i>
-                            {{ 'navigation.user_menu.visual_design'|trans }}
-                        </a>
-                    </li>
-                    <li>
-                        <hr class="dropdown-divider">
-                    </li> #}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('cq_memory_explorer') }}">
                             <i class="mdi mdi-graph me-3{% if app.request.pathInfo starts with '/memory' %} text-cyber{% else %} text-info{% endif %}"></i>

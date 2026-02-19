@@ -168,11 +168,6 @@ class SpiritService
                     'description' => 'Root memory pack for Spirit ' . $spirit->getName(),
                 ]);
                 
-                $this->logger->info('Created root memory pack for Spirit', [
-                    'spiritId' => $spirit->getId(),
-                    'pack' => $packsPath . '/' . $rootPackName,
-                ]);
-                
                 // Seed foundational memory nodes in the new pack
                 $this->seedSpiritMemoryNodes($spirit, $projectId, $packsPath, $rootPackName);
             }
@@ -193,11 +188,6 @@ class SpiritService
                     $rootPackName,
                     ['name' => $spirit->getName() . ' Memory']
                 );
-                
-                $this->logger->info('Created root memory library for Spirit', [
-                    'spiritId' => $spirit->getId(),
-                    'library' => $memoryPath . '/' . $rootLibraryName,
-                ]);
             }
         } catch (\Exception $e) {
             // Non-fatal — Spirit works without memory infrastructure
@@ -268,12 +258,6 @@ class SpiritService
             );
             
             $this->packService->close();
-            
-            $this->logger->info('Seeded foundational memory nodes for Spirit', [
-                'spiritId' => $spirit->getId(),
-                'spiritNodeId' => $spiritNode->getId(),
-                'userNodeId' => $userNode->getId(),
-            ]);
         } catch (\Exception $e) {
             $this->logger->warning('Failed to seed Spirit memory nodes', [
                 'spiritId' => $spirit->getId(),
@@ -622,8 +606,6 @@ class SpiritService
             );
 
             $db->commit();
-
-            $this->logger->info('Spirit deleted', ['spiritId' => $spiritId, 'spiritName' => $spirit->getName()]);
         } catch (\Exception $e) {
             $db->rollBack();
             $this->logger->error('Failed to delete spirit', ['spiritId' => $spiritId, 'error' => $e->getMessage()]);

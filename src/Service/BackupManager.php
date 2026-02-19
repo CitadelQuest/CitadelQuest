@@ -93,7 +93,6 @@ class BackupManager
                 throw new \RuntimeException('Backup verification failed');
             }
 
-            $this->logger->info("Backup created: {$backupFile}");
             return $backupFile;
 
         } catch (\Exception $e) {
@@ -181,8 +180,6 @@ class BackupManager
             // Run migrations to update schema if needed
             $this->userDatabaseManager->updateDatabaseSchema($user);
 
-            $this->logger->info('Backup restored successfully');
-
         } catch (\Exception $e) {
             $this->logger->error('Backup restore failed: ' . $e->getMessage());
             throw new \RuntimeException('Failed to restore backup: ' . $e->getMessage(), 0, $e);
@@ -266,8 +263,6 @@ class BackupManager
                 }
                 throw new \RuntimeException('Invalid backup file: user.db not found in archive');
             }
-
-            $this->logger->info("Backup uploaded: {$targetPath}");
 
             return [
                 'filename' => $filename,
@@ -500,8 +495,6 @@ class BackupManager
 
         file_put_contents($tempDir . '/metadata.json', json_encode($metadata));
 
-        $this->logger->info("Chunked upload initialized: {$uploadId} for {$filename}");
-
         return [
             'uploadId' => $uploadId,
             'chunkSize' => self::CHUNK_SIZE
@@ -630,8 +623,6 @@ class BackupManager
             // Cleanup temp directory
             $this->removeDirectory($tempDir);
 
-            $this->logger->info("Chunked upload finalized: {$targetPath}");
-
             return [
                 'filename' => $filename,
                 'size' => filesize($targetPath),
@@ -672,7 +663,6 @@ class BackupManager
             }
 
             $this->removeDirectory($tempDir);
-            $this->logger->info("Chunked upload cancelled: {$uploadId}");
         }
     }
 
@@ -749,7 +739,6 @@ class BackupManager
         }
 
         $this->removeDirectory($backupPath);
-        $this->logger->info("System backup deleted: {$backupName}");
     }
 
     /**

@@ -298,8 +298,6 @@ class AnnoService
             try {
                 $newFile = $this->projectFileService->createFile($projectId, $filePath, $annoFileName, json_encode($annotation));
                 $newFiles[] = $newFile;
-
-                $this->logger->info('saveAnnotations(): Annotation file saved: ' . $annoFileName . ' (size: ' . $newFile->getSize() . ' bytes)');
             } catch (\Throwable $th) {
                 $this->logger->error('saveAnnotations(): Error saving annotation file ' . $annoFileName . ': ' . $th->getMessage());
             }
@@ -317,8 +315,6 @@ class AnnoService
                             $i++;
                             $newImageFile = $this->projectFileService->createFile($projectId, $filePath, $imgFileName, $imageDataContent);
                             $newFiles[] = $newImageFile;
-
-                            $this->logger->info('saveAnnotations(): Annotation image file saved: ' . $imgFileName . ' (size: ' . $newImageFile->getSize() . ' bytes)');
                         } catch (\Throwable $th) {
                             $this->logger->error('saveAnnotations(): Error saving annotation image file ' . $imgFileName . ': ' . $th->getMessage());
                         }

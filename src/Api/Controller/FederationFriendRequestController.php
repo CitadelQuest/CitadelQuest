@@ -28,22 +28,10 @@ class FederationFriendRequestController extends AbstractController
         // Prioritize Cloudflare-Connecting-IP if present, otherwise fallback to standard client IP
         $ip = $request->headers->get('CF-Connecting-IP') ?? ($request->headers->get('X-Forwarded-For') ?? $request->getClientIp());
         
-        $this->logger->info('FederationFriendRequestController::friendRequest - Starting friend request processing', [
-            'username' => $username,
-            'method' => $request->getMethod(),
-            'request_uri' => $request->getRequestUri(),
-            'client_ip' => $ip,
-            'user_agent' => $request->headers->get('User-Agent'),
-            'content_type' => $request->headers->get('Content-Type'),
-            'content_length' => $request->headers->get('Content-Length')
-        ]);
-        
         try {
             // Auth Header
-            $this->logger->info('FederationFriendRequestController::friendRequest - Checking authorization header');
             $authHeader = $request->headers->get('Authorization');
             if (!$authHeader) {
-                $this->logger->warning('FederationFriendRequestController::friendRequest - Missing authorization header');
                 return $this->json([
                     'success' => false,
                     'message' => 'Authorization key required'
@@ -52,15 +40,9 @@ class FederationFriendRequestController extends AbstractController
             
             // Get CQ-CONTACT API Key, from Authorization Bearer
             $cqContactApiKey = str_replace('Bearer ', '', $authHeader);
-            $this->logger->info('FederationFriendRequestController::friendRequest - Extracted API key', [
-                'api_key_length' => strlen($cqContactApiKey)
-            ]);
             
             // Get request JSON 
             $requestContent = $request->getContent();
-            $this->logger->info('FederationFriendRequestController::friendRequest - Processing request content', [
-                'content_length' => strlen($requestContent)
-            ]);
             
             $data = json_decode($requestContent, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -73,11 +55,6 @@ class FederationFriendRequestController extends AbstractController
                     'message' => 'Invalid JSON in request body'
                 ], Response::HTTP_BAD_REQUEST);
             }
-            
-            $this->logger->info('FederationFriendRequestController::friendRequest - Parsed request data', [
-                'data_keys' => array_keys($data ?? []),
-                'friend_request_status' => $data['friend_request_status'] ?? 'not_set'
-            ]);
 
             // Friend Request Status
             $friendRequestStatus = $data['friend_request_status'] ?? null;
@@ -104,9 +81,6 @@ class FederationFriendRequestController extends AbstractController
 
             // Validate request body
             $requiredFields = ['cq_contact_url', 'friend_request_status', 'cq_contact_domain', 'cq_contact_username', 'cq_contact_id'];
-            $this->logger->info('FederationFriendRequestController::friendRequest - Validating required fields', [
-                'required_fields' => $requiredFields
-            ]);
             
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field]) || empty($data[$field])) {
@@ -123,10 +97,6 @@ class FederationFriendRequestController extends AbstractController
 
 
             // Get system User by `username`
-            $this->logger->info('FederationFriendRequestController::friendRequest - Looking up user', [
-                'username' => $username
-            ]);
-            
             $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
             if (!$user) {
                 $this->logger->warning('FederationFriendRequestController::friendRequest - User not found', [
@@ -137,39 +107,16 @@ class FederationFriendRequestController extends AbstractController
                     'message' => 'User not found'
                 ], Response::HTTP_NOT_FOUND);
             }
-            
-            $this->logger->info('FederationFriendRequestController::friendRequest - Found user', [
-                'user_id' => $user->getId(),
-                'username' => $user->getUsername()
-            ]);
-            
             $this->cqContactService->setUser($user);
 
             // Get CqContact
-            $this->logger->info('FederationFriendRequestController::friendRequest - Looking up CQ Contact', [
-                'cq_contact_url' => $data['cq_contact_url'],
-                'api_key_length' => strlen($cqContactApiKey)
-            ]);
-            
             $cqContact = $this->cqContactService->findByUrlAndApiKey($data['cq_contact_url'], $cqContactApiKey);
-            $this->logger->info('FederationFriendRequestController::friendRequest - CQ Contact lookup result', [
-                'contact_found' => $cqContact !== null,
-                'contact_id' => $cqContact?->getId(),
-                'contact_status' => $cqContact?->getFriendRequestStatus()
-            ]);
             
             // Process Friend Request Status
-            $this->logger->info('FederationFriendRequestController::friendRequest - Processing friend request status', [
-                'status' => $friendRequestStatus
-            ]);
-            
             switch ($friendRequestStatus) {
                 // new friend request from another server
                 case 'SENT':
-                    $this->logger->info('FederationFriendRequestController::friendRequest - Processing SENT status');
                     if (!$cqContact) {
-                        $this->logger->info('FederationFriendRequestController::friendRequest - Creating new contact for SENT request');
-
                         // create CqContact
                         $cqContact = $this->cqContactService->createContact(
                             $data['cq_contact_url'],
@@ -184,11 +131,6 @@ class FederationFriendRequestController extends AbstractController
                         );
 
                         if ($cqContact) {
-                            $this->logger->info('FederationFriendRequestController::friendRequest - Created new contact', [
-                                'contact_id' => $cqContact->getId(),
-                                'contact_username' => $cqContact->getCqContactUsername()
-                            ]);
-                            
                             // Send a `new friend request` notification
                             $this->notificationService->createNotification(
                                 $user,
@@ -196,7 +138,6 @@ class FederationFriendRequestController extends AbstractController
                                 'A new friend request from: ' . $cqContact->getCqContactDomain(),
                                 'success'
                             );
-                            $this->logger->info('FederationFriendRequestController::friendRequest - Created notification for new friend request');
                         } else {
                             $this->logger->error('FederationFriendRequestController::friendRequest - Failed to create contact');
                         }
@@ -225,13 +166,7 @@ class FederationFriendRequestController extends AbstractController
                     break;
                 // friend request accepted from another server
                 case 'ACCEPTED':
-                    $this->logger->info('FederationFriendRequestController::friendRequest - Processing ACCEPTED status');
                     if ($cqContact && $cqContact->getFriendRequestStatus() === 'SENT') {
-                        $this->logger->info('FederationFriendRequestController::friendRequest - Updating contact to ACCEPTED', [
-                            'contact_id' => $cqContact->getId(),
-                            'previous_status' => $cqContact->getFriendRequestStatus()
-                        ]);
-
                         // update CqContact
                         $cqContact->setFriendRequestStatus('ACCEPTED');
                         $cqContact->setCqContactId($data['cq_contact_id']);
@@ -245,7 +180,6 @@ class FederationFriendRequestController extends AbstractController
                             'Your friend request to ' . $cqContact->getCqContactUsername() . ' has been accepted',
                             'success'
                         );
-                        $this->logger->info('FederationFriendRequestController::friendRequest - Created notification for accepted friend request');
 
                     } elseif ($cqContact && $cqContact->getFriendRequestStatus() === 'REJECTED') {
                         $this->logger->warning('FederationFriendRequestController::friendRequest - Cannot accept already rejected request', [
@@ -261,13 +195,7 @@ class FederationFriendRequestController extends AbstractController
                     break;
                 // friend request rejected from another server
                 case 'REJECTED':
-                    $this->logger->info('FederationFriendRequestController::friendRequest - Processing REJECTED status');
                     if ($cqContact) {
-                        $this->logger->info('FederationFriendRequestController::friendRequest - Updating contact to REJECTED', [
-                            'contact_id' => $cqContact->getId(),
-                            'previous_status' => $cqContact->getFriendRequestStatus()
-                        ]);
-
                         // update CqContact
                         $cqContact->setFriendRequestStatus('REJECTED');
                         $cqContact->setCqContactId($data['cq_contact_id']);
@@ -281,8 +209,6 @@ class FederationFriendRequestController extends AbstractController
                             'Your friend request to ' . $cqContact->getCqContactUsername() . ' has been rejected',
                             'error'
                         );
-                        $this->logger->info('FederationFriendRequestController::friendRequest - Created notification for rejected friend request');
-
                     }
                     break;
             }
@@ -294,12 +220,6 @@ class FederationFriendRequestController extends AbstractController
                     'message' => 'CitadelQuest Contact not found'
                 ], Response::HTTP_NOT_FOUND);
             }
-
-            $this->logger->info('FederationFriendRequestController::friendRequest - Successfully processed friend request', [
-                'contact_id' => $cqContact->getId(),
-                'final_status' => $cqContact->getFriendRequestStatus()
-            ]);
-
             return $this->json([
                 'success' => true,
                 'message' => 'CitadelQuest Contact Friend request status updated successfully'

@@ -453,12 +453,9 @@ class SpiritConversationService
                 try {
                     $newFile = $this->projectFileService->createFile($projectId, $filePath, $content['file']['filename'], $content['file']['file_data']);
                     $newFiles[] = $newFile;
-
-                    $this->logger->info('saveFilesFromMessage(): File created: ' . $newFile->getId() . ' ' . $newFile->getName() . ' (size: ' . $newFile->getSize() . ' bytes)');
                 } catch (\Exception $e) {
                     // catch existing file 
-                    if (strpos($e->getMessage(), 'File already exists') !== false) {
-                        $this->logger->info('saveFilesFromMessage(): File already exists: ' . $content['file']['filename']);
+                    if (strpos($e->getMessage(), 'File already exists') !== false) {                        
                         $newFile = $this->projectFileService->findByPathAndName($projectId, $filePath, $content['file']['filename']);
                         $newFiles[] = $newFile;
                     } else {
@@ -834,8 +831,7 @@ class SpiritConversationService
                 }
                 return 'Unknown';
             }, $toolCalls);
-            $this->spiritService->logInteraction($spirit->getId(), 'tool use: ' . implode(', ', $toolCalls_function_names), 2);
-            $this->logger->info('Tool calls: ' . json_encode($toolCalls));
+            $this->spiritService->logInteraction($spirit->getId(), 'tool use: ' . implode(', ', $toolCalls_function_names), 2);            
         }
         
         // Extract tool calls if present
@@ -1138,10 +1134,6 @@ class SpiritConversationService
             return;
         }
         
-        $this->logger->info("Migrating conversation {$conversationId} from old format to new format", [
-            'messageCount' => count($messages)
-        ]);
-        
         $messageService = new SpiritConversationMessageService(
             $this->userDatabaseManager,
             $this->security,
@@ -1190,8 +1182,6 @@ class SpiritConversationService
             
             $previousMessageId = $message->getId();
         }
-        
-        $this->logger->info("Successfully migrated conversation {$conversationId}");
     }
 
     /**
@@ -1217,12 +1207,6 @@ class SpiritConversationService
                             $this->projectFileService->moveFile('general', $oldFile, [
                                 'path' => $newMemoryDir,
                                 'name' => $fileName
-                            ]);
-                            $this->logger->info('Migrated Spirit memory file', [
-                                'spiritId' => $spirit->getId(),
-                                'file' => $fileName,
-                                'from' => $oldMemoryDir,
-                                'to' => $newMemoryDir
                             ]);
                         }
                     }
@@ -2484,15 +2468,6 @@ class SpiritConversationService
                 $confidence,
                 $hasGraphContext
             );
-            
-            $this->logger->info('Subconsciousness sub-agent: enriched recall', [
-                'originalNodes' => count($recalledNodes),
-                'enrichedNodes' => count($enrichedNodes),
-                'expandedNodes' => $expandedCount,
-                'hasGraphContext' => $hasGraphContext,
-                'synthesisLength' => mb_strlen($synthesis),
-                'confidence' => $confidence,
-            ]);
             
             return [
                 'systemPrompt' => $enrichedSystemPrompt,
