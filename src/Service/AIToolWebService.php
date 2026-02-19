@@ -87,11 +87,33 @@ class AIToolWebService
                 return $fetchResult;
             }
             
-            $html = $fetchResult['content'];
+            $rawContent = $fetchResult['content'];
             $finalUrl = $fetchResult['url']; // May differ after redirects
             
+            // For raw-friendly file types, skip HTML cleanup and AI extraction
+            if ($this->isRawFileType($finalUrl)) {
+                $title = basename(parse_url($finalUrl, PHP_URL_PATH) ?: $finalUrl);
+                
+                $this->saveToCache($url, $projectId, [
+                    'title' => $title,
+                    'description' => '',
+                    'content' => $rawContent,
+                    'fetched_at' => (new \DateTime())->format('c')
+                ]);
+                
+                return [
+                    'success' => true,
+                    'url' => $finalUrl,
+                    'title' => $title,
+                    'content' => $this->truncateContent($rawContent, $maxLength),
+                    'cached' => false,
+                    'fetched_at' => (new \DateTime())->format('c'),
+                    '_frontendData' => $this->buildFrontendData($finalUrl, $title, false)
+                ];
+            }
+            
             // Basic HTML cleanup and metadata extraction
-            $cleaned = $this->basicHtmlCleanup($html);
+            $cleaned = $this->basicHtmlCleanup($rawContent);
             
             // AI post-processing to extract meaningful content
             $extractedContent = $this->aiExtractContent(
@@ -139,6 +161,18 @@ class AIToolWebService
                 'error' => 'Failed to fetch URL: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Check if URL points to a raw-friendly file type that should skip HTML cleanup and AI extraction
+     */
+    private function isRawFileType(string $url): bool
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!$path) return false;
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        return in_array($ext, ['json', 'xml', 'txt', 'md', 'js', 'css', 'csv', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'log', 'sh', 'py', 'php', 'rb', 'rs', 'go', 'ts', 'jsx', 'tsx', 'sql', 'graphql'], true);
     }
 
     /**
