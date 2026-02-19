@@ -103,7 +103,7 @@ See /docker/README.md for Coolify deployment instructions.
 - SSL/TLS certificate (HTTPS required)
 
 ### Frontend Stack
-- Symfony 7.3
+- Symfony 7.4
 - Bootstrap 5
 - Webpack Encore
 - Modern vanilla JavaScript
@@ -111,7 +111,7 @@ See /docker/README.md for Coolify deployment instructions.
 ## Development Guidelines
 
 ### Code Structure
-- Follow Symfony 7.3 best practices
+- Follow Symfony 7.4 best practices
 - Maintain modular, single-responsibility components
 - Document all major functionality
 
