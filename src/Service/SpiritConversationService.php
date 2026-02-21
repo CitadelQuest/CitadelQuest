@@ -505,6 +505,7 @@ class SpiritConversationService
         $rootNodes = [];
         $graphData = null;
         $searchedPacks = [];
+        $packsToSearch = [];
         if ($config['includeMemory'] && $config['memoryType'] >= 1 && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
             $messageService = new SpiritConversationMessageService(
@@ -526,6 +527,7 @@ class SpiritConversationService
             $rootNodes = $recallResult['rootNodes'] ?? [];
             $graphData = $recallResult['graphData'] ?? null;
             $searchedPacks = $recallResult['searchedPacks'] ?? [];
+            $packsToSearch = $recallResult['packsToSearch'] ?? [];
         }
         
         // Phase 4: Evaluate sub-agent trigger
@@ -539,6 +541,7 @@ class SpiritConversationService
             'rootNodes' => $rootNodes,
             'graphData' => $graphData,
             'searchedPacks' => $searchedPacks,
+            'packsToSearch' => $packsToSearch,
             'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
     }
@@ -2080,6 +2083,8 @@ class SpiritConversationService
                     $packsToSearch[] = [
                         'path' => dirname($packPath),
                         'name' => basename($packPath),
+                        'displayName' => $packEntry['name'] ?? basename($packPath, '.cqmpack'),
+                        'description' => $packEntry['description'] ?? '',
                     ];
                 }
             } catch (\Exception $e) {
@@ -2093,6 +2098,8 @@ class SpiritConversationService
                 $packsToSearch[] = [
                     'path' => $memoryInfo['packsPath'],
                     'name' => $memoryInfo['rootPackName'],
+                    'displayName' => basename($memoryInfo['rootPackName'], '.cqmpack'),
+                    'description' => '',
                 ];
             }
             
@@ -2224,6 +2231,7 @@ class SpiritConversationService
                                     'summary' => $rootNode->getSummary(),
                                     'content' => $rootNode->getContent(),
                                     'children' => $childNodes,
+                                    'packName' => $packRef['displayName'],
                                 ];
                             }
                         }
@@ -2268,6 +2276,7 @@ class SpiritConversationService
                     $sourceContentCache = []; // sourceRef → full source text (avoid duplicate fetches)
                     foreach ($packResults as &$pr) {
                         $pr['sourcePack'] = $packRef['name'];
+                        $pr['packName'] = $packRef['displayName'];
                         // Phase 4b: fetch 1-hop neighbors while pack is still open
                         $pr['graphNeighbors'] = $this->packService->getNodeNeighborhood(
                             $pr['node']->getId(), 5
@@ -2337,14 +2346,14 @@ class SpiritConversationService
             $mergedGraphData = ['nodes' => $mergedGraphNodes, 'edges' => $mergedGraphEdges];
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData, 'packsToSearch' => $packsToSearch]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData, 'packsToSearch' => $packsToSearch]);
             }
             
             // Build node data for frontend + Phase 4b: include graph neighbors
@@ -2365,6 +2374,7 @@ class SpiritConversationService
                     'sourceRef' => $node->getSourceRef(),
                     'sourceRange' => $node->getSourceRange(),
                     'originalSourceContent' => $result['originalSourceContent'] ?? null,
+                    'packName' => $result['packName'] ?? null,
                 ];
             }
             
@@ -2398,7 +2408,8 @@ class SpiritConversationService
                 
                 $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
                 $relatedAttr = !empty($result['isRelated']) ? ' related="true"' : '';
-                $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr}{$relatedAttr}>";
+                $packNameAttr = !empty($result['packName']) ? ' pack-name="' . htmlspecialchars($result['packName']) . '"' : '';
+                $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr}{$relatedAttr}{$packNameAttr}>";
                 $xml .= "\n                    {$content}";
                 $xml .= "\n                </memory>";
             }
@@ -2419,6 +2430,7 @@ class SpiritConversationService
                 'searchedPacks' => $searchedPacks,
                 'rootNodes' => $rootNodes,
                 'graphData' => $mergedGraphData,
+                'packsToSearch' => $packsToSearch,
             ];
             
         } catch (\Exception $e) {
@@ -2462,6 +2474,7 @@ class SpiritConversationService
             'sourceRef' => $nodeData['sourceRef'] ?? null,
             'sourceRange' => $nodeData['sourceRange'] ?? null,
             'originalSourceContent' => $nodeData['originalSourceContent'] ?? null,
+            'packName' => $nodeData['packName'] ?? null,
         ];
         if ($relevance !== null) {
             $node['relevance'] = $relevance;
@@ -2475,7 +2488,8 @@ class SpiritConversationService
         string $cachedSystemPrompt,
         array $recalledNodes,
         array $keywords,
-        array $rootNodes = []
+        array $rootNodes = [],
+        array $packsSearched = []
     ): array {
         try {
             // Get AI model (same as extraction sub-agents: Kael = Gemini Flash)
@@ -2504,7 +2518,7 @@ class SpiritConversationService
             $systemPrompt = $this->buildSubAgentSystemPrompt();
             
             // Build sub-agent user message
-            $userMessage = $this->buildSubAgentUserMessage($userMessageText, $contextMessages, $recalledNodes, $rootNodes);
+            $userMessage = $this->buildSubAgentUserMessage($userMessageText, $contextMessages, $recalledNodes, $rootNodes, $packsSearched);
             
             // Make AI call
             $messages = [
@@ -2562,6 +2576,8 @@ class SpiritConversationService
             foreach ($recalledNodes as $node) {
                 foreach ($node['graphNeighbors'] ?? [] as $neighbor) {
                     if (!isset($neighborLookup[$neighbor['id']])) {
+                        // Carry packName from the parent recalled node
+                        $neighbor['packName'] = $neighbor['packName'] ?? $node['packName'] ?? null;
                         $neighborLookup[$neighbor['id']] = [
                             'neighbor' => $neighbor,
                             'sourceNodeId' => $node['id'],
@@ -2576,6 +2592,8 @@ class SpiritConversationService
             foreach ($rootNodes as $root) {
                 foreach ($root['children'] ?? [] as $child) {
                     if (!isset($rootChildrenLookup[$child['id']])) {
+                        // Carry packName from the root node
+                        $child['packName'] = $child['packName'] ?? $root['packName'] ?? null;
                         $rootChildrenLookup[$child['id']] = [
                             'child' => $child,
                             'rootNodeId' => $root['id'],
@@ -2704,8 +2722,9 @@ Memories are organized as a graph-based knowledge system:
 You will receive an XML document `<memory-evaluation>` containing:
 1. `<user-message>` — The user's latest message
 2. `<conversation-context>` — Recent conversation messages (if available)
-3. `<memory-graphs>` — Root documents with their section hierarchy (if available)
-4. `<candidate-memories>` — Memories found by keyword search, each with score, category, importance, tags, content, and graph relationships
+3. `<memory-packs>` — Memory packs searched, with name and description (if available)
+4. `<memory-graphs>` — Root documents with their section hierarchy, each tagged with pack-name (if available)
+5. `<candidate-memories>` — Memories found by keyword search, each with score, category, importance, tags, content, pack-name, and graph relationships
 
 ## Your Task
 
@@ -2774,7 +2793,8 @@ PROMPT;
         string $userMessageText,
         array $conversationContext,
         array $recalledNodes,
-        array $rootNodes = []
+        array $rootNodes = [],
+        array $packsSearched = []
     ): string {
         $xml = '<memory-evaluation>';
         
@@ -2806,6 +2826,18 @@ PROMPT;
             $xml .= "\n</conversation-context>";
         }
         
+        // Memory packs used in this search
+        if (!empty($packsSearched)) {
+            $xml .= "\n<memory-packs description=\"Memory packs searched for this recall.\">";
+            foreach ($packsSearched as $pack) {
+                $packDisplayName = htmlspecialchars($pack['displayName'] ?? basename($pack['name'], '.cqmpack'));
+                $packDesc = htmlspecialchars($pack['description'] ?? '');
+                $descAttr = !empty($packDesc) ? " description=\"{$packDesc}\"" : '';
+                $xml .= "\n    <pack name=\"{$packDisplayName}\"{$descAttr} />";
+            }
+            $xml .= "\n</memory-packs>";
+        }
+        
         // Available Memory Graphs — root nodes (depth=0) for broader context
         if (!empty($rootNodes)) {
             $xml .= "\n<memory-graphs description=\"Root documents in user memory. Use for understanding broader memory structure.\">";
@@ -2814,7 +2846,8 @@ PROMPT;
                 if (mb_strlen($rootContent) > 500) {
                     $rootContent = mb_substr($rootContent, 0, 500) . '...';
                 }
-                $xml .= "\n    <root-node id=\"{$root['id']}\" title=\"" . htmlspecialchars($root['summary']) . "\">";
+                $packNameAttr = !empty($root['packName']) ? ' pack-name="' . htmlspecialchars($root['packName']) . '"' : '';
+                $xml .= "\n    <root-node id=\"{$root['id']}\" title=\"" . htmlspecialchars($root['summary']) . "\"{$packNameAttr}>";
                 if (!empty($rootContent)) {
                     $xml .= "\n        <content>{$rootContent}</content>";
                 }
@@ -2840,7 +2873,8 @@ PROMPT;
             $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
             $summary = htmlspecialchars($node['summary'] ?? '');
             
-            $xml .= "\n    <memory id=\"{$node['id']}\" score=\"{$node['score']}\" category=\"{$node['category']}\"{$depthAttr} importance=\"{$node['importance']}\"{$tagsAttr} title=\"{$summary}\">";
+            $packNameAttr = !empty($node['packName']) ? ' pack-name="' . htmlspecialchars($node['packName']) . '"' : '';
+            $xml .= "\n    <memory id=\"{$node['id']}\" score=\"{$node['score']}\" category=\"{$node['category']}\"{$depthAttr} importance=\"{$node['importance']}\"{$tagsAttr} title=\"{$summary}\"{$packNameAttr}>";
             
             $nodeContent = $node['content'] ?? ($node['summary'] . ' full content not available.');
             $xml .= "\n        <content>" . htmlspecialchars($nodeContent) . "</content>";
@@ -3009,7 +3043,8 @@ PROMPT;
             $sourceRefAttr = !empty($node['sourceRef']) ? ' source_ref="' . htmlspecialchars($node['sourceRef']) . '"' : '';
             $sourceRangeAttr = !empty($node['sourceRange']) ? ' source_range="' . htmlspecialchars($node['sourceRange']) . '"' : '';
             $titleAttr = !empty($summary) ? " title=\"{$summary}\"" : '';
-            $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\"{$titleAttr}{$expandedAttr}{$viaAttr}{$sourceRefAttr}{$sourceRangeAttr}>";
+            $packNameAttr = !empty($node['packName']) ? ' pack-name="' . htmlspecialchars($node['packName']) . '"' : '';
+            $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\"{$titleAttr}{$packNameAttr}{$expandedAttr}{$viaAttr}{$sourceRefAttr}{$sourceRangeAttr}>";
             // For leaf nodes: prefer original source content (precise, unblurred by AI summarization)
             // Falls back to AI-generated content/summary for non-leaf nodes or when source unavailable
             $memoryContent = htmlspecialchars(

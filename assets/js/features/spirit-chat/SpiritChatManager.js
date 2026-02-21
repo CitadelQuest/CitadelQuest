@@ -2185,9 +2185,10 @@ export class SpiritChatManager {
             const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
             const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
             const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
-            const expandedBadge = node.expanded ? `<span class="badge bg-warning bg-opacity-25 text-warning ms-1" style="font-size: 0.5rem;" title="Discovered via graph relationship">graph</span>` : '';
+            const expandedBadge = node.expanded ? `<span class="badge bg-warning bg-opacity-25 text-warning ms-1 opacity-75" style="font-size: 0.5rem;" title="Discovered via graph relationship">graph</span>` : '';
+            const packBadge = node.packName ? `<span class="badge bg-info bg-opacity-10 text-info opacity-75 me-1" title="Memory pack">${node.packName}</span>` : '';
             return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;overflow: hidden;">
-                <span class="flex-grow-1">${node.summary || 'Memory node'}</span>
+                <span class="flex-grow-1">${packBadge}${node.summary || 'Memory node'}</span>
                 ${expandedBadge}${category}${score}${tags}
             </div>`;
         }).join('');

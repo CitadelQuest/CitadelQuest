@@ -278,6 +278,7 @@ class SpiritConversationApiController extends AbstractController
                 'packInfo' => $result['packInfo'],
                 'searchedPacks' => $result['searchedPacks'] ?? [],
                 'rootNodes' => $result['rootNodes'] ?? [],
+                'packsToSearch' => $result['packsToSearch'] ?? [],
             ]);
             
             // Phase 4: Store user message for sub-agent context
@@ -331,6 +332,7 @@ class SpiritConversationApiController extends AbstractController
             $recalledNodes = $cachedNodes['recalledNodes'] ?? [];
             $keywords = $cachedNodes['keywords'] ?? [];
             $rootNodes = $cachedNodes['rootNodes'] ?? [];
+            $packsSearched = $cachedNodes['packsToSearch'] ?? [];
             
             // Release session lock early — the AI call below can take 3-15s
             $session->save();
@@ -342,7 +344,8 @@ class SpiritConversationApiController extends AbstractController
                 $cachedSystemPrompt,
                 $recalledNodes,
                 $keywords,
-                $rootNodes
+                $rootNodes,
+                $packsSearched
             );
             
             // Overwrite session cache with enriched data
