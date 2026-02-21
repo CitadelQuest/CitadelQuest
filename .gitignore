@@ -49,6 +49,7 @@ yarn-error.log
 # personal documentation
 docs/
 /docs/
+user-manual-wip/
 cookies.txt
 
 # Deployment scripts and sensitive files

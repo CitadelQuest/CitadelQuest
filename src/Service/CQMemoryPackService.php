@@ -1525,7 +1525,7 @@ class CQMemoryPackService
         
         // Outgoing: this node → neighbor
         $outgoing = $db->executeQuery(
-            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.source_ref, n.source_range,
+            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.depth, n.source_ref, n.source_range,
                     r.type as relation_type, r.strength as relation_strength, r.context as relation_context,
                     'outgoing' as direction
              FROM memory_nodes n
@@ -1538,7 +1538,7 @@ class CQMemoryPackService
         
         // Incoming: neighbor → this node
         $incoming = $db->executeQuery(
-            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.source_ref, n.source_range,
+            "SELECT n.id, n.summary, n.content, n.category, n.importance, n.depth, n.source_ref, n.source_range,
                     r.type as relation_type, r.strength as relation_strength, r.context as relation_context,
                     'incoming' as direction
              FROM memory_nodes n
@@ -1561,6 +1561,7 @@ class CQMemoryPackService
                 'content' => $row['content'],
                 'category' => $row['category'],
                 'importance' => (float) $row['importance'],
+                'depth' => $row['depth'],
                 'sourceRef' => $row['source_ref'],
                 'sourceRange' => $row['source_range'],
                 'relationType' => $row['relation_type'],

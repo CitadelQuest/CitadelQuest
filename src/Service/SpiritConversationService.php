@@ -2051,7 +2051,6 @@ class SpiritConversationService
             
             // Cross-pack recall: search all enabled packs in Spirit's library
             $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-            $query = implode(' ', $keywords);
             $results = [];
             
             // Root pack info for frontend 3D graph visualization
@@ -2097,6 +2096,64 @@ class SpiritConversationService
                 ];
             }
             
+            // Tag-augmented keyword enrichment: collect memory tags from packs
+            // and find tags that match the user's message or extracted keywords.
+            // This expands the FTS5 search surface without an AI call.
+            $tagKeywords = [];
+            $userMessageLower = mb_strtolower($userMessageText);
+            $keywordsLower = array_map('mb_strtolower', $keywords);
+            try {
+                foreach ($packsToSearch as $packRef) {
+                    try {
+                        $this->packService->open(
+                            $memoryInfo['projectId'],
+                            $packRef['path'],
+                            $packRef['name']
+                        );
+                        $packTags = $this->packService->getAllTags();
+                        $this->packService->close();
+                        
+                        foreach ($packTags as $tag) {
+                            $tagLower = mb_strtolower($tag);
+                            if (in_array($tagLower, $keywordsLower) || in_array($tagLower, $tagKeywords)) {
+                                continue; // already a keyword or already matched
+                            }
+                            
+                            // Check if tag appears in user message
+                            if (mb_strlen($tagLower) >= 3 && str_contains($userMessageLower, $tagLower)) {
+                                $tagKeywords[] = $tagLower;
+                                continue;
+                            }
+                            
+                            // Check keyword↔tag substring match (both directions)
+                            foreach ($keywordsLower as $kw) {
+                                if (str_contains($tagLower, $kw) || str_contains($kw, $tagLower)) {
+                                    $tagKeywords[] = $tagLower;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        try { $this->packService->close(); } catch (\Exception $ignored) {}
+                    }
+                }
+            } catch (\Exception $e) {
+                // Tag enrichment is non-critical
+            }
+            
+            if (!empty($tagKeywords)) {
+                // Limit tag additions to avoid FTS5 noise
+                $tagKeywords = array_slice(array_unique($tagKeywords), 0, 8);
+                $keywords = array_unique(array_merge($keywords, $tagKeywords));
+                
+                $this->logger->debug('Memory recall: enriched keywords from memory tags', [
+                    'tagsAdded' => $tagKeywords,
+                    'totalKeywords' => count($keywords),
+                ]);
+            }
+            
+            $query = implode(' ', $keywords);
+            
             // Build searchedPacks list for frontend persistence (page refresh)
             $searchedPacks = array_map(fn($p) => [
                 'projectId' => $memoryInfo['projectId'],
@@ -2128,10 +2185,30 @@ class SpiritConversationService
                         foreach ($packRootNodes as $rootNode) {
                             if (!in_array($rootNode->getId(), $seenRootIds)) {
                                 $seenRootIds[] = $rootNode->getId();
+                                // Fetch direct child PART_OF nodes as "Table of Contents"
+                                $childNodes = [];
+                                try {
+                                    $children = $this->packService->getChildNodes($rootNode->getId());
+                                    foreach ($children as $child) {
+                                        $childNodes[] = [
+                                            'id' => $child->getId(),
+                                            'summary' => $child->getSummary(),
+                                            'content' => $child->getContent(),
+                                            'category' => $child->getCategory(),
+                                            'depth' => $child->getDepth(),
+                                            'importance' => round($child->getImportance(), 2),
+                                            'sourceRef' => $child->getSourceRef(),
+                                            'sourceRange' => $child->getSourceRange(),
+                                        ];
+                                    }
+                                } catch (\Exception $e) {
+                                    // Child fetch failed — non-critical
+                                }
                                 $rootNodes[] = [
                                     'id' => $rootNode->getId(),
                                     'summary' => $rootNode->getSummary(),
                                     'content' => $rootNode->getContent(),
+                                    'children' => $childNodes,
                                 ];
                             }
                         }
@@ -2165,9 +2242,10 @@ class SpiritConversationService
                         [],         // no tag filter
                         $limit,     // per-pack limit (will trim globally after merge)
                         $includeRelated,
-                        0.15,       // recency weight
-                        0.35,       // importance weight
-                        0.50        // relevance weight (prioritize text match)
+                        0.1,       // recency weight
+                        0.3,       // importance weight
+                        0.5,       // relevance weight (prioritize text match)
+                        0.1        // connectedness weight (more relationships = higher score)
                     );
                     
                     // Tag each result with its source pack + Phase 4b: pre-fetch graph neighborhoods
@@ -2222,10 +2300,13 @@ class SpiritConversationService
                     'content' => $node->getContent(),
                     'score' => round($result['score'], 3),
                     'category' => $node->getCategory(),
+                    'depth' => $node->getDepth(),
                     'importance' => round($node->getImportance(), 2),
                     'tags' => $result['tags'] ?? [],
                     'isRelated' => $result['isRelated'] ?? false,
                     'graphNeighbors' => $result['graphNeighbors'] ?? [],
+                    'sourceRef' => $node->getSourceRef(),
+                    'sourceRange' => $node->getSourceRange(),
                 ];
             }
             
@@ -2304,6 +2385,31 @@ class SpiritConversationService
      * @param array $keywords Keywords from Reflexes
      * @return array ['systemPrompt' => string, 'recalledNodes' => array, 'synthesis' => string, 'confidence' => string]
      */
+    
+    private function buildExpandedNode(array $nodeData, string $via, ?string $relevance = null): array
+    {
+        $node = [
+            'id' => $nodeData['id'],
+            'summary' => $nodeData['summary'],
+            'content' => $nodeData['content'] ?? $nodeData['summary'],
+            'score' => 0,
+            'category' => $nodeData['category'] ?? 'knowledge',
+            'importance' => $nodeData['importance'] ?? 0.5,
+            'depth' => (isset($nodeData['depth']) && $nodeData['depth'] !== null) ? $nodeData['depth'] : 'none',
+            'tags' => [],
+            'isRelated' => false,
+            'graphNeighbors' => [],
+            'expanded' => true,
+            'via' => $via,
+            'sourceRef' => $nodeData['sourceRef'] ?? null,
+            'sourceRange' => $nodeData['sourceRange'] ?? null,
+        ];
+        if ($relevance !== null) {
+            $node['relevance'] = $relevance;
+        }
+        return $node;
+    }
+    
     public function runSubconsciousnessAgent(
         string $conversationId,
         string $userMessageText,
@@ -2391,6 +2497,35 @@ class SpiritConversationService
             $confidence = $parsed['confidence'] ?? 'medium';
             $expandedNodeIds = $parsed['expandedNodes'] ?? [];
             
+            // Build a lookup of all neighbor data from all recalled nodes' graphNeighbors
+            // (needed for both orphaned relevant IDs and expandedNodes resolution)
+            $neighborLookup = [];
+            foreach ($recalledNodes as $node) {
+                foreach ($node['graphNeighbors'] ?? [] as $neighbor) {
+                    if (!isset($neighborLookup[$neighbor['id']])) {
+                        $neighborLookup[$neighbor['id']] = [
+                            'neighbor' => $neighbor,
+                            'sourceNodeId' => $node['id'],
+                        ];
+                    }
+                }
+            }
+            
+            // Build a lookup of rootNode children (Table of Contents sections)
+            // Sub-agent sees these IDs in the rootNodes section and may select them
+            $rootChildrenLookup = [];
+            foreach ($rootNodes as $root) {
+                foreach ($root['children'] ?? [] as $child) {
+                    if (!isset($rootChildrenLookup[$child['id']])) {
+                        $rootChildrenLookup[$child['id']] = [
+                            'child' => $child,
+                            'rootNodeId' => $root['id'],
+                            'rootSummary' => $root['summary'],
+                        ];
+                    }
+                }
+            }
+            
             // Filter recalled nodes: keep only relevant ones
             $enrichedNodes = [];
             foreach ($recalledNodes as $node) {
@@ -2400,46 +2535,45 @@ class SpiritConversationService
                 }
             }
             
-            // Phase 4b: Process expandedNodes — look up neighbor data from cached graphNeighbors
+            // Resolve orphaned relevant IDs: sub-agent may mark IDs as "relevant" that aren't
+            // in the original FTS5 $recalledNodes — check neighborLookup then rootChildrenLookup
+            $enrichedIds = array_column($enrichedNodes, 'id');
+            foreach ($relevantIds as $relId) {
+                if (in_array($relId, $enrichedIds)) continue; // already included from FTS5
+                
+                if (isset($neighborLookup[$relId])) {
+                    $nd = $neighborLookup[$relId];
+                    $enrichedNodes[] = $this->buildExpandedNode(
+                        $nd['neighbor'], $nd['neighbor']['relationType'] . ':' . $nd['sourceNodeId'], 'high'
+                    );
+                } elseif (isset($rootChildrenLookup[$relId])) {
+                    $cd = $rootChildrenLookup[$relId];
+                    $enrichedNodes[] = $this->buildExpandedNode(
+                        $cd['child'], 'PART_OF:' . $cd['rootNodeId'], 'high'
+                    );
+                }
+            }
+            
+            // Phase 4b: Process expandedNodes — neighbors/children the AI wants to include for extra context
             $expandedCount = 0;
             if (!empty($expandedNodeIds)) {
-                // Build a lookup of all neighbor data from all recalled nodes' graphNeighbors
-                $neighborLookup = [];
-                foreach ($recalledNodes as $node) {
-                    foreach ($node['graphNeighbors'] ?? [] as $neighbor) {
-                        if (!isset($neighborLookup[$neighbor['id']])) {
-                            $neighborLookup[$neighbor['id']] = [
-                                'neighbor' => $neighbor,
-                                'sourceNodeId' => $node['id'],
-                            ];
-                        }
-                    }
-                }
-                
-                // Add expanded nodes (neighbors the AI considers relevant)
                 $existingIds = array_column($enrichedNodes, 'id');
                 foreach ($expandedNodeIds as $expandId) {
                     if (in_array($expandId, $existingIds)) continue; // already included
-                    if (!isset($neighborLookup[$expandId])) continue; // not in cached graph context
                     
-                    $neighborData = $neighborLookup[$expandId];
-                    $neighbor = $neighborData['neighbor'];
-                    $enrichedNodes[] = [
-                        'id' => $neighbor['id'],
-                        'summary' => $neighbor['summary'],
-                        'content' => $neighbor['content'] ?? $neighbor['summary'],
-                        'score' => 0,
-                        'category' => $neighbor['category'] ?? 'knowledge',
-                        'importance' => $neighbor['importance'] ?? 0.5,
-                        'tags' => [],
-                        'isRelated' => false,
-                        'graphNeighbors' => [],
-                        'expanded' => true,
-                        'via' => $neighbor['relationType'] . ':' . $neighborData['sourceNodeId'],
-                        'sourceRef' => $neighbor['sourceRef'] ?? null,
-                        'sourceRange' => $neighbor['sourceRange'] ?? null,
-                    ];
-                    $expandedCount++;
+                    if (isset($neighborLookup[$expandId])) {
+                        $nd = $neighborLookup[$expandId];
+                        $enrichedNodes[] = $this->buildExpandedNode(
+                            $nd['neighbor'], $nd['neighbor']['relationType'] . ':' . $nd['sourceNodeId']
+                        );
+                        $expandedCount++;
+                    } elseif (isset($rootChildrenLookup[$expandId])) {
+                        $cd = $rootChildrenLookup[$expandId];
+                        $enrichedNodes[] = $this->buildExpandedNode(
+                            $cd['child'], 'PART_OF:' . $cd['rootNodeId']
+                        );
+                        $expandedCount++;
+                    }
                 }
             }
             
@@ -2499,6 +2633,14 @@ class SpiritConversationService
         return <<<'PROMPT'
 You are a Memory Analyst for a Spirit AI assistant. Your task is to evaluate candidate memories recalled by keyword search and produce a contextual synthesis.
 
+## Memory Structure
+Memories are organized as a graph-based knowledge system:
+- **Root nodes** (depth=0): Top-level documents/sources — each represents one extracted source (file, URL, conversation, text)
+- **Child nodes** (depth=1+): Sections and details extracted from root documents via PART_OF hierarchy
+- **Relationships**: Semantic connections between nodes — REINFORCES (supporting), CONTRADICTS (conflicting), RELATES_TO (contextual)
+- **Candidate memories**: Nodes found by FTS5 keyword search, scored by relevance × importance × recency
+- **Graph neighbors**: 1-hop relationship connections of each candidate, providing broader context
+
 ## Input
 You will receive:
 1. The user's latest message
@@ -2510,6 +2652,7 @@ You will receive:
 
 ### 1. EVALUATE
 For each candidate memory, decide if it is truly relevant to the current conversation context. A memory is relevant if:
+- It provides answer for user question
 - It directly relates to what the user is talking about
 - It provides useful background context for the Spirit to respond well
 - It contains facts/preferences the Spirit should consider right now
@@ -2519,12 +2662,11 @@ A memory is NOT relevant if:
 - It's too generic or stale to be useful for this specific conversation
 
 ### 2. SYNTHESIZE
-Write a brief contextual summary (50-150 words) that tells the Spirit:
+The synthesis is Spirit sub-conscious memory layer should provide short but exact context selected from was amount of memories, to keep Spirit consciousness sharp, smart, coherent and based.
+Write a brief contextual summary (100-200 words) that tells the Spirit:
 - What it should know from these memories for the current conversation
 - Any important connections between the memories
-- Key facts, preferences, or context that should influence the response
-
-The synthesis should read naturally — as if you're briefing someone before a meeting: "Here's what you should know..."
+- Always include exact key facts, preferences, or context that should influence the response
 
 ### 3. RELATIONSHIPS (if graph context is provided)
 You may receive graph relationships for candidate memories (REINFORCES, CONTRADICTS, RELATES_TO). Use them to:
@@ -2532,31 +2674,36 @@ You may receive graph relationships for candidate memories (REINFORCES, CONTRADI
 - **REINFORCES**: Boost confidence — multiple memories supporting the same point
 - **RELATES_TO**: Consider related context that may enrich the synthesis
 
-Include relationship insights in your synthesis naturally. For example:
-"User quit their job to work on CitadelQuest (reinforced by their love of creative freedom), though they sometimes miss office social life (noted contradiction)."
+Include relationship insights in your synthesis naturally.
 
-If a neighbor node (from relationships) adds important context that the original candidates don't cover, include its ID in `expandedNodes`.
+Use relationships to discover important context beyond the candidates. You may include BOTH candidate IDs and neighbor IDs in `relevant` and `expandedNodes`.
 
 ## Output Format
 Respond with ONLY a valid JSON object:
 
 ```json
 {
-    "relevant": ["node-id-1", "node-id-3"],
-    "irrelevant": ["node-id-2", "node-id-4"],
+    "relevant": ["candidate-id-1", "candidate-id-3", "neighbor-id-from-relationships"],
+    "irrelevant": ["candidate-id-2", "candidate-id-4"],
     "synthesis": "Brief contextual summary of what Spirit should know...",
     "confidence": "high",
     "expandedNodes": ["neighbor-id-5"]
 }
 ```
 
+### Field definitions:
+- **relevant**: IDs of memories (candidates OR neighbors) that directly answer the user's question or are essential context. These will be delivered to Spirit with full content.
+- **irrelevant**: IDs of candidate memories that are NOT useful for this conversation.
+- **expandedNodes**: IDs of neighbor nodes that provide useful supplementary context but are not core to the answer. These are delivered as additional background. Use this for "nice to have" context.
+
 ## Rules
 1. ONLY output the JSON object, nothing else
-2. Keep synthesis concise but informative (50-150 words)
-3. confidence = "high" if candidates clearly match context, "medium" if partially relevant, "low" if weak matches
-4. If NO candidates are relevant, return empty relevant array and synthesis = "" with confidence = "low"
-5. Write synthesis in the same language as the user's message
-6. expandedNodes is optional — only include neighbor IDs that add important context not covered by the candidates. Omit the field or use an empty array if no neighbors are worth expanding
+2. Keep synthesis concise but informative (100-200 words)
+3. If you need to mention documents/files - do it as: "memory sources", they exists in memory database, not on filesystem as normal "files"
+4. confidence = "high" if candidates clearly match context, "medium" if partially relevant, "low" if weak matches
+5. If NO candidates are relevant, return empty relevant array and synthesis = "" with confidence = "low"
+6. Write synthesis in the same language as the user's message
+7. Both "relevant" and "expandedNodes" can contain neighbor IDs from the Relationships sections — the difference is priority: relevant = essential, expandedNodes = supplementary
 <clean_system_prompt>
 PROMPT;
     }
@@ -2594,26 +2741,34 @@ PROMPT;
                     $content = implode(' ', $texts);
                 }
                 // Truncate long messages
-                if (mb_strlen($content) > 300) {
-                    $content = mb_substr($content, 0, 300) . '...';
-                }
+                /* if (mb_strlen($content) > 500) {
+                    $content = mb_substr($content, 0, 500) . '...';
+                } */
                 $message .= "**{$role}**: {$content}\n\n";
             }
         }
         
         // Phase 4b: Available Memory Graphs — root nodes (depth=0) for broader context
         if (!empty($rootNodes)) {
-            $message .= "## Available Memory Graphs (root nodes)\n";
+            $message .= "## Available Memory Graphs (root nodes, depth=0)\n";
             $message .= "The following root documents exist in the user's memory. Use this as context for understanding the broader memory structure and what information is available.\n\n";
             foreach ($rootNodes as $root) {
                 $message .= "- **ID**: {$root['id']}\n";
                 $message .= "  **Title**: {$root['summary']}\n";
                 $rootContent = $root['content'] ?? '';
-                if (mb_strlen($rootContent) > 250) {
-                    $rootContent = mb_substr($rootContent, 0, 250) . '...';
+                if (mb_strlen($rootContent) > 500) {
+                    $rootContent = mb_substr($rootContent, 0, 500) . '...';
                 }
                 if (!empty($rootContent)) {
                     $message .= "  **Content**: {$rootContent}\n";
+                }
+                // Table of Contents: direct child sections
+                $children = $root['children'] ?? [];
+                if (!empty($children)) {
+                    $message .= "  **Sections**:\n";
+                    foreach ($children as $child) {
+                        $message .= "    - {$child['summary']} (ID: {$child['id']})\n";
+                    }
                 }
                 $message .= "\n";
             }
@@ -2626,49 +2781,30 @@ PROMPT;
             $message .= "- **ID**: {$node['id']}\n";
             $message .= "  **Score**: {$node['score']} | ";
             $message .= "**Category**: {$node['category']} | ";
+            if (isset($node['depth']) && $node['depth'] !== null) {
+                $message .= "**Depth**: {$node['depth']} | ";
+            }
             $message .= "**Importance**: {$node['importance']} | ";
             $message .= "**Tags**: {$tags}\n";
             $nodeContent = $node['content'] ?? ($node['summary'] . 'full content not available. ');
-            $message .= "  **Content**: {$nodeContent}\n\n";
-        }
-        
-        // Phase 4b: Graph Relationships section — neighbor summaries (short titles) for each candidate
-        $hasAnyNeighbors = false;
-        foreach ($recalledNodes as $node) {
-            if (!empty($node['graphNeighbors'])) {
-                $hasAnyNeighbors = true;
-                break;
-            }
-        }
-        
-        if ($hasAnyNeighbors) {
-            $message .= "## Graph Relationships\n\n";
-            $message .= "The following shows known relationships between candidate memories and their graph neighbors. Use this to enrich your evaluation and synthesis.\n\n";
-            
-            foreach ($recalledNodes as $node) {
-                $neighbors = $node['graphNeighbors'] ?? [];
-                $nodeSummary = $node['summary'] ?? 'Memory node';
-                $message .= "### {$node['id']}: \"{$nodeSummary}\" ({$node['category']}, importance: {$node['importance']})\n";
-                
-                if (empty($neighbors)) {
-                    $message .= "- (no relationships found)\n\n";
-                    continue;
-                }
-                
+            $message .= "  **Content**: {$nodeContent}\n";
+            // Inline graph relationships for this candidate
+            $neighbors = $node['graphNeighbors'] ?? [];
+            if (!empty($neighbors)) {
+                $message .= "  **Relationships**:\n";
                 foreach ($neighbors as $neighbor) {
                     $relType = $neighbor['relationType'] ?? 'RELATES_TO';
                     $neighborSummary = $neighbor['summary'] ?? 'Unknown';
                     $strength = round($neighbor['relationStrength'] ?? 0, 2);
                     $context = $neighbor['relationContext'] ?? '';
-                    
-                    $message .= "- {$relType} → \"{$neighborSummary}\" [ID: {$neighbor['id']}] (strength: {$strength})";
+                    $message .= "    - {$relType} → \"{$neighborSummary}\" [ID: {$neighbor['id']}] (strength: {$strength})";
                     if (!empty($context)) {
-                        $message .= "\n  Context: {$context}";
+                        $message .= " — {$context}";
                     }
                     $message .= "\n";
                 }
-                $message .= "\n";
             }
+            $message .= "\n";
         }
         
         return $message;
@@ -2816,8 +2952,8 @@ PROMPT;
             $viaAttr = !empty($node['via']) ? ' via="' . htmlspecialchars($node['via']) . '"' : '';
             $sourceRefAttr = !empty($node['sourceRef']) ? ' source_ref="' . htmlspecialchars($node['sourceRef']) . '"' : '';
             $sourceRangeAttr = !empty($node['sourceRange']) ? ' source_range="' . htmlspecialchars($node['sourceRange']) . '"' : '';
-            
-            $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\"{$expandedAttr}{$viaAttr}{$sourceRefAttr}{$sourceRangeAttr}>";
+            $titleAttr = !empty($summary) ? " title=\"{$summary}\"" : '';
+            $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\"{$titleAttr}{$expandedAttr}{$viaAttr}{$sourceRefAttr}{$sourceRangeAttr}>";
             // Use full content (memory_node.content) with summary (short title) as fallback
             $memoryContent = htmlspecialchars($node['content'] ?? $node['summary'] ?? '');
             $xml .= "\n                    {$memoryContent}";
@@ -2829,7 +2965,8 @@ PROMPT;
                 $relStrength = round($neighbor['relationStrength'] ?? 0, 2);
                 $neighborId = htmlspecialchars($neighbor['id'] ?? '');
                 $neighborSummary = htmlspecialchars($neighbor['summary'] ?? '');
-                $xml .= "\n                    <relationship type=\"{$relType}\" strength=\"{$relStrength}\" neighbor=\"{$neighborId}\">{$neighborSummary}</relationship>";
+                $relationContext = !empty($neighbor['relationContext']) ? ' context="' . htmlspecialchars($neighbor['relationContext']) . '"' : '';
+                $xml .= "\n                    <relationship type=\"{$relType}\" strength=\"{$relStrength}\" neighbor=\"{$neighborId}\"{$relationContext}>{$neighborSummary}</relationship>";
             }
             
             $xml .= "\n                </memory>";

@@ -2179,9 +2179,6 @@ export class SpiritChatManager {
         let badgeLabel = isSynthesized 
             ? `${count} ${count === 1 ? 'memory' : 'memories'} synthesized`
             : `${count} ${count === 1 ? 'memory' : 'memories'} recalled`;
-        if (hasGraphContext || expandedCount > 0) {
-            badgeLabel += expandedCount > 0 ? ` (+${expandedCount} graph)` : ' (graph)';
-        }
         
         // Build expandable details list
         const detailRows = nodes.map(node => {

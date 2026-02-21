@@ -146,6 +146,14 @@ class SpiritConversationApiController extends AbstractController
     ): JsonResponse
     {
         try {
+            // Clear stale recall session cache for this conversation
+            // Prevents abandoned pre-send data from being used by a later send-async
+            $session = $request->getSession();
+            $session->remove("recall_{$id}_latest");
+            $session->remove("recall_{$id}_nodes");
+            $session->remove("recall_{$id}_user_message");
+            $session->save();
+            
             // Get conversation
             $conversation = $this->conversationService->getConversation($id);
             if (!$conversation) {

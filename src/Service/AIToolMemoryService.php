@@ -219,7 +219,7 @@ class AIToolMemoryService
             if (is_string($tags)) {
                 $tags = array_map('trim', explode(',', $tags));
             }
-            $limit = isset($arguments['limit']) ? (int)$arguments['limit'] : 10;
+            $limit = isset($arguments['limit']) ? (int)$arguments['limit'] : 12;
             $includeRelated = $arguments['includeRelated'] ?? true;
 
             // Open Spirit's root pack and recall memories
@@ -230,7 +230,11 @@ class AIToolMemoryService
                 $category,
                 $tags,
                 $limit,
-                $includeRelated
+                $includeRelated,
+                0.1,         // recency weight (lower for search — relevance matters most)
+                0.3,         // importance weight
+                0.5,         // relevance weight (FTS5 match quality)
+                0.1          // connectedness weight (more relationships = higher score)
             );
             
             $this->packService->close();
@@ -1069,7 +1073,7 @@ PROMPT;
      * 
      * Can be called:
      * 1. Automatically after memoryStore (when analyzeRelationships=true)
-     * 2. Manually by Spirit when needed
+     * //2. Manually by Spirit when needed
      * 3. During consolidation batch process
      * 
      * @param array $arguments [
@@ -1544,7 +1548,7 @@ PROMPT;
 
         $aiServiceResponse = $this->aiGatewayService->sendRequest(
             $aiServiceRequest,
-            'memoryAnalyzePairRelationship - Pairwise Analyzer Sub-Agent',
+            'Pairwise Memory Relationship Analyzer Sub-Agent',
             $userLocale['lang'],
             'general'
         );
@@ -1552,7 +1556,7 @@ PROMPT;
         // Log AI usage
         if ($this->packService->isOpen()) {
             $this->packService->logAiUsageFromResponse(
-                'Pairwise Relationship Analyzer Sub-Agent',
+                'Pairwise Memory Relationship Analyzer Sub-Agent',
                 $aiServiceResponse,
                 null,
                 $aiServiceModel->getModelSlug()

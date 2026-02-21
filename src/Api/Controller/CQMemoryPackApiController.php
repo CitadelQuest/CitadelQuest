@@ -640,10 +640,10 @@ class CQMemoryPackApiController extends AbstractController
                 [],           // no tag filter
                 $limit,
                 false,        // no related memories (user can click to see those)
-                0.10,         // recency weight (lower for search — relevance matters most)
-                0.15,         // importance weight
-                0.55,         // relevance weight (FTS5 match quality)
-                0.20          // connectedness weight (more relationships = higher score)
+                0.1,         // recency weight (lower for search — relevance matters most)
+                0.3,         // importance weight
+                0.5,         // relevance weight (FTS5 match quality)
+                0.1          // connectedness weight (more relationships = higher score)
             );
 
             $hasFTS5 = $this->packService->hasFTS5();
