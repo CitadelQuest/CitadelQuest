@@ -2187,9 +2187,23 @@ class SpiritConversationService
                                 $seenRootIds[] = $rootNode->getId();
                                 // Fetch direct child PART_OF nodes as "Table of Contents"
                                 $childNodes = [];
+                                $rootSourceCache = []; // Cache source content per sourceRef within this root
                                 try {
                                     $children = $this->packService->getChildNodes($rootNode->getId());
                                     foreach ($children as $child) {
+                                        // Pre-fetch original source content for leaf children
+                                        $childOriginal = null;
+                                        $cRef = $child->getSourceRef();
+                                        $cRange = $child->getSourceRange();
+                                        if ($cRef && $cRange && $this->packService->isLeafNode($child->getId())) {
+                                            if (!isset($rootSourceCache[$cRef])) {
+                                                $src = $this->packService->getSourceByRef($cRef);
+                                                $rootSourceCache[$cRef] = $src['content'] ?? null;
+                                            }
+                                            if ($rootSourceCache[$cRef]) {
+                                                $childOriginal = $this->extractSourceRange($rootSourceCache[$cRef], $cRange);
+                                            }
+                                        }
                                         $childNodes[] = [
                                             'id' => $child->getId(),
                                             'summary' => $child->getSummary(),
@@ -2199,6 +2213,7 @@ class SpiritConversationService
                                             'importance' => round($child->getImportance(), 2),
                                             'sourceRef' => $child->getSourceRef(),
                                             'sourceRange' => $child->getSourceRange(),
+                                            'originalSourceContent' => $childOriginal,
                                         ];
                                     }
                                 } catch (\Exception $e) {
@@ -2249,12 +2264,54 @@ class SpiritConversationService
                     );
                     
                     // Tag each result with its source pack + Phase 4b: pre-fetch graph neighborhoods
+                    // + Pre-fetch original source content for leaf nodes (Spirit gets precise original text)
+                    $sourceContentCache = []; // sourceRef → full source text (avoid duplicate fetches)
                     foreach ($packResults as &$pr) {
                         $pr['sourcePack'] = $packRef['name'];
                         // Phase 4b: fetch 1-hop neighbors while pack is still open
                         $pr['graphNeighbors'] = $this->packService->getNodeNeighborhood(
                             $pr['node']->getId(), 5
                         );
+                        
+                        // For leaf nodes: fetch original source content from memory_sources
+                        $pr['originalSourceContent'] = null;
+                        $nodeObj = $pr['node'];
+                        $nodeSourceRef = $nodeObj->getSourceRef();
+                        $nodeSourceRange = $nodeObj->getSourceRange();
+                        if ($nodeSourceRef && $nodeSourceRange && $this->packService->isLeafNode($nodeObj->getId())) {
+                            // Cache source content per sourceRef (one document, many nodes)
+                            if (!isset($sourceContentCache[$nodeSourceRef])) {
+                                $src = $this->packService->getSourceByRef($nodeSourceRef);
+                                $sourceContentCache[$nodeSourceRef] = $src['content'] ?? null;
+                            }
+                            if ($sourceContentCache[$nodeSourceRef]) {
+                                $pr['originalSourceContent'] = $this->extractSourceRange(
+                                    $sourceContentCache[$nodeSourceRef], $nodeSourceRange
+                                );
+                            }
+                        }
+                        
+                        // Also pre-cache source content for neighbor nodes (may become expanded nodes)
+                        foreach ($pr['graphNeighbors'] as &$neighbor) {
+                            $neighbor['originalSourceContent'] = null;
+                            $nRef = $neighbor['sourceRef'] ?? null;
+                            $nRange = $neighbor['sourceRange'] ?? null;
+                            if ($nRef && $nRange) {
+                                // Check leaf via depth heuristic: depth > 0 neighbors without known children
+                                // are likely leaves; for precise check we'd need isLeafNode per neighbor
+                                // but that's expensive. Use the sourceRef cache if available.
+                                if (!isset($sourceContentCache[$nRef])) {
+                                    $src = $this->packService->getSourceByRef($nRef);
+                                    $sourceContentCache[$nRef] = $src['content'] ?? null;
+                                }
+                                if ($sourceContentCache[$nRef] && $this->packService->isLeafNode($neighbor['id'])) {
+                                    $neighbor['originalSourceContent'] = $this->extractSourceRange(
+                                        $sourceContentCache[$nRef], $nRange
+                                    );
+                                }
+                            }
+                        }
+                        unset($neighbor);
                     }
                     unset($pr);
                     
@@ -2307,6 +2364,7 @@ class SpiritConversationService
                     'graphNeighbors' => $result['graphNeighbors'] ?? [],
                     'sourceRef' => $node->getSourceRef(),
                     'sourceRange' => $node->getSourceRange(),
+                    'originalSourceContent' => $result['originalSourceContent'] ?? null,
                 ];
             }
             
@@ -2330,8 +2388,8 @@ class SpiritConversationService
                 $category = htmlspecialchars($node->getCategory());
                 $tags = !empty($result['tags']) ? htmlspecialchars(implode(', ', $result['tags'])) : '';
                 
-                // Use content (summary is more of a title, not useful for recall context)
-                $content = $node->getContent();
+                // For leaf nodes: prefer original source content (precise, unblurred by AI summarization)
+                $content = $result['originalSourceContent'] ?? $node->getContent();
                 // Limit to ~1000 chars per memory to keep the brief compact but meaningful
                 if (mb_strlen($content) > 1000) {
                     $content = mb_substr($content, 0, 1000) . '...';
@@ -2403,6 +2461,7 @@ class SpiritConversationService
             'via' => $via,
             'sourceRef' => $nodeData['sourceRef'] ?? null,
             'sourceRange' => $nodeData['sourceRange'] ?? null,
+            'originalSourceContent' => $nodeData['originalSourceContent'] ?? null,
         ];
         if ($relevance !== null) {
             $node['relevance'] = $relevance;
@@ -2951,8 +3010,11 @@ PROMPT;
             $sourceRangeAttr = !empty($node['sourceRange']) ? ' source_range="' . htmlspecialchars($node['sourceRange']) . '"' : '';
             $titleAttr = !empty($summary) ? " title=\"{$summary}\"" : '';
             $xml .= "\n                <memory importance=\"{$importance}\" category=\"{$category}\" score=\"{$score}\"{$tagsAttr} relevance=\"{$relevance}\"{$titleAttr}{$expandedAttr}{$viaAttr}{$sourceRefAttr}{$sourceRangeAttr}>";
-            // Use full content (memory_node.content) with summary (short title) as fallback
-            $memoryContent = htmlspecialchars($node['content'] ?? $node['summary'] ?? '');
+            // For leaf nodes: prefer original source content (precise, unblurred by AI summarization)
+            // Falls back to AI-generated content/summary for non-leaf nodes or when source unavailable
+            $memoryContent = htmlspecialchars(
+                $node['originalSourceContent'] ?? $node['content'] ?? $node['summary'] ?? ''
+            );
             $xml .= "\n                    {$memoryContent}";
             
             // Phase 4b: add <relationship> child elements for nodes with graph neighbors
@@ -2972,6 +3034,38 @@ PROMPT;
         $xml .= "\n            </recalled-memories>";
         
         return $promptWithoutRecall . $xml;
+    }
+    
+    /**
+     * Extract a line range from source content using source_range format "startLine:endLine"
+     * Returns the substring of lines, or null if parsing fails
+     */
+    private function extractSourceRange(string $fullContent, string $sourceRange): ?string
+    {
+        if (!str_contains($sourceRange, ':')) {
+            return null;
+        }
+        
+        [$startLine, $endLine] = explode(':', $sourceRange, 2);
+        $startLine = (int) $startLine;
+        $endLine = (int) $endLine;
+        
+        if ($startLine < 1 || $endLine < $startLine) {
+            return null;
+        }
+        
+        $lines = explode("\n", $fullContent);
+        $totalLines = count($lines);
+        
+        // Clamp to actual content bounds
+        $startLine = min($startLine, $totalLines);
+        $endLine = min($endLine, $totalLines);
+        
+        // Extract (1-indexed → 0-indexed)
+        $extracted = array_slice($lines, $startLine - 1, $endLine - $startLine + 1);
+        $result = implode("\n", $extracted);
+        
+        return !empty(trim($result)) ? $result : null;
     }
 
 }
