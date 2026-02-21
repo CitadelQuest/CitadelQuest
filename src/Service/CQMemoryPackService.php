@@ -26,6 +26,9 @@ class CQMemoryPackService
     
     private ?Connection $connection = null;
     private ?string $currentPackPath = null;
+    private ?string $currentProjectId = null;
+    private ?string $currentPackDir = null;
+    private ?string $currentPackName = null;
     
     public function __construct(
         private readonly ProjectFileService $projectFileService,
@@ -138,6 +141,9 @@ class CQMemoryPackService
         
         $absolutePath = $this->getAbsolutePath($projectId, $path, $name);
         $this->openConnection($absolutePath);
+        $this->currentProjectId = $projectId;
+        $this->currentPackDir = $path;
+        $this->currentPackName = $name;
         
         // Verify it's a valid pack by checking for metadata table
         try {
@@ -259,9 +265,23 @@ class CQMemoryPackService
     public function close(): void
     {
         if ($this->connection) {
+            // Sync file size back to ProjectFileService before closing
+            if ($this->currentProjectId && $this->currentPackDir && $this->currentPackName) {
+                try {
+                    $this->projectFileService->syncFileSize(
+                        $this->currentProjectId, $this->currentPackDir, $this->currentPackName
+                    );
+                } catch (\Exception $e) {
+                    // Size sync is non-critical
+                }
+            }
+            
             $this->connection->close();
             $this->connection = null;
             $this->currentPackPath = null;
+            $this->currentProjectId = null;
+            $this->currentPackDir = null;
+            $this->currentPackName = null;
         }
     }
     

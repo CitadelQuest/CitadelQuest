@@ -2642,11 +2642,11 @@ Memories are organized as a graph-based knowledge system:
 - **Graph neighbors**: 1-hop relationship connections of each candidate, providing broader context
 
 ## Input
-You will receive:
-1. The user's latest message
-2. Recent conversation context (last few messages)
-3. Candidate memories found by keyword search (with scores, categories, tags)
-4. Graph relationships between candidate memories and their neighbors (if available)
+You will receive an XML document `<memory-evaluation>` containing:
+1. `<user-message>` — The user's latest message
+2. `<conversation-context>` — Recent conversation messages (if available)
+3. `<memory-graphs>` — Root documents with their section hierarchy (if available)
+4. `<candidate-memories>` — Memories found by keyword search, each with score, category, importance, tags, content, and graph relationships
 
 ## Your Task
 
@@ -2717,14 +2717,16 @@ PROMPT;
         array $recalledNodes,
         array $rootNodes = []
     ): string {
-        $message = "## User's Latest Message\n";
-        $message .= $userMessageText . "\n\n";
+        $xml = '<memory-evaluation>';
+        
+        // User's latest message
+        $xml .= "\n<user-message>" . htmlspecialchars($userMessageText) . "</user-message>";
         
         // Last N messages for context
         if (!empty($conversationContext)) {
-            $message .= "## Recent Conversation Context\n";
+            $xml .= "\n<conversation-context>";
             foreach ($conversationContext as $msg) {
-                $role = $msg['role'] === 'user' ? 'User' : 'Spirit';
+                $role = $msg['role'] === 'user' ? 'user' : 'spirit';
                 $content = $msg['content'] ?? '';
                 if (is_array($content)) {
                     // Extract text from multimodal content
@@ -2740,74 +2742,69 @@ PROMPT;
                     }
                     $content = implode(' ', $texts);
                 }
-                // Truncate long messages
-                /* if (mb_strlen($content) > 500) {
-                    $content = mb_substr($content, 0, 500) . '...';
-                } */
-                $message .= "**{$role}**: {$content}\n\n";
+                $xml .= "\n    <message role=\"{$role}\">" . htmlspecialchars($content) . "</message>";
             }
+            $xml .= "\n</conversation-context>";
         }
         
-        // Phase 4b: Available Memory Graphs — root nodes (depth=0) for broader context
+        // Available Memory Graphs — root nodes (depth=0) for broader context
         if (!empty($rootNodes)) {
-            $message .= "## Available Memory Graphs (root nodes, depth=0)\n";
-            $message .= "The following root documents exist in the user's memory. Use this as context for understanding the broader memory structure and what information is available.\n\n";
+            $xml .= "\n<memory-graphs description=\"Root documents in user memory. Use for understanding broader memory structure.\">";
             foreach ($rootNodes as $root) {
-                $message .= "- **ID**: {$root['id']}\n";
-                $message .= "  **Title**: {$root['summary']}\n";
-                $rootContent = $root['content'] ?? '';
+                $rootContent = htmlspecialchars($root['content'] ?? '');
                 if (mb_strlen($rootContent) > 500) {
                     $rootContent = mb_substr($rootContent, 0, 500) . '...';
                 }
+                $xml .= "\n    <root-node id=\"{$root['id']}\" title=\"" . htmlspecialchars($root['summary']) . "\">";
                 if (!empty($rootContent)) {
-                    $message .= "  **Content**: {$rootContent}\n";
+                    $xml .= "\n        <content>{$rootContent}</content>";
                 }
                 // Table of Contents: direct child sections
                 $children = $root['children'] ?? [];
                 if (!empty($children)) {
-                    $message .= "  **Sections**:\n";
+                    $xml .= "\n        <sections>";
                     foreach ($children as $child) {
-                        $message .= "    - {$child['summary']} (ID: {$child['id']})\n";
+                        $xml .= "\n            <section id=\"{$child['id']}\">" . htmlspecialchars($child['summary']) . "</section>";
                     }
+                    $xml .= "\n        </sections>";
                 }
-                $message .= "\n";
+                $xml .= "\n    </root-node>";
             }
+            $xml .= "\n</memory-graphs>";
         }
         
         // Candidate memories from Reflexes
-        $message .= "## Candidate Memories (from keyword search)\n";
+        $xml .= "\n<candidate-memories source=\"keyword-search\">";
         foreach ($recalledNodes as $node) {
-            $tags = !empty($node['tags']) ? implode(', ', $node['tags']) : 'none';
-            $message .= "- **ID**: {$node['id']}\n";
-            $message .= "  **Score**: {$node['score']} | ";
-            $message .= "**Category**: {$node['category']} | ";
-            if (isset($node['depth']) && $node['depth'] !== null) {
-                $message .= "**Depth**: {$node['depth']} | ";
-            }
-            $message .= "**Importance**: {$node['importance']} | ";
-            $message .= "**Tags**: {$tags}\n";
-            $nodeContent = $node['content'] ?? ($node['summary'] . 'full content not available. ');
-            $message .= "  **Content**: {$nodeContent}\n";
+            $tags = !empty($node['tags']) ? htmlspecialchars(implode(', ', $node['tags'])) : '';
+            $depthAttr = (isset($node['depth']) && $node['depth'] !== null) ? " depth=\"{$node['depth']}\"" : '';
+            $tagsAttr = !empty($tags) ? " tags=\"{$tags}\"" : '';
+            $summary = htmlspecialchars($node['summary'] ?? '');
+            
+            $xml .= "\n    <memory id=\"{$node['id']}\" score=\"{$node['score']}\" category=\"{$node['category']}\"{$depthAttr} importance=\"{$node['importance']}\"{$tagsAttr} title=\"{$summary}\">";
+            
+            $nodeContent = $node['content'] ?? ($node['summary'] . ' full content not available.');
+            $xml .= "\n        <content>" . htmlspecialchars($nodeContent) . "</content>";
+            
             // Inline graph relationships for this candidate
             $neighbors = $node['graphNeighbors'] ?? [];
             if (!empty($neighbors)) {
-                $message .= "  **Relationships**:\n";
                 foreach ($neighbors as $neighbor) {
                     $relType = $neighbor['relationType'] ?? 'RELATES_TO';
-                    $neighborSummary = $neighbor['summary'] ?? 'Unknown';
+                    $neighborSummary = htmlspecialchars($neighbor['summary'] ?? 'Unknown');
                     $strength = round($neighbor['relationStrength'] ?? 0, 2);
-                    $context = $neighbor['relationContext'] ?? '';
-                    $message .= "    - {$relType} → \"{$neighborSummary}\" [ID: {$neighbor['id']}] (strength: {$strength})";
-                    if (!empty($context)) {
-                        $message .= " — {$context}";
-                    }
-                    $message .= "\n";
+                    $contextAttr = !empty($neighbor['relationContext']) ? ' context="' . htmlspecialchars($neighbor['relationContext']) . '"' : '';
+                    $xml .= "\n        <relationship type=\"{$relType}\" neighbor=\"{$neighbor['id']}\" strength=\"{$strength}\"{$contextAttr}>{$neighborSummary}</relationship>";
                 }
             }
-            $message .= "\n";
+            
+            $xml .= "\n    </memory>";
         }
+        $xml .= "\n</candidate-memories>";
         
-        return $message;
+        $xml .= "\n</memory-evaluation>";
+        
+        return $xml;
     }
     
     /**

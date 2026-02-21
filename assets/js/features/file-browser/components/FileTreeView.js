@@ -203,14 +203,17 @@ export class FileTreeView {
     }
     
     /**
-     * Count total items in filtered tree (files and directories)
+     * Count items in filtered tree whose name actually matches the search filter
+     * (excludes parent directories included only because they contain matching children)
      * @param {Array} nodes - Array of filtered tree nodes
-     * @returns {number} - Total count of items
+     * @returns {number} - Total count of matching items
      */
     countFilteredItems(nodes) {
         let count = 0;
         for (const node of nodes) {
-            count++; // Count this node
+            if (node.name.toLowerCase().includes(this.searchFilter)) {
+                count++; // Only count if name actually matches
+            }
             if (node.type === 'directory' && node.children && node.children.length > 0) {
                 count += this.countFilteredItems(node.children);
             }

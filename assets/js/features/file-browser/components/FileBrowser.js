@@ -278,7 +278,37 @@ export class FileBrowser {
      * Update breadcrumbs based on current path
      */
     updateBreadcrumbs() {
-        this.breadcrumbsElement.innerHTML = '</i>';// + this.currentPath.replaceAll('/', '<span class="breadcrumb-separator">/</span>');
+        if (!this.currentPath || this.currentPath === '/') {
+            this.breadcrumbsElement.innerHTML = '';
+            return;
+        }
+        
+        const parts = this.currentPath.replace(/^\//, '').split('/');
+        let html = '';
+        let accumulated = '';
+        
+        parts.forEach((part, i) => {
+            accumulated += '/' + part;
+            const pathSnapshot = accumulated;
+            const isLast = i === parts.length - 1;
+            html += `<span class="breadcrumb-separator text-muted opacity-50 mx-1">/</span>`;
+            html += isLast
+                ? `<span class="text-cyber">${part}</span>`
+                : `<span class="text-muted cursor-pointer breadcrumb-path-part" data-path="${pathSnapshot}">${part}</span>`;
+        });
+        
+        this.breadcrumbsElement.innerHTML = html;
+        
+        // Attach click handlers for intermediate path segments
+        this.breadcrumbsElement.querySelectorAll('.breadcrumb-path-part').forEach(el => {
+            el.addEventListener('click', () => {
+                this.currentPath = el.dataset.path;
+                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                this.fileTreeView.setInitialExpandPath(this.currentPath);
+                this.fileTreeView.refresh();
+                this.updateBreadcrumbs();
+            });
+        });
     }
     
     /**

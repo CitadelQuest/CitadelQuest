@@ -444,6 +444,29 @@ class ProjectFileService
     }
     
     /**
+     * Sync the stored file size with the actual filesystem size.
+     * Used for files modified externally (e.g., SQLite databases like .cqmpack).
+     */
+    public function syncFileSize(string $projectId, string $path, string $name): void
+    {
+        $file = $this->findByPathAndName($projectId, $path, $name);
+        if (!$file) return;
+        
+        $absolutePath = $this->getAbsoluteFilePath($projectId, $path, $name);
+        if (!file_exists($absolutePath)) return;
+        
+        clearstatcache(true, $absolutePath);
+        $realSize = filesize($absolutePath);
+        if ($realSize === false || $realSize === $file->getSize()) return;
+        
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement(
+            'UPDATE project_file SET size = ?, updated_at = ? WHERE id = ?',
+            [$realSize, date('Y-m-d H:i:s'), $file->getId()]
+        );
+    }
+    
+    /**
      * Upload a file to a project
      */
     public function uploadFile(string $projectId, string $path, UploadedFile $uploadedFile): ProjectFile
