@@ -59,6 +59,7 @@ export class FileBrowser {
             onCopy: (items) => this.handleCopyItems(items),
             onMove: (items) => this.handleMoveItems(items),
             onRename: (item) => this.handleRenameItem(item),
+            onShare: (item) => this.handleShareFile(item.id, item.name, (item.name || '').split('.').pop()),
             onDelete: (items) => this.handleDeleteItems(items)
         });
         
@@ -228,6 +229,15 @@ export class FileBrowser {
                     const downloadFileId = actionButton.dataset.fileId;
                     if (downloadFileId) {
                         this.apiService.downloadFile(downloadFileId);
+                    }
+                    break;
+                    
+                case 'share':
+                    const shareFileId = actionButton.dataset.fileId;
+                    const shareFileName = actionButton.dataset.fileName;
+                    const shareFileType = actionButton.dataset.fileType;
+                    if (shareFileId) {
+                        this.handleShareFile(shareFileId, shareFileName, shareFileType);
                     }
                     break;
                     
@@ -637,10 +647,10 @@ export class FileBrowser {
         // Directory info header
         previewHtml += `
             <div class="file-preview-header">
-                <h5 class="mb-1">
-                    <i class="mdi mdi-folder text-cyber"></i>
+                <span class="mb-1 fw-bold">
+                    <i class="mdi mdi-folder text-warning"></i>
                     ${directory.name}
-                </h5>
+                </span>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.translations.directory || 'Directory'}</span>
                     <span>
@@ -769,10 +779,10 @@ export class FileBrowser {
         // File info header
         previewHtml += `
             <div class="file-preview-header">
-                <h5 class="mb-1">
+                <span class="mb-1 fw-bold">
                     <i class="${this.getFileIcon(file.name)}"></i>
                     ${file.name}
-                </h5>
+                </span>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
                     <span>
@@ -785,6 +795,10 @@ export class FileBrowser {
                     <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">Share</span>
                     </button>
                     ${this.isTextFile(extension) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
@@ -1088,6 +1102,52 @@ export class FileBrowser {
         });
     }
     
+    /**
+     * Handle share file — creates a CQ Share for the selected file
+     * @param {string} fileId - File ID to share
+     * @param {string} fileName - File name
+     * @param {string} fileType - File extension
+     */
+    async handleShareFile(fileId, fileName, fileType) {
+        const sourceType = fileType === 'cqmpack' ? 'cqmpack' : 'file';
+        const title = fileName || 'Shared file';
+        const slug = fileName
+            ? fileName.replace(/[^a-zA-Z0-9.-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+            : fileId.substring(0, 8);
+
+        try {
+            const response = await fetch('/api/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source_type: sourceType,
+                    source_id: fileId,
+                    title: title,
+                    share_url: slug,
+                    scope: 1
+                })
+            });
+            const data = await response.json();
+
+            if (data.success && data.share) {
+                const username = document.querySelector('.js-user')?.dataset?.username || '';
+                const shareLink = `${window.location.origin}/${username}/share/${data.share.share_url}`;
+                // Copy link to clipboard
+                try {
+                    await navigator.clipboard.writeText(shareLink);
+                    window.toast.success(`Share created! Link copied: ${shareLink}`);
+                } catch {
+                    window.toast.success(`Share created: ${shareLink}`);
+                }
+            } else {
+                window.toast.error(data.message || 'Failed to create share');
+            }
+        } catch (error) {
+            console.error('Error creating share:', error);
+            window.toast.error('Failed to create share');
+        }
+    }
+
     /**
      * Handle delete items from context menu
      * @param {Array} items - Items to delete

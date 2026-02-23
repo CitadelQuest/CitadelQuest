@@ -4,6 +4,7 @@ namespace App\Service;
 
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,8 +23,10 @@ class CQMemoryLibraryService
     public function __construct(
         private readonly CQMemoryPackService $packService,
         private readonly ProjectFileService $projectFileService,
+        private readonly CqContactService $cqContactService,
         private readonly Security $security,
         private readonly ParameterBagInterface $params,
+        private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger
     ) {}
     
@@ -211,6 +214,13 @@ class CQMemoryLibraryService
      */
     public function syncPackStats(string $projectId, string $libraryPath, string $libraryName): array
     {
+        // Auto-sync remote packs (CQ Share) before reading stats
+        try {
+            $this->syncRemotePacks($projectId, $libraryPath, $libraryName);
+        } catch (\Exception $e) {
+            $this->logger->warning('Remote pack sync failed during syncPackStats', ['error' => $e->getMessage()]);
+        }
+
         $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
         $changed = false;
         
@@ -492,5 +502,206 @@ class CQMemoryLibraryService
             ],
             'packs' => $packSources
         ];
+    }
+
+    // ========================================
+    // CQ Share — Remote Pack Sync
+    // ========================================
+
+    /**
+     * Sync remote packs in a library that have a source_url.
+     * Checks each pack's source_url for newer content, downloads if updated.
+     * Called automatically during syncPackStats() for seamless auto-sync on library load.
+     * 
+     * @return int Number of packs that were updated
+     */
+    public function syncRemotePacks(string $projectId, string $libraryPath, string $libraryName): int
+    {
+        $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
+        $updatedCount = 0;
+
+        foreach ($library['packs'] as $packEntry) {
+            $packRelPath = $packEntry['path'];
+            $packDir = dirname($packRelPath);
+            $packName = basename($packRelPath);
+
+            try {
+                $this->packService->open($projectId, $packDir, $packName);
+                $sourceUrl = $this->packService->getSourceUrl();
+                $syncedAt = $this->packService->getSyncedAt();
+                $sourceCqContactId = $this->packService->getSourceCqContactId();
+                $this->packService->close();
+
+                if (!$sourceUrl) {
+                    continue;
+                }
+
+                if ($this->syncFromSourceURL($projectId, $packDir, $packName, $sourceUrl, $syncedAt, $sourceCqContactId)) {
+                    $updatedCount++;
+                }
+            } catch (\Exception $e) {
+                $this->packService->close();
+                $this->logger->warning('Failed to sync remote pack', [
+                    'pack' => $packRelPath,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return $updatedCount;
+    }
+
+    /**
+     * Sync a single pack from its source URL.
+     * 
+     * Protocol:
+     * 1. POST source_url → get remote metadata (updated_at)
+     * 2. Compare with local synced_at
+     * 3. If remote is newer → GET source_url → download .cqmpack binary
+     * 4. Replace local file, update synced_at
+     * 
+     * @param string|null $sourceCqContactId Global Federation User UUID
+     *        (cq_contact.cq_contact_id — NOT the local DB row cq_contact.id)
+     * @return bool True if the pack was updated
+     */
+    public function syncFromSourceURL(
+        string $projectId,
+        string $packDir,
+        string $packName,
+        string $sourceUrl,
+        ?string $syncedAt = null,
+        ?string $sourceCqContactId = null
+    ): bool {
+        try {
+            $headers = $this->buildSyncHeaders($sourceCqContactId);
+
+            // Step 1: POST to get remote metadata
+            $metadataResponse = $this->httpClient->request('POST', $sourceUrl, [
+                'timeout' => 10,
+                'headers' => $headers,
+            ]);
+
+            if ($metadataResponse->getStatusCode() !== 200) {
+                $this->logger->warning('CQ Share sync: metadata request failed', [
+                    'url' => $sourceUrl,
+                    'status' => $metadataResponse->getStatusCode()
+                ]);
+                return false;
+            }
+
+            $remoteData = $metadataResponse->toArray();
+            if (!($remoteData['success'] ?? false) || empty($remoteData['share'])) {
+                return false;
+            }
+
+            $remoteUpdatedAt = $remoteData['share']['updated_at'] ?? null;
+            if (!$remoteUpdatedAt) {
+                return false;
+            }
+
+            // Step 2: Compare timestamps — skip if local is up to date
+            if ($syncedAt && strtotime($remoteUpdatedAt) <= strtotime($syncedAt)) {
+                return false;
+            }
+
+            // Step 3: GET to download the binary file
+            $fileResponse = $this->httpClient->request('GET', $sourceUrl, [
+                'timeout' => 60,
+                'headers' => $headers,
+            ]);
+
+            if ($fileResponse->getStatusCode() !== 200) {
+                $this->logger->warning('CQ Share sync: file download failed', [
+                    'url' => $sourceUrl,
+                    'status' => $fileResponse->getStatusCode()
+                ]);
+                return false;
+            }
+
+            $binaryContent = $fileResponse->getContent();
+            if (empty($binaryContent)) {
+                return false;
+            }
+
+            // Step 4: Replace local pack file
+            $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
+            if (!$packFile) {
+                $this->logger->warning('CQ Share sync: local pack file not found', [
+                    'packDir' => $packDir,
+                    'packName' => $packName
+                ]);
+                return false;
+            }
+
+            // Write binary content to the filesystem
+            $user = $this->security->getUser();
+            $basePath = $this->params->get('kernel.project_dir') . '/var/user_data/' . $user->getId() . '/p/' . $projectId;
+            $relativePath = ltrim($packDir, '/');
+            $filePath = $relativePath
+                ? $basePath . '/' . $relativePath . '/' . $packName
+                : $basePath . '/' . $packName;
+
+            if (file_put_contents($filePath, $binaryContent) === false) {
+                throw new \RuntimeException("Failed to write synced pack file: {$filePath}");
+            }
+
+            // Update metadata in the pack (preserve source_url & contact after replacement)
+            $this->packService->open($projectId, $packDir, $packName);
+            $this->packService->setSourceUrl($sourceUrl);
+            if ($sourceCqContactId) {
+                $this->packService->setSourceCqContactId($sourceCqContactId);
+            }
+            $this->packService->touchSyncedAt();
+            $this->packService->close();
+
+            // Sync file size in project_file DB
+            $this->projectFileService->syncFileSize($projectId, $packDir, $packName);
+
+            $this->logger->info('CQ Share sync: pack updated from remote', [
+                'pack' => $packDir . '/' . $packName,
+                'sourceUrl' => $sourceUrl,
+                'remoteUpdatedAt' => $remoteUpdatedAt
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->logger->warning('CQ Share sync: error syncing pack', [
+                'url' => $sourceUrl,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Build HTTP headers for CQ Share sync requests.
+     * Includes CQ Contact API key for scope=1 (CQ Contact) shares.
+     *
+     * @param string|null $sourceCqContactId Global Federation User UUID
+     *        (cq_contact.cq_contact_id — NOT the local DB row cq_contact.id)
+     */
+    private function buildSyncHeaders(?string $sourceCqContactId = null): array
+    {
+        $headers = [
+            'Accept' => 'application/json, application/octet-stream',
+        ];
+
+        if ($sourceCqContactId) {
+            try {
+                // Lookup by Federation UUID (cq_contact.cq_contact_id), not local row id
+                $contact = $this->cqContactService->findByCqContactId($sourceCqContactId);
+                if ($contact && $contact->getCqContactApiKey()) {
+                    $headers['Authorization'] = 'Bearer ' . $contact->getCqContactApiKey();
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('CQ Share sync: failed to get contact API key', [
+                    'sourceCqContactId' => $sourceCqContactId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return $headers;
     }
 }

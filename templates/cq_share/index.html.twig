@@ -1,0 +1,457 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'cq_share.page_title'|trans }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="glass-panel glass-panel-glow p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h3 mb-0">
+                        <i class="mdi mdi-share-variant me-2 text-success"></i>
+                        {{ 'cq_share.page_title'|trans }}
+                    </h1>
+                    <button type="button" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#createShareModal">
+                        <i class="mdi mdi-plus me-2"></i>{{ 'cq_share.new_share'|trans }}
+                    </button>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="input-group">
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify"></i></span>
+                            <input type="text" id="shareSearch" class="form-control glass-input" placeholder="{{ 'cq_share.search_placeholder'|trans }}">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select id="typeFilter" class="form-select glass-input">
+                            <option value="">{{ 'cq_share.filter_all_types'|trans }}</option>
+                            <option value="cqmpack">{{ 'cq_share.filter_memory_packs'|trans }}</option>
+                            <option value="file">{{ 'cq_share.filter_files'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select id="statusFilter" class="form-select glass-input">
+                            <option value="">{{ 'cq_share.filter_all_status'|trans }}</option>
+                            <option value="active">{{ 'cq_share.filter_active'|trans }}</option>
+                            <option value="paused">{{ 'cq_share.filter_paused'|trans }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="sharesContainer">
+                    <div class="text-center py-5">
+                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                        <p class="mt-2">{{ 'cq_share.loading'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Share Modal -->
+<div class="modal fade" id="createShareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title"><i class="mdi mdi-share-variant-outline me-2"></i>{{ 'cq_share.create_title'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="createShareForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="shareTitle" class="form-label">
+                            <i class="mdi mdi-format-title me-2 text-cyber"></i>{{ 'cq_share.field_title'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="shareTitle" required placeholder="{{ 'cq_share.field_title_placeholder'|trans }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="shareUrl" class="form-label">
+                            <i class="mdi mdi-link me-2 text-cyber"></i>{{ 'cq_share.field_url_slug'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="shareUrl" required placeholder="{{ 'cq_share.field_url_slug_placeholder'|trans }}">
+                        <div class="small text-muted ms-2 mt-1">{{ 'cq_share.field_url_slug_help'|trans }}: /{{ app.user.userIdentifier }}/share/<strong id="shareUrlPreview">...</strong></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shareSourceType" class="form-label">
+                            <i class="mdi mdi-tag me-2 text-cyber"></i>{{ 'cq_share.field_type'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="shareSourceType">
+                            <option value="cqmpack">{{ 'cq_share.type_cqmpack_option'|trans }}</option>
+                            <option value="file">{{ 'cq_share.type_file_option'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shareSourceId" class="form-label">
+                            <i class="mdi mdi-file me-2 text-cyber"></i>{{ 'cq_share.field_source_id'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="shareSourceId" required placeholder="{{ 'cq_share.field_source_id_placeholder'|trans }}">
+                        <div class="small text-muted ms-2 mt-1">{{ 'cq_share.field_source_id_help'|trans }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="shareScope" class="form-label">
+                            <i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'cq_share.field_scope'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="shareScope">
+                            <option value="1">{{ 'cq_share.scope_contacts_desc'|trans }}</option>
+                            <option value="0">{{ 'cq_share.scope_public_desc'|trans }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between border-top-0">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                        <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-cyber" id="createShareSubmit">
+                        <i class="mdi mdi-share-variant me-2"></i>{{ 'cq_share.create_button'|trans }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Share Modal -->
+<div class="modal fade" id="editShareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title"><i class="mdi mdi-pencil me-2"></i>{{ 'cq_share.edit_title'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editShareForm">
+                <input type="hidden" id="editShareId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editShareTitle" class="form-label">
+                            <i class="mdi mdi-format-title me-2 text-cyber"></i>{{ 'cq_share.field_title'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="editShareTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareUrlSlug" class="form-label">
+                            <i class="mdi mdi-link me-2 text-cyber"></i>{{ 'cq_share.field_url_slug'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="editShareUrlSlug" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareScope" class="form-label">
+                            <i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'cq_share.field_scope'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareScope">
+                            <option value="1">{{ 'cq_share.scope_contacts_desc'|trans }}</option>
+                            <option value="0">{{ 'cq_share.scope_public_desc'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="mdi mdi-toggle-switch me-2 text-cyber"></i>{{ 'cq_share.field_status'|trans }}
+                        </label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editShareActive" checked>
+                            <label class="form-check-label" for="editShareActive">{{ 'cq_share.field_status_active'|trans }}</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between border-top-0">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                        <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-cyber" id="editShareSubmit">
+                        <i class="mdi mdi-content-save me-2"></i>{{ 'cq_share.save'|trans }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Share Confirmation Modal -->
+<div class="modal fade" id="deleteShareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger">
+                <span class="modal-title text-white">
+                    <i class="mdi mdi-delete me-2"></i>{{ 'cq_share.delete_title'|trans }}
+                </span>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="mdi mdi-alert-triangle text-warning fs-1"></i>
+                </div>
+                <p class="text-center">{{ 'cq_share.delete_confirm'|trans }}</p>
+                <p class="text-muted small text-center">{{ 'cq_share.delete_info'|trans }}</p>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteShare">
+                    <i class="mdi mdi-delete me-2"></i>{{ 'ui.delete'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sharesContainer = document.getElementById('sharesContainer');
+    const shareSearch = document.getElementById('shareSearch');
+    const typeFilter = document.getElementById('typeFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const createShareForm = document.getElementById('createShareForm');
+    const editShareForm = document.getElementById('editShareForm');
+    const shareUrlInput = document.getElementById('shareUrl');
+    const shareUrlPreview = document.getElementById('shareUrlPreview');
+
+    let shares = [];
+
+    // URL slug preview
+    if (shareUrlInput) {
+        shareUrlInput.addEventListener('input', () => {
+            shareUrlPreview.textContent = shareUrlInput.value || '...';
+        });
+    }
+
+    // Load shares
+    function loadShares() {
+        fetch('/api/share')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    shares = data.shares || [];
+                    renderShares();
+                }
+            })
+            .catch(err => {
+                console.error('Error loading shares:', err);
+                sharesContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="mdi mdi-alert me-2"></i>{{ 'cq_share.error_loading'|trans }}
+                    </div>`;
+            });
+    }
+
+    // Render shares
+    function renderShares() {
+        const search = shareSearch.value.toLowerCase();
+        const type = typeFilter.value;
+        const status = statusFilter.value;
+
+        let filtered = shares.filter(s => {
+            const matchSearch = s.title.toLowerCase().includes(search) || s.share_url.toLowerCase().includes(search);
+            const matchType = !type || s.source_type === type;
+            const matchStatus = !status || (status === 'active' ? s.is_active == 1 : s.is_active == 0);
+            return matchSearch && matchType && matchStatus;
+        });
+
+        if (filtered.length === 0) {
+            sharesContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="mdi mdi-share-off text-muted fs-2"></i>
+                    <p class="mt-2">${shares.length === 0 ? '{{ 'cq_share.no_shares'|trans }}' : '{{ 'cq_share.no_matches'|trans }}'}</p>
+                </div>`;
+            return;
+        }
+
+        const baseUrl = window.location.origin + '/{{ app.user.userIdentifier }}/share/';
+
+        const html = filtered.map(s => {
+            const typeIcon = s.source_type === 'cqmpack' ? 'mdi-graph' : 'mdi-file';
+            const typeColor = s.source_type === 'cqmpack' ? 'text-info' : 'text-warning';
+            const typeName = s.source_type === 'cqmpack' ? '{{ 'cq_share.type_memory_pack'|trans }}' : '{{ 'cq_share.type_file'|trans }}';
+            const scopeIcon = s.scope == 0 ? 'mdi-earth' : 'mdi-account-group';
+            const scopeName = s.scope == 0 ? '{{ 'cq_share.scope_public'|trans }}' : '{{ 'cq_share.scope_contacts'|trans }}';
+            const scopeColor = s.scope == 0 ? 'text-success' : 'text-primary';
+            const activeClass = s.is_active == 1 ? '' : 'opacity-50';
+            const activeBadge = s.is_active == 1
+                ? '<span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>{{ 'cq_share.filter_active'|trans }}</span>'
+                : '<span class="badge bg-secondary"><i class="mdi mdi-pause-circle me-1"></i>{{ 'cq_share.filter_paused'|trans }}</span>';
+            const shareLink = baseUrl + s.share_url;
+            const updatedAt = new Date(s.updated_at).toLocaleString();
+
+            return `
+                <div class="col-12 col-lg-6 mb-3">
+                    <div class="card glass-panel h-100 ${activeClass}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="card-title mb-0 fw-bold">
+                                    <i class="mdi ${typeIcon} me-2 ${typeColor}"></i>${s.title}
+                                </span>
+                                <div class="d-flex gap-1">
+                                    ${activeBadge}
+                                </div>
+                            </div>
+                            <div class="small mb-2">
+                                <span class="text-muted me-3"><i class="mdi ${scopeIcon} me-1 ${scopeColor}"></i>${scopeName}</span>
+                                <span class="text-muted me-3"><i class="mdi mdi-tag me-1"></i>${typeName}</span>
+                                <span class="text-muted"><i class="mdi mdi-eye me-1"></i>${s.views} {{ 'cq_contact.detail.views'|trans }}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <code class="small flex-grow-1 text-truncate" title="${shareLink}" style="cursor: pointer;" onclick="copyToClipboard('${shareLink}')">${shareLink}</code>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('${shareLink}')" title="Copy link">
+                                    <i class="mdi mdi-content-copy"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted"><i class="mdi mdi-clock-outline me-1"></i>${updatedAt}</small>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-sm btn-outline-secondary edit-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#editShareModal" title="Edit">
+                                        <i class="mdi mdi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#deleteShareModal" title="Delete">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        sharesContainer.innerHTML = '<div class="row">' + html + '</div>';
+
+        // Event listeners
+        document.querySelectorAll('.edit-share').forEach(btn => {
+            btn.addEventListener('click', () => openEditModal(btn.dataset.shareId));
+        });
+        document.querySelectorAll('.delete-share').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.getElementById('confirmDeleteShare').dataset.shareId = btn.dataset.shareId;
+            });
+        });
+    }
+
+    // Copy to clipboard
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (window.toast) window.toast.success('{{ 'cq_share.link_copied'|trans }}');
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (window.toast) window.toast.success('{{ 'cq_share.link_copied'|trans }}');
+        });
+    };
+
+    // Create share
+    createShareForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('createShareSubmit');
+        btn.disabled = true;
+
+        fetch('/api/share', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_type: document.getElementById('shareSourceType').value,
+                source_id: document.getElementById('shareSourceId').value,
+                title: document.getElementById('shareTitle').value,
+                share_url: document.getElementById('shareUrl').value,
+                scope: parseInt(document.getElementById('shareScope').value)
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (window.toast) window.toast.success('{{ 'cq_share.created'|trans }}');
+                document.querySelector('#createShareModal [data-bs-dismiss="modal"]').click();
+                createShareForm.reset();
+                loadShares();
+            } else {
+                if (window.toast) window.toast.error(data.message || '{{ 'cq_share.create_error'|trans }}');
+            }
+        })
+        .catch(err => {
+            console.error('Error creating share:', err);
+            if (window.toast) window.toast.error('{{ 'cq_share.create_error'|trans }}');
+        })
+        .finally(() => { btn.disabled = false; });
+    });
+
+    // Open edit modal
+    function openEditModal(shareId) {
+        const share = shares.find(s => s.id === shareId);
+        if (!share) return;
+
+        document.getElementById('editShareId').value = share.id;
+        document.getElementById('editShareTitle').value = share.title;
+        document.getElementById('editShareUrlSlug').value = share.share_url;
+        document.getElementById('editShareScope').value = share.scope;
+        document.getElementById('editShareActive').checked = share.is_active == 1;
+    }
+
+    // Edit share
+    editShareForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('editShareId').value;
+        const btn = document.getElementById('editShareSubmit');
+        btn.disabled = true;
+
+        fetch(`/api/share/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: document.getElementById('editShareTitle').value,
+                share_url: document.getElementById('editShareUrlSlug').value,
+                scope: parseInt(document.getElementById('editShareScope').value),
+                is_active: document.getElementById('editShareActive').checked ? 1 : 0
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (window.toast) window.toast.success('{{ 'cq_share.updated'|trans }}');
+                document.querySelector('#editShareModal [data-bs-dismiss="modal"]').click();
+                loadShares();
+            } else {
+                if (window.toast) window.toast.error(data.message || '{{ 'cq_share.update_error'|trans }}');
+            }
+        })
+        .catch(err => {
+            console.error('Error updating share:', err);
+            if (window.toast) window.toast.error('{{ 'cq_share.update_error'|trans }}');
+        })
+        .finally(() => { btn.disabled = false; });
+    });
+
+    // Delete share
+    document.getElementById('confirmDeleteShare').addEventListener('click', function() {
+        const id = this.dataset.shareId;
+        if (!id) return;
+
+        fetch(`/api/share/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (window.toast) window.toast.success('{{ 'cq_share.deleted'|trans }}');
+                document.querySelector('#deleteShareModal [data-bs-dismiss="modal"]').click();
+                loadShares();
+            } else {
+                if (window.toast) window.toast.error(data.message || '{{ 'cq_share.delete_error'|trans }}');
+            }
+        })
+        .catch(err => {
+            console.error('Error deleting share:', err);
+            if (window.toast) window.toast.error('{{ 'cq_share.delete_error'|trans }}');
+        });
+    });
+
+    // Filter listeners
+    shareSearch.addEventListener('input', renderShares);
+    typeFilter.addEventListener('change', renderShares);
+    statusFilter.addEventListener('change', renderShares);
+
+    // Initial load
+    loadShares();
+});
+</script>
+{% endblock %}

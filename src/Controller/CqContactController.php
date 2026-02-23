@@ -24,4 +24,20 @@ class CqContactController extends AbstractController
             'page_title' => 'CitadelQuest Contacts'
         ]);
     }
+
+    #[Route('/{id}', name: 'app_cq_contact_detail')]
+    public function detail(string $id): Response
+    {
+        $contact = $this->cqContactService->findById($id);
+        if (!$contact) {
+            throw $this->createNotFoundException('Contact not found');
+        }
+
+        // Mask API key before passing to template (serialized to JSON in frontend)
+        $contact->setCqContactApiKey('***');
+
+        return $this->render('cq_contact/detail.html.twig', [
+            'contact' => $contact,
+        ]);
+    }
 }

@@ -115,6 +115,25 @@ class CqContactService
         return CqContact::fromArray($result);
     }
 
+    /**
+     * Find a contact by their global Federation User ID (cq_contact.cq_contact_id).
+     * This is the remote user's user.id UUID — NOT the local DB row id.
+     */
+    public function findByCqContactId(string $cqContactId): ?CqContact
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT * FROM cq_contact WHERE cq_contact_id = ?',
+            [$cqContactId]
+        )->fetchAssociative();
+
+        if (!$result) {
+            return null;
+        }
+
+        return CqContact::fromArray($result);
+    }
+
     public function findByUrl(string $cqContactUrl): ?CqContact
     {
         $userDb = $this->getUserDb();

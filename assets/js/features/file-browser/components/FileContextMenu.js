@@ -8,6 +8,7 @@ export class FileContextMenu {
         this.onCopy = options.onCopy || (() => {});
         this.onMove = options.onMove || (() => {});
         this.onRename = options.onRename || (() => {});
+        this.onShare = options.onShare || (() => {});
         this.onDelete = options.onDelete || (() => {});
         
         this.menuElement = null;
@@ -111,6 +112,16 @@ export class FileContextMenu {
             `;
         }
         
+        // Share option (single file only, not directories)
+        if (isSingle && !hasDirectories) {
+            menuHtml += `
+                <div class="context-menu-item" data-action="share">
+                    <i class="mdi mdi-share-variant me-2"></i>
+                    Share
+                </div>
+            `;
+        }
+        
         // Separator
         menuHtml += '<div class="context-menu-separator my-1 border-top border-secondary"></div>';
         
@@ -204,6 +215,11 @@ export class FileContextMenu {
             case 'rename':
                 if (this.currentItems.length === 1) {
                     this.onRename(this.currentItems[0]);
+                }
+                break;
+            case 'share':
+                if (this.currentItems.length === 1) {
+                    this.onShare(this.currentItems[0]);
                 }
                 break;
             case 'delete':

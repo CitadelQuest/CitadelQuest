@@ -45,6 +45,12 @@
                         </a>
                     </li>
                     <li>
+                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_share_index') }}">
+                            <i class="mdi mdi-share-variant me-3{% if app.request.pathInfo == path('app_cq_share_index') %} text-cyber{% else %} text-success opacity-50{% endif %}"></i>
+                            {{ 'cq_share.page_title'|trans }}
+                        </a>
+                    </li>
+                    <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
                             <i class="mdi mdi-tune-vertical me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% else %} text-secondary{% endif %}"></i>
                             {{ 'navigation.user_menu.settings'|trans }}
@@ -59,7 +65,7 @@
                     {% if is_granted('ROLE_ADMIN') %}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_admin_dashboard') }}">
-                            <i class="mdi mdi-account-cowboy-hat me-3{% if app.request.pathInfo starts with '/administration' %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-account-cowboy-hat me-3{% if app.request.pathInfo starts with '/administration' %} text-cyber{% else %} text-secondary opacity-25{% endif %}"></i>
                             {{ 'navigation.user_menu.admin'|trans }}
                         </a>
                     </li>

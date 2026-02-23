@@ -592,6 +592,9 @@ class ProjectFileService
         // Create new version
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $content));
         
+        // Touch cq_share.updated_at for any shares linked to this file
+        $this->touchRelatedShares($fileId);
+        
         return $file;
     }
     
@@ -1033,6 +1036,9 @@ class ProjectFileService
         
         // Create new version
         $this->createFileVersion($file->getId(), $file->getSize(), hash('sha256', $updatedContent));
+
+        // Touch cq_share.updated_at for any shares linked to this file
+        $this->touchRelatedShares($fileId);
 
         return $file;
     }
@@ -1805,5 +1811,22 @@ class ProjectFileService
         }
         
         return $images;
+    }
+
+    /**
+     * Touch cq_share.updated_at for any shares linked to this file.
+     * Called when a shared file is modified so the sync protocol picks up changes.
+     */
+    private function touchRelatedShares(string $fileId): void
+    {
+        try {
+            $userDb = $this->getUserDb();
+            $userDb->executeStatement(
+                'UPDATE cq_share SET updated_at = ? WHERE source_id = ?',
+                [date('Y-m-d H:i:s'), $fileId]
+            );
+        } catch (\Exception $e) {
+            // cq_share table may not exist yet (pre-migration) — silently skip
+        }
     }
 }

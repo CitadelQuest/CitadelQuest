@@ -476,6 +476,7 @@ dashboard:
     spirit_description: 'Chatuj s tvým AI Duchem'
     spirits_description: 'Spravuj své AI Duchy společníky'
     contacts_description: 'Spravuj své kontakty v Citadele'
+    shares_description: 'Sdílej soubory a Memory Packy'
     files_description: 'Procházej a spravuj své soubory'
     settings_description: 'Nakonfiguruj svůj CitadelQuest'
     backup_description: 'Vytvoř a obnov zálohy'
@@ -960,6 +961,86 @@ cq_contact:
     delete_info: 'Tuto akci nelze vrátit zpět. Můžete je kdykoli přidat znovu.'
     contact_deleted: 'Kontakt úspěšně smazán'
     error_deleting: 'Chyba při mazání kontaktu'
+    
+    # Contact detail page
+    active: 'Aktivní'
+    inactive: 'Neaktivní'
+    detail:
+        shared_items: 'Sdílené položky'
+        refresh: 'Obnovit'
+        loading: 'Načítám sdílené položky...'
+        loading_from: 'Načítám sdílené položky z Citadely %username%...'
+        error_loading: 'Nepodařilo se načíst sdílené položky'
+        no_items: 'Žádné sdílené položky nejsou k dispozici'
+        connection_error: 'Chyba připojení'
+        memory_pack: 'Memory Pack'
+        file: 'Soubor'
+        views: 'zobrazení'
+        download_to_citadel: 'Stáhnout do Citadely'
+        downloading: 'Stahuji...'
+        downloaded: 'Staženo!'
+        download_success: 'Staženo do vaší Citadely!'
+        download_failed: 'Stahování selhalo'
+    view_details: 'Zobrazit detaily'
+
+cq_share:
+    page_title: 'CQ Sdílení'
+    new_share: 'Nové sdílení'
+    search_placeholder: 'Hledat sdílení...'
+    filter_all_types: 'Všechny typy'
+    filter_memory_packs: 'Memory Packy'
+    filter_files: 'Soubory'
+    filter_all_status: 'Všechny stavy'
+    filter_active: 'Aktivní'
+    filter_paused: 'Pozastavené'
+    loading: 'Načítám sdílení...'
+    no_shares: 'Zatím žádná sdílení. Vytvořte první sdílení!'
+    no_matches: 'Žádná sdílení neodpovídají filtrům.'
+    error_loading: 'Nepodařilo se načíst sdílení.'
+    
+    # Types and scopes
+    type_memory_pack: 'Memory Pack'
+    type_file: 'Soubor'
+    scope_public: 'Veřejné'
+    scope_contacts: 'CQ Kontakty'
+    scope_public_desc: 'Veřejné (kdokoli s odkazem)'
+    scope_contacts_desc: 'CQ Kontakty (autentifikované)'
+    
+    # Create modal
+    create_title: 'Vytvořit sdílení'
+    create_button: 'Vytvořit sdílení'
+    field_title: 'Název'
+    field_title_placeholder: 'Moje sdílená položka'
+    field_url_slug: 'URL slug sdílení'
+    field_url_slug_placeholder: 'moje-sdilena-polozka'
+    field_url_slug_help: 'Použito v odkazu na sdílení'
+    field_type: 'Typ'
+    type_cqmpack_option: 'Memory Pack (.cqmpack)'
+    type_file_option: 'Soubor'
+    field_source_id: 'ID zdrojového souboru'
+    field_source_id_placeholder: 'project_file.id (UUID)'
+    field_source_id_help: 'ID souboru (project_file), který se má sdílet'
+    field_scope: 'Rozsah'
+    
+    # Edit modal
+    edit_title: 'Upravit sdílení'
+    field_status: 'Stav'
+    field_status_active: 'Aktivní'
+    save: 'Uložit'
+    
+    # Delete modal
+    delete_title: 'Smazat sdílení'
+    delete_confirm: 'Opravdu chcete smazat toto sdílení?'
+    delete_info: 'Sdílený soubor nebude smazán, odstraněn bude pouze odkaz na sdílení.'
+    
+    # Messages
+    link_copied: 'Odkaz zkopírován do schránky'
+    created: 'Sdílení úspěšně vytvořeno'
+    create_error: 'Nepodařilo se vytvořit sdílení'
+    updated: 'Sdílení aktualizováno'
+    update_error: 'Nepodařilo se aktualizovat sdílení'
+    deleted: 'Sdílení smazáno'
+    delete_error: 'Nepodařilo se smazat sdílení'
 
 cq_chat:
     page_title: 'CQ Chat'

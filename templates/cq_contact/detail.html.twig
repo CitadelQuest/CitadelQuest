@@ -1,0 +1,197 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ contact.cqContactUsername }} - CQ Contact - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Back link -->
+            <a href="{{ path('app_cq_contact_index') }}" class="btn btn-sm btn-outline-secondary mb-3">
+                <i class="mdi mdi-arrow-left me-1"></i> {{ 'cq_contact.page_title'|trans }}
+            </a>
+
+            <!-- Contact Profile Card -->
+            <div class="glass-panel glass-panel-glow p-4 mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3">
+                        <i class="mdi mdi-account-circle fs-1 text-primary"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h2 class="h3 mb-0 text-cyber">{{ contact.cqContactUsername }}</h2>
+                        <small class="text-muted">
+                            <i class="mdi mdi-web me-1"></i>
+                            <a href="{{ contact.cqContactUrl }}" target="_blank" class="text-muted text-decoration-none">
+                                {{ contact.cqContactUrl }}
+                            </a>
+                        </small>
+                    </div>
+                    <div>
+                        {% if contact.isActive %}
+                            <span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>{{ 'cq_contact.active'|trans }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ 'cq_contact.inactive'|trans }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if contact.description %}
+                    <p class="text-light mb-0 ms-5 ps-2">{{ contact.description }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Shared Items -->
+            <div class="glass-panel glass-panel-glow p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="h4 mb-0">
+                        <i class="mdi mdi-share-variant me-2 text-success"></i>
+                        {{ 'cq_contact.detail.shared_items'|trans }}
+                    </h3>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnRefreshShares">
+                        <i class="mdi mdi-refresh me-1"></i> {{ 'cq_contact.detail.refresh'|trans }}
+                    </button>
+                </div>
+
+                <div id="sharesContainer">
+                    <div class="text-center py-5">
+                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                        <p class="mt-2">{{ 'cq_contact.detail.loading'|trans }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const contact = {{ contact|json_encode|raw }};
+    const sharesContainer = document.getElementById('sharesContainer');
+    const btnRefresh = document.getElementById('btnRefreshShares');
+
+    async function loadShares() {
+        sharesContainer.innerHTML = `
+            <div class="text-center py-5">
+                <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
+                <p class="mt-2">{{ 'cq_contact.detail.loading'|trans }}</p>
+            </div>`;
+
+        try {
+            // Call our local proxy API which fetches from the remote Citadel
+            const response = await fetch(`/api/cq-contact/${contact.id}/shares`);
+            const data = await response.json();
+
+            if (!data.success) {
+                sharesContainer.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="mdi mdi-alert-circle fs-2 d-block mb-2"></i>
+                        ${data.message || '{{ 'cq_contact.detail.error_loading'|trans }}'}
+                    </div>`;
+                return;
+            }
+
+            const shares = data.shares || [];
+            if (shares.length === 0) {
+                sharesContainer.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="mdi mdi-share-off fs-2 d-block mb-2"></i>
+                        {{ 'cq_contact.detail.no_items'|trans }}
+                    </div>`;
+                return;
+            }
+
+            renderShares(shares);
+        } catch (error) {
+            console.error('Error loading shares:', error);
+            sharesContainer.innerHTML = `
+                <div class="text-center py-4 text-danger">
+                    <i class="mdi mdi-alert-circle fs-2 d-block mb-2"></i>
+                    {{ 'cq_contact.detail.connection_error'|trans }}: ${error.message}
+                </div>`;
+        }
+    }
+
+    function renderShares(shares) {
+        let html = '<div class="row g-3">';
+
+        shares.forEach(share => {
+            const isCqmpack = share.source_type === 'cqmpack';
+            const icon = isCqmpack ? 'mdi-graph' : 'mdi-file';
+            const iconColor = isCqmpack ? 'text-info' : 'text-warning';
+            const typeLabel = isCqmpack ? '{{ 'cq_contact.detail.memory_pack'|trans }}' : '{{ 'cq_contact.detail.file'|trans }}';
+            //const scopeLabel = parseInt(share.scope) === 0 ? 'Public' : 'CQ Contacts';
+            //const scopeIcon = parseInt(share.scope) === 0 ? 'mdi-earth' : 'mdi-account-group';
+
+            html += `
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card glass-panel h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-2">
+                                <i class="mdi ${icon} ${iconColor} fs-4 me-2 mt-1"></i>
+                                <div class="flex-grow-1 min-width-0">
+                                    <span class="mb-1 text-light text-truncate fw-bold">${share.title}</span>
+                                    <div class="small text-muted">
+                                        {#<span><i class="mdi ${scopeIcon} me-1"></i>${scopeLabel}</span>#}
+                                        <span><i class="mdi mdi-tag me-1"></i>${typeLabel}</span>
+                                        <span class="mx-1">&middot;</span>
+                                        <small class="text-muted">
+                                            <i class="mdi mdi-eye me-1"></i>${share.views || 0} {{ 'cq_contact.detail.views'|trans }}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <button class="btn btn-sm btn-cyber" 
+                                        onclick="downloadToCitadel('${share.share_url}', '${share.source_type}', '${share.title.replace(/'/g, "\\'")}')">
+                                    <i class="mdi mdi-download me-1"></i> {{ 'cq_contact.detail.download_to_citadel'|trans }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        });
+
+        html += '</div>';
+        sharesContainer.innerHTML = html;
+    }
+
+    window.downloadToCitadel = async function(shareUrl, sourceType, title) {
+        const btn = event.target.closest('button');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="mdi mdi-loading mdi-spin me-1"></i> {{ 'cq_contact.detail.downloading'|trans }}';
+
+        try {
+            const response = await fetch(`/api/cq-contact/${contact.id}/download-share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    share_url: shareUrl,
+                    source_type: sourceType,
+                    title: title
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                btn.innerHTML = '<i class="mdi mdi-check me-1"></i> {{ 'cq_contact.detail.downloaded'|trans }}';
+                btn.classList.remove('btn-cyber');
+                btn.classList.add('btn-success');
+                window.toast?.success(data.message || '{{ 'cq_contact.detail.download_success'|trans }}');
+            } else {
+                btn.innerHTML = origHtml;
+                btn.disabled = false;
+                window.toast?.error(data.message || '{{ 'cq_contact.detail.download_failed'|trans }}');
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+            window.toast?.error('{{ 'cq_contact.detail.download_failed'|trans }}: ' + error.message);
+        }
+    };
+
+    btnRefresh.addEventListener('click', loadShares);
+    loadShares();
+});
+</script>
+{% endblock %}

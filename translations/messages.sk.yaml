@@ -462,17 +462,7 @@ profile:
 
 dashboard:
     title: 'Prehľad'
-    welcome: 'Vitaj, %username%!'
-    description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
-    quick_actions: 'Rýchle akcie'
-    spirit_description: 'Chatuj s tvojim AI Duchom'
-    spirits_description: 'Spravuj svojich AI Duchov spoločníkov'
-    contacts_description: 'Spravuj svoje kontakty v Citadele'
-    files_description: 'Prezeraj a spravuj svoje súbory'
-    settings_description: 'Nakonfiguruj svoj CitadelQuest'
-    backup_description: 'Vytvor a obnov zálohy'
-    memory_description: 'Objavuj a spravuj svoje znalostné grafy'
-    admin_description: 'Administrácia Citadely'
+    shares_description: 'Zdieľajte súbory a Memory Packy'
 
 cq_memory:
     page_title: 'CQ Pamäť'
@@ -952,6 +942,86 @@ cq_contact:
     delete_info: 'Túto akciu nie je možné vrátiť späť. Môžete ich kedykoľvek pridať znova.'
     contact_deleted: 'Kontakt úspešne zmazaný'
     error_deleting: 'Chyba pri mazaní kontaktu'
+    
+    # Contact detail page
+    active: 'Aktívny'
+    inactive: 'Neaktívny'
+    detail:
+        shared_items: 'Zdieľané položky'
+        refresh: 'Obnoviť'
+        loading: 'Načítavam zdieľané položky...'
+        loading_from: 'Načítavam zdieľané položky z Citadely %username%...'
+        error_loading: 'Nepodarilo sa načítať zdieľané položky'
+        no_items: 'Žiadne zdieľané položky nie sú k dispozícii'
+        connection_error: 'Chyba pripojenia'
+        memory_pack: 'Memory Pack'
+        file: 'Súbor'
+        views: 'zobrazení'
+        download_to_citadel: 'Stiahnuť do Citadely'
+        downloading: 'Sťahujem...'
+        downloaded: 'Stiahnuté!'
+        download_success: 'Stiahnuté do vašej Citadely!'
+        download_failed: 'Sťahovanie zlyhalo'
+    view_details: 'Zobraziť detaily'
+
+cq_share:
+    page_title: 'CQ Zdieľanie'
+    new_share: 'Nové zdieľanie'
+    search_placeholder: 'Hľadať zdieľania...'
+    filter_all_types: 'Všetky typy'
+    filter_memory_packs: 'Memory Packy'
+    filter_files: 'Súbory'
+    filter_all_status: 'Všetky stavy'
+    filter_active: 'Aktívne'
+    filter_paused: 'Pozastavené'
+    loading: 'Načítavam zdieľania...'
+    no_shares: 'Zatiaľ žiadne zdieľania. Vytvorte prvé zdieľanie!'
+    no_matches: 'Žiadne zdieľania nezodpovedajú filtrom.'
+    error_loading: 'Nepodarilo sa načítať zdieľania.'
+    
+    # Types and scopes
+    type_memory_pack: 'Memory Pack'
+    type_file: 'Súbor'
+    scope_public: 'Verejné'
+    scope_contacts: 'CQ Kontakty'
+    scope_public_desc: 'Verejné (ktokoľvek s odkazom)'
+    scope_contacts_desc: 'CQ Kontakty (autentifikované)'
+    
+    # Create modal
+    create_title: 'Vytvoriť zdieľanie'
+    create_button: 'Vytvoriť zdieľanie'
+    field_title: 'Názov'
+    field_title_placeholder: 'Moja zdieľaná položka'
+    field_url_slug: 'URL slug zdieľania'
+    field_url_slug_placeholder: 'moja-zdielana-polozka'
+    field_url_slug_help: 'Použité v odkaze na zdieľanie'
+    field_type: 'Typ'
+    type_cqmpack_option: 'Memory Pack (.cqmpack)'
+    type_file_option: 'Súbor'
+    field_source_id: 'ID zdrojového súboru'
+    field_source_id_placeholder: 'project_file.id (UUID)'
+    field_source_id_help: 'ID súboru (project_file), ktorý sa má zdieľať'
+    field_scope: 'Rozsah'
+    
+    # Edit modal
+    edit_title: 'Upraviť zdieľanie'
+    field_status: 'Stav'
+    field_status_active: 'Aktívne'
+    save: 'Uložiť'
+    
+    # Delete modal
+    delete_title: 'Zmazať zdieľanie'
+    delete_confirm: 'Naozaj chcete zmazať toto zdieľanie?'
+    delete_info: 'Zdieľaný súbor nebude zmazaný, odstránený bude len odkaz na zdieľanie.'
+    
+    # Messages
+    link_copied: 'Odkaz skopírovaný do schránky'
+    created: 'Zdieľanie úspešne vytvorené'
+    create_error: 'Nepodarilo sa vytvoriť zdieľanie'
+    updated: 'Zdieľanie aktualizované'
+    update_error: 'Nepodarilo sa aktualizovať zdieľanie'
+    deleted: 'Zdieľanie zmazané'
+    delete_error: 'Nepodarilo sa zmazať zdieľanie'
 
 cq_chat:
     page_title: 'CQ Chat'

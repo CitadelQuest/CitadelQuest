@@ -476,6 +476,7 @@ dashboard:
     spirit_description: 'Chat with your AI Spirit'
     spirits_description: 'Manage your AI Spirit companions'
     contacts_description: 'Manage your Citadel contacts'
+    shares_description: 'Share files and Memory Packs'
     files_description: 'Browse and manage your files'
     settings_description: 'Configure your CitadelQuest'
     backup_description: 'Create and restore backups'
@@ -960,6 +961,86 @@ cq_contact:
     delete_info: 'This action cannot be undone. You can always add them again later.'
     contact_deleted: 'Contact deleted successfully'
     error_deleting: 'Error deleting contact'
+    
+    # Contact detail page
+    active: 'Active'
+    inactive: 'Inactive'
+    detail:
+        shared_items: 'Shared Items'
+        refresh: 'Refresh'
+        loading: 'Loading shared items...'
+        loading_from: "Loading shared items from %username%'s Citadel..."
+        error_loading: 'Failed to load shared items'
+        no_items: 'No shared items available'
+        connection_error: 'Connection error'
+        memory_pack: 'Memory Pack'
+        file: 'File'
+        views: 'views'
+        download_to_citadel: 'Download to Citadel'
+        downloading: 'Downloading...'
+        downloaded: 'Downloaded!'
+        download_success: 'Downloaded to your Citadel!'
+        download_failed: 'Download failed'
+    view_details: 'View details'
+
+cq_share:
+    page_title: 'CQ Share'
+    new_share: 'New Share'
+    search_placeholder: 'Search shares...'
+    filter_all_types: 'All types'
+    filter_memory_packs: 'Memory Packs'
+    filter_files: 'Files'
+    filter_all_status: 'All status'
+    filter_active: 'Active'
+    filter_paused: 'Paused'
+    loading: 'Loading shares...'
+    no_shares: 'No shares yet. Create your first share!'
+    no_matches: 'No shares match your filters.'
+    error_loading: 'Failed to load shares.'
+    
+    # Types and scopes
+    type_memory_pack: 'Memory Pack'
+    type_file: 'File'
+    scope_public: 'Public'
+    scope_contacts: 'CQ Contacts'
+    scope_public_desc: 'Public (anyone with link)'
+    scope_contacts_desc: 'CQ Contacts (authenticated)'
+    
+    # Create modal
+    create_title: 'Create Share'
+    create_button: 'Create Share'
+    field_title: 'Title'
+    field_title_placeholder: 'My Shared Item'
+    field_url_slug: 'Share URL Slug'
+    field_url_slug_placeholder: 'my-shared-item'
+    field_url_slug_help: 'Used in the share link'
+    field_type: 'Type'
+    type_cqmpack_option: 'Memory Pack (.cqmpack)'
+    type_file_option: 'File'
+    field_source_id: 'Source File ID'
+    field_source_id_placeholder: 'project_file.id (UUID)'
+    field_source_id_help: 'The project_file ID of the file to share'
+    field_scope: 'Scope'
+    
+    # Edit modal
+    edit_title: 'Edit Share'
+    field_status: 'Status'
+    field_status_active: 'Active'
+    save: 'Save'
+    
+    # Delete modal
+    delete_title: 'Delete Share'
+    delete_confirm: 'Are you sure you want to delete this share?'
+    delete_info: 'The shared file will not be deleted, only the share link will be removed.'
+    
+    # Messages
+    link_copied: 'Link copied to clipboard'
+    created: 'Share created successfully'
+    create_error: 'Failed to create share'
+    updated: 'Share updated'
+    update_error: 'Failed to update share'
+    deleted: 'Share deleted'
+    delete_error: 'Failed to delete share'
 
 cq_chat:
     page_title: 'CQ Chat'

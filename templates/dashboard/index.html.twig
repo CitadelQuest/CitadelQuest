@@ -151,6 +151,19 @@
                             </a>
                         </div>
 
+                        <!-- CQ Share -->
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <a href="{{ path('app_cq_share_index') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-share-variant fs-1 text-success opacity-75 mb-2"></i>
+                                        <h6 class="text-light">{{ 'cq_share.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.shares_description'|trans }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
                         <!-- Settings -->
                         <div class="col-12 col-md-6 col-lg-4">
                             <a href="{{ path('app_user_settings') }}" class="text-decoration-none">
@@ -183,7 +196,7 @@
                             <a href="{{ path('app_admin_dashboard') }}" class="text-decoration-none">
                                 <div class="card glass-panel h-100 glass-panel-glow">
                                     <div class="card-body text-center">
-                                        <i class="mdi mdi-account-cowboy-hat fs-1 text-light opacity-75 mb-2"></i>
+                                        <i class="mdi mdi-account-cowboy-hat fs-1 text-dark opacity-75 mb-2"></i>
                                         <h6 class="text-light">{{ 'navigation.user_menu.admin'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.admin_description'|trans }}</small>
                                     </div>

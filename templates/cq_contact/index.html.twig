@@ -195,8 +195,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h6 class="card-title mb-0">
-                                    <i class="mdi mdi-account me-2"></i>
-                                    ${contact.cqContactUsername}
+                                    <a href="/cq-contact/${contact.id}" class="text-decoration-none text-light">
+                                        <i class="mdi mdi-account me-2"></i>
+                                        ${contact.cqContactUsername}
+                                    </a>
                                 </h6>
                                 ${statusBadge}
                             </div>

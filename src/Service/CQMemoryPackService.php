@@ -596,6 +596,60 @@ class CQMemoryPackService
     }
     
     // ========================================
+    // CQ Share — Source URL Sync Metadata
+    // ========================================
+
+    /**
+     * Get the source URL this pack was synced from (if any)
+     */
+    public function getSourceUrl(): ?string
+    {
+        return $this->getMetadata('source_url');
+    }
+
+    /**
+     * Set the source URL this pack should sync from
+     */
+    public function setSourceUrl(string $url): void
+    {
+        $this->setMetadata('source_url', $url);
+    }
+
+    /**
+     * Get the last sync timestamp
+     */
+    public function getSyncedAt(): ?string
+    {
+        return $this->getMetadata('synced_at');
+    }
+
+    /**
+     * Update the synced_at timestamp to now
+     */
+    public function touchSyncedAt(): void
+    {
+        $this->setMetadata('synced_at', date('c'));
+    }
+
+    /**
+     * Get the Federation User UUID of the contact who shared this pack.
+     * This is cq_contact.cq_contact_id (global Federation UUID), NOT cq_contact.id (local row ID).
+     */
+    public function getSourceCqContactId(): ?string
+    {
+        return $this->getMetadata('source_cq_contact_id');
+    }
+
+    /**
+     * Set the Federation User UUID of the contact who shared this pack.
+     * This is cq_contact.cq_contact_id (global Federation UUID), NOT cq_contact.id (local row ID).
+     */
+    public function setSourceCqContactId(string $federationUserId): void
+    {
+        $this->setMetadata('source_cq_contact_id', $federationUserId);
+    }
+
+    // ========================================
     // Source Content Operations
     // ========================================
     
