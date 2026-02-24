@@ -91,6 +91,7 @@ body {
 
 * {
     transition: all vars.$duration-quick vars.$ease-standard !important;
+    text-rendering: geometricPrecision !important;
 }
 
 // Footer styling
@@ -161,6 +162,7 @@ code {
     padding: vars.$spacing-unit/2;
     border-radius: vars.$border-radius;
     display: inline-block !important;
+    font-weight: 200 !important;
 
     // cyber-scrollbar
     @include mix.cyber-scrollbar;
@@ -300,7 +302,12 @@ strong, .strong {
     }
 }
 .form-select option {
-    color: colors.$dark;
+    background: colors.$dark;
+    color: colors.$text-light;
+}
+.form-select:disabled {
+    background-color: transparent;
+    opacity: 0.5;
 }
 textarea {
     @include mix.cyber-scrollbar;

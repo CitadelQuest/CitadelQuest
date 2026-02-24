@@ -354,6 +354,8 @@ spirit:
             deselect_all: 'Žádné'
             no_roots: 'Žádné dokumenty v tomto balíčku'
             analyze_selected: 'Analyzovat Vybrané'
+            synced_pack_title: 'Sdílený Pack'
+            synced_pack_info: 'Tento pack je synchronizován ze vzdálené Citadely. Extrakce a analýza jsou zakázány, protože jakékoli změny by byly přepsány při další synchronizaci.'
         library_selector:
             all_packs: 'Všechny Packy'
             menu: 'Možnosti knihovny'
@@ -858,6 +860,7 @@ ui:
     view: 'Zobrazit'
     none: 'Žádný' 
     back: 'Zpět'
+    share: 'Sdílet'
 
 file_browser:
     page_title: 'Správce souborů'
@@ -981,6 +984,17 @@ cq_contact:
         downloaded: 'Staženo!'
         download_success: 'Staženo do vaší Citadely!'
         download_failed: 'Stahování selhalo'
+        add_to_library: 'Přidat do Knihovny'
+        add_to_library_title: 'Přidat Pack do Knihovny'
+        add_to_library_info: 'Vyberte knihovnu, do které chcete přidat tento Memory Pack:'
+        add_to_library_button: 'Přidat do Knihovny'
+        add_to_library_failed: 'Nepodařilo se přidat pack do knihovny'
+        added_to_library: 'Pack přidán do knihovny!'
+        select_library: 'Vyberte knihovnu'
+        select_library_first: 'Nejprve vyberte knihovnu'
+        loading_libraries: 'Načítám knihovny...'
+        no_libraries: 'Žádné knihovny nenalezeny'
+        error_loading_libraries: 'Chyba při načítání knihoven'
     view_details: 'Zobrazit detaily'
 
 cq_share:

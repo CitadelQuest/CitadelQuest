@@ -453,7 +453,8 @@ class CQMemoryExplorer {
             const selectedOption = packSelector.options[packSelector.selectedIndex];
             if (selectedOption && selectedOption.value === this.currentPackPath) {
                 const displayName = pack?.displayName || packData.name.replace('.cqmpack', '');
-                selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})`;
+                const syncIcon = pack?.sourceUrl ? ' \u2601' : '';
+                selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})${syncIcon}`;
             }
         } catch (e) {
             console.error('Failed to update pack selector node count:', e);
@@ -1511,6 +1512,7 @@ class CQMemoryExplorer {
         const detailsPackBtn = document.getElementById('btn-pack-details');
         const addPackToLibBtn = document.getElementById('btn-add-pack-to-lib');
         const confirmAddPackToLibBtn = document.getElementById('btn-confirm-add-pack-to-lib');
+        const sharePackBtn = document.getElementById('btn-share-pack');
         const removePackFromLibBtn = document.getElementById('btn-remove-pack-from-lib');
         const deletePackBtn = document.getElementById('btn-delete-pack');
         const confirmRemovePackFromLibBtn = document.getElementById('btn-confirm-remove-pack-from-lib');
@@ -1534,6 +1536,10 @@ class CQMemoryExplorer {
 
         if (addPackToLibBtn) {
             addPackToLibBtn.addEventListener('click', (e) => { e.preventDefault(); this.showAddPackToLibModal(); });
+        }
+
+        if (sharePackBtn) {
+            sharePackBtn.addEventListener('click', (e) => { e.preventDefault(); this.sharePack(); });
         }
 
         if (confirmAddPackToLibBtn) {
@@ -2007,7 +2013,7 @@ class CQMemoryExplorer {
             // Build AI usage section
             let aiUsageHtml = '';
             if (aiUsage.total_calls > 0) {
-                const totalCredits = aiUsage.total_cost_credits ? parseFloat(aiUsage.total_cost_credits).toFixed(4) : '0';
+                const totalCredits = aiUsage.total_cost_credits ? parseFloat(aiUsage.total_cost_credits).toFixed(0) : '0';
                 const totalTokens = aiUsage.total_tokens ? parseInt(aiUsage.total_tokens).toLocaleString() : '0';
                 
                 let purposeRows = '';
@@ -2017,7 +2023,7 @@ class CQMemoryExplorer {
                             <td class="small">${this.escapeHtml(p.purpose)}</td>
                             <td class="text-center small">${p.calls}</td>
                             <td class="text-center small">${p.tokens ? parseInt(p.tokens).toLocaleString() : '0'}</td>
-                            <td class="text-end small text-warning">${p.cost_credits ? parseFloat(p.cost_credits).toFixed(4) : '0'}</td>
+                            <td class="text-end small text-warning">${p.cost_credits ? parseFloat(p.cost_credits).toFixed(2) : '0'}</td>
                         </tr>
                     `).join('');
                 }
@@ -2057,6 +2063,19 @@ class CQMemoryExplorer {
                 `;
             }
 
+            // Build source info section for synced packs
+            let sourceHtml = '';
+            if (meta.source_url) {
+                sourceHtml = `
+                    <div class="alert bg-secondary bg-opacity-10 border-primary text-cyber border-opacity-25 py-2 px-3 mb-3">
+                        <i class="mdi mdi-cloud-sync-outline me-1"></i>
+                        <strong>Synced Pack</strong>
+                        <div class="small text-secondary mt-1"><i class="mdi mdi-link me-1"></i>${this.escapeHtml(meta.source_url)}</div>
+                        ${meta.synced_at ? `<div class="small text-secondary"><i class="mdi mdi-clock-sync-outline me-1"></i>Last synced: ${this.escapeHtml(new Date(meta.synced_at)?.toLocaleDateString())}</div>` : ''}
+                    </div>
+                `;
+            }
+
             contentEl.innerHTML = `
                 <div class="mb-3">
                     <p><strong class="d-inline-block w-100"><i class="mdi mdi-label-outline me-2 text-cyber"></i>Name:</strong>
@@ -2066,21 +2085,28 @@ class CQMemoryExplorer {
                     <p><strong class="d-inline-block w-100"><i class="mdi mdi-folder-outline me-2 text-cyber"></i>Path:</strong>
                     <span class="ms-3 text-secondary small">${this.escapeHtml(packData.path + '/' + packData.name)}</span></p>
                 </div>
+                ${sourceHtml}
                 <h6 class="mb-2"><i class="mdi mdi-chart-bar me-1 text-cyber"></i>Statistics:</h6>
                 <div class="row text-center mb-2">
-                    <div class="col-4">
+                    <div class="col-3">
                         <div class="glass-panel p-2">
                             <div class="fs-4 text-cyber">${stats.totalNodes || 0}</div>
                             <small class="text-secondary">Nodes</small>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-3">
                         <div class="glass-panel p-2">
-                            <div class="fs-4 text-cyber">${stats.totalRelationships || 0}</div>
-                            <small class="text-secondary">Relationships</small>
+                            <div class="fs-4 text-cyber">${stats.rootNodes || 0}</div>
+                            <small class="text-secondary">Roots</small>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-3">
+                        <div class="glass-panel p-2">
+                            <div class="fs-4 text-cyber">${stats.totalRelationships || 0}</div>
+                            <small class="text-secondary">Relations</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
                         <div class="glass-panel p-2">
                             <div class="fs-4 text-cyber">${stats.tagsCount || 0}</div>
                             <small class="text-secondary">Tags</small>
@@ -2088,11 +2114,66 @@ class CQMemoryExplorer {
                     </div>
                 </div>
                 ${aiUsageHtml}
-                ${meta.created_at ? `<p class="small text-secondary mt-2"><i class="mdi mdi-clock-outline me-1"></i>Created: ${this.escapeHtml(meta.created_at)}</p>` : ''}
+                ${meta.created_at ? `<p class="small text-secondary mt-2"><i class="mdi mdi-clock-outline me-1"></i>Created: ${this.escapeHtml(new Date(meta.created_at)?.toLocaleDateString())}</p>` : ''}
             `;
         } catch (error) {
             console.error('Failed to load pack details:', error);
             contentEl.innerHTML = `<div class="alert alert-danger"><i class="mdi mdi-alert me-2"></i>Failed to load pack details: ${this.escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    /**
+     * Share the currently selected pack (same pattern as File Browser share)
+     */
+    async sharePack() {
+        if (!this.currentPackPath) {
+            window.toast?.warning('Select a pack first');
+            return;
+        }
+
+        try {
+            const packData = JSON.parse(this.currentPackPath);
+            const pack = this.availablePacks.find(p => p.path === packData.path && p.name === packData.name);
+
+            if (!pack || !pack.fileId) {
+                window.toast?.error('Cannot share: pack file ID not found');
+                return;
+            }
+
+            const title = pack.displayName || packData.name;
+            const slug = packData.name
+                .replace(/[^a-zA-Z0-9.-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            const response = await fetch('/api/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    source_type: 'cqmpack',
+                    source_id: pack.fileId,
+                    title: title,
+                    share_url: slug,
+                    scope: 1
+                })
+            });
+            const data = await response.json();
+
+            if (data.success && data.share) {
+                const username = document.querySelector('.js-user')?.dataset?.username || '';
+                const shareLink = `${window.location.origin}/${username}/share/${data.share.share_url}`;
+                try {
+                    await navigator.clipboard.writeText(shareLink);
+                    window.toast?.success(`Share created! Link copied: ${shareLink}`);
+                } catch {
+                    window.toast?.success(`Share created: ${shareLink}`);
+                }
+            } else {
+                window.toast?.error(data.message || 'Failed to create share');
+            }
+        } catch (error) {
+            console.error('Failed to share pack:', error);
+            window.toast?.error('Failed to share pack');
         }
     }
 
@@ -2465,7 +2546,8 @@ class CQMemoryExplorer {
             if (packsToShow.length > 0) {
                 packsToShow.forEach(pack => {
                     const nodeCount = pack.totalNodes || 0;
-                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})`;
+                    const syncIcon = pack.sourceUrl ? ' \u2601' : '';
+                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})${syncIcon}`;
                     const packValue = JSON.stringify({ path: pack.path, name: pack.name });
                     html += `<option value='${this.escapeHtml(packValue)}'>${this.escapeHtml(label)}</option>`;
                 });
@@ -2491,6 +2573,7 @@ class CQMemoryExplorer {
                             path: lastPackData.path,
                             name: lastPackData.name
                         }, this.projectId);
+                        this.extractPanel.setSyncedPack(!!matchingPack.sourceUrl);
                         selectedPack = true;
                     }
                 } catch { /* ignore */ }
@@ -2508,6 +2591,7 @@ class CQMemoryExplorer {
                         path: rootPack.path,
                         name: rootPack.name
                     }, this.projectId);
+                    this.extractPanel.setSyncedPack(!!rootPack.sourceUrl);
                     localStorage.setItem(storageKey, rootPackValue);
                     selectedPack = true;
                 }
@@ -2590,9 +2674,14 @@ class CQMemoryExplorer {
                 path: packData.path,
                 name: packData.name
             }, this.projectId);
+
+            // Detect synced/shared pack and disable extraction
+            const matchingPack = this.availablePacks.find(p => p.path === packData.path && p.name === packData.name);
+            this.extractPanel.setSyncedPack(!!(matchingPack && matchingPack.sourceUrl));
         } catch (e) {
             console.error('Failed to parse pack path:', e);
             this.extractPanel.setTargetPack(null, this.projectId);
+            this.extractPanel.setSyncedPack(false);
         }
 
         // Reload graph data from selected pack

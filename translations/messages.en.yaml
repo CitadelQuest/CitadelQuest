@@ -354,6 +354,8 @@ spirit:
             deselect_all: 'None'
             no_roots: 'No documents in this pack'
             analyze_selected: 'Analyze Selected'
+            synced_pack_title: 'Shared Pack'
+            synced_pack_info: 'This pack is synced from a remote Citadel. Extraction and analysis are disabled because any changes would be overwritten on the next sync.'
         library_selector:
             all_packs: 'All Packs'
             menu: 'Library options'
@@ -858,6 +860,7 @@ ui:
     view: 'View'
     none: 'None'
     back: 'Back'
+    share: 'Share'
 
 file_browser:
     page_title: 'File Browser'
@@ -981,6 +984,17 @@ cq_contact:
         downloaded: 'Downloaded!'
         download_success: 'Downloaded to your Citadel!'
         download_failed: 'Download failed'
+        add_to_library: 'Add to Library'
+        add_to_library_title: 'Add Pack to Library'
+        add_to_library_info: 'Select a library to add this Memory Pack to:'
+        add_to_library_button: 'Add to Library'
+        add_to_library_failed: 'Failed to add pack to library'
+        added_to_library: 'Pack added to library!'
+        select_library: 'Select a library'
+        select_library_first: 'Select a library first'
+        loading_libraries: 'Loading libraries...'
+        no_libraries: 'No libraries found'
+        error_loading_libraries: 'Error loading libraries'
     view_details: 'View details'
 
 cq_share:

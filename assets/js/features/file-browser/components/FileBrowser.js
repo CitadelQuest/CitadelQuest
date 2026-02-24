@@ -798,7 +798,7 @@ export class FileBrowser {
                     </button>
                     <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">Share</span>
+                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.share || 'Share'}</span>
                     </button>
                     ${this.isTextFile(extension) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 

@@ -261,16 +261,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const baseUrl = window.location.origin + '/{{ app.user.userIdentifier }}/share/';
 
         const html = filtered.map(s => {
-            const typeIcon = s.source_type === 'cqmpack' ? 'mdi-graph' : 'mdi-file';
-            const typeColor = s.source_type === 'cqmpack' ? 'text-info' : 'text-warning';
-            const typeName = s.source_type === 'cqmpack' ? '{{ 'cq_share.type_memory_pack'|trans }}' : '{{ 'cq_share.type_file'|trans }}';
+            const isCqmpack = s.source_type === 'cqmpack';
+            const typeIcon = isCqmpack ? 'mdi-graph' : 'mdi-file';
+            const typeColor = isCqmpack ? 'text-info' : 'text-warning';
+            const typeName = isCqmpack ? '{{ 'cq_share.type_memory_pack'|trans }}' : '{{ 'cq_share.type_file'|trans }}';
             const scopeIcon = s.scope == 0 ? 'mdi-earth' : 'mdi-account-group';
             const scopeName = s.scope == 0 ? '{{ 'cq_share.scope_public'|trans }}' : '{{ 'cq_share.scope_contacts'|trans }}';
             const scopeColor = s.scope == 0 ? 'text-success' : 'text-primary';
             const activeClass = s.is_active == 1 ? '' : 'opacity-50';
             const activeBadge = s.is_active == 1
-                ? '<span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>{{ 'cq_share.filter_active'|trans }}</span>'
-                : '<span class="badge bg-secondary"><i class="mdi mdi-pause-circle me-1"></i>{{ 'cq_share.filter_paused'|trans }}</span>';
+                ? '<i class="mdi mdi-check-circle text-success" title="{{ 'cq_share.filter_active'|trans }}"></i>'
+                : '<i class="mdi mdi-pause-circle text-secondary" title="{{ 'cq_share.filter_paused'|trans }}"></i>';
             const shareLink = baseUrl + s.share_url;
             const updatedAt = new Date(s.updated_at).toLocaleString();
 
@@ -288,12 +289,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="small mb-2">
                                 <span class="text-muted me-3"><i class="mdi ${scopeIcon} me-1 ${scopeColor}"></i>${scopeName}</span>
-                                <span class="text-muted me-3"><i class="mdi mdi-tag me-1"></i>${typeName}</span>
-                                <span class="text-muted"><i class="mdi mdi-eye me-1"></i>${s.views} {{ 'cq_contact.detail.views'|trans }}</span>
+                                <span class="text-muted me-3"><i class="mdi ${typeIcon} me-1"></i>${typeName}</span>
+                                <span class="text-muted"><i class="mdi mdi-eye me-1"></i>${s.views}&nbsp;{{ 'cq_contact.detail.views'|trans }}</span>
                             </div>
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <code class="small flex-grow-1 text-truncate" title="${shareLink}" style="cursor: pointer;" onclick="copyToClipboard('${shareLink}')">${shareLink}</code>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('${shareLink}')" title="Copy link">
+                                <button class="btn btn-sm btn-outline-cyber" onclick="copyToClipboard('${shareLink}')" title="Copy link">
                                     <i class="mdi mdi-content-copy"></i>
                                 </button>
                             </div>

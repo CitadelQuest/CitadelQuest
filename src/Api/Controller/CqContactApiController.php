@@ -260,6 +260,64 @@ class CqContactApiController extends AbstractController
     }
 
     /**
+     * Check which shares have already been downloaded locally.
+     * Returns a map of share_url → { downloaded: bool, path, fileName } for each share.
+     */
+    #[Route('/{id}/check-downloads', name: 'app_api_cq_contact_check_downloads', methods: ['POST'])]
+    public function checkDownloads(string $id, Request $request): JsonResponse
+    {
+        try {
+            $contact = $this->cqContactService->findById($id);
+            if (!$contact) {
+                return $this->json(['success' => false, 'message' => 'Contact not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            $shares = $data['shares'] ?? [];
+            $projectId = 'general';
+            $slug = $this->buildContactSlug($contact);
+            $cqmpackDir = '/memory/cq-contact/' . $slug;
+
+            $results = [];
+            foreach ($shares as $share) {
+                $shareUrl = $share['share_url'] ?? '';
+                $sourceType = $share['source_type'] ?? 'file';
+                $title = $share['title'] ?? '';
+
+                if ($sourceType === 'cqmpack') {
+                    // Check in /memory/cq-contact/{slug}/
+                    $fileName = $title;
+                    if (!str_ends_with($fileName, '.cqmpack')) {
+                        $fileName .= '.cqmpack';
+                    }
+                    $file = $this->projectFileService->findByPathAndName($projectId, $cqmpackDir, $fileName);
+                    $results[$shareUrl] = [
+                        'downloaded' => $file !== null,
+                        'path' => $cqmpackDir,
+                        'fileName' => $fileName,
+                    ];
+                } else {
+                    // Check in /downloads/
+                    $file = $this->projectFileService->findByPathAndName($projectId, '/downloads', $title);
+                    $results[$shareUrl] = [
+                        'downloaded' => $file !== null,
+                        'path' => '/downloads',
+                        'fileName' => $title,
+                    ];
+                }
+            }
+
+            return $this->json(['success' => true, 'downloads' => $results]);
+        } catch (\Exception $e) {
+            $this->logger->error('CqContactApiController::checkDownloads error', [
+                'contactId' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Download a shared item from a remote contact's Citadel to the local File Browser.
      * For .cqmpack files: saves to /memory/cq-contact/{slug}/ and creates a library.
      * For other files: saves to /downloads/ directory.

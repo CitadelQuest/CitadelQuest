@@ -36,7 +36,7 @@ export class ToastService {
         
         html += `
             <div class="toast-body ${title ? '' : 'd-flex'}">
-                <div class="me-auto fs-6 ${type=="warning" ? "text-dark" : ""}">${message}</div>
+                <div class="me-auto fs-6 ${type=="warning" ? "text-dark" : ""}" style="word-break: break-all; overflow-wrap: break-word;">${message}</div>
                 ${title ? '' : '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>'}
             </div>`;
             

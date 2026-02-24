@@ -29,6 +29,7 @@ class CQMemoryPackService
     private ?string $currentProjectId = null;
     private ?string $currentPackDir = null;
     private ?string $currentPackName = null;
+    private bool $dirty = false;
     
     public function __construct(
         private readonly ProjectFileService $projectFileService,
@@ -274,6 +275,20 @@ class CQMemoryPackService
                 } catch (\Exception $e) {
                     // Size sync is non-critical
                 }
+
+                // Touch cq_share.updated_at if pack content was modified
+                if ($this->dirty) {
+                    try {
+                        $file = $this->projectFileService->findByPathAndName(
+                            $this->currentProjectId, $this->currentPackDir, $this->currentPackName
+                        );
+                        if ($file) {
+                            $this->projectFileService->touchRelatedShares($file->getId());
+                        }
+                    } catch (\Exception $e) {
+                        // Share touch is non-critical
+                    }
+                }
             }
             
             $this->connection->close();
@@ -282,6 +297,7 @@ class CQMemoryPackService
             $this->currentProjectId = null;
             $this->currentPackDir = null;
             $this->currentPackName = null;
+            $this->dirty = false;
         }
     }
     
@@ -810,6 +826,7 @@ class CQMemoryPackService
         ?string $sourceRange = null,
         ?int $depth = null
     ): MemoryNode {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         $node = new MemoryNode($content, $category, $importance, $summary);
@@ -1368,6 +1385,7 @@ class CQMemoryPackService
     
     public function updateNode(string $nodeId, string $newContent, ?string $reason = null): MemoryNode
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         $oldNode = $this->findNodeById($nodeId);
@@ -1398,6 +1416,7 @@ class CQMemoryPackService
     
     public function forgetNode(string $nodeId, ?string $reason = null): bool
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         $node = $this->findNodeById($nodeId);
@@ -1420,6 +1439,7 @@ class CQMemoryPackService
     
     public function deleteNode(string $nodeId): bool
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         // Delete tags first
@@ -1444,6 +1464,7 @@ class CQMemoryPackService
      */
     public function deleteNodeWithChildren(string $nodeId): array
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         $deletedIds = [];
         
@@ -1511,6 +1532,7 @@ class CQMemoryPackService
         float $strength = 1.0,
         ?string $context = null
     ): MemoryRelationship {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         $relationship = new MemoryRelationship($sourceId, $targetId, $type, $strength, $context);
@@ -1537,6 +1559,7 @@ class CQMemoryPackService
      */
     public function deleteRelationship(string $relationshipId): void
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         $db->executeStatement('DELETE FROM memory_relationships WHERE id = ?', [$relationshipId]);
     }
@@ -1898,6 +1921,7 @@ class CQMemoryPackService
     
     public function addTag(string $nodeId, string $tag): MemoryTag
     {
+        $this->dirty = true;
         $db = $this->getConnection();
         
         // Skip if this exact tag already exists for this node
@@ -2176,8 +2200,15 @@ class CQMemoryPackService
         );
         $relationshipsCount = (int) $relResult->fetchOne();
         
+        // Root nodes count (depth = 0)
+        $rootResult = $db->executeQuery(
+            "SELECT COUNT(*) as count FROM memory_nodes WHERE is_active = 1 AND depth = 0"
+        );
+        $rootCount = (int) $rootResult->fetchOne();
+
         return [
             'totalNodes' => $totalCount,
+            'rootNodes' => $rootCount,
             'totalRelationships' => $relationshipsCount,
             'categoryCounts' => $categories,
             'tagsCount' => $tagsCount

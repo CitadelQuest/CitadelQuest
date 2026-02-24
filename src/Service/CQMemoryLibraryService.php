@@ -348,7 +348,7 @@ class CQMemoryLibraryService
                 $subPath = rtrim($path, '/') . '/' . $file->getName();
                 $packFiles = array_merge($packFiles, $this->findPackFilesInDirectory($projectId, $subPath, true));
             } elseif (!$file->isDirectory() && pathinfo($file->getName(), PATHINFO_EXTENSION) === CQMemoryPackService::FILE_EXTENSION) {
-                $packFiles[] = ['path' => $path, 'name' => $file->getName()];
+                $packFiles[] = ['path' => $path, 'name' => $file->getName(), 'fileId' => $file->getId()];
             }
         }
 
@@ -369,12 +369,15 @@ class CQMemoryLibraryService
                 $packs[] = [
                     'path' => $packFile['path'],
                     'name' => $packFile['name'],
+                    'fileId' => $packFile['fileId'] ?? null,
                     'displayName' => $metadata['name'] ?? basename($packFile['name'], '.' . CQMemoryPackService::FILE_EXTENSION),
                     'description' => $metadata['description'] ?? '',
                     'totalNodes' => $stats['totalNodes'],
                     'totalRelationships' => $stats['totalRelationships'],
                     'createdAt' => $metadata['created_at'] ?? null,
-                    'updatedAt' => $metadata['updated_at'] ?? null
+                    'updatedAt' => $metadata['updated_at'] ?? null,
+                    'sourceUrl' => $metadata['source_url'] ?? null,
+                    'sourceCqContactId' => $metadata['source_cq_contact_id'] ?? null,
                 ];
             } catch (\Exception $e) {
                 $this->logger->warning('Invalid pack file', [

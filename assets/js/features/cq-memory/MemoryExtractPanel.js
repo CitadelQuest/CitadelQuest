@@ -279,6 +279,23 @@ export class MemoryExtractPanel {
         this.checkForActiveJobs();
     }
 
+    /**
+     * Toggle synced pack mode — disables extraction controls for shared/remote packs
+     */
+    setSyncedPack(isSynced) {
+        const overlay = document.getElementById('synced-pack-overlay');
+        const controls = document.getElementById('extraction-controls');
+        if (!overlay || !controls) return;
+
+        if (isSynced) {
+            overlay.classList.remove('d-none');
+            controls.classList.add('d-none');
+        } else {
+            overlay.classList.add('d-none');
+            controls.classList.remove('d-none');
+        }
+    }
+
     updateAnalyzeButtonState() {
         const btn = document.getElementById('btn-start-analysis');
         if (btn) {

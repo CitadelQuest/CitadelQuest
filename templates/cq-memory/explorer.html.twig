@@ -42,7 +42,7 @@
                             <label class="form-label small text-secondary mb-0 me-2 d-none d-md-inline">
                                 <i class="mdi mdi-bookshelf"></i>
                             </label>
-                            <select id="library-selector" class="form-select form-select-sm bg-dark text-light border-secondary" style="min-width: 160px;">
+                            <select id="library-selector" class="form-select form-select-sm border-secondary" style="min-width: 160px;">
                                 <option value="">{{ 'spirit.memory.library_selector.all_packs'|trans|default('All Packs') }}</option>
                             </select>
                             <div class="dropdown ms-1">
@@ -62,7 +62,7 @@
                             <label class="form-label small text-secondary mb-0 me-2 d-none d-md-inline">
                                 <i class="mdi mdi-package-variant"></i>
                             </label>
-                            <select id="pack-selector" class="form-select form-select-sm bg-dark text-light border-secondary" style="min-width: 180px;">
+                            <select id="pack-selector" class="form-select form-select-sm border-secondary" style="min-width: 180px;">
                                 <option value="">-- {{ 'spirit.memory.pack_selector.loading'|trans|default('Loading packs...') }} --</option>
                             </select>
                             <div class="dropdown ms-1">
@@ -74,6 +74,8 @@
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="#" id="btn-pack-details"><i class="mdi mdi-information-outline me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.details'|trans|default('Details') }}</a></li>
                                     <li><a class="dropdown-item" href="#" id="btn-add-pack-to-lib"><i class="mdi mdi-book-plus-outline me-2 text-cyber"></i>{{ 'spirit.memory.pack_selector.add_to_lib'|trans|default('Add to Library') }}</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-share-pack"><i class="mdi mdi-share-variant me-2 text-success"></i>{{ 'ui.share'|trans }}</a></li>
+                                    <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="#" id="btn-remove-pack-from-lib"><i class="mdi mdi-book-remove-outline me-2 text-warning"></i>{{ 'spirit.memory.pack_selector.remove_from_lib'|trans|default('Remove from Library') }}</a></li>
                                     <li><a class="dropdown-item text-danger" href="#" id="btn-delete-pack"><i class="mdi mdi-delete-outline me-2"></i>{{ 'spirit.memory.pack_selector.delete'|trans|default('Delete') }}</a></li>
                                 </ul>
@@ -126,16 +128,16 @@
                     <div class="tab-pane fade" id="panel-search" role="tabpanel" aria-labelledby="tab-search">
                         <div class="mb-3">
                             <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-dark border-secondary text-cyber">
+                                <span class="input-group-text bg-secondary bg-opacity-10 border-secondary text-cyber">
                                     <i class="mdi mdi-magnify"></i>
                                 </span>
-                                <input type="text" id="memory-search-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="{{ 'spirit.memory.search_panel.placeholder'|trans|default('Search memories...') }}" autocomplete="off">
+                                <input type="text" id="memory-search-input" class="form-control form-control-sm border-secondary" placeholder="{{ 'spirit.memory.search_panel.placeholder'|trans|default('Search memories...') }}" autocomplete="off">
                                 <button id="memory-search-clear" class="btn btn-sm btn-outline-secondary d-none" type="button" title="Clear">
                                     <i class="mdi mdi-close"></i>
                                 </button>
                             </div>
                             <div class="d-flex align-items-center justify-content-between mt-2">
-                                <select id="memory-search-category" class="form-select form-select-sm bg-dark text-light border-secondary" style="max-width: 160px;">
+                                <select id="memory-search-category" class="form-select form-select-sm border-secondary" style="max-width: 160px;">
                                     <option value="">{{ 'spirit.memory.search_panel.all_categories'|trans|default('All categories') }}</option>
                                     <option value="conversation">conversation</option>
                                     <option value="knowledge">knowledge</option>
@@ -183,6 +185,18 @@
 
                     {# Extraction Tab #}
                     <div class="tab-pane fade" id="panel-extraction" role="tabpanel" aria-labelledby="tab-extraction">
+
+                        {# Synced pack overlay — shown when a shared/remote pack is selected #}
+                        <div id="synced-pack-overlay" class="d-none text-center py-4 px-3">
+                            <i class="mdi mdi-cloud-sync-outline text-cyber fs-1 d-block mb-2"></i>
+                            <h6 class="mb-2">{{ 'spirit.memory.extract_panel.synced_pack_title'|trans|default('Shared Pack') }}</h6>
+                            <p class="text-secondary small mb-0">
+                                {{ 'spirit.memory.extract_panel.synced_pack_info'|trans|default('This pack is synced from a remote Citadel. Extraction and analysis are disabled because any changes would be overwritten on the next sync.') }}
+                            </p>
+                        </div>
+
+                        {# Extraction controls container — hidden when synced pack overlay is shown #}
+                        <div id="extraction-controls">
 
                         {# Sub-tab navigation: Extract | Analyze #}
                         <ul class="nav nav-tabs nav-tabs-sm mb-3" id="extract-analyze-tabs" role="tablist" style="font-size:0.85rem;">
@@ -233,7 +247,7 @@
                             <div class="tab-content">
                                 {# File source panel #}
                                 <div class="tab-pane fade show active" id="source-panel-file" role="tabpanel">
-                                    <select id="extract-file-selector" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                    <select id="extract-file-selector" class="form-select form-select-sm border-secondary">
                                         <option value="">-- {{ 'spirit.memory.extract_panel.select_file'|trans }} --</option>
                                     </select>
                                     <div class="small text-secondary mt-1">
@@ -242,14 +256,14 @@
                                 </div>
                                 {# URL source panel #}
                                 <div class="tab-pane fade" id="source-panel-url" role="tabpanel">
-                                    <input type="url" id="extract-url-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="https://example.com/article">
+                                    <input type="url" id="extract-url-input" class="form-control form-control-sm border-secondary" placeholder="https://example.com/article">
                                     <div class="small text-secondary mt-1">
                                         <i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.memory.extract_panel.url_hint'|trans }}
                                     </div>
                                 </div>
                                 {# Text source panel #}
                                 <div class="tab-pane fade" id="source-panel-text" role="tabpanel">
-                                    <textarea id="extract-text-input" class="form-control form-control-sm bg-dark text-light border-secondary" rows="4" placeholder="{{ 'spirit.memory.extract_panel.text_placeholder'|trans }}"></textarea>
+                                    <textarea id="extract-text-input" class="form-control form-control-sm border-secondary" rows="4" placeholder="{{ 'spirit.memory.extract_panel.text_placeholder'|trans }}"></textarea>
                                     <div class="small text-secondary mt-1 d-flex justify-content-between">
                                         <span><i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.memory.extract_panel.text_hint'|trans }}</span>
                                         <span id="extract-text-charcount" class="text-cyber">0</span>
@@ -257,10 +271,10 @@
                                 </div>
                                 {# Conversation source panel #}
                                 <div class="tab-pane fade" id="source-panel-conversation" role="tabpanel">
-                                    <select id="extract-spirit-selector" class="form-select form-select-sm bg-dark text-light border-secondary mb-2">
+                                    <select id="extract-spirit-selector" class="form-select form-select-sm border-secondary mb-2">
                                         <option value="">-- {{ 'spirit.memory.extract_panel.select_spirit'|trans }} --</option>
                                     </select>
-                                    <select id="extract-conversation-selector" class="form-select form-select-sm bg-dark text-light border-secondary" disabled>
+                                    <select id="extract-conversation-selector" class="form-select form-select-sm border-secondary" disabled>
                                         <option value="">-- {{ 'spirit.memory.extract_panel.select_conversation'|trans }} --</option>
                                     </select>
                                     <div class="small text-secondary mt-1">
@@ -356,6 +370,7 @@
                             <div class="text-secondary small text-center py-3">{{ 'spirit.memory.extract_panel.no_jobs'|trans }}</div>
                         </div>
 
+                        </div>{# /extraction-controls #}
                     </div>
                 </div>
             </div>
@@ -677,15 +692,15 @@
 <div class="modal fade" id="addPackToLibModal" tabindex="-1" aria-labelledby="addPackToLibModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content glass-panel">
-            <div class="modal-header bg-cyber">
-                <span class="modal-title text-dark" id="addPackToLibModalLabel">
+            <div class="modal-header bg-cyber-g">
+                <span class="modal-title" id="addPackToLibModalLabel">
                     <i class="mdi mdi-book-plus-outline me-2"></i>{{ 'spirit.memory.pack_selector.add_to_lib_title'|trans|default('Add Pack to Library') }}
                 </span>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small">{{ 'spirit.memory.pack_selector.add_to_lib_info'|trans|default('Select a library to add this pack to:') }}</p>
-                <select id="add-pack-lib-select" class="form-select form-select-sm bg-dark text-light border-secondary">
+                <select id="add-pack-lib-select" class="form-select form-select-sm border-secondary">
                     <option value="">-- {{ 'spirit.memory.pack_selector.add_to_lib_select'|trans|default('Select a library') }} --</option>
                 </select>
             </div>

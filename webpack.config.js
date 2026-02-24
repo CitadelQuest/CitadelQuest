@@ -41,6 +41,7 @@ Encore
     .addEntry('database-vacuum', './assets/js/utils/database-vacuum.js')
     .addEntry('cq-memory', './assets/entries/cq-memory.js')
     .addEntry('ai-model-selector', './assets/entries/ai-model-selector.js')
+    .addEntry('cq-contact-detail', './assets/entries/cq-contact-detail.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

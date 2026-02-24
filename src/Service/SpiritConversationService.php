@@ -2063,9 +2063,20 @@ class SpiritConversationService
                 'path' => $memoryInfo['packsPath'],
             ];
             
-            // Load library to get all packs
+            // Load library to get all packs (sync remote packs first for CQ Share updates)
             $packsToSearch = [];
             try {
+                // Sync remote packs before searching — ensures shared packs are up to date
+                try {
+                    $this->libraryService->syncRemotePacks(
+                        $memoryInfo['projectId'],
+                        $memoryInfo['memoryPath'],
+                        $memoryInfo['rootLibraryName']
+                    );
+                } catch (\Exception $e) {
+                    // Non-critical: proceed with potentially stale data
+                }
+
                 $library = $this->libraryService->loadLibrary(
                     $memoryInfo['projectId'],
                     $memoryInfo['memoryPath'],

@@ -1817,7 +1817,7 @@ class ProjectFileService
      * Touch cq_share.updated_at for any shares linked to this file.
      * Called when a shared file is modified so the sync protocol picks up changes.
      */
-    private function touchRelatedShares(string $fileId): void
+    public function touchRelatedShares(string $fileId): void
     {
         try {
             $userDb = $this->getUserDb();
