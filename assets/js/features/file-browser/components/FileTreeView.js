@@ -297,7 +297,7 @@ export class FileTreeView {
         // Handle directories vs files
         if (node.type === 'directory') {
             // Set directory icon
-            iconElement.innerHTML = '<i class="mdi mdi-folder text-warning"></i>';
+            iconElement.innerHTML = isExpanded ? '<i class="mdi mdi-folder-open text-warning"></i>' : '<i class="mdi mdi-folder text-warning"></i>';
             
             // Set toggle icon
             toggleElement.innerHTML = isExpanded ? '<i class="mdi mdi-chevron-down"></i>' : '<i class="mdi mdi-chevron-right"></i>';
@@ -336,6 +336,9 @@ export class FileTreeView {
                 toggleElement.innerHTML = isVisible ? 
                     '<i class="mdi mdi-chevron-right"></i>' : 
                     '<i class="mdi mdi-chevron-down"></i>';
+                iconElement.innerHTML = isVisible ?
+                    '<i class="mdi mdi-folder text-warning"></i>' :
+                    '<i class="mdi mdi-folder-open text-warning"></i>';
                 
                 // If expanding (not collapsing), notify about directory toggle
                 if (!isVisible) {
