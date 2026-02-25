@@ -657,6 +657,7 @@ class AIToolMemoryService
                 'content' => $arguments['content'] ?? null,
                 'maxDepth' => $arguments['maxDepth'] ?? 3,
                 'documentTitle' => $arguments['documentTitle'] ?? null,
+                'skipAnalysis' => $arguments['skipAnalysis'] ?? false,
             ]);
 
             // Send notification on synchronous completion
@@ -2227,9 +2228,10 @@ PROMPT;
      * Format: conversation ID (raw or prefixed with "conversation:")
      * 
      * Filters out:
-     * - First user message (system_prompt injected as first user message)
+     * - system role messages (system prompt, not conversation content)
      * - tool_result type messages (raw tool output)
      * - tool_use type messages (assistant tool call metadata)
+     * - tool role messages entirely
      * - frontendData keys inside content arrays
      * 
      * Adds metadata header with conversation title, spirit name, timestamps
@@ -2279,7 +2281,6 @@ PROMPT;
 
             // Build filtered conversation transcript
             $transcript = [];
-            $isFirstUserMessage = true;
             $keptCount = 0;
 
             foreach ($messages as $msg) {
@@ -2301,13 +2302,9 @@ PROMPT;
                     continue;
                 }
 
-                // Skip the first user message (system_prompt injected as first user message)
-                if ($role === 'user' && $isFirstUserMessage) {
-                    $isFirstUserMessage = false;
+                // Skip system role messages (system prompt, not conversation content)
+                if ($role === 'system') {
                     continue;
-                }
-                if ($role === 'user') {
-                    $isFirstUserMessage = false;
                 }
 
                 // Extract text content, filtering out frontendData
@@ -2319,7 +2316,7 @@ PROMPT;
                 }
 
                 // Format role label
-                $roleLabel = $role === 'user' ? 'User' : $spiritName;
+                $roleLabel = $role === 'user' ? $this->user->getUsername() : $spiritName;
                 $transcript[] = "[{$roleLabel}]: {$textContent}";
                 $keptCount++;
             }

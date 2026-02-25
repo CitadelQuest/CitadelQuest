@@ -204,7 +204,8 @@ class CQMemoryController extends AbstractController
                 'sourceRef' => $data['sourceRef'] ?? null,
                 'content' => $data['content'] ?? null,
                 'maxDepth' => $data['maxDepth'] ?? 3,
-                'documentTitle' => $data['documentTitle'] ?? null
+                'documentTitle' => $data['documentTitle'] ?? null,
+                'skipAnalysis' => $data['skipAnalysis'] ?? false
             ];
 
             // Validate required fields

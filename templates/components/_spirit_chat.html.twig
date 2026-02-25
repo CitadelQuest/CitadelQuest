@@ -200,6 +200,31 @@
                     <p class="mb-2"><i class="mdi mdi-brain text-info me-1"></i> {{ 'spirit.chat.extract_memory_confirm'|trans|default('Memory will be extracted from this conversation.') }}</p>
                     <p class="small text-warning mb-0"><i class="mdi mdi-lock-outline me-1"></i> {{ 'spirit.chat.extract_memory_close_warning'|trans|default('Conversation will be closed after extraction.') }}</p>
                 </div>
+
+                {# Max Depth slider #}
+                <div class="mb-3">
+                    <label class="form-label small text-secondary d-flex justify-content-between">
+                        <span>
+                            <i class="mdi mdi-layers-triple me-1"></i>
+                            {{ 'spirit.memory.extract_panel.max_depth'|trans }}
+                        </span>
+                        <span id="extract-modal-depth-value" class="badge fw-normal bg-secondary bg-opacity-25">3</span>
+                    </label>
+                    <input type="range" class="form-range-input w-100" id="extract-modal-depth" min="1" max="5" value="3">
+                    <div class="d-flex justify-content-between small text-secondary">
+                        <span>1 ({{ 'spirit.memory.extract_panel.depth_fast'|trans }})</span>
+                        <span>5 ({{ 'spirit.memory.extract_panel.depth_deep'|trans }})</span>
+                    </div>
+                </div>
+
+                {# Auto-analyze toggle #}
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="extract-modal-auto-analyze" checked>
+                    <label class="form-check-label small text-secondary" for="extract-modal-auto-analyze">
+                        <i class="mdi mdi-graph me-1 text-cyber opacity-50"></i>{{ 'spirit.memory.extract_panel.auto_analyze_label'|trans }}
+                    </label>
+                </div>
+
                 <div class="d-flex justify-content-between">
                     <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
                     <button type="button" class="btn btn-cyber" id="extractMemoryConfirmBtn"><i class="mdi mdi-graph me-2"></i>{{ 'spirit.chat.extract_memory_start'|trans|default('Extract Memory') }}</button>

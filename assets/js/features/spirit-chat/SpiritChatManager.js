@@ -260,8 +260,31 @@ export class SpiritChatManager {
         if (this.extractMemoryBtn && this.extractMemoryModal) {
             this.extractMemoryBtn.addEventListener('click', () => {
                 if (!this.currentConversationId || this.isConversationClosed) return;
+                // Re-enable confirm button each time modal opens (may be disabled from previous attempt)
+                if (this.extractMemoryConfirmBtn) {
+                    this.extractMemoryConfirmBtn.disabled = false;
+                }
                 const modal = new bootstrap.Modal(this.extractMemoryModal);
                 modal.show();
+            });
+        }
+
+        // Extract memory modal — depth slider live update
+        const extractModalDepth = document.getElementById('extract-modal-depth');
+        const extractModalDepthValue = document.getElementById('extract-modal-depth-value');
+        if (extractModalDepth && extractModalDepthValue) {
+            extractModalDepth.addEventListener('input', () => {
+                extractModalDepthValue.textContent = extractModalDepth.value;
+            });
+        }
+
+        // Extract memory modal — auto-analyze toggle persist state
+        const extractModalAutoAnalyze = document.getElementById('extract-modal-auto-analyze');
+        if (extractModalAutoAnalyze) {
+            const saved = localStorage.getItem('cq_memory_auto_analyze');
+            if (saved === 'false') extractModalAutoAnalyze.checked = false;
+            extractModalAutoAnalyze.addEventListener('change', () => {
+                localStorage.setItem('cq_memory_auto_analyze', extractModalAutoAnalyze.checked);
             });
         }
 
@@ -886,6 +909,11 @@ export class SpiritChatManager {
     async extractMemoryFromConversation() {
         if (!this.currentConversationId || !this.currentSpiritId) return;
 
+        // Disable confirm button immediately to prevent double-click race condition
+        if (this.extractMemoryConfirmBtn) {
+            this.extractMemoryConfirmBtn.disabled = true;
+        }
+
         // Close the confirmation modal
         const modalEl = this.extractMemoryModal;
         const modal = bootstrap.Modal.getInstance(modalEl);
@@ -904,7 +932,8 @@ export class SpiritChatManager {
                 body: JSON.stringify({
                     sourceType: 'spirit_conversation',
                     sourceRef: this.currentConversationId,
-                    maxDepth: 3
+                    maxDepth: parseInt(document.getElementById('extract-modal-depth')?.value || '3'),
+                    skipAnalysis: !(document.getElementById('extract-modal-auto-analyze')?.checked ?? true)
                 })
             });
 
