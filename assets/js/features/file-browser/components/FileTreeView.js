@@ -266,6 +266,7 @@ export class FileTreeView {
         nodeElement.dataset.path = node.path;
         nodeElement.dataset.name = node.name;
         nodeElement.dataset.type = node.type;
+        nodeElement.dataset.isRemote = node.isRemote ? '1' : '';
         
         // Create toggle button for directories
         const toggleElement = document.createElement('span');
@@ -366,6 +367,15 @@ export class FileTreeView {
         } else {
             // Set file icon based on file type
             iconElement.innerHTML = this.getFileIcon(node.name);
+
+            // Add cloud icon for remote/synced files
+            if (node.isRemote) {
+                const remoteIcon = document.createElement('i');
+                remoteIcon.className = 'mdi mdi-cloud-sync-outline text-cyber ms-1';
+                remoteIcon.title = 'Synced from remote Citadel';
+                remoteIcon.style.fontSize = '0.75rem';
+                labelElement.appendChild(remoteIcon);
+            }
             
             // Add file size to metadata
             if (node.size) {
@@ -453,7 +463,8 @@ export class FileTreeView {
             path: node.dataset.path,
             name: node.dataset.name,
             type: node.dataset.type,
-            id: node.dataset.id
+            id: node.dataset.id,
+            isRemote: !!node.dataset.isRemote
         }));
     }
     

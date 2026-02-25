@@ -5,9 +5,11 @@ namespace App\Service;
 use App\Entity\ProjectFile;
 use App\Entity\ProjectFileVersion;
 use App\Entity\User;
+use App\CitadelVersion;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -47,7 +49,9 @@ class ProjectFileService
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly ParameterBagInterface $params,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly HttpClientInterface $httpClient,
+        private readonly CqContactService $cqContactService
     ) {
         $this->projectRootDir = $this->params->get('kernel.project_dir') . '/var/user_data/' . $this->security->getUser()->getId() . '/p';
     }
@@ -792,7 +796,8 @@ class ProjectFileService
                         'mime_type' => $item['mime_type'],
                         'size' => $item['size'],
                         'created_at' => $item['created_at'],
-                        'updated_at' => $item['updated_at']
+                        'updated_at' => $item['updated_at'],
+                        'isRemote' => $this->isRemoteFile($item['id']),
                     ];
 
                     if ($condensed) {
@@ -837,6 +842,9 @@ class ProjectFileService
         if ($file->isDirectory()) {
             throw new \InvalidArgumentException('Cannot get content of a directory');
         }
+
+        // Auto-sync remote files on read access
+        $this->syncIfRemote($fileId);
         
         $filePath = $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
         if (!file_exists($filePath)) {
@@ -1828,5 +1836,239 @@ class ProjectFileService
         } catch (\Exception $e) {
             // cq_share table may not exist yet (pre-migration) — silently skip
         }
+    }
+
+    // =========================================================================
+    // Remote File Sync (project_file_remote)
+    // =========================================================================
+
+    /**
+     * Create a project_file_remote record linking a local file to its remote source.
+     * Called when downloading a shared file from a CQ Contact.
+     */
+    public function createRemoteFileRecord(
+        string $projectFileId,
+        string $sourceUrl,
+        ?string $sourceCqContactId = null
+    ): void {
+        $userDb = $this->getUserDb();
+        $now = date('Y-m-d H:i:s');
+
+        $userDb->executeStatement(
+            'INSERT OR REPLACE INTO project_file_remote (id, project_file_id, source_url, source_cq_contact_id, synced_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)',
+            [
+                uuid_create(),
+                $projectFileId,
+                $sourceUrl,
+                $sourceCqContactId,
+                $now,
+                $now
+            ]
+        );
+    }
+
+    /**
+     * Get the remote file record for a given project_file_id.
+     * Returns null if the file is not a remote/synced file.
+     */
+    public function getRemoteFileRecord(string $projectFileId): ?array
+    {
+        try {
+            $userDb = $this->getUserDb();
+            $result = $userDb->executeQuery(
+                'SELECT * FROM project_file_remote WHERE project_file_id = ?',
+                [$projectFileId]
+            )->fetchAssociative();
+
+            return $result ?: null;
+        } catch (\Exception $e) {
+            // Table may not exist yet (pre-migration)
+            return null;
+        }
+    }
+
+    /**
+     * Check if a file is a remote/synced file.
+     */
+    public function isRemoteFile(string $projectFileId): bool
+    {
+        return $this->getRemoteFileRecord($projectFileId) !== null;
+    }
+
+    /**
+     * Get all remote file records for the current user.
+     */
+    public function getAllRemoteFiles(): array
+    {
+        try {
+            $userDb = $this->getUserDb();
+            return $userDb->executeQuery(
+                'SELECT pfr.*, pf.project_id, pf.path, pf.name
+                 FROM project_file_remote pfr
+                 JOIN project_file pf ON pfr.project_file_id = pf.id'
+            )->fetchAllAssociative();
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Sync a single remote file from its source URL.
+     * 
+     * Protocol (same as CQ Memory Pack sync):
+     * 1. POST source_url → get remote metadata (updated_at)
+     * 2. Compare with local synced_at
+     * 3. If remote is newer → GET source_url → download binary
+     * 4. Replace local file, update synced_at
+     * 
+     * @return bool True if the file was updated
+     */
+    public function syncFileFromSourceURL(
+        string $projectFileId,
+        string $sourceUrl,
+        ?string $syncedAt = null,
+        ?string $sourceCqContactId = null
+    ): bool {
+        try {
+            $headers = $this->buildSyncHeaders($sourceCqContactId);
+
+            // Step 1: POST to get remote share metadata
+            $metadataResponse = $this->httpClient->request('POST', $sourceUrl, [
+                'timeout' => 10,
+                'headers' => $headers,
+            ]);
+
+            if ($metadataResponse->getStatusCode() !== 200) {
+                $this->logger->warning('Remote file sync: metadata request failed', [
+                    'url' => $sourceUrl,
+                    'status' => $metadataResponse->getStatusCode()
+                ]);
+                return false;
+            }
+
+            $remoteData = $metadataResponse->toArray();
+            if (!($remoteData['success'] ?? false) || empty($remoteData['share'])) {
+                return false;
+            }
+
+            $remoteUpdatedAt = $remoteData['share']['updated_at'] ?? null;
+            if (!$remoteUpdatedAt) {
+                return false;
+            }
+
+            // Step 2: Compare timestamps — skip if local is up to date
+            if ($syncedAt && strtotime($remoteUpdatedAt) <= strtotime($syncedAt)) {
+                return false;
+            }
+
+            // Step 3: GET to download the binary file
+            $fileResponse = $this->httpClient->request('GET', $sourceUrl, [
+                'timeout' => 120,
+                'headers' => $headers,
+            ]);
+
+            if ($fileResponse->getStatusCode() !== 200) {
+                $this->logger->warning('Remote file sync: file download failed', [
+                    'url' => $sourceUrl,
+                    'status' => $fileResponse->getStatusCode()
+                ]);
+                return false;
+            }
+
+            $binaryContent = $fileResponse->getContent();
+            if (empty($binaryContent)) {
+                return false;
+            }
+
+            // Step 4: Replace local file content
+            $file = $this->findById($projectFileId);
+            if (!$file) {
+                $this->logger->warning('Remote file sync: local file not found', [
+                    'projectFileId' => $projectFileId
+                ]);
+                return false;
+            }
+
+            $filePath = $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
+            if (file_put_contents($filePath, $binaryContent) === false) {
+                throw new \RuntimeException("Failed to write synced file: {$filePath}");
+            }
+
+            // Update file size in project_file DB
+            $this->syncFileSize($file->getProjectId(), $file->getPath(), $file->getName());
+
+            // Update synced_at in project_file_remote
+            $now = date('Y-m-d H:i:s');
+            $userDb = $this->getUserDb();
+            $userDb->executeStatement(
+                'UPDATE project_file_remote SET synced_at = ?, updated_at = ? WHERE project_file_id = ?',
+                [$now, $now, $projectFileId]
+            );
+
+            $this->logger->info('Remote file sync: file updated from remote', [
+                'file' => $file->getPath() . '/' . $file->getName(),
+                'sourceUrl' => $sourceUrl,
+                'remoteUpdatedAt' => $remoteUpdatedAt
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->logger->warning('Remote file sync: error syncing file', [
+                'url' => $sourceUrl,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Sync a single file if it has a remote record. Called on read access.
+     * Lightweight: only makes network requests if the file is actually remote.
+     * 
+     * @return bool True if the file was updated
+     */
+    public function syncIfRemote(string $projectFileId): bool
+    {
+        $remote = $this->getRemoteFileRecord($projectFileId);
+        if (!$remote) {
+            return false;
+        }
+
+        return $this->syncFileFromSourceURL(
+            $projectFileId,
+            $remote['source_url'],
+            $remote['synced_at'] ?? null,
+            $remote['source_cq_contact_id'] ?? null
+        );
+    }
+
+    /**
+     * Build HTTP headers for sync requests, including Bearer auth if contact is known.
+     * Same pattern as CQMemoryLibraryService::buildSyncHeaders().
+     */
+    private function buildSyncHeaders(?string $sourceCqContactId = null): array
+    {
+        $headers = [
+            'Accept' => 'application/json, application/octet-stream',
+            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+        ];
+
+        if ($sourceCqContactId) {
+            try {
+                $contact = $this->cqContactService->findByCqContactId($sourceCqContactId);
+                if ($contact && $contact->getCqContactApiKey()) {
+                    $headers['Authorization'] = 'Bearer ' . $contact->getCqContactApiKey();
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('Remote file sync: failed to get contact API key', [
+                    'sourceCqContactId' => $sourceCqContactId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return $headers;
     }
 }

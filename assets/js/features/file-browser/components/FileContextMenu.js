@@ -75,6 +75,7 @@ export class FileContextMenu {
         
         // Build menu items
         let menuHtml = '';
+        const hasRemote = items.some(item => item.isRemote);
         
         // Selection info
         if (count > 1) {
@@ -85,47 +86,59 @@ export class FileContextMenu {
                 </div>
             `;
         }
-        
-        // Copy option
-        menuHtml += `
-            <div class="context-menu-item" data-action="copy">
-                <i class="mdi mdi-content-copy me-2"></i>
-                ${this.translations.copy || 'Copy'}${count > 1 ? ` (${count})` : ''}
-            </div>
-        `;
-        
-        // Move option
-        menuHtml += `
-            <div class="context-menu-item" data-action="move">
-                <i class="mdi mdi-folder-move me-2"></i>
-                ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
-            </div>
-        `;
-        
-        // Rename option (only for single selection)
-        if (isSingle) {
+
+        // Remote file info
+        if (hasRemote) {
             menuHtml += `
-                <div class="context-menu-item" data-action="rename">
-                    <i class="mdi mdi-rename-box me-2"></i>
-                    ${this.translations.rename || 'Rename'}
+                <div class="context-menu-header px-3 py-1 text-cyber small border-bottom border-secondary mb-1">
+                    <i class="mdi mdi-cloud-sync-outline me-1"></i>
+                    Synced file (read-only)
                 </div>
             `;
         }
         
-        // Share option (single file only, not directories)
-        if (isSingle && !hasDirectories) {
+        // Copy option (hidden for remote files)
+        if (!hasRemote) {
             menuHtml += `
-                <div class="context-menu-item" data-action="share">
-                    <i class="mdi mdi-share-variant me-2"></i>
-                    Share
+                <div class="context-menu-item" data-action="copy">
+                    <i class="mdi mdi-content-copy me-2"></i>
+                    ${this.translations.copy || 'Copy'}${count > 1 ? ` (${count})` : ''}
                 </div>
             `;
-        }
         
+            // Move option
+            menuHtml += `
+                <div class="context-menu-item" data-action="move">
+                    <i class="mdi mdi-folder-move me-2"></i>
+                    ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
+                </div>
+            `;
+        
+            // Rename option (only for single selection)
+            if (isSingle) {
+                menuHtml += `
+                    <div class="context-menu-item" data-action="rename">
+                        <i class="mdi mdi-rename-box me-2"></i>
+                        ${this.translations.rename || 'Rename'}
+                    </div>
+                `;
+            }
+        
+            // Share option (single file only, not directories)
+            if (isSingle && !hasDirectories) {
+                menuHtml += `
+                    <div class="context-menu-item" data-action="share">
+                        <i class="mdi mdi-share-variant me-2"></i>
+                        ${this.translations.share || 'Share'}
+                    </div>
+                `;
+            }
+        }
+
         // Separator
         menuHtml += '<div class="context-menu-separator my-1 border-top border-secondary"></div>';
         
-        // Delete option
+        // Delete option (always available)
         menuHtml += `
             <div class="context-menu-item context-menu-item-danger" data-action="delete">
                 <i class="mdi mdi-delete me-2"></i>

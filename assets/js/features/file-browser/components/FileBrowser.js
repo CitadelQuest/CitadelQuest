@@ -777,11 +777,14 @@ export class FileBrowser {
         const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
         
         // File info header
+        const isRemote = file.isRemote || false;
+        const remoteIcon = isRemote ? ' <i class="mdi mdi-cloud-sync-outline text-cyber" title="Synced from remote Citadel"></i>' : '';
+        
         previewHtml += `
             <div class="file-preview-header">
                 <span class="mb-1 fw-bold">
                     <i class="${this.getFileIcon(file.name)}"></i>
-                    ${file.name}
+                    ${file.name}${remoteIcon}
                 </span>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
@@ -796,11 +799,12 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
                     </button>
+                    ${!isRemote ? `
                     <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.share || 'Share'}</span>
-                    </button>
-                    ${this.isTextFile(extension) ? `
+                    </button>` : ''}
+                    ${!isRemote && this.isTextFile(extension) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small">${this.translations.edit || 'Edit'}</span>

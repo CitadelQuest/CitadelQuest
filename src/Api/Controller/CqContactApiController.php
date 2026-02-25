@@ -375,7 +375,7 @@ class CqContactApiController extends AbstractController
             if ($sourceType === 'cqmpack') {
                 return $this->downloadCqmpackToCitadel($contact, $projectId, $fileName, $binaryContent, $downloadUrl);
             } else {
-                return $this->downloadFileToCitadel($projectId, $fileName, $binaryContent);
+                return $this->downloadFileToCitadel($contact, $projectId, $fileName, $binaryContent, $downloadUrl);
             }
 
         } catch (\Exception $e) {
@@ -459,41 +459,52 @@ class CqContactApiController extends AbstractController
 
     /**
      * Save a downloaded file to /downloads/ in the general project.
+     * Creates a project_file_remote record to enable automatic sync.
      */
-    private function downloadFileToCitadel(string $projectId, string $fileName, string $content): JsonResponse
+    private function downloadFileToCitadel(CqContact $contact, string $projectId, string $fileName, string $content, string $sourceUrl): JsonResponse
     {
         $dirPath = '/downloads';
 
-        // Avoid overwriting — append counter if file exists
-        $baseName = pathinfo($fileName, PATHINFO_FILENAME);
-        $ext = pathinfo($fileName, PATHINFO_EXTENSION);
-        $finalName = $fileName;
-        $counter = 1;
-        while ($this->projectFileService->findByPathAndName($projectId, $dirPath, $finalName)) {
-            $finalName = $baseName . '-' . $counter . ($ext ? '.' . $ext : '');
-            $counter++;
+        // Check if already downloaded (same path+name) — update instead of creating duplicate
+        $existingFile = $this->projectFileService->findByPathAndName($projectId, $dirPath, $fileName);
+        if ($existingFile) {
+            $this->projectFileService->updateFile($existingFile->getId(), $content);
+            $fileId = $existingFile->getId();
+        } else {
+            $ext = pathinfo($fileName, PATHINFO_EXTENSION);
+            $mimeType = match (strtolower($ext)) {
+                'png' => 'image/png',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                'svg' => 'image/svg+xml',
+                'pdf' => 'application/pdf',
+                'txt' => 'text/plain',
+                'md' => 'text/markdown',
+                'json' => 'application/json',
+                default => 'application/octet-stream',
+            };
+
+            $file = $this->projectFileService->createFile($projectId, $dirPath, $fileName, $content, $mimeType);
+            $fileId = $file->getId();
         }
 
-        $mimeType = match (strtolower($ext)) {
-            'png' => 'image/png',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'pdf' => 'application/pdf',
-            'txt' => 'text/plain',
-            'md' => 'text/markdown',
-            'json' => 'application/json',
-            default => 'application/octet-stream',
-        };
-
-        $this->projectFileService->createFile($projectId, $dirPath, $finalName, $content, $mimeType);
+        // Create remote file record for automatic sync
+        try {
+            $this->projectFileService->createRemoteFileRecord(
+                $fileId,
+                $sourceUrl,
+                $contact->getCqContactId()
+            );
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to create remote file record', ['error' => $e->getMessage()]);
+        }
 
         return $this->json([
             'success' => true,
-            'message' => 'File downloaded to ' . $dirPath . '/' . $finalName,
+            'message' => 'File downloaded to ' . $dirPath . '/' . $fileName,
             'path' => $dirPath,
-            'fileName' => $finalName
+            'fileName' => $fileName
         ]);
     }
 

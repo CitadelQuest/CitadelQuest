@@ -2,6 +2,7 @@
 
 namespace App\Api\Controller;
 
+use App\Entity\ProjectFile;
 use App\Service\ProjectFileService;
 use App\Service\AIToolMemoryService;
 use App\Service\AnnoService;
@@ -64,10 +65,22 @@ class ProjectFileApiController extends AbstractController
         
         try {
             $files = $this->projectFileService->listFiles($projectId, $path);
+
+            // Enrich with remote file info
+            $enrichedFiles = array_map(function (ProjectFile $file) {
+                $data = $file->jsonSerialize();
+                $remote = $this->projectFileService->getRemoteFileRecord($file->getId());
+                $data['isRemote'] = $remote !== null;
+                if ($remote) {
+                    $data['sourceUrl'] = $remote['source_url'] ?? null;
+                    $data['syncedAt'] = $remote['synced_at'] ?? null;
+                }
+                return $data;
+            }, $files);
             
             return $this->json([
                 'success' => true,
-                'files' => $files
+                'files' => $enrichedFiles
             ]);
         } catch (\Exception $e) {
             return $this->json([
@@ -113,10 +126,19 @@ class ProjectFileApiController extends AbstractController
             if (!$file) {
                 throw new NotFoundHttpException('File not found');
             }
+
+            // Enrich with remote file info
+            $data = $file->jsonSerialize();
+            $remote = $this->projectFileService->getRemoteFileRecord($file->getId());
+            $data['isRemote'] = $remote !== null;
+            if ($remote) {
+                $data['sourceUrl'] = $remote['source_url'] ?? null;
+                $data['syncedAt'] = $remote['synced_at'] ?? null;
+            }
             
             return $this->json([
                 'success' => true,
-                'file' => $file
+                'file' => $data
             ]);
         } catch (\Exception $e) {
             return $this->json([
