@@ -97,42 +97,40 @@ export class FileContextMenu {
             `;
         }
         
-        // Copy option (hidden for remote files)
-        if (!hasRemote) {
+        // Copy option (always available — for remote files, creates a plain local copy)
+        menuHtml += `
+            <div class="context-menu-item" data-action="copy">
+                <i class="mdi mdi-content-copy me-2"></i>
+                ${this.translations.copy || 'Copy'}${count > 1 ? ` (${count})` : ''}
+            </div>
+        `;
+        
+        // Move option (always available — remote sync link preserved via file ID)
+        menuHtml += `
+            <div class="context-menu-item" data-action="move">
+                <i class="mdi mdi-folder-move me-2"></i>
+                ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
+            </div>
+        `;
+        
+        // Rename option (only for single selection, hidden for remote files)
+        if (isSingle && !hasRemote) {
             menuHtml += `
-                <div class="context-menu-item" data-action="copy">
-                    <i class="mdi mdi-content-copy me-2"></i>
-                    ${this.translations.copy || 'Copy'}${count > 1 ? ` (${count})` : ''}
+                <div class="context-menu-item" data-action="rename">
+                    <i class="mdi mdi-rename-box me-2"></i>
+                    ${this.translations.rename || 'Rename'}
                 </div>
             `;
+        }
         
-            // Move option
+        // Share option (single file only, not directories, hidden for remote files)
+        if (isSingle && !hasDirectories && !hasRemote) {
             menuHtml += `
-                <div class="context-menu-item" data-action="move">
-                    <i class="mdi mdi-folder-move me-2"></i>
-                    ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
+                <div class="context-menu-item" data-action="share">
+                    <i class="mdi mdi-share-variant me-2"></i>
+                    ${this.translations.share || 'Share'}
                 </div>
             `;
-        
-            // Rename option (only for single selection)
-            if (isSingle) {
-                menuHtml += `
-                    <div class="context-menu-item" data-action="rename">
-                        <i class="mdi mdi-rename-box me-2"></i>
-                        ${this.translations.rename || 'Rename'}
-                    </div>
-                `;
-            }
-        
-            // Share option (single file only, not directories)
-            if (isSingle && !hasDirectories) {
-                menuHtml += `
-                    <div class="context-menu-item" data-action="share">
-                        <i class="mdi mdi-share-variant me-2"></i>
-                        ${this.translations.share || 'Share'}
-                    </div>
-                `;
-            }
         }
 
         // Separator
