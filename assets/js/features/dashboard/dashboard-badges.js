@@ -6,20 +6,24 @@
 class DashboardBadgeManager {
     constructor() {
         this.friendRequestBadge = document.getElementById('friend-request-badge');
+        this.updateAvailableBadge = document.getElementById('update-available-badge');
         this.init();
     }
 
     init() {
-        if (!this.friendRequestBadge) return;
-        
-        // Load badges on page load
-        this.loadBadges();
-        
-        // Refresh every 30 seconds
-        setInterval(() => this.loadBadges(), 30000);
+        // Load contact badges
+        if (this.friendRequestBadge) {
+            this.loadContactBadges();
+            setInterval(() => this.loadContactBadges(), 30000);
+        }
+
+        // Load update badge (admin only — element only exists for admins)
+        if (this.updateAvailableBadge) {
+            this.checkUpdateAvailable();
+        }
     }
 
-    async loadBadges() {
+    async loadContactBadges() {
         try {
             const response = await fetch('/api/cq-contact/badges');
             if (!response.ok) {
@@ -30,6 +34,23 @@ class DashboardBadgeManager {
             this.updateFriendRequestBadge(data.pendingFriendRequests || 0);
         } catch (error) {
             console.error('Error loading badges:', error);
+        }
+    }
+
+    async checkUpdateAvailable() {
+        try {
+            const response = await fetch('/administration/update-available');
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (data.updateAvailable) {
+                this.updateAvailableBadge.classList.remove('d-none');
+                this.updateAvailableBadge.title = data.latestVersion || 'Update available';
+            } else {
+                this.updateAvailableBadge.classList.add('d-none');
+            }
+        } catch (error) {
+            // Silently fail — update check is non-critical
         }
     }
 

@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
 use App\Service\BackupManager;
+use App\CitadelVersion;
 
 #[Route('/administration')]
 #[IsGranted('ROLE_ADMIN')]
@@ -253,6 +254,101 @@ class AdminController extends AbstractController
                 'message' => $this->translator->trans('admin.error.password_reset_failed')
             ], 500);
         }
+    }
+
+    #[Route('/update-available', name: 'app_admin_update_available', methods: ['GET'])]
+    public function updateAvailable(): JsonResponse
+    {
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $cacheFile = $projectDir . '/var/cache/update_check.json';
+        $cacheTtl = 3600; // 1 hour
+
+        // Check cache first
+        if (file_exists($cacheFile)) {
+            $cached = json_decode(file_get_contents($cacheFile), true);
+            if ($cached && isset($cached['checked_at']) && (time() - $cached['checked_at']) < $cacheTtl) {
+                return $this->json($cached['data']);
+            }
+        }
+
+        try {
+            $currentVersion = CitadelVersion::VERSION;
+
+            // Same logic as .update checkLatestVersion()
+            $apiUrl = 'https://api.github.com/repos/CitadelQuest/CitadelQuest/releases';
+            $opts = [
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'User-Agent: CitadelQuest-Updater',
+                        'Accept: application/vnd.github.v3+json'
+                    ],
+                    'timeout' => 10
+                ]
+            ];
+            $context = stream_context_create($opts);
+            $response = @file_get_contents($apiUrl, false, $context);
+
+            if ($response === false) {
+                $data = ['updateAvailable' => false, 'error' => 'Failed to connect to GitHub'];
+                return $this->json($data);
+            }
+
+            $releases = json_decode($response, true);
+            if (empty($releases)) {
+                $data = ['updateAvailable' => false, 'currentVersion' => $currentVersion];
+                $this->cacheUpdateCheck($cacheFile, $data);
+                return $this->json($data);
+            }
+
+            // Get first non-test release
+            $latestVersion = null;
+            foreach ($releases as $release) {
+                $tag = $release['tag_name'] ?? '';
+                if (stripos($tag, 'test') !== false) continue;
+                $latestVersion = $tag;
+                break;
+            }
+
+            if (!$latestVersion) {
+                $data = ['updateAvailable' => false, 'currentVersion' => $currentVersion];
+                $this->cacheUpdateCheck($cacheFile, $data);
+                return $this->json($data);
+            }
+
+            $updateAvailable = version_compare(
+                ltrim($latestVersion, 'v'),
+                ltrim($currentVersion, 'v'),
+                '>'
+            );
+
+            $data = [
+                'updateAvailable' => $updateAvailable,
+                'currentVersion' => $currentVersion,
+                'latestVersion' => $latestVersion,
+            ];
+
+            $this->cacheUpdateCheck($cacheFile, $data);
+            return $this->json($data);
+
+        } catch (\Exception $e) {
+            return $this->json([
+                'updateAvailable' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    private function cacheUpdateCheck(string $cacheFile, array $data): void
+    {
+        $dir = dirname($cacheFile);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        file_put_contents($cacheFile, json_encode([
+            'checked_at' => time(),
+            'data' => $data
+        ]));
     }
 
     #[Route('/system-backups', name: 'app_admin_system_backups')]

@@ -194,11 +194,17 @@
                         <!-- Admin Panel -->
                         <div class="col-12 col-md-6 col-lg-4">
                             <a href="{{ path('app_admin_dashboard') }}" class="text-decoration-none">
-                                <div class="card glass-panel h-100 glass-panel-glow">
+                                <div class="card glass-panel h-100 glass-panel-glow position-relative">
                                     <div class="card-body text-center">
                                         <i class="mdi mdi-account-cowboy-hat fs-1 text-dark opacity-75 mb-2"></i>
                                         <h6 class="text-light">{{ 'navigation.user_menu.admin'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.admin_description'|trans }}</small>
+                                        <!-- Update Available Badge -->
+                                        <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-danger d-none" 
+                                              id="update-available-badge" 
+                                              style="font-size: 0.6rem;">
+                                            <i class="mdi mdi-update"></i>
+                                        </span>
                                     </div>
                                 </div>
                             </a>

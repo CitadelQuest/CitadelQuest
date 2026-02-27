@@ -23,6 +23,7 @@ export class AdminDashboardManager {
         this.initRefreshStats();
         this.initUpdateModal();
         this.initRegistrationToggle();
+        this.checkUpdateAvailable();
     }
 
     /**
@@ -173,6 +174,29 @@ export class AdminDashboardManager {
                 console.error('Error checking for updates:', error);
                 window.toast.error('Failed to check for updates');
             });
+        }
+    }
+
+    /**
+     * Check if a system update is available and show badge on CHECK UPDATES button
+     */
+    async checkUpdateAvailable() {
+        const badge = document.getElementById('admin-update-badge');
+        if (!badge) return;
+
+        try {
+            const response = await fetch('/administration/update-available');
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (data.updateAvailable) {
+                badge.classList.remove('d-none');
+                badge.title = data.latestVersion || 'Update available';
+            } else {
+                badge.classList.add('d-none');
+            }
+        } catch (error) {
+            // Silently fail — update check is non-critical
         }
     }
 

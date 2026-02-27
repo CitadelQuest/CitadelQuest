@@ -89,9 +89,14 @@
                             </a>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <button class="btn btn-sm btn-cyber w-100" data-bs-toggle="modal" data-bs-target="#updateModal">
+                            <button class="btn btn-sm btn-cyber w-100 position-relative" data-bs-toggle="modal" data-bs-target="#updateModal">
                                 <i class="mdi mdi-update me-2"></i>
                                 {{ 'admin.dashboard.check_updates'|trans }}
+                                <span class="badge rounded-pill bg-danger d-none" 
+                                      id="admin-update-badge" 
+                                      style="font-size: 0.6rem;">
+                                    <i class="mdi mdi-update"></i>
+                                </span>
                             </button>
                         </div>
                         <div class="col-md-6 mb-3">
@@ -228,30 +233,32 @@
                     {{ 'ui.close'|trans }}
                 </button>
 
-                {# Create backup #}
-                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_1" data-original-text="{{ 'admin.dashboard.update_step_1'|trans }}">                    
-                    <i class="mdi mdi-database-check me-2"></i>
-                    {{ 'admin.dashboard.update_step_1'|trans }}
-                </button>
+                <div class="float-end">
+                    {# Create backup #}
+                    <button type="button" class="btn btn-sm btn-cyber d-block mb-3" id="updateModalCheckUpdates_step_1" data-original-text="{{ 'admin.dashboard.update_step_1'|trans }}">                    
+                        <i class="mdi mdi-database-check me-2"></i>
+                        {{ 'admin.dashboard.update_step_1'|trans }}
+                    </button>
 
-                {# Download update #}
-                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_2" data-original-text="{{ 'admin.dashboard.update_step_2'|trans }}">                    
-                    <i class="mdi mdi-download me-2"></i>
-                    {{ 'admin.dashboard.update_step_2'|trans }}
-                </button>
+                    {# Download update #}
+                    <button type="button" class="btn btn-sm btn-cyber d-block mb-3" id="updateModalCheckUpdates_step_2" data-original-text="{{ 'admin.dashboard.update_step_2'|trans }}">                    
+                        <i class="mdi mdi-download me-2"></i>
+                        {{ 'admin.dashboard.update_step_2'|trans }}
+                    </button>
 
-                {# Install update #}
-                <button type="button" class="btn btn-sm btn-cyber float-end mb-2" id="updateModalCheckUpdates_step_3" data-original-text="{{ 'admin.dashboard.update_step_3'|trans }}">                    
-                    <i class="mdi mdi-cog me-2"></i>
-                    {{ 'admin.dashboard.update_step_3'|trans }}
-                </button>
+                    {# Install update #}
+                    <button type="button" class="btn btn-sm btn-cyber d-block mb-3" id="updateModalCheckUpdates_step_3" data-original-text="{{ 'admin.dashboard.update_step_3'|trans }}">                    
+                        <i class="mdi mdi-cog me-2"></i>
+                        {{ 'admin.dashboard.update_step_3'|trans }}
+                    </button>
 
-                {# Refresh #}
-                <button type="button" class="btn btn-sm btn-cyber float-end mb-2 d-none" id="updateModalCheckUpdates_step_4" data-original-text="{{ 'admin.dashboard.update_step_4'|trans }}"
-                    onclick="window.location.reload()">                    
-                    <i class="mdi mdi-refresh me-2"></i>
-                    {{ 'admin.dashboard.update_step_4'|trans }}
-                </button>
+                    {# Refresh #}
+                    <button type="button" class="btn btn-sm btn-cyber d-block mb-3 d-none" id="updateModalCheckUpdates_step_4" data-original-text="{{ 'admin.dashboard.update_step_4'|trans }}"
+                        onclick="window.location.reload()">                    
+                        <i class="mdi mdi-refresh me-2"></i>
+                        {{ 'admin.dashboard.update_step_4'|trans }}
+                    </button>
+                </div>
                 <div style="clear: both;"></div>
             </div>
         </div>
