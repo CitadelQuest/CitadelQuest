@@ -2317,6 +2317,9 @@ PROMPT;
 
                 // Format role label
                 $roleLabel = $role === 'user' ? $this->user->getUsername() : $spiritName;
+                if ($role !== 'user' && $type === 'memory_recall') {
+                    $roleLabel = $spiritName . ' Memory Sub-Agent';
+                }
                 $transcript[] = "[{$roleLabel}]: {$textContent}";
                 $keptCount++;
             }
@@ -3089,6 +3092,18 @@ PROMPT;
             $payload['step_locked_at'] = time();
             $this->packService->updateJobPayload($jobId, $payload);
 
+            // Re-read job after lock write to detect concurrent completion
+            // (another process may have finished needs_init between our read and lock write)
+            $freshJob = $this->packService->findJobById($jobId);
+            if ($freshJob) {
+                $freshPayload = $freshJob->getPayload();
+                if (empty($freshPayload['needs_init']) && !empty($payload['needs_init'])) {
+                    // Another process already completed init — release lock and bail
+                    $this->packService->close();
+                    return false;
+                }
+            }
+
             // Get AI model
             $aiServiceModel = $this->getExtractionModel();
             if (!$aiServiceModel) {
@@ -3123,6 +3138,16 @@ PROMPT;
                         $baseTag = 'internet';
                         $summaryPrefix = 'Web';
                         break;
+                }
+
+                // Idempotency guard: check if root node already exists for this source_ref
+                // Prevents duplicate root nodes from concurrent step processing (GUI + backend polling)
+                if ($this->packService->hasRootNodeForSourceRef($sourceRef)) {
+                    // Another process already created the root node — release lock and let it drive
+                    unset($payload['step_locked_at']);
+                    $this->packService->updateJobPayload($jobId, $payload);
+                    $this->packService->close();
+                    return false;
                 }
 
                 // Generate document summary (AI call)

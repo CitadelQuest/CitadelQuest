@@ -1980,6 +1980,7 @@ export class SpiritChatManager {
             let memoryGraphEl = null;
             let preSendData = null;
             this.memoryGraphData = null; // Reset: each recall may search different packs
+            const preSendLoadingEl = this.addLoadingIndicator();
             try {
                 const preSendResult = await this.apiService.preSend(this.currentConversationId, messageText);
                 
@@ -2017,6 +2018,11 @@ export class SpiritChatManager {
             } catch (preSendError) {
                 // Pre-send is optional — if it fails, continue with normal send
                 console.warn('Pre-send failed, continuing with normal send:', preSendError);
+            }
+            
+            // Remove pre-send loading indicator
+            if (this.chatMessages && preSendLoadingEl) {
+                this.chatMessages.removeChild(preSendLoadingEl);
             }
             
             // Add loading indicator for assistant response (after graph)

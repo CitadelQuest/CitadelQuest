@@ -1843,6 +1843,20 @@ class CQMemoryPackService
     }
 
     /**
+     * Check if a root node (depth=0) exists for a given source_ref.
+     * Used as idempotency guard against concurrent extraction creating duplicates.
+     */
+    public function hasRootNodeForSourceRef(string $sourceRef): bool
+    {
+        $db = $this->getConnection();
+        $count = (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM memory_nodes WHERE source_ref = ? AND depth = 0 AND is_active = 1',
+            [$sourceRef]
+        )->fetchOne();
+        return $count > 0;
+    }
+
+    /**
      * Get all root nodes (depth=0) in the pack.
      * Optionally exclude a specific source_ref.
      */
