@@ -700,6 +700,7 @@ admin:
         email: 'Email'
         roles: 'Roles'
         database: 'Database'
+        storage: 'Storage'
         actions: 'Actions'
         you: 'You'
         view_info: 'View Information'
@@ -743,6 +744,10 @@ admin:
         user_registration_help: 'Allow new users to register accounts'
         registration_enabled: 'User registration has been enabled'
         registration_disabled: 'User registration has been disabled'
+        max_users: 'Max users'
+        max_users_help: '0 = unlimited'
+        max_users_updated: 'Max users allowed updated to %count%'
+        max_users_reached: 'Registration is closed. Maximum number of users (%count%) has been reached.'
     
     logs:
         title: 'System Logs'

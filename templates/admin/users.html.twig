@@ -58,6 +58,7 @@
                                     <tr>
                                         <th><span class="ps-2">{{ 'admin.users.username'|trans }}</span></th>
                                         <th>{{ 'admin.users.email'|trans }}</th>
+                                        <th>{{ 'admin.users.storage'|trans }}</th>
                                         {# <th>{{ 'admin.users.roles'|trans }}</th>
                                         <th>{{ 'admin.users.database'|trans }}</th> #}
                                         <th class="text-center">{{ 'admin.users.actions'|trans }}</th>
@@ -80,6 +81,7 @@
                                                 </div>
                                             </td>
                                             <td class="user-email">{{ user.email|replace({"@": "<span class='text-cyber'>@</span>"})|raw }}</td>
+                                            <td class="text-cyber">{{ userStorage[user.id] ?? '-' }}</td>
                                             {# <td>
                                                 <div class="user-roles">
                                                     {% for role in user.roles %}

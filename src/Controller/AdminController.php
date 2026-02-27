@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
 use App\Service\BackupManager;
+use App\Service\StorageService;
 use App\CitadelVersion;
 
 #[Route('/administration')]
@@ -30,7 +31,8 @@ class AdminController extends AbstractController
         private readonly RequestStack $requestStack,
         private readonly SystemSettingsService $systemSettingsService,
         private readonly PasswordResetService $passwordResetService,
-        private readonly BackupManager $backupManager
+        private readonly BackupManager $backupManager,
+        private readonly StorageService $storageService
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -45,11 +47,13 @@ class AdminController extends AbstractController
 
         // Get registration enabled status
         $registrationEnabled = $this->systemSettingsService->getBooleanValue('cq_register', true);
+        $maxUsersAllowed = $this->systemSettingsService->getSettingValue('cq_register_max_users_allowed', '0');
 
         return $this->render('admin/dashboard.html.twig', [
             'users' => $users,
             'userStats' => $userStats,
             'registrationEnabled' => $registrationEnabled,
+            'maxUsersAllowed' => (int) $maxUsersAllowed,
         ]);
     }
 
@@ -57,9 +61,17 @@ class AdminController extends AbstractController
     public function users(): Response
     {
         $users = $this->userRepository->findBy([], ['username' => 'ASC']);
+
+        // Compute total storage per user
+        $userStorage = [];
+        foreach ($users as $user) {
+            $storageInfo = $this->storageService->getTotalUserStorageSize($user);
+            $userStorage[(string) $user->getId()] = $storageInfo['formatted'];
+        }
         
         return $this->render('admin/users.html.twig', [
             'users' => $users,
+            'userStorage' => $userStorage,
         ]);
     }
 
@@ -222,6 +234,24 @@ class AdminController extends AbstractController
             'enabled' => $newValue,
             'message' => $this->translator->trans(
                 $newValue ? 'admin.settings.registration_enabled' : 'admin.settings.registration_disabled'
+            )
+        ]);
+    }
+
+    #[Route('/settings/registration/max-users', name: 'app_admin_set_max_users', methods: ['POST'])]
+    public function setMaxUsers(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $maxUsers = max(0, (int) ($data['maxUsers'] ?? 0));
+        
+        $this->systemSettingsService->setSetting('cq_register_max_users_allowed', (string) $maxUsers);
+        
+        return $this->json([
+            'success' => true,
+            'maxUsers' => $maxUsers,
+            'message' => $this->translator->trans(
+                'admin.settings.max_users_updated',
+                ['%count%' => $maxUsers === 0 ? 'unlimited' : $maxUsers]
             )
         ]);
     }

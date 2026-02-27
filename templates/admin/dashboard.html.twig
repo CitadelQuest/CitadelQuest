@@ -48,15 +48,30 @@
                             </h6>
                             <small class="text-muted">{{ 'admin.settings.user_registration_help'|trans }}</small>
                         </div>
-                        <div class="form-check form-switch">
-                            <input 
-                                class="form-check-input" 
-                                type="checkbox" 
-                                id="registrationToggle" 
-                                {{ registrationEnabled ? 'checked' : '' }}
-                                data-url="{{ path('app_admin_toggle_registration') }}"
-                            >
-                            <label class="form-check-label" for="registrationToggle"></label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <small class="text-muted text-nowrap">{{ 'admin.settings.max_users'|trans }}</small>
+                                <input 
+                                    type="number" 
+                                    class="form-control form-control-sm text-center border-cyber" 
+                                    id="maxUsersInput" 
+                                    value="{{ maxUsersAllowed }}" 
+                                    min="0" 
+                                    style="width: 70px;"
+                                    data-url="{{ path('app_admin_set_max_users') }}"
+                                    title="{{ 'admin.settings.max_users_help'|trans }}"
+                                >
+                            </div>
+                            <div class="form-check form-switch">
+                                <input 
+                                    class="form-check-input" 
+                                    type="checkbox" 
+                                    id="registrationToggle" 
+                                    {{ registrationEnabled ? 'checked' : '' }}
+                                    data-url="{{ path('app_admin_toggle_registration') }}"
+                                >
+                                <label class="form-check-label" for="registrationToggle"></label>
+                            </div>
                         </div>
                     </div>
                 </div>

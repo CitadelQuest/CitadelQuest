@@ -17,12 +17,14 @@ export class AdminDashboardManager {
         this.updateModalCheckUpdates_step_4 = document.getElementById('updateModalCheckUpdates_step_4');
         
         this.registrationToggle = document.getElementById('registrationToggle');
+        this.maxUsersInput = document.getElementById('maxUsersInput');
     }
 
     init() {
         this.initRefreshStats();
         this.initUpdateModal();
         this.initRegistrationToggle();
+        this.initMaxUsersInput();
         this.checkUpdateAvailable();
     }
 
@@ -174,6 +176,47 @@ export class AdminDashboardManager {
                 console.error('Error checking for updates:', error);
                 window.toast.error('Failed to check for updates');
             });
+        }
+    }
+
+    /**
+     * Initialize the max users input
+     */
+    initMaxUsersInput() {
+        if (!this.maxUsersInput) return;
+
+        let debounceTimer = null;
+        this.maxUsersInput.addEventListener('change', async () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => this.saveMaxUsers(), 300);
+        });
+    }
+
+    async saveMaxUsers() {
+        const input = this.maxUsersInput;
+        const url = input.dataset.url;
+        const value = Math.max(0, parseInt(input.value) || 0);
+        input.value = value;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ maxUsers: value })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                window.toast.success(data.message);
+            } else {
+                window.toast.error(data.message || 'Failed to update max users');
+            }
+        } catch (error) {
+            console.error('Error updating max users:', error);
+            window.toast.error('Failed to update max users');
         }
     }
 

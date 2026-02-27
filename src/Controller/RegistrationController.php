@@ -50,6 +50,17 @@ class RegistrationController extends AbstractController
         if (!$systemSettingsService->getBooleanValue('cq_register', true)) {
             return $this->render('registration/disabled.html.twig');
         }
+
+        // Check max users limit
+        $maxUsers = (int) $systemSettingsService->getSettingValue('cq_register_max_users_allowed', '0');
+        if ($maxUsers > 0) {
+            $currentUserCount = $userRepository->count([]);
+            if ($currentUserCount >= $maxUsers) {
+                //$this->addFlash('warning', $this->translator->trans('admin.settings.max_users_reached', ['%count%' => $maxUsers]));
+                return $this->render('registration/disabled.html.twig');
+            }
+        }
+
         $user = new User();
         $form = $this->createForm(RegistrationType::class, $user);
         $form->handleRequest($request);

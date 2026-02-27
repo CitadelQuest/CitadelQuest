@@ -681,6 +681,7 @@ admin:
         email: 'Email'
         roles: 'Role'
         database: 'Databáza'
+        storage: 'Úložisko'
         actions: 'Akcie'
         you: 'Vy'
         view_info: 'Zobraziť informácie'
@@ -724,6 +725,10 @@ admin:
         user_registration_help: 'Povoliť novým používateľom registrovať účty'
         registration_enabled: 'Registrácia používateľov bola povolená'
         registration_disabled: 'Registrácia používateľov bola zakázaná'
+        max_users: 'Max používateľov'
+        max_users_help: '0 = neobmedzene'
+        max_users_updated: 'Maximálny počet používateľov aktualizovaný na %count%'
+        max_users_reached: 'Registrácia je uzavretá. Maximálny počet používateľov (%count%) bol dosiahnutý.'
     
     logs:
         title: 'Systémové logy'
