@@ -648,8 +648,7 @@ class CQMemoryPackService
     }
 
     /**
-     * Get the Federation User UUID of the contact who shared this pack.
-     * This is cq_contact.cq_contact_id (global Federation UUID), NOT cq_contact.id (local row ID).
+     * Get the Federation User UUID of the contact who shared this pack (cq_contact.id).
      */
     public function getSourceCqContactId(): ?string
     {
@@ -657,8 +656,7 @@ class CQMemoryPackService
     }
 
     /**
-     * Set the Federation User UUID of the contact who shared this pack.
-     * This is cq_contact.cq_contact_id (global Federation UUID), NOT cq_contact.id (local row ID).
+     * Set the Federation User UUID of the contact who shared this pack (cq_contact.id).
      */
     public function setSourceCqContactId(string $federationUserId): void
     {

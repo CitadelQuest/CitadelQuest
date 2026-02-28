@@ -1915,6 +1915,28 @@ class ProjectFileService
     }
 
     /**
+     * Find a remote file record by its source URL.
+     * Returns the remote record joined with project_file data, or null if not found.
+     */
+    public function findRemoteFileBySourceUrl(string $sourceUrl): ?array
+    {
+        try {
+            $userDb = $this->getUserDb();
+            $result = $userDb->executeQuery(
+                'SELECT pfr.*, pf.project_id, pf.path, pf.name
+                 FROM project_file_remote pfr
+                 JOIN project_file pf ON pfr.project_file_id = pf.id
+                 WHERE pfr.source_url = ?',
+                [$sourceUrl]
+            )->fetchAssociative();
+
+            return $result ?: null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Get all remote file records for the current user.
      */
     public function getAllRemoteFiles(): array
@@ -2075,7 +2097,7 @@ class ProjectFileService
 
         if ($sourceCqContactId) {
             try {
-                $contact = $this->cqContactService->findByCqContactId($sourceCqContactId);
+                $contact = $this->cqContactService->findById($sourceCqContactId);
                 if ($contact && $contact->getCqContactApiKey()) {
                     $headers['Authorization'] = 'Bearer ' . $contact->getCqContactApiKey();
                 }

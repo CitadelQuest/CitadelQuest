@@ -10,7 +10,6 @@ class CqContact implements JsonSerializable
     private string $cqContactUrl;
     private string $cqContactDomain;
     private string $cqContactUsername;
-    private ?string $cqContactId;
     private ?string $cqContactApiKey;
     private ?string $friendRequestStatus;
     private ?string $description;
@@ -23,18 +22,17 @@ class CqContact implements JsonSerializable
         string $cqContactUrl,
         string $cqContactDomain,
         string $cqContactUsername,
-        ?string $cqContactId = null,
+        ?string $id = null,
         ?string $cqContactApiKey = null,
         ?string $friendRequestStatus = null,
         ?string $description = null,
         ?string $profilePhotoProjectFileId = null,
         bool $isActive = true
     ) {
-        $this->id = uuid_create();
+        $this->id = $id ?? uuid_create();
         $this->cqContactUrl = $cqContactUrl;
         $this->cqContactDomain = $cqContactDomain;
         $this->cqContactUsername = $cqContactUsername;
-        $this->cqContactId = $cqContactId;
         $this->cqContactApiKey = $cqContactApiKey;
         $this->friendRequestStatus = $friendRequestStatus;
         $this->description = $description;
@@ -87,18 +85,6 @@ class CqContact implements JsonSerializable
     public function setCqContactUsername(string $cqContactUsername): self
     {
         $this->cqContactUsername = $cqContactUsername;
-        $this->updateUpdatedAt();
-        return $this;
-    }
-    
-    public function getCqContactId(): ?string
-    {
-        return $this->cqContactId;
-    }
-    
-    public function setCqContactId(?string $cqContactId): self
-    {
-        $this->cqContactId = $cqContactId;
         $this->updateUpdatedAt();
         return $this;
     }
@@ -198,7 +184,6 @@ class CqContact implements JsonSerializable
             'cqContactUrl' => $this->cqContactUrl,
             'cqContactDomain' => $this->cqContactDomain,
             'cqContactUsername' => $this->cqContactUsername,
-            'cqContactId' => $this->cqContactId,
             'cqContactApiKey' => $this->cqContactApiKey,
             'friendRequestStatus' => $this->friendRequestStatus,
             'description' => $this->description,
@@ -215,15 +200,19 @@ class CqContact implements JsonSerializable
             $data['cq_contact_url'],
             $data['cq_contact_domain'],
             $data['cq_contact_username'],
-            $data['cq_contact_id'],
-            $data['cq_contact_api_key'],
+            $data['cq_contact_id'] ?? $data['id'] ?? null,
+            $data['cq_contact_api_key'] ?? null,
             $data['friend_request_status'] ?? null,
             $data['description'] ?? null,
             $data['profile_photo_project_file_id'] ?? null,
             (bool) ($data['is_active'] ?? true)
         );
         
-        $contact->setId($data['id']);
+        // After migration, id column already holds the consolidated UUID
+        // For backward compat with old data: prefer cq_contact_id, fallback to id
+        if (isset($data['id']) && !isset($data['cq_contact_id'])) {
+            $contact->setId($data['id']);
+        }
         
         if (isset($data['created_at'])) {
             $contact->setCreatedAt(new \DateTime($data['created_at']));

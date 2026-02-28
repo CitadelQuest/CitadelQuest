@@ -366,10 +366,11 @@ class CQMemoryLibraryService
                 $stats = $this->packService->getStats();
                 $this->packService->close();
 
+                $fileId = $packFile['fileId'] ?? null;
                 $packs[] = [
                     'path' => $packFile['path'],
                     'name' => $packFile['name'],
-                    'fileId' => $packFile['fileId'] ?? null,
+                    'fileId' => $fileId,
                     'displayName' => $metadata['name'] ?? basename($packFile['name'], '.' . CQMemoryPackService::FILE_EXTENSION),
                     'description' => $metadata['description'] ?? '',
                     'totalNodes' => $stats['totalNodes'],
@@ -378,6 +379,7 @@ class CQMemoryLibraryService
                     'updatedAt' => $metadata['updated_at'] ?? null,
                     'sourceUrl' => $metadata['source_url'] ?? null,
                     'sourceCqContactId' => $metadata['source_cq_contact_id'] ?? null,
+                    'isShared' => $fileId ? $this->projectFileService->isSharedFile($fileId) : false,
                 ];
             } catch (\Exception $e) {
                 $this->logger->warning('Invalid pack file', [
@@ -563,8 +565,7 @@ class CQMemoryLibraryService
      * 3. If remote is newer → GET source_url → download .cqmpack binary
      * 4. Replace local file, update synced_at
      * 
-     * @param string|null $sourceCqContactId Global Federation User UUID
-     *        (cq_contact.cq_contact_id — NOT the local DB row cq_contact.id)
+     * @param string|null $sourceCqContactId Global Federation User UUID (cq_contact.id)
      * @return bool True if the pack was updated
      */
     public function syncFromSourceURL(
@@ -681,8 +682,7 @@ class CQMemoryLibraryService
      * Build HTTP headers for CQ Share sync requests.
      * Includes CQ Contact API key for scope=1 (CQ Contact) shares.
      *
-     * @param string|null $sourceCqContactId Global Federation User UUID
-     *        (cq_contact.cq_contact_id — NOT the local DB row cq_contact.id)
+     * @param string|null $sourceCqContactId Global Federation User UUID (cq_contact.id)
      */
     private function buildSyncHeaders(?string $sourceCqContactId = null): array
     {
@@ -692,8 +692,7 @@ class CQMemoryLibraryService
 
         if ($sourceCqContactId) {
             try {
-                // Lookup by Federation UUID (cq_contact.cq_contact_id), not local row id
-                $contact = $this->cqContactService->findByCqContactId($sourceCqContactId);
+                $contact = $this->cqContactService->findById($sourceCqContactId);
                 if ($contact && $contact->getCqContactApiKey()) {
                     $headers['Authorization'] = 'Bearer ' . $contact->getCqContactApiKey();
                 }

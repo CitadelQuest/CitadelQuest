@@ -40,7 +40,7 @@ class CqContactService
         string $cqContactUrl,
         string $cqContactDomain,
         string $cqContactUsername,
-        ?string $cqContactId = null,
+        ?string $id = null,
         ?string $cqContactApiKey = null,
         ?string $friendRequestStatus = null,
         ?string $description = null,
@@ -55,7 +55,7 @@ class CqContactService
             $cqContactUrl,
             $cqContactDomain,
             $cqContactUsername,
-            $cqContactId,
+            $id,
             $cqContactApiKey,
             $friendRequestStatus,
             $description,
@@ -73,16 +73,15 @@ class CqContactService
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO cq_contact (
-                id, cq_contact_url, cq_contact_domain, cq_contact_username, cq_contact_id,
+                id, cq_contact_url, cq_contact_domain, cq_contact_username,
                 cq_contact_api_key, friend_request_status, description, profile_photo_project_file_id, is_active,
                 created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $contact->getId(),
                 $contact->getCqContactUrl(),
                 $contact->getCqContactDomain(),
                 $contact->getCqContactUsername(),
-                $contact->getCqContactId(),
                 $contact->getCqContactApiKey(),
                 $contact->getFriendRequestStatus(),
                 $contact->getDescription(),
@@ -106,25 +105,6 @@ class CqContactService
         $result = $userDb->executeQuery(
             'SELECT * FROM cq_contact WHERE id = ?',
             [$id]
-        )->fetchAssociative();
-
-        if (!$result) {
-            return null;
-        }
-
-        return CqContact::fromArray($result);
-    }
-
-    /**
-     * Find a contact by their global Federation User ID (cq_contact.cq_contact_id).
-     * This is the remote user's user.id UUID — NOT the local DB row id.
-     */
-    public function findByCqContactId(string $cqContactId): ?CqContact
-    {
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM cq_contact WHERE cq_contact_id = ?',
-            [$cqContactId]
         )->fetchAssociative();
 
         if (!$result) {
@@ -244,14 +224,13 @@ class CqContactService
         $result = $userDb->executeStatement(
             'UPDATE cq_contact SET 
                 cq_contact_url = ?, cq_contact_domain = ?, cq_contact_username = ?,
-                cq_contact_id = ?, cq_contact_api_key = ?, friend_request_status = ?, description = ?,
+                cq_contact_api_key = ?, friend_request_status = ?, description = ?,
                 profile_photo_project_file_id = ?, is_active = ?, updated_at = ?
              WHERE id = ?',
             [
                 $contact->getCqContactUrl(),
                 $contact->getCqContactDomain(),
                 $contact->getCqContactUsername(),
-                $contact->getCqContactId(),
                 $contact->getCqContactApiKey(),
                 $contact->getFriendRequestStatus(),
                 $contact->getDescription(),

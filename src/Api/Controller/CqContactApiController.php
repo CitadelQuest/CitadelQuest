@@ -131,9 +131,6 @@ class CqContactApiController extends AbstractController
             if (isset($data['cqContactUsername'])) {
                 $contact->setCqContactUsername($data['cqContactUsername']);
             }
-            if (isset($data['cqContactId'])) {
-                $contact->setCqContactId($data['cqContactId']);
-            }
             if (isset($data['cqContactApiKey'])) {
                 $contact->setCqContactApiKey($data['cqContactApiKey']);
             }
@@ -261,6 +258,7 @@ class CqContactApiController extends AbstractController
 
     /**
      * Check which shares have already been downloaded locally.
+     * Looks up project_file_remote.source_url — the actual download URL stored when a share was downloaded.
      * Returns a map of share_url → { downloaded: bool, path, fileName } for each share.
      */
     #[Route('/{id}/check-downloads', name: 'app_api_cq_contact_check_downloads', methods: ['POST'])]
@@ -274,37 +272,21 @@ class CqContactApiController extends AbstractController
 
             $data = json_decode($request->getContent(), true);
             $shares = $data['shares'] ?? [];
-            $projectId = 'general';
-            $slug = $this->buildContactSlug($contact);
-            $cqmpackDir = '/memory/cq-contact/' . $slug;
+            $contactUrl = rtrim($contact->getCqContactUrl(), '/');
 
             $results = [];
             foreach ($shares as $share) {
                 $shareUrl = $share['share_url'] ?? '';
-                $sourceType = $share['source_type'] ?? 'file';
-                $title = $share['title'] ?? '';
 
-                if ($sourceType === 'cqmpack') {
-                    // Check in /memory/cq-contact/{slug}/
-                    $fileName = $title;
-                    if (!str_ends_with($fileName, '.cqmpack')) {
-                        $fileName .= '.cqmpack';
-                    }
-                    $file = $this->projectFileService->findByPathAndName($projectId, $cqmpackDir, $fileName);
-                    $results[$shareUrl] = [
-                        'downloaded' => $file !== null,
-                        'path' => $cqmpackDir,
-                        'fileName' => $fileName,
-                    ];
-                } else {
-                    // Check in /downloads/
-                    $file = $this->projectFileService->findByPathAndName($projectId, '/downloads', $title);
-                    $results[$shareUrl] = [
-                        'downloaded' => $file !== null,
-                        'path' => '/downloads',
-                        'fileName' => $title,
-                    ];
-                }
+                // Build the source URL that was stored in project_file_remote on download
+                $sourceUrl = $contactUrl . '/share/' . $shareUrl;
+                $remote = $this->projectFileService->findRemoteFileBySourceUrl($sourceUrl);
+
+                $results[$shareUrl] = [
+                    'downloaded' => $remote !== null,
+                    'path' => $remote['path'] ?? null,
+                    'fileName' => $remote['name'] ?? null,
+                ];
             }
 
             return $this->json(['success' => true, 'downloads' => $results]);
@@ -406,17 +388,24 @@ class CqContactApiController extends AbstractController
         $existingFile = $this->projectFileService->findByPathAndName($projectId, $dirPath, $fileName);
         if ($existingFile) {
             $this->projectFileService->updateFile($existingFile->getId(), $content);
+            $fileId = $existingFile->getId();
         } else {
-            $this->projectFileService->createFile($projectId, $dirPath, $fileName, $content, 'application/x-sqlite3');
+            $file = $this->projectFileService->createFile($projectId, $dirPath, $fileName, $content, 'application/x-sqlite3');
+            $fileId = $file->getId();
+        }
+
+        // Create remote file record so File Browser shows cloud icon
+        try {
+            $this->projectFileService->createRemoteFileRecord($fileId, $sourceUrl, $contact->getId());
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to create remote file record for cqmpack', ['error' => $e->getMessage()]);
         }
 
         // Set source_url and source_cq_contact_id in the pack metadata
         try {
             $this->memoryPackService->open($projectId, $dirPath, $fileName);
             $this->memoryPackService->setSourceUrl($sourceUrl);
-            if ($contact->getCqContactId()) {
-                $this->memoryPackService->setSourceCqContactId($contact->getCqContactId());
-            }
+            $this->memoryPackService->setSourceCqContactId($contact->getId());
             $this->memoryPackService->touchSyncedAt();
             $this->memoryPackService->close();
         } catch (\Exception $e) {
@@ -494,7 +483,7 @@ class CqContactApiController extends AbstractController
             $this->projectFileService->createRemoteFileRecord(
                 $fileId,
                 $sourceUrl,
-                $contact->getCqContactId()
+                $contact->getId()
             );
         } catch (\Exception $e) {
             $this->logger->warning('Failed to create remote file record', ['error' => $e->getMessage()]);
@@ -516,7 +505,7 @@ class CqContactApiController extends AbstractController
     {
         $username = $this->slugger->slug($contact->getCqContactUsername())->toString();
         // short id = last 12 chars
-        $shortId = $contact->getCqContactId() ? substr($contact->getCqContactId(), -12) : substr($contact->getId(), -12);
+        $shortId = substr($contact->getId(), -12);
         return $username . '-' . $shortId;
     }
 

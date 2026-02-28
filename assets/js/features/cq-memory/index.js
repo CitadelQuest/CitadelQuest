@@ -454,7 +454,8 @@ class CQMemoryExplorer {
             if (selectedOption && selectedOption.value === this.currentPackPath) {
                 const displayName = pack?.displayName || packData.name.replace('.cqmpack', '');
                 const syncIcon = pack?.sourceUrl ? ' \u2601' : '';
-                selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})${syncIcon}`;
+                const shareIcon = pack?.isShared ? ' \u25C0' : '';
+                selectedOption.textContent = `${displayName} (${nodeCount} ${trans.nodes})${syncIcon}${shareIcon}`;
             }
         } catch (e) {
             console.error('Failed to update pack selector node count:', e);
@@ -2547,7 +2548,8 @@ class CQMemoryExplorer {
                 packsToShow.forEach(pack => {
                     const nodeCount = pack.totalNodes || 0;
                     const syncIcon = pack.sourceUrl ? ' \u2601' : '';
-                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})${syncIcon}`;
+                    const shareIcon = pack.isShared ? ' \u25C0' : '';
+                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})${syncIcon}${shareIcon}`;
                     const packValue = JSON.stringify({ path: pack.path, name: pack.name });
                     html += `<option value='${this.escapeHtml(packValue)}'>${this.escapeHtml(label)}</option>`;
                 });

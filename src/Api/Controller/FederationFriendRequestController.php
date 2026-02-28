@@ -167,11 +167,27 @@ class FederationFriendRequestController extends AbstractController
                 // friend request accepted from another server
                 case 'ACCEPTED':
                     if ($cqContact && $cqContact->getFriendRequestStatus() === 'SENT') {
-                        // update CqContact
-                        $cqContact->setFriendRequestStatus('ACCEPTED');
-                        $cqContact->setCqContactId($data['cq_contact_id']);
-                        $cqContact->setIsActive(true);
-                        $this->cqContactService->updateContact($cqContact);
+                        // Replace contact row: old local UUID -> new global Federation UUID
+                        $oldId = $cqContact->getId();
+                        $newId = $data['cq_contact_id'];
+                        if ($oldId !== $newId) {
+                            $this->cqContactService->deleteContact($oldId);
+                            $cqContact = $this->cqContactService->createContact(
+                                $cqContact->getCqContactUrl(),
+                                $cqContact->getCqContactDomain(),
+                                $cqContact->getCqContactUsername(),
+                                $newId,
+                                $cqContact->getCqContactApiKey(),
+                                'ACCEPTED',
+                                $cqContact->getDescription(),
+                                $cqContact->getProfilePhotoProjectFileId(),
+                                true
+                            );
+                        } else {
+                            $cqContact->setFriendRequestStatus('ACCEPTED');
+                            $cqContact->setIsActive(true);
+                            $this->cqContactService->updateContact($cqContact);
+                        }
 
                         // Send a `friend request accepted` notification
                         $this->notificationService->createNotification(
@@ -198,7 +214,6 @@ class FederationFriendRequestController extends AbstractController
                     if ($cqContact) {
                         // update CqContact
                         $cqContact->setFriendRequestStatus('REJECTED');
-                        $cqContact->setCqContactId($data['cq_contact_id']);
                         $cqContact->setIsActive(false);
                         $this->cqContactService->updateContact($cqContact);
 
