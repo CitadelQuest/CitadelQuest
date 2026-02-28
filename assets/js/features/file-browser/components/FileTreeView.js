@@ -267,6 +267,7 @@ export class FileTreeView {
         nodeElement.dataset.name = node.name;
         nodeElement.dataset.type = node.type;
         nodeElement.dataset.isRemote = node.isRemote ? '1' : '';
+        nodeElement.dataset.isShared = node.isShared ? '1' : '';
         
         // Create toggle button for directories
         const toggleElement = document.createElement('span');
@@ -379,6 +380,15 @@ export class FileTreeView {
                 remoteIcon.style.fontSize = '0.75rem';
                 labelElement.appendChild(remoteIcon);
             }
+
+            // Add share icon for shared files
+            if (node.isShared) {
+                const shareIcon = document.createElement('i');
+                shareIcon.className = 'mdi mdi-share-variant text-success ms-1';
+                shareIcon.title = 'Shared via CQ Share';
+                shareIcon.style.fontSize = '0.75rem';
+                labelElement.appendChild(shareIcon);
+            }
             
             // Add file size to metadata
             if (node.size) {
@@ -467,7 +477,8 @@ export class FileTreeView {
             name: node.dataset.name,
             type: node.dataset.type,
             id: node.dataset.id,
-            isRemote: !!node.dataset.isRemote
+            isRemote: !!node.dataset.isRemote,
+            isShared: !!node.dataset.isShared
         }));
     }
     

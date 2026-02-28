@@ -75,6 +75,7 @@ class ProjectFileApiController extends AbstractController
                     $data['sourceUrl'] = $remote['source_url'] ?? null;
                     $data['syncedAt'] = $remote['synced_at'] ?? null;
                 }
+                $data['isShared'] = $this->projectFileService->isSharedFile($file->getId());
                 return $data;
             }, $files);
             
@@ -135,6 +136,7 @@ class ProjectFileApiController extends AbstractController
                 $data['sourceUrl'] = $remote['source_url'] ?? null;
                 $data['syncedAt'] = $remote['synced_at'] ?? null;
             }
+            $data['isShared'] = $this->projectFileService->isSharedFile($file->getId());
             
             return $this->json([
                 'success' => true,

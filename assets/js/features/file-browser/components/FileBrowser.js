@@ -778,13 +778,15 @@ export class FileBrowser {
         
         // File info header
         const isRemote = file.isRemote || false;
+        const isShared = file.isShared || false;
         const remoteIcon = isRemote ? ' <i class="mdi mdi-cloud-sync-outline text-cyber" title="Synced from remote Citadel"></i>' : '';
+        const shareIcon = isShared ? ' <i class="mdi mdi-share-variant text-success" title="Shared via CQ Share"></i>' : '';
         
         previewHtml += `
             <div class="file-preview-header">
                 <span class="mb-1 fw-bold">
                     <i class="${this.getFileIcon(file.name)}"></i>
-                    ${file.name}${remoteIcon}
+                    ${file.name}${remoteIcon}${shareIcon}
                 </span>
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
@@ -799,7 +801,7 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
                     </button>
-                    ${!isRemote ? `
+                    ${!isRemote && !isShared ? `
                     <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.share || 'Share'}</span>

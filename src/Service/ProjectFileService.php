@@ -798,6 +798,7 @@ class ProjectFileService
                         'created_at' => $item['created_at'],
                         'updated_at' => $item['updated_at'],
                         'isRemote' => $this->isRemoteFile($item['id']),
+                        'isShared' => $this->isSharedFile($item['id']),
                     ];
 
                     if ($condensed) {
@@ -1894,6 +1895,23 @@ class ProjectFileService
     public function isRemoteFile(string $projectFileId): bool
     {
         return $this->getRemoteFileRecord($projectFileId) !== null;
+    }
+
+    /**
+     * Check if a file has an active CQ Share.
+     */
+    public function isSharedFile(string $projectFileId): bool
+    {
+        try {
+            $userDb = $this->getUserDb();
+            $count = $userDb->executeQuery(
+                'SELECT COUNT(*) FROM cq_share WHERE source_id = ? AND is_active = 1',
+                [$projectFileId]
+            )->fetchOne();
+            return $count > 0;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
