@@ -7,29 +7,29 @@ $bg-overlay-opacity: 0.72;  // Decreased opacity for better readability
 
 // Theme-specific backgrounds
 :root {
-    &[data-theme='night-1'] .citadel-background::before {
-        background-image: url('../images/bg-dreamy-flowers-1.webp');
-    }
-    
-    &[data-theme='night-2'] .citadel-background::before {
-        background-image: url('../images/bg-dreamy-flowers-2.webp');
-    }
-    
     &[data-theme='day'] .citadel-background::before {
         background-image: url('../images/citadel_quest_bg.jpg');
     }
-    
-    &[data-theme='glow-1'] .citadel-background::before {
-        background-image: url('../images/bg-glow-flowers-1.jpg');
-    }
 
-    &[data-theme='night-3'] .citadel-background::before {
+    &[data-theme='night-1'] .citadel-background::before {
+        background-image: url('../images/bg-dreamy-flowers-2.webp');
+    }
+    
+    &[data-theme='night-2'] .citadel-background::before {
         background-image: url('../images/night-forest-sky.webp');
     }
 
     &[data-theme='clear'] .citadel-background::before {
         background-image: none;
     }
+    
+    /* &[data-theme='glow-1'] .citadel-background::before {
+        background-image: url('../images/bg-glow-flowers-1.jpg');
+    }
+    &[data-theme='night-1'] .citadel-background::before {
+        background-image: url('../images/bg-dreamy-flowers-1.webp');
+    } */
+    
 }
 
 // Background setup
