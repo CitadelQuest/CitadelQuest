@@ -81,7 +81,7 @@
                                                 </div>
                                             </td>
                                             <td class="user-email">{{ user.email|replace({"@": "<span class='text-cyber'>@</span>"})|raw }}</td>
-                                            <td class="text-cyber">{{ userStorage[user.id|default('')|string] ?? '-' }}</td>
+                                            <td class="text-cyber">{{ userStorage[user.id ~ ''] ?? '-' }}</td>
                                             {# <td>
                                                 <div class="user-roles">
                                                     {% for role in user.roles %}
