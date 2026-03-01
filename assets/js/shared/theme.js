@@ -1,8 +1,14 @@
 // Theme management service
 export class ThemeService {
     constructor() {
-        this.themes = ['day', 'night-1', 'night-2', 'clear'];
-        this.currentThemeIndex = 2; // Start with day as it's good ol' CQ default
+        this.themeList = [
+            { id: 'day',     name: 'CitadelQuest' },
+            { id: 'night-1', name: 'Night Forest' },
+            { id: 'night-2', name: 'Dreamy Flowers' },
+            { id: 'clear',   name: 'Clear' },
+        ];
+        this.themes = this.themeList.map(t => t.id);
+        this.currentThemeIndex = 2; // Start with night-2 as it's good ol' CQ default
         
         // Load saved theme if exists
         const savedTheme = localStorage.getItem('citadel-theme');
@@ -14,6 +20,23 @@ export class ThemeService {
             }
         } else {
             this.applyTheme(this.themes[this.currentThemeIndex]);
+        }
+    }
+
+    getThemes() {
+        return this.themeList;
+    }
+
+    getCurrentTheme() {
+        return this.themes[this.currentThemeIndex];
+    }
+
+    setTheme(themeId) {
+        const index = this.themes.indexOf(themeId);
+        if (index !== -1) {
+            this.currentThemeIndex = index;
+            this.applyTheme(themeId);
+            localStorage.setItem('citadel-theme', themeId);
         }
     }
 

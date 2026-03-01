@@ -49,7 +49,7 @@
                             <p class="">{{ 'settings.ai.models.description'|trans|default('Select which AI models to use for different purposes.') }}</p>
                             
                             <div class="row">
-                                <div class="col-md-6 mb-3">
+                                <div class="col-12 mb-3">
                                     <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}</label>
                                     <input type="hidden" id="primary_model" name="primary_model" value="{{ settings['ai.primary_ai_service_model_id'] ?? '' }}">
                                     <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="primary_model_selector_btn">
@@ -69,7 +69,7 @@
                                     <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                 </div>
                                 
-                                <div class="col-md-6 mb-3">
+                                <div class="col-12 mb-3">
                                     <label for="secondary_model" class="form-label"><i class="mdi mdi-image-edit-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
                                     <input type="hidden" id="secondary_model" name="secondary_model" value="{{ settings['ai.secondary_ai_service_model_id'] ?? '' }}">
                                     <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="secondary_model_selector_btn">

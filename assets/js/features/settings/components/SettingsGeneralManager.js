@@ -1,6 +1,17 @@
 // Using global window.toast service
 import * as bootstrap from 'bootstrap';
 
+import imgDay from '../../../../images/citadel_quest_bg.jpg';
+import imgNight1 from '../../../../images/night-forest-sky.webp';
+import imgNight2 from '../../../../images/bg-dreamy-flowers-2.webp';
+
+const themeImages = {
+    'day': imgDay,
+    'night-1': imgNight1,
+    'night-2': imgNight2,
+    'clear': null,
+};
+
 export class SettingsGeneralManager {
     constructor() {
         const container = document.querySelector('[data-translations]');
@@ -9,19 +20,112 @@ export class SettingsGeneralManager {
         this.passwordForm = document.getElementById('password-form');
         this.databaseSizeElement = document.getElementById('database-size');
         this.databaseOptimizeBtn = document.getElementById('database-optimize');
+        this.navItems = document.querySelectorAll('.settings-nav-item');
+        this.sections = document.querySelectorAll('.settings-section');
         this.initializeEventListeners();
+        this.initializeSectionNavigation();
+        this.initializeThemePreviews();
         this.loadDatabaseStats();
     }
 
     initializeEventListeners() {
-        this.emailForm.addEventListener('submit', this.handleEmailUpdate.bind(this));
-        this.passwordForm.addEventListener('submit', this.handlePasswordUpdate.bind(this));
+        if (this.emailForm) {
+            this.emailForm.addEventListener('submit', this.handleEmailUpdate.bind(this));
+        }
+        if (this.passwordForm) {
+            this.passwordForm.addEventListener('submit', this.handlePasswordUpdate.bind(this));
+        }
         
         if (this.databaseOptimizeBtn) {
             this.databaseOptimizeBtn.addEventListener('click', this.handleDatabaseOptimize.bind(this));
         }
+
+        window.addEventListener('hashchange', () => this.showSectionFromHash());
+    }
+
+    initializeSectionNavigation() {
+        this.navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = item.dataset.section;
+                if (section) {
+                    window.location.hash = section;
+                }
+            });
+        });
+
+        this.showSectionFromHash();
+    }
+
+    showSectionFromHash() {
+        const hash = window.location.hash.replace('#', '') || 'credentials';
+        this.showSection(hash);
+    }
+
+    showSection(sectionName) {
+        this.sections.forEach(section => {
+            if (section.dataset.section === sectionName) {
+                section.classList.remove('d-none');
+            } else {
+                section.classList.add('d-none');
+            }
+        });
+
+        this.navItems.forEach(item => {
+            if (item.dataset.section === sectionName) {
+                item.classList.add('active', 'bg-cyber');
+                item.classList.remove('bg-transparent');
+            } else {
+                item.classList.remove('active', 'bg-cyber');
+                item.classList.add('bg-transparent');
+            }
+        });
     }
     
+    initializeThemePreviews() {
+        const container = document.getElementById('theme-previews');
+        if (!container || !window.themeService) return;
+
+        const themes = window.themeService.getThemes();
+        const currentTheme = window.themeService.getCurrentTheme();
+
+        themes.forEach(theme => {
+            const card = document.createElement('div');
+            card.className = 'theme-preview-card' + (theme.id === currentTheme ? ' active' : '');
+            card.dataset.themeId = theme.id;
+            card.style.cssText = 'width:22%; min-height:100px; transition: border-color 0.2s, box-shadow 0.2s; border:1px solid transparent;';
+            card.classList.add('position-relative', 'd-inline-block', 'mb-2', 'rounded', 'overflow-hidden', 'cursor-pointer');
+            if (theme.id === currentTheme) {
+                card.classList.add('border-primary');
+            }
+
+            const img = document.createElement('div');
+            img.style.cssText = 'width:100%; height:70px; opacity:0.7; background-size:cover; background-position:center;';
+            if (themeImages[theme.id]) {
+                img.style.backgroundImage = `url(${themeImages[theme.id]})`;
+            } else {
+                img.style.backgroundColor = '#2e3135';
+            }
+
+            const label = document.createElement('div');
+            label.classList.add('bg-secondary', 'bg-opacity-50', 'rounded-bottom', 'small', 'text-center', 'p-1');
+            label.textContent = theme.name;
+
+            card.appendChild(img);
+            card.appendChild(label);
+
+            card.addEventListener('click', () => {
+                window.themeService.setTheme(theme.id);
+                container.querySelectorAll('.theme-preview-card').forEach(c => {
+                    c.classList.remove('active', 'border', 'border-primary', 'shadow');
+                });
+                card.classList.add('active', 'shadow', 'border', 'border-primary');
+            });
+
+            container.appendChild(card);
+        });
+    }
+
     async loadDatabaseStats() {
         if (!this.databaseSizeElement) return;
         

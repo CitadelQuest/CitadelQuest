@@ -35,6 +35,7 @@ window.toast = new ToastService();
 
 // Import theme service
 import themeService from '../js/shared/theme';
+window.themeService = themeService;
 
 // Initialize Bootstrap components
 document.addEventListener('DOMContentLoaded', () => {
