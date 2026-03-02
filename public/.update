@@ -874,6 +874,13 @@ class CitadelQuestUpdater
                         throw new Exception("Cache clearing failed");
                     }
 
+                    // Clear update check cache so dashboard doesn't show stale "update available" badge
+                    $updateCheckCache = $this->installDir . '/var/cache/update_check.json';
+                    if (file_exists($updateCheckCache)) {
+                        @unlink($updateCheckCache);
+                        $this->log("✓ Update check cache cleared", 'success');
+                    }
+
                     $this->log("✓ Update completed successfully!", 'success');
                     $this->log("CitadelQuest has been updated to version {$latestVersion}", 'success');
                     $this->log("Refresh the page to enjoy the new update!", 'warning');

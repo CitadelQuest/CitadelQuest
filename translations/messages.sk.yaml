@@ -464,7 +464,18 @@ profile:
 
 dashboard:
     title: 'Prehľad'
+    welcome: 'Vitajte, %username%!'
+    description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
+    quick_actions: 'Rýchle akcie'
+    spirit_description: 'Porozprávajte sa so svojím AI Duchom'
+    spirits_description: 'Spravujte svojich AI Duchov'
+    contacts_description: 'Spravujte svoje kontakty'
     shares_description: 'Zdieľajte súbory a Memory Packy'
+    files_description: 'Prehliadajte a spravujte svoje súbory'
+    settings_description: 'Nakonfigurujte svoj CitadelQuest'
+    backup_description: 'Vytvárajte a obnovujte zálohy'
+    memory_description: 'Skúmajte a spravujte vaše znalostné grafy'
+    admin_description: 'Administrácia Citadely'
 
 cq_memory:
     page_title: 'CQ Pamäť'

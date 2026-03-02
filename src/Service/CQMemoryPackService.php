@@ -2083,6 +2083,38 @@ class CQMemoryPackService
         );
     }
     
+    /**
+     * Purge non-completed jobs from a synced/downloaded pack.
+     * Cancels all pending/processing jobs that came from a remote source.
+     * This prevents foreign jobs from being executed locally and burning AI credits.
+     * 
+     * @return int Number of jobs purged
+     */
+    public function purgeNonCompletedJobs(): int
+    {
+        $db = $this->getConnection();
+        
+        $count = $db->executeQuery(
+            'SELECT COUNT(*) FROM memory_jobs WHERE status IN (?, ?)',
+            [MemoryJob::STATUS_PENDING, MemoryJob::STATUS_PROCESSING]
+        )->fetchOne();
+        
+        if ($count > 0) {
+            $db->executeStatement(
+                'UPDATE memory_jobs SET status = ?, completed_at = ?, error = ? WHERE status IN (?, ?)',
+                [
+                    MemoryJob::STATUS_CANCELLED,
+                    date('Y-m-d H:i:s'),
+                    'Cancelled: foreign job from remote sync',
+                    MemoryJob::STATUS_PENDING,
+                    MemoryJob::STATUS_PROCESSING
+                ]
+            );
+        }
+        
+        return (int) $count;
+    }
+    
     public function getActiveJobs(): array
     {
         $db = $this->getConnection();

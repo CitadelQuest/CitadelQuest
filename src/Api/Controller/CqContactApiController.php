@@ -407,6 +407,14 @@ class CqContactApiController extends AbstractController
             $this->memoryPackService->setSourceUrl($sourceUrl);
             $this->memoryPackService->setSourceCqContactId($contact->getId());
             $this->memoryPackService->touchSyncedAt();
+            // Purge foreign pending/processing jobs — prevents burning local AI credits
+            $purged = $this->memoryPackService->purgeNonCompletedJobs();
+            if ($purged > 0) {
+                $this->logger->info('CQ Contact download: purged {count} foreign jobs from downloaded pack', [
+                    'count' => $purged,
+                    'pack' => $dirPath . '/' . $fileName
+                ]);
+            }
             $this->memoryPackService->close();
         } catch (\Exception $e) {
             $this->logger->warning('Failed to set pack metadata after download', ['error' => $e->getMessage()]);

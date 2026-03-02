@@ -656,6 +656,14 @@ class CQMemoryLibraryService
                 $this->packService->setSourceCqContactId($sourceCqContactId);
             }
             $this->packService->touchSyncedAt();
+            // Purge foreign pending/processing jobs — prevents burning local AI credits
+            $purged = $this->packService->purgeNonCompletedJobs();
+            if ($purged > 0) {
+                $this->logger->info('CQ Share sync: purged {count} foreign jobs from synced pack', [
+                    'count' => $purged,
+                    'pack' => $packDir . '/' . $packName
+                ]);
+            }
             $this->packService->close();
 
             // Sync file size in project_file DB

@@ -333,6 +333,23 @@ class UpdatesService
                 try {
                     $this->packService->open('general', $packFile['path'], $packFile['name']);
 
+                    // Safety net: purge foreign jobs from synced/remote packs.
+                    // Layer 1 cleans jobs during CQ Memory sync and CQ Contact download,
+                    // but File Browser generic sync replaces the binary without opening
+                    // the pack as SQLite — so foreign jobs can slip through.
+                    $sourceUrl = $this->packService->getSourceUrl();
+                    if ($sourceUrl) {
+                        $syncedAt = $this->packService->getSyncedAt();
+                        if ($syncedAt) {
+                            $jobsToCheck = $this->packService->getJobsToProcess(10);
+                            foreach ($jobsToCheck as $foreignJob) {
+                                if ($foreignJob->getCreatedAt() < new \DateTime($syncedAt)) {
+                                    $this->packService->cancelJob($foreignJob->getId());
+                                }
+                            }
+                        }
+                    }
+
                     // Process ONE pending job step — only if no frontend /step loop is driving
                     if (!$result['processed']) {
                         $jobsToProcess = $this->packService->getJobsToProcess(1);
