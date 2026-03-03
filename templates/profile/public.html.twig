@@ -1,0 +1,139 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ profile_username }} @ {{ profile_domain }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+{# Hide navigation on public profile page #}
+<style>.navbar { display: none !important; }</style>
+
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+
+            {# Profile Header #}
+            <div class="card glass-panel mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center">
+                        {# Profile Photo #}
+                        <div class="me-4">
+                            {% if profile_has_photo %}
+                                <img src="{{ path('cq_profile_photo', {username: profile_username}) }}" 
+                                     alt="{{ profile_username }}" 
+                                     class="rounded-circle border border-2 border-success"
+                                     style="width: 96px; height: 96px; object-fit: cover;">
+                            {% else %}
+                                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                                     style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                                    <i class="mdi mdi-account text-secondary" style="font-size: 48px;"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {# Username & Domain #}
+                        <div class="flex-grow-1">
+                            <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
+                            <small class="text-muted">
+                                <i class="mdi mdi-web me-1"></i>
+                                {{ profile_domain }}
+                            </small>
+                            {% if profile_bio %}
+                                <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                            {% endif %}
+                        </div>
+
+                        {# Spirit Showcase (right side — desktop) #}
+                        {% if profile_spirits|length > 0 %}
+                        <div class="ms-3 d-none d-md-block">
+                            {% for spirit in profile_spirits %}
+                            <div class="d-flex align-items-center mb-1" style="white-space: nowrap;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                                     style="width: 28px; height: 28px; background: {{ spirit.color }}21;">
+                                    <i class="mdi mdi-ghost" style="color: {{ spirit.color }}; font-size: 14px;"></i>
+                                </div>
+                                <div>
+                                    <div class="small fw-bold text-light" style="line-height: 1.2;">
+                                        {{ spirit.name }}
+                                        {% if spirit.isPrimary and profile_spirits|length > 1 %}<i class="mdi mdi-star text-warning" style="font-size: 0.65rem;"></i>{% endif %}
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">Level {{ spirit.level }} | {{ spirit.experience }} XP</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# Spirit Showcase (mobile — below header) #}
+                    {% if profile_spirits|length > 0 %}
+                    <div class="d-md-none mt-3 pt-3 border-top border-secondary border-opacity-25">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for spirit in profile_spirits %}
+                            <div class="d-flex align-items-center" style="white-space: nowrap;">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-1"
+                                     style="width: 22px; height: 22px; background: {{ spirit.color }}21;">
+                                    <i class="mdi mdi-ghost" style="color: {{ spirit.color }}; font-size: 11px;"></i>
+                                </div>
+                                <span class="small text-light">{{ spirit.name }}</span>
+                                <span class="text-muted ms-1" style="font-size: 0.6rem;">Lv{{ spirit.level }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Public Shared Items #}
+            {% if profile_show_shares and profile_shares|length > 0 %}
+            <div class="card glass-panel">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <div class="mb-0">
+                        <i class="mdi mdi-share-variant me-2 text-success opacity-50"></i>
+                        <span class="text-cyber">{{ 'cq_contact.detail.shared_items'|trans }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush bg-transparent">
+                        {% for share in profile_shares %}
+                        <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: share.share_url}) }}"
+                           class="list-group-item list-group-item-action bg-transparent border-secondary border-opacity-25 px-4 py-3 text-decoration-none">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    {% if share.source_type == 'cqmpack' %}
+                                        <i class="mdi mdi-graph me-2 text-info"></i>
+                                    {% else %}
+                                        <i class="mdi mdi-file me-2 text-warning"></i>
+                                    {% endif %}
+                                    <span class="text-light">{{ share.title }}</span>
+                                    {% if share.source_type == 'cqmpack' %}
+                                        <span class="badge bg-info bg-opacity-25 text-info ms-2">{{ 'cq_contact.detail.memory_pack'|trans }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-25 text-warning ms-2">{{ 'cq_contact.detail.file'|trans }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="mdi mdi-eye me-1"></i>{{ share.views }} {{ 'cq_contact.detail.views'|trans }}
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {% if profile_theme is defined and profile_theme %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.documentElement.setAttribute('data-theme', '{{ profile_theme }}');
+        });
+    </script>
+    {% endif %}
+{% endblock %}

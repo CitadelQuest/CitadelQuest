@@ -62,6 +62,20 @@
                         <input type="url" class="form-control glass-input" id="cqContactUrl" required 
                                placeholder="https://example.citadelquest.com/username" value="https://">
                         <div class="small text-muted ms-2 mt-2">{{ 'cq_contact.url_help'|trans }}</div>
+                        <div id="contactUrlPreview" class="d-none mt-3">
+                            <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
+                                <div id="contactPreviewPhoto" class="me-3">
+                                    <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                                         style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
+                                        <i class="mdi mdi-account text-secondary" style="font-size: 24px;"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div id="contactPreviewUsername" class="text-cyber fw-bold"></div>
+                                    <div id="contactPreviewDomain" class="text-muted small"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="description" class="form-label">
@@ -189,15 +203,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const contactsHtml = filteredContacts.map(contact => {
             const statusBadge = getStatusBadge(contact.friendRequestStatus, contact.isActive);
+            const photoHtml = `
+                <img src="/api/cq-contact/${contact.id}/profile-photo" 
+                     alt="${contact.cqContactUsername}"
+                     class="rounded-circle border border-2 border-success"
+                     style="width: 40px; height: 40px; object-fit: cover;"
+                     onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');">
+                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
+                     style="width: 40px; height: 40px; background: rgba(255,255,255,0.05);">
+                    <i class="mdi mdi-account text-secondary" style="font-size: 20px;"></i>
+                </div>
+            `;
             return `
                 <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
                     <div class="card glass-panel h-100 contact-card" data-contact-id="${contact.id}">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h6 class="card-title mb-0">
-                                    <a href="/cq-contact/${contact.id}" class="text-decoration-none text-light">
-                                        <i class="mdi mdi-account me-2"></i>
-                                        ${contact.cqContactUsername}
+                                    <a href="/cq-contact/${contact.id}" class="text-decoration-none text-light d-flex align-items-center">
+                                        ${photoHtml}
+                                        <span class="ms-2">${contact.cqContactUsername}</span>
                                     </a>
                                 </h6>
                                 ${statusBadge}
@@ -268,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getStatusBadge(status, isActive) {
         if (status === 'ACCEPTED' && isActive) {
-            return '<span class="badge bg-success mb-2"><i class="mdi mdi-check me-1"></i>{{ "cq_contact.status_active"|trans }}</span>';
+            return '<span class="badge bg-success opacity-50 mb-2"><i class="mdi mdi-check"></i></span>';
         } else if (status === 'SENT') {
             return '<span class="badge bg-warning mb-2"><i class="mdi mdi-clock me-1"></i>{{ "cq_contact.status_sent"|trans }}</span>';
         } else if (status === 'RECEIVED') {
@@ -479,6 +504,81 @@ document.addEventListener('DOMContentLoaded', function() {
         if (contactId) {
             deleteContact(contactId);
         }
+    });
+
+    // ========================================
+    // Add Contact URL preview
+    // ========================================
+    let previewTimeout = null;
+    const cqContactUrlInput = document.getElementById('cqContactUrl');
+    const contactUrlPreview = document.getElementById('contactUrlPreview');
+    const contactPreviewPhoto = document.getElementById('contactPreviewPhoto');
+    const contactPreviewUsername = document.getElementById('contactPreviewUsername');
+    const contactPreviewDomain = document.getElementById('contactPreviewDomain');
+
+    cqContactUrlInput.addEventListener('input', function() {
+        clearTimeout(previewTimeout);
+        const url = this.value.trim();
+
+        // Need at least https://x.y/username pattern
+        if (url.length < 10 || !url.startsWith('https://')) {
+            contactUrlPreview.classList.add('d-none');
+            return;
+        }
+
+        try {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split('/').filter(p => p);
+            if (pathParts.length === 0) {
+                contactUrlPreview.classList.add('d-none');
+                return;
+            }
+
+            const username = pathParts[pathParts.length - 1];
+            const domain = urlObj.hostname;
+
+            // Show preview immediately with parsed info
+            contactPreviewUsername.textContent = username;
+            contactPreviewDomain.textContent = domain;
+            contactUrlPreview.classList.remove('d-none');
+
+            // Reset photo to default
+            contactPreviewPhoto.innerHTML = `
+                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                     style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
+                    <i class="mdi mdi-loading mdi-spin text-muted" style="font-size: 20px;"></i>
+                </div>
+            `;
+
+            // Debounce the photo fetch
+            previewTimeout = setTimeout(() => {
+                const photoUrl = `/api/cq-contact/preview-photo?url=${encodeURIComponent(url)}`;
+                const img = new Image();
+                img.onload = function() {
+                    contactPreviewPhoto.innerHTML = `
+                        <img src="${photoUrl}" alt="${username}"
+                             class="rounded-circle border border-2 border-success"
+                             style="width: 48px; height: 48px; object-fit: cover;">
+                    `;
+                };
+                img.onerror = function() {
+                    contactPreviewPhoto.innerHTML = `
+                        <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                             style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
+                            <i class="mdi mdi-account text-secondary" style="font-size: 24px;"></i>
+                        </div>
+                    `;
+                };
+                img.src = photoUrl;
+            }, 600);
+        } catch (e) {
+            contactUrlPreview.classList.add('d-none');
+        }
+    });
+
+    // Reset preview when modal closes
+    document.getElementById('addContactModal').addEventListener('hidden.bs.modal', function() {
+        contactUrlPreview.classList.add('d-none');
     });
 
     // Search and filter event listeners

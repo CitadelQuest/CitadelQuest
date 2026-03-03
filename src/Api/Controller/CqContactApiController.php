@@ -38,6 +38,47 @@ class CqContactApiController extends AbstractController
     }
     
     /**
+     * Preview a remote CQ Profile by URL (for "Add Contact" modal).
+     * Fetches the public profile photo from the given contact URL.
+     * No federation auth — relies on the target having public profile enabled.
+     */
+    #[Route('/preview-photo', name: 'app_api_cq_contact_preview_photo', methods: ['GET'])]
+    public function previewPhoto(Request $request): Response
+    {
+        $url = $request->query->get('url', '');
+        if (empty($url)) {
+            return new Response('', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            // Parse URL to get photo endpoint: {url}/photo
+            $photoUrl = rtrim($url, '/') . '/photo';
+
+            $response = $this->httpClient->request('GET', $photoUrl, [
+                'headers' => [
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 5,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            $contentType = $response->getHeaders(false)['content-type'][0] ?? 'image/jpeg';
+            $content = $response->getContent(false);
+
+            return new Response($content, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=300',
+            ]);
+        } catch (\Exception $e) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    /**
      * Get badge counts (pending friend requests, etc.)
      */
     #[Route('/badges', name: 'app_api_cq_contact_badges', methods: ['GET'])]
@@ -515,6 +556,121 @@ class CqContactApiController extends AbstractController
         // short id = last 12 chars
         $shortId = substr($contact->getId(), -12);
         return $username . '-' . $shortId;
+    }
+
+    // ========================================
+    // CQ Profile — Federation proxy
+    // ========================================
+
+    /**
+     * Proxy: fetch user-profile from a remote contact's Citadel.
+     * Calls POST {contactUrl}/api/federation/user-profile with Bearer auth.
+     */
+    #[Route('/{id}/profile', name: 'app_api_cq_contact_profile', methods: ['GET'])]
+    public function getContactProfile(string $id): JsonResponse
+    {
+        try {
+            $contact = $this->cqContactService->findById($id);
+            if (!$contact) {
+                return $this->json(['success' => false, 'message' => 'Contact not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$contact->getCqContactApiKey()) {
+                return $this->json(['success' => false, 'message' => 'No API key for this contact'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $profileUrl = rtrim($contact->getCqContactUrl(), '/') . '/api/federation/user-profile';
+
+            $response = $this->httpClient->request('POST', $profileUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Remote server returned HTTP ' . $statusCode,
+                ], Response::HTTP_BAD_GATEWAY);
+            }
+
+            $data = $response->toArray(false);
+
+            // Sync local contact description from federation response
+            $updated = false;
+            $remoteBio = $data['bio'] ?? null;
+            if ($remoteBio !== $contact->getDescription()) {
+                $contact->setDescription($remoteBio);
+                $updated = true;
+            }
+            if ($updated) {
+                $this->cqContactService->updateContact($contact);
+            }
+
+            return $this->json([
+                'success' => true,
+                'profile' => $data,
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('CqContactApiController::getContactProfile error', [
+                'contactId' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Proxy: fetch profile photo from a remote contact's Citadel.
+     * The browser can't send Authorization headers in <img src>, so we proxy it.
+     */
+    #[Route('/{id}/profile-photo', name: 'app_api_cq_contact_profile_photo', methods: ['GET'])]
+    public function getContactProfilePhoto(string $id): Response
+    {
+        try {
+            $contact = $this->cqContactService->findById($id);
+            if (!$contact) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$contact->getCqContactApiKey()) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            $photoUrl = rtrim($contact->getCqContactUrl(), '/') . '/photo';
+
+            $response = $this->httpClient->request('GET', $photoUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 10,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            $contentType = $response->getHeaders(false)['content-type'][0] ?? 'image/jpeg';
+            $content = $response->getContent(false);
+
+            return new Response($content, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->warning('CqContactApiController::getContactProfilePhoto error', [
+                'contactId' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
     }
 
     #[Route('/{id}/friend-request', name: 'app_api_cq_contact_friend_request', methods: ['POST'])]

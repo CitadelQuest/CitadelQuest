@@ -622,3 +622,25 @@ div[data-type="tool_calls_frontend_data"] pre
 .memory-jobs-pulse {
     animation: memory-jobs-pulse 2.5s ease-in-out infinite;
 }
+
+// Reusable tab nav style (consistent across app — Memory Explorer, CQ Profile, etc.)
+.cq-tabs {
+    border-bottom: 1px solid rgba(colors.$cyber, 0.2);
+
+    .nav-link {
+        color: rgba(colors.$secondary, 0.7);
+        background: transparent !important;
+        border: none !important;
+        font-size: 0.85rem;
+        padding: 0.35rem 0.75rem;
+        transition: all vars.$duration-quick;
+
+        &:hover {
+            color: colors.$cyber;
+        }
+
+        &.active {
+            color: colors.$cyber;
+        }
+    }
+}

@@ -14,8 +14,11 @@
             <!-- Contact Profile Card -->
             <div class="glass-panel glass-panel-glow p-4 mb-4">
                 <div class="d-flex align-items-center mb-3">
-                    <div class="me-3">
-                        <i class="mdi mdi-account-circle fs-1 text-primary"></i>
+                    <div class="me-3" id="contactProfilePhoto">
+                        <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                             style="width: 64px; height: 64px; background: rgba(255,255,255,0.05);">
+                            <i class="mdi mdi-account text-secondary" style="font-size: 32px;"></i>
+                        </div>
                     </div>
                     <div class="flex-grow-1">
                         <h2 class="h3 mb-0 text-cyber">{{ contact.cqContactUsername }}</h2>
@@ -26,6 +29,7 @@
                             </a>
                         </small>
                     </div>
+                    <div id="contactProfileSpirits" class="ms-3 d-none"></div>
                     <div>
                         {% if contact.isActive %}
                             {# <span class="badge bg-success"><i class="mdi mdi-check-circle me-1"></i>{{ 'cq_contact.active'|trans }}</span> #}
@@ -34,9 +38,11 @@
                         {% endif %}
                     </div>
                 </div>
-                {% if contact.description %}
-                    <p class="text-light mb-0 ms-5 ps-2">{{ contact.description }}</p>
-                {% endif %}
+                <div id="contactProfileBio">
+                    {% if contact.description %}
+                        <p class="text-light mb-0 ms-5 ps-2">{{ contact.description }}</p>
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Shared Items -->

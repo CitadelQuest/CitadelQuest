@@ -9,6 +9,7 @@ use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiModelsSyncService;
 use App\Service\SettingsService;
+use App\Service\ProjectFileService;
 use App\Service\StorageService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +33,7 @@ class UserSettingsController extends AbstractController
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly AiModelsSyncService $aiModelsSyncService,
         private readonly SettingsService $settingsService,
+        private readonly ProjectFileService $projectFileService,
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
         private readonly StorageService $storageService
@@ -633,5 +635,141 @@ class UserSettingsController extends AbstractController
         
         $this->addFlash('success', 'AI model deleted successfully.');
         return $this->redirectToRoute('app_user_settings_ai_models');
+    }
+
+    // ========================================
+    // Profile Settings
+    // ========================================
+
+    #[Route('/profile', name: 'app_user_settings_profile', methods: ['GET'])]
+    public function profile(): Response
+    {
+        $settings = $this->settingsService->getAllSettings();
+        $user = $this->getUser();
+
+        // Get current profile photo info
+        $photoFileId = $settings['profile.photo_project_file_id'] ?? null;
+
+        return $this->render('user_settings/profile.html.twig', [
+            'settings' => $settings,
+            'user' => $user,
+            'photoFileId' => $photoFileId,
+        ]);
+    }
+
+    #[Route('/profile', name: 'app_user_settings_profile_save', methods: ['POST'])]
+    public function profileSave(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return new JsonResponse(['success' => false, 'message' => 'Invalid JSON'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Save profile settings
+            $allowedKeys = [
+                'profile.bio',
+                'profile.public_page_enabled',
+                'profile.public_page_show_photo',
+                'profile.public_page_show_shares',
+                'profile.public_page_show_spirits',
+                'profile.public_page_theme',
+                'profile.federation_show_bio',
+                'profile.federation_show_photo',
+                'profile.federation_show_spirits',
+                'profile.federation_show_status',
+            ];
+
+            foreach ($allowedKeys as $key) {
+                $shortKey = str_replace('profile.', '', $key);
+                if (array_key_exists($shortKey, $data)) {
+                    $this->settingsService->setSetting($key, $data[$shortKey]);
+                }
+            }
+
+            return new JsonResponse(['success' => true, 'message' => 'Profile settings saved']);
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::profileSave error', ['error' => $e->getMessage()]);
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/profile/photo', name: 'app_user_settings_profile_photo_upload', methods: ['POST'])]
+    public function profilePhotoUpload(Request $request): JsonResponse
+    {
+        try {
+            $uploadedFile = $request->files->get('photo');
+            if (!$uploadedFile) {
+                return new JsonResponse(['success' => false, 'message' => 'No file uploaded'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Validate image type
+            $mimeType = $uploadedFile->getMimeType();
+            if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'])) {
+                return new JsonResponse(['success' => false, 'message' => 'Invalid image type. Allowed: JPEG, PNG, WebP, GIF'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Validate file size (5MB max for profile photos)
+            if ($uploadedFile->getSize() > 5 * 1024 * 1024) {
+                return new JsonResponse(['success' => false, 'message' => 'File too large. Maximum 5MB.'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Delete old photo if exists
+            $oldPhotoId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+            if ($oldPhotoId) {
+                try {
+                    $this->projectFileService->delete($oldPhotoId);
+                } catch (\Exception $e) {
+                    // Old file may already be gone, continue
+                }
+            }
+
+            // Upload new photo to general project under /profile/
+            $extension = $uploadedFile->guessExtension() ?? 'jpg';
+            
+            // Rename uploaded file to standard name
+            $fileName = 'photo.' . $extension;
+            
+            // Check if a file with this name exists and delete it first
+            $existingFile = $this->projectFileService->findByPathAndName('general', '/profile', $fileName);
+            if ($existingFile) {
+                $this->projectFileService->delete($existingFile->getId());
+            }
+
+            $file = $this->projectFileService->uploadFile('general', '/profile', $uploadedFile);
+
+            // Save file ID to settings
+            $this->settingsService->setSetting('profile.photo_project_file_id', $file->getId());
+
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Profile photo uploaded',
+                'fileId' => $file->getId(),
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::profilePhotoUpload error', ['error' => $e->getMessage()]);
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/profile/photo', name: 'app_user_settings_profile_photo_delete', methods: ['DELETE'])]
+    public function profilePhotoDelete(): JsonResponse
+    {
+        try {
+            $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+            if ($photoFileId) {
+                try {
+                    $this->projectFileService->delete($photoFileId);
+                } catch (\Exception $e) {
+                    // File may already be gone
+                }
+                $this->settingsService->setSetting('profile.photo_project_file_id', null);
+            }
+
+            return new JsonResponse(['success' => true, 'message' => 'Profile photo removed']);
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::profilePhotoDelete error', ['error' => $e->getMessage()]);
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

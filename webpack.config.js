@@ -42,6 +42,7 @@ Encore
     .addEntry('cq-memory', './assets/entries/cq-memory.js')
     .addEntry('ai-model-selector', './assets/entries/ai-model-selector.js')
     .addEntry('cq-contact-detail', './assets/entries/cq-contact-detail.js')
+    .addEntry('settings-profile', './assets/entries/settings-profile.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

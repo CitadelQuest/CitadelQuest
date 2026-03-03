@@ -36,7 +36,71 @@ export class ContactDetailManager {
         window.showAddToLibraryModal = (packPath, packName) => this.showAddToLibraryModal(packPath, packName);
         window.showPackInMemoryExplorer = (packPath, packName) => this.showPackInMemoryExplorer(packPath, packName);
 
+        this.fetchProfile();
         this.loadShares();
+    }
+
+    async fetchProfile() {
+        try {
+            const response = await fetch(`/api/cq-contact/${this.contact.id}/profile`);
+            const data = await response.json();
+
+            if (!data.success || !data.profile) return;
+
+            const profile = data.profile;
+
+            // Update photo — use local proxy to handle cross-origin auth
+            const photoEl = document.getElementById('contactProfilePhoto');
+            if (photoEl && profile.photo_url) {
+                const proxyUrl = `/api/cq-contact/${this.contact.id}/profile-photo`;
+                photoEl.innerHTML = `
+                    <img src="${proxyUrl}" alt="${profile.username || ''}"
+                         class="rounded-circle border border-2 border-success"
+                         style="width: 64px; height: 64px; object-fit: cover;"
+                         onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon')?.classList.remove('d-none');">
+                    <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none fallback-icon"
+                         style="width: 64px; height: 64px; background: rgba(255,255,255,0.05);">
+                        <i class="mdi mdi-account text-secondary" style="font-size: 32px;"></i>
+                    </div>
+                `;
+            }
+
+            // Update bio
+            const bioEl = document.getElementById('contactProfileBio');
+            if (bioEl && profile.bio) {
+                const escaped = profile.bio.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                bioEl.innerHTML = `<p class="text-light mb-0 ms-5 ps-2">${escaped}</p>`;
+            } else if (bioEl && !profile.bio) {
+                bioEl.innerHTML = '';
+            }
+
+            // Update spirits
+            const spiritsEl = document.getElementById('contactProfileSpirits');
+            if (spiritsEl && profile.spirits && profile.spirits.length > 0) {
+                spiritsEl.innerHTML = profile.spirits.map(spirit => {
+                    const color = spirit.color || '#95ec86';
+                    const star = spirit.isPrimary && profile.spirits.length > 1
+                        ? `<i class="mdi mdi-star text-warning" style="font-size: 0.65rem;"></i>` : '';
+                    return `
+                        <div class="d-flex align-items-center mb-1" style="white-space: nowrap;">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                                 style="width: 28px; height: 28px; background: ${color}21;">
+                                <i class="mdi mdi-ghost" style="color: ${color}; font-size: 14px;"></i>
+                            </div>
+                            <div>
+                                <div class="small fw-bold text-light" style="line-height: 1.2;">
+                                    ${spirit.name}${star}
+                                </div>
+                                <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">Level ${spirit.level || 1} | ${spirit.experience || 0} XP</div>
+                            </div>
+                        </div>`;
+                }).join('');
+                spiritsEl.classList.remove('d-none');
+            }
+        } catch (e) {
+            // Silently fail — profile fetch is optional enhancement
+            console.debug('Profile fetch failed:', e.message);
+        }
     }
 
     t(key, fallback) {

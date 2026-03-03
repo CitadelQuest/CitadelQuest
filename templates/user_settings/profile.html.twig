@@ -1,0 +1,232 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'profile.settings.page_title'|trans|default('Profile Settings') }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent pb-2">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2"></i> {{ 'settings.general.title'|trans|default('General Settings') }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-cyber border-0">
+                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                    </a>
+                    <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
+                    <h4 class="mb-0"><i class="mdi mdi-account-circle me-3"></i>{{ 'profile.settings.title'|trans|default('Profile') }}</h4>
+                </div>
+                <div class="p-4" id="profile-settings"
+                     data-save-url="{{ path('app_user_settings_profile_save') }}"
+                     data-photo-upload-url="{{ path('app_user_settings_profile_photo_upload') }}"
+                     data-photo-delete-url="{{ path('app_user_settings_profile_photo_delete') }}"
+                     data-public-url="{{ url('cq_profile_public', {username: user.username}) }}"
+                     data-photo-file-id="{{ settings['profile.photo_project_file_id']|default('') }}"
+                     data-translations="{{ {
+                         'saved': 'profile.settings.saved'|trans|default('Profile settings saved'),
+                         'save_error': 'profile.settings.save_error'|trans|default('Failed to save profile settings'),
+                         'photo_uploaded': 'profile.settings.photo_uploaded'|trans|default('Profile photo uploaded'),
+                         'photo_upload_error': 'profile.settings.photo_upload_error'|trans|default('Failed to upload photo'),
+                         'photo_removed': 'profile.settings.photo_removed'|trans|default('Profile photo removed'),
+                         'photo_remove_error': 'profile.settings.photo_remove_error'|trans|default('Failed to remove photo')
+                     }|json_encode|e('html_attr') }}">
+
+                    {# Profile Photo #}
+                    <div class="row mb-4">
+                        <div class="col-12 mb-3">
+                            <h6><i class="mdi mdi-camera me-2"></i>{{ 'profile.settings.photo'|trans|default('Profile Photo') }}</h6>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center">
+                                <div id="profile-photo-preview" class="me-4">
+                                    {% if photoFileId %}
+                                        <img src="{{ path('cq_profile_photo', {username: user.username}) }}?t={{ 'now'|date('U') }}" 
+                                             alt="{{ user.username }}" 
+                                             class="rounded-circle border border-2 border-success"
+                                             style="width: 96px; height: 96px; object-fit: cover;">
+                                    {% else %}
+                                        <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                                             style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                                            <i class="mdi mdi-account text-secondary" style="font-size: 48px;"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <input type="file" id="profile-photo-input" accept="image/jpeg,image/png,image/webp,image/gif" class="d-none">
+                                    <button type="button" id="profile-photo-upload-btn" class="btn btn-sm btn-cyber me-2">
+                                        <i class="mdi mdi-upload me-1"></i>{{ 'profile.settings.upload_photo'|trans|default('Upload Photo') }}
+                                    </button>
+                                    <button type="button" id="profile-photo-remove-btn" class="btn btn-sm btn-outline-danger {% if not photoFileId %}d-none{% endif %}">
+                                        <i class="mdi mdi-delete me-1"></i>{{ 'profile.settings.remove_photo'|trans|default('Remove') }}
+                                    </button>
+                                    <div class="text-muted small mt-1">{{ 'profile.settings.photo_hint'|trans|default('JPEG, PNG, WebP or GIF. Max 5MB.') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-secondary border-opacity-25">
+
+                    {# Bio #}
+                    <div class="row mb-4">
+                        <div class="col-12 mb-3">
+                            <h6><i class="mdi mdi-text me-2"></i>{{ 'profile.settings.bio_label'|trans|default('Bio') }}</h6>
+                        </div>
+                        <div class="col-12">
+                            <textarea id="profile-bio" class="form-control border-secondary" rows="3" 
+                                      placeholder="{{ 'profile.settings.bio_placeholder'|trans|default('Tell the world a bit about yourself...') }}"
+                                      maxlength="500">{{ settings['profile.bio']|default('') }}</textarea>
+                            <div class="text-muted small mt-1">
+                                <span id="profile-bio-count">{{ settings['profile.bio']|default('')|length }}</span>/500
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-secondary border-opacity-25">
+
+                    {# Visibility Settings — Tabbed Nav (Memory Explorer style) #}
+                    <ul class="nav nav-tabs cq-tabs mb-3" id="profile-visibility-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active px-3 py-1" id="tab-public-page" data-bs-toggle="tab" data-bs-target="#panel-public-page" type="button" role="tab">
+                                <i class="mdi mdi-web me-1"></i>{{ 'profile.settings.public_page'|trans|default('Public Profile Page') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-federation" data-bs-toggle="tab" data-bs-target="#panel-federation" type="button" role="tab">
+                                <i class="mdi mdi-account-group me-1"></i>{{ 'profile.settings.federation'|trans|default('CQ Contact Visibility') }}
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        {# Public Profile Page Tab #}
+                        <div class="tab-pane fade show active" id="panel-public-page" role="tabpanel">
+                            <p class="text-muted small mb-3">{{ 'profile.settings.public_page_desc'|trans|default('When enabled, your profile is accessible at the URL below.') }}</p>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="profile-public-enabled" 
+                                       {% if settings['profile.public_page_enabled']|default('0') == '1' %}checked{% endif %}>
+                                <label class="form-check-label text-light" for="profile-public-enabled">
+                                    {{ 'profile.settings.enable_public_page'|trans|default('Enable public profile page') }}
+                                </label>
+                            </div>
+                            <div id="profile-public-url-row" class="{% if settings['profile.public_page_enabled']|default('0') != '1' %}d-none{% endif %}">
+                                <div class="input-group input-group-sm mb-3">
+                                    <span class="input-group-text bg-dark border-secondary text-muted"><i class="mdi mdi-link"></i></span>
+                                    <input type="text" class="form-control bg-dark text-cyber border-secondary" id="profile-public-url" 
+                                           value="{{ url('cq_profile_public', {username: user.username}) }}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" id="profile-copy-url-btn" title="{{ 'ui.copy'|trans }}">
+                                        <i class="mdi mdi-content-copy"></i>
+                                    </button>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="profile-public-show-photo"
+                                           {% if settings['profile.public_page_show_photo']|default('1') == '1' %}checked{% endif %}>
+                                    <label class="form-check-label text-light" for="profile-public-show-photo">
+                                        {{ 'profile.settings.show_public_photo'|trans|default('Show profile photo on public page') }}
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="profile-public-show-shares"
+                                           {% if settings['profile.public_page_show_shares']|default('1') == '1' %}checked{% endif %}>
+                                    <label class="form-check-label text-light" for="profile-public-show-shares">
+                                        {{ 'profile.settings.show_public_shares'|trans|default('Show public shared items on profile page') }}
+                                    </label>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label text-light" for="profile-public-show-spirits">
+                                        <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'profile.settings.show_public_spirits'|trans|default('Spirit showcase') }}
+                                    </label>
+                                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="profile-public-show-spirits"
+                                            style="max-width: 250px;">
+                                        <option value="0" {% if settings['profile.public_page_show_spirits']|default('1') == '0' %}selected{% endif %}>
+                                            {{ 'profile.settings.spirits_off'|trans|default('Off') }}
+                                        </option>
+                                        <option value="1" {% if settings['profile.public_page_show_spirits']|default('1') == '1' %}selected{% endif %}>
+                                            {{ 'profile.settings.spirits_primary'|trans|default('Primary Spirit only') }}
+                                        </option>
+                                        <option value="2" {% if settings['profile.public_page_show_spirits']|default('1') == '2' %}selected{% endif %}>
+                                            {{ 'profile.settings.spirits_all'|trans|default('All Spirits') }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <hr class="border-secondary border-opacity-25">
+
+                                {# Theme Selection #}
+                                <h6 class="mt-3 mb-2"><i class="mdi mdi-palette me-2"></i>{{ 'profile.settings.public_theme'|trans|default('Page Theme') }}</h6>
+                                <p class="text-muted small mb-2">{{ 'profile.settings.public_theme_desc'|trans|default('Choose a background theme for your public profile page.') }}</p>
+                                <div id="profile-theme-previews" class="d-flex flex-wrap gap-2 mb-2"
+                                     data-current-theme="{{ settings['profile.public_page_theme']|default('') }}"></div>
+                            </div>
+                        </div>
+
+                        {# CQ Contact Visibility Tab #}
+                        <div class="tab-pane fade" id="panel-federation" role="tabpanel">
+                            <p class="text-muted small mb-3">{{ 'profile.settings.federation_desc'|trans|default('Control what your CQ Contacts can see about you.') }}</p>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="profile-federation-bio"
+                                       {% if settings['profile.federation_show_bio']|default('1') == '1' %}checked{% endif %}>
+                                <label class="form-check-label text-light" for="profile-federation-bio">
+                                    {{ 'profile.settings.federation_bio'|trans|default('Share bio with CQ Contacts') }}
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="profile-federation-photo"
+                                       {% if settings['profile.federation_show_photo']|default('1') == '1' %}checked{% endif %}>
+                                <label class="form-check-label text-light" for="profile-federation-photo">
+                                    {{ 'profile.settings.federation_photo'|trans|default('Share profile photo with CQ Contacts') }}
+                                </label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-light" for="profile-federation-spirits">
+                                    <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'profile.settings.federation_spirits'|trans|default('Share spirits with CQ Contacts') }}
+                                </label>
+                                <select class="form-select form-select-sm bg-dark text-light border-secondary" id="profile-federation-spirits"
+                                        style="max-width: 250px;">
+                                    <option value="0" {% if settings['profile.federation_show_spirits']|default('1') == '0' %}selected{% endif %}>
+                                        {{ 'profile.settings.spirits_off'|trans|default('Off') }}
+                                    </option>
+                                    <option value="1" {% if settings['profile.federation_show_spirits']|default('1') == '1' %}selected{% endif %}>
+                                        {{ 'profile.settings.spirits_primary'|trans|default('Primary Spirit only') }}
+                                    </option>
+                                    <option value="2" {% if settings['profile.federation_show_spirits']|default('1') == '2' %}selected{% endif %}>
+                                        {{ 'profile.settings.spirits_all'|trans|default('All Spirits') }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Save Button #}
+                    <div class="text-end">
+                        <button type="button" id="profile-save-btn" class="btn btn-cyber">
+                            <span class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                            <i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans }}
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-profile') }}
+{% endblock %}

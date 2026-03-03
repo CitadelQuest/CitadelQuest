@@ -140,6 +140,22 @@ class CQShareService
     }
 
     /**
+     * List all active public shares (scope=0).
+     * Used for public profile pages — no authentication required.
+     */
+    public function listPublicShares(): array
+    {
+        $db = $this->getUserDb();
+        return $db->executeQuery(
+            'SELECT id, source_type, title, share_url, scope, views, created_at, updated_at
+             FROM cq_share
+             WHERE is_active = 1 AND scope = ?
+             ORDER BY updated_at DESC',
+            [self::SCOPE_PUBLIC]
+        )->fetchAllAssociative();
+    }
+
+    /**
      * Update share properties
      */
     public function update(string $id, array $data): ?array

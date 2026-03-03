@@ -662,9 +662,10 @@ export class CqChatModalManager {
             timeZone: 'Europe/Prague' 
         });
         
-        // Get contact name - for group chats, use message's contact info
+        // Get contact name and ID - for group chats, use message's contact info
         let contactName = 'Contact';
         let contactDomain = '';
+        let contactId = message.cqContactId || message.cq_contact_id || null;
         if (message.contactUsername) {
             // Group chat - use contact info from message
             contactName = message.contactUsername;
@@ -673,13 +674,27 @@ export class CqChatModalManager {
             // Direct chat - use chat's contact
             contactName = this.currentChat.contact.cqContactUsername;
             contactDomain = this.currentChat.contact.cqContactDomain??'';
+            if (!contactId) contactId = this.currentChat.contact.id;
         }
         
         const userName = document.querySelector('.js-user')?.dataset?.username || 'You';
         
-        const nameDisplay = isOutgoing 
-            ? `<div class="text-end"><small class="text-cyber">${userName}</small></div>` 
-            : `<div><small class="text-cyber">${contactName}</small><small class="opacity-25 ms-1">${contactDomain}</small></div>`;
+        // Profile photo for message
+        const photoSize = 24;
+        const photoFallback = `onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');"`;
+        const fallbackIcon = `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-secondary" style="font-size:${photoSize/2}px;"></i></div>`;
+        
+        let nameDisplay;
+        if (isOutgoing) {
+            const userPhotoUrl = `/${userName}/photo`;
+            nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-1"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
+        } else {
+            const contactPhotoUrl = contactId ? `/api/cq-contact/${contactId}/profile-photo` : '';
+            const photoImg = contactPhotoUrl 
+                ? `<img src="${contactPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
+                : `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-secondary" style="font-size:${photoSize/2}px;"></i></div>`;
+            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2">${photoImg}<small class="text-cyber">${contactName}</small><small class="opacity-25">${contactDomain}</small></div>`;
+        }
         
         // Render attachments (images)
         const attachmentsHtml = this.renderAttachments(message.attachments);
@@ -927,15 +942,21 @@ export class CqChatModalManager {
         
         // Get current username
         const currentUsername = document.querySelector('.js-user')?.dataset?.username;
+        const ps = 18; // photo size in badges
+        const pFallback = `onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');"`;
+        const pIcon = `<i class="mdi mdi-account d-none me-1" style="font-size:${ps/2}px;"></i>`;
         
         // Build members HTML - current user first (as "You"), then others
-        let html = `<span class="badge bg-cyber text-dark"><i class="mdi mdi-account me-1"></i>${currentUsername || 'You'}</span>`;
+        const userPhoto = `<img src="/${currentUsername}/photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}`;
+        let html = `<span class="badge bg-cyber text-dark d-inline-flex align-items-center">${userPhoto}${currentUsername || 'You'}</span>`;
         
         // If we have a host contact (meaning current user is NOT the host), show the host first
         if (hostContact) {
             const hostUsername = hostContact.cqContactUsername || 'Host';
             const hostDomain = hostContact.cqContactDomain || '';
-            html += `<span class="badge bg-secondary" title="${hostDomain}/${hostUsername}"><i class="mdi mdi-account me-1"></i>${hostUsername}</span>`;
+            const hostId = hostContact.id || '';
+            const hostPhoto = hostId ? `<img src="/api/cq-contact/${hostId}/profile-photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+            html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${hostDomain}/${hostUsername}">${hostPhoto}${hostUsername}</span>`;
         }
         
         members.forEach(member => {
@@ -943,7 +964,9 @@ export class CqChatModalManager {
             if (contact) {
                 const username = contact.cqContactUsername || 'Unknown';
                 const domain = contact.cqContactDomain || '';
-                html += `<span class="badge bg-secondary" title="${domain}/${username}"><i class="mdi mdi-account me-1"></i>${username}</span>`;
+                const cId = contact.id || '';
+                const cPhoto = cId ? `<img src="/api/cq-contact/${cId}/profile-photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+                html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${domain}/${username}">${cPhoto}${username}</span>`;
             }
         });
         

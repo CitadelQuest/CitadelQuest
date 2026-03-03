@@ -34,6 +34,9 @@
                         <i class="mdi mdi-account-arrow-right me-2"></i> {{ 'settings.migration.title'|trans|default('Account Migration') }}
                     </a>
                     <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                    </a>
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>

@@ -47,6 +47,9 @@ security:
         - { path: ^/.*/api/federation/contact-update, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/shares$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/share/, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/api/federation/user-profile, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/photo$, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/[A-Za-z0-9_-]+$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:

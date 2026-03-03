@@ -51,8 +51,14 @@
                         </a>
                     </li>
                     <li>
+                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
+                            <i class="mdi mdi-account-circle me-3{% if app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-pink{% endif %}"></i>
+                            {{ 'profile.settings.title'|trans|default('Profile') }}
+                        </a>
+                    </li>
+                    <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings') }}">
-                            <i class="mdi mdi-tune-vertical me-3{% if app.request.pathInfo starts with path('app_user_settings') %} text-cyber{% else %} text-secondary{% endif %}"></i>
+                            <i class="mdi mdi-tune-vertical me-3{% if app.request.pathInfo starts with path('app_user_settings') and not app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-secondary{% endif %}"></i>
                             {{ 'navigation.user_menu.settings'|trans }}
                         </a>
                     </li>
