@@ -458,6 +458,7 @@ profile:
         enable_public_page: 'Enable public profile page'
         show_public_photo: 'Show profile photo on public page'
         show_public_shares: 'Show public shared items on profile page'
+        show_share_content: 'Show shared items content preview (images, text, Memory Pack graphs)'
         show_public_spirits: 'Spirit showcase'
         spirits_off: 'Off'
         spirits_primary: 'Primary Spirit only'

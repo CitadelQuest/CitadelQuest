@@ -69,7 +69,7 @@ export class ContactDetailManager {
             const bioEl = document.getElementById('contactProfileBio');
             if (bioEl && profile.bio) {
                 const escaped = profile.bio.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-                bioEl.innerHTML = `<p class="text-light mb-0 ms-5 ps-2">${escaped}</p>`;
+                bioEl.innerHTML = `<p class="text-light mb-0 ms-0 ms-md-5 ps-0 ps-md-2 mt-2">${escaped}</p>`;
             } else if (bioEl && !profile.bio) {
                 bioEl.innerHTML = '';
             }

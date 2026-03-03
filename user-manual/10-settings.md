@@ -59,8 +59,30 @@ Click the model selector button to open the **AI Model Comparison** interface wh
 
 ---
 
+## CQ Profile
+
+**Route**: `/settings/profile`
+
+Manage your public identity and control what others see. See [CQ Profile](09-cq-profile.md) for the full guide.
+
+### Public Profile Page
+- **Enable/disable** your public profile at `/{username}`
+- **Profile photo** — upload, remove
+- **Bio** — short personal description
+- **Show/hide** photo, shared items on public page
+- **Spirit showcase** — Off / Primary Spirit only / All Spirits
+- **Theme** — choose a background theme for your public page
+
+### CQ Contact Visibility
+- **Share bio** with contacts
+- **Share photo** with contacts
+- **Spirit showcase** — same 3-mode control for what contacts see
+
+---
+
 ## Settings Navigation
 
 The settings sidebar provides quick access to:
 - **General Settings** — login, theme, database, migration
 - **AI Services** — models, gateway, credits
+- **CQ Profile** — public profile page, contact visibility

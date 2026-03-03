@@ -458,6 +458,7 @@ profile:
         enable_public_page: 'Povolit veřejnou profilovou stránku'
         show_public_photo: 'Zobrazit profilovou fotku na veřejné stránce'
         show_public_shares: 'Zobrazit veřejné sdílené položky na profilové stránce'
+        show_share_content: 'Zobrazit náhled obsahu sdílených položek (obrázky, text, Memory Pack grafy)'
         show_public_spirits: 'Prezentace duchů'
         spirits_off: 'Vypnuto'
         spirits_primary: 'Jen primární Duch'

@@ -175,6 +175,20 @@ In Spirit Chat, recalled memories appear above the Spirit's response:
 
 ---
 
+## Sharing Memory Packs
+
+You can share your Memory Packs with CQ Contacts or publicly via **CQ Share**:
+
+1. In the Memory Explorer, select a pack and use the pack dropdown menu → **Share**
+2. Or go to the **CQ Share** management page (`/share`) and create a share for any pack
+3. Choose scope: **Public** (anyone with the link) or **CQ Contacts** (authenticated contacts only)
+
+When a CQ Contact downloads your shared pack, it **auto-syncs** — any updates you make to the original pack are automatically reflected in their copy the next time they open their Memory Explorer.
+
+See [CQ Share](08-cq-share.md) for the full sharing guide.
+
+---
+
 ## Use Cases
 
 - **Book/Document Analysis** — Upload PDFs or documents, extract key concepts, see information structure at a glance
@@ -184,3 +198,4 @@ In Spirit Chat, recalled memories appear above the Spirit's response:
 - **Web Research** — Extract knowledge from URLs and see connections between different web sources
 - **Conversation Archives** — Extract insights from your Spirit conversations into permanent knowledge
 - **Relationship Discovery** — Run analysis to find contradictions, reinforcements, and connections across different knowledge sources
+- **Shared Knowledge** — Share curated knowledge graphs with friends, team members, or the public via CQ Share

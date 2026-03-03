@@ -623,6 +623,25 @@ div[data-type="tool_calls_frontend_data"] pre
     animation: memory-jobs-pulse 2.5s ease-in-out infinite;
 }
 
+// Public profile share content previews
+.share-preview-scroll {
+    @include mix.cyber-scrollbar;
+}
+
+// 3D Node Labels — must be global so they work on public profile page too
+.node-label {
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid colors.$cyber;
+    border-radius: vars.$border-radius;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #fff;
+    white-space: normal;
+    max-width: 300px;
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
+}
+
 // Reusable tab nav style (consistent across app — Memory Explorer, CQ Profile, etc.)
 .cq-tabs {
     border-bottom: 1px solid rgba(colors.$cyber, 0.2);

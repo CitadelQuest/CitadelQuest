@@ -129,7 +129,7 @@ class CQShareController extends AbstractController
             }
 
             // GET = binary file download
-            return $this->serveShareFile($user, $share);
+            return $this->serveShareFile($request, $user, $share);
 
         } catch (\Exception $e) {
             $this->logger->error('CQShareController::handleShareAccess error', [
@@ -165,7 +165,7 @@ class CQShareController extends AbstractController
      * Serve the shared file as a binary download.
      * Constructs the file path for the sharing user's data directory.
      */
-    private function serveShareFile(User $user, array $share): Response
+    private function serveShareFile(Request $request, User $user, array $share): Response
     {
         // Look up the project_file record from the sharing user's DB
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
@@ -200,15 +200,123 @@ class CQShareController extends AbstractController
         }
 
         $response = new BinaryFileResponse($filePath);
-        $response->setContentDisposition(
-            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            $file['name']
-        );
+        $disposition = ($request->query->get('inline') === '1')
+            ? ResponseHeaderBag::DISPOSITION_INLINE
+            : ResponseHeaderBag::DISPOSITION_ATTACHMENT;
+        $response->setContentDisposition($disposition, $file['name']);
         $response->headers->set('Content-Type', $mimeType);
         $response->headers->set('X-CQ-Share-Id', $share['id']);
         $response->headers->set('X-CQ-Share-Updated', $share['updated_at']);
 
         return $response;
+    }
+
+    /**
+     * Public graph data endpoint for shared Memory Packs.
+     * Returns nodes/edges JSON for 3D visualization on public profile pages.
+     */
+    #[Route('/{username}/share/{shareUrl}/graph', name: 'cq_share_graph', methods: ['GET'], priority: -10)]
+    public function shareGraph(string $username, string $shareUrl): JsonResponse
+    {
+        try {
+            $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+            if (!$user) {
+                return $this->json(['success' => false], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->shareService->setUser($user);
+            $share = $this->shareService->findActiveByShareUrl($shareUrl);
+
+            if (!$share || (int) $share['scope'] !== CQShareService::SCOPE_PUBLIC) {
+                return $this->json(['success' => false], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($share['source_type'] !== CQShareService::TYPE_CQMPACK) {
+                return $this->json(['success' => false, 'message' => 'Not a Memory Pack'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Look up the source file
+            $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+            $file = $userDb->executeQuery(
+                'SELECT * FROM project_file WHERE id = ?',
+                [$share['source_id']]
+            )->fetchAssociative();
+
+            if (!$file) {
+                return $this->json(['nodes' => [], 'edges' => [], 'stats' => ['totalNodes' => 0, 'totalRelationships' => 0]]);
+            }
+
+            // Construct absolute path
+            $projectDir = $this->params->get('kernel.project_dir');
+            $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+            $relativePath = ltrim($file['path'] ?? '', '/');
+            $filePath = $relativePath
+                ? $basePath . '/' . $relativePath . '/' . $file['name']
+                : $basePath . '/' . $file['name'];
+
+            if (!file_exists($filePath)) {
+                return $this->json(['nodes' => [], 'edges' => [], 'stats' => ['totalNodes' => 0, 'totalRelationships' => 0]]);
+            }
+
+            // Open the .cqmpack SQLite file directly and read graph data
+            $packDb = \Doctrine\DBAL\DriverManager::getConnection([
+                'driver' => 'pdo_sqlite',
+                'path' => $filePath,
+            ]);
+
+            $nodes = $packDb->executeQuery(
+                'SELECT id, content, summary, category, importance, confidence, created_at, access_count, source_type, source_ref, depth
+                 FROM memory_nodes WHERE is_active = 1'
+            )->fetchAllAssociative();
+
+            $edges = $packDb->executeQuery(
+                'SELECT id, source_id, target_id, type, strength, context
+                 FROM memory_relationships WHERE type != ?',
+                ['NOT_DETECTED']
+            )->fetchAllAssociative();
+
+            $graphNodes = array_map(fn($n) => [
+                'id' => $n['id'],
+                'content' => $n['content'],
+                'summary' => $n['summary'],
+                'category' => $n['category'],
+                'importance' => (float) ($n['importance'] ?? 0.5),
+                'confidence' => (float) ($n['confidence'] ?? 1.0),
+                'createdAt' => $n['created_at'],
+                'accessCount' => (int) ($n['access_count'] ?? 0),
+                'sourceType' => $n['source_type'] ?? null,
+                'sourceRef' => $n['source_ref'] ?? null,
+                'depth' => (int) ($n['depth'] ?? 0),
+            ], $nodes);
+
+            $graphEdges = array_map(fn($e) => [
+                'id' => $e['id'],
+                'source' => $e['source_id'],
+                'target' => $e['target_id'],
+                'type' => $e['type'],
+                'strength' => (float) ($e['strength'] ?? 0.5),
+                'context' => $e['context'] ?? null,
+            ], $edges);
+
+            $packDb->close();
+
+            return $this->json([
+                'nodes' => $graphNodes,
+                'edges' => $graphEdges,
+                'stats' => [
+                    'totalNodes' => count($graphNodes),
+                    'totalRelationships' => count($graphEdges),
+                    'packCount' => 1,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('CQShareController::shareGraph error', [
+                'error' => $e->getMessage(),
+                'username' => $username,
+                'shareUrl' => $shareUrl,
+            ]);
+            return $this->json(['nodes' => [], 'edges' => [], 'stats' => ['totalNodes' => 0, 'totalRelationships' => 0]]);
+        }
     }
 
     // ========================================

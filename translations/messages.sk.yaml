@@ -450,6 +450,7 @@ profile:
         enable_public_page: 'Povoliť verejnú profilovú stránku'
         show_public_photo: 'Zobraziť profilovú fotku na verejnej stránke'
         show_public_shares: 'Zobraziť verejné zdieľané položky na profilovej stránke'
+        show_share_content: 'Zobraziť náhľad obsahu zdieľaných položiek (obrázky, text, Memory Pack grafy)'
         show_public_spirits: 'Prezentácia duchov'
         spirits_off: 'Vypnuté'
         spirits_primary: 'Len primárny Duch'

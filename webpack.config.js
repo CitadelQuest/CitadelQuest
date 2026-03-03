@@ -43,6 +43,7 @@ Encore
     .addEntry('ai-model-selector', './assets/entries/ai-model-selector.js')
     .addEntry('cq-contact-detail', './assets/entries/cq-contact-detail.js')
     .addEntry('settings-profile', './assets/entries/settings-profile.js')
+    .addEntry('profile-public', './assets/entries/profile-public.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

@@ -672,6 +672,7 @@ class UserSettingsController extends AbstractController
                 'profile.public_page_enabled',
                 'profile.public_page_show_photo',
                 'profile.public_page_show_shares',
+                'profile.public_page_show_share_content',
                 'profile.public_page_show_spirits',
                 'profile.public_page_theme',
                 'profile.federation_show_bio',

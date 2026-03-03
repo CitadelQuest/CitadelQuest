@@ -28,6 +28,8 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | **File Browser** | Personal cloud storage — your files, always accessible |
 | **CQ Chat** | Private messaging across CitadelQuest instances |
 | **CQ Contacts** | Friend system connecting different Citadels |
+| **CQ Share** | Share files and Memory Packs with contacts or publicly |
+| **CQ Profile** | Beautiful public profile page with Spirit showcase and themes |
 | **Backup** | Full backup and restore of your data |
 | **Multi-language** | English, Czech, Slovak |
 
@@ -65,10 +67,12 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | [05 — File Browser](05-file-browser.md) | Personal cloud file management |
 | [06 — CQ Chat](06-cq-chat.md) | Private messaging across Citadels |
 | [07 — CQ Contacts](07-cq-contacts.md) | Friend system and connections |
-| [08 — Settings](08-settings.md) | Configuration and preferences |
-| [09 — Backup](09-backup.md) | Backup and restore your data |
-| [10 — Administration](10-administration.md) | Admin panel for Citadel managers |
-| [11 — Installation](11-installation.md) | Self-hosting your own CitadelQuest |
+| [08 — CQ Share](08-cq-share.md) | Sharing files and knowledge |
+| [09 — CQ Profile](09-cq-profile.md) | Public profile page and identity |
+| [10 — Settings](10-settings.md) | Configuration and preferences |
+| [11 — Backup](11-backup.md) | Backup and restore your data |
+| [12 — Administration](12-administration.md) | Admin panel for Citadel managers |
+| [13 — Installation](13-installation.md) | Self-hosting your own CitadelQuest |
 
 ---
 

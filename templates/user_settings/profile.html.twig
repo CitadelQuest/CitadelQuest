@@ -146,6 +146,13 @@
                                         {{ 'profile.settings.show_public_shares'|trans|default('Show public shared items on profile page') }}
                                     </label>
                                 </div>
+                                <div class="form-check form-switch mb-2 ms-4 {% if settings['profile.public_page_show_shares']|default('1') != '1' %}d-none{% endif %}" id="profile-show-share-content-row">
+                                    <input class="form-check-input" type="checkbox" id="profile-public-show-share-content"
+                                           {% if settings['profile.public_page_show_share_content']|default('1') == '1' %}checked{% endif %}>
+                                    <label class="form-check-label text-light" for="profile-public-show-share-content">
+                                        {{ 'profile.settings.show_share_content'|trans|default('Show shared items content preview (images, text, Memory Pack graphs)') }}
+                                    </label>
+                                </div>
                                 <div class="mb-3">
                                     <label class="form-label text-light" for="profile-public-show-spirits">
                                         <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'profile.settings.show_public_spirits'|trans|default('Spirit showcase') }}

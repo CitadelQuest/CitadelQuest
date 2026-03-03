@@ -36,6 +36,8 @@ export class ProfileSettingsManager {
         this.copyUrlBtn = document.getElementById('profile-copy-url-btn');
         this.publicShowPhotoCheckbox = document.getElementById('profile-public-show-photo');
         this.publicShowSharesCheckbox = document.getElementById('profile-public-show-shares');
+        this.publicShowShareContentCheckbox = document.getElementById('profile-public-show-share-content');
+        this.showShareContentRow = document.getElementById('profile-show-share-content-row');
         this.publicShowSpiritsSelect = document.getElementById('profile-public-show-spirits');
         this.selectedTheme = '';
 
@@ -64,6 +66,11 @@ export class ProfileSettingsManager {
         // Public page toggle
         this.publicEnabledCheckbox?.addEventListener('change', () => {
             this.publicUrlRow?.classList.toggle('d-none', !this.publicEnabledCheckbox.checked);
+        });
+
+        // Show shares toggle — show/hide share content sub-toggle
+        this.publicShowSharesCheckbox?.addEventListener('change', () => {
+            this.showShareContentRow?.classList.toggle('d-none', !this.publicShowSharesCheckbox.checked);
         });
 
         // Copy URL
@@ -236,6 +243,7 @@ export class ProfileSettingsManager {
                 public_page_enabled: this.publicEnabledCheckbox?.checked ? '1' : '0',
                 public_page_show_photo: this.publicShowPhotoCheckbox?.checked ? '1' : '0',
                 public_page_show_shares: this.publicShowSharesCheckbox?.checked ? '1' : '0',
+                public_page_show_share_content: this.publicShowShareContentCheckbox?.checked ? '1' : '0',
                 public_page_show_spirits: this.publicShowSpiritsSelect?.value ?? '1',
                 public_page_theme: this.selectedTheme ?? '',
                 federation_show_bio: this.federationBioCheckbox?.checked ? '1' : '0',

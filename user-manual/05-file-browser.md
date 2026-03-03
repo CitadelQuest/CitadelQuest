@@ -47,6 +47,9 @@ Click the **rename** icon, enter the new name, and confirm.
 ### Deleting
 Click the **delete** icon and confirm the deletion.
 
+### Sharing
+Click the **Share** button on any file to create a CQ Share link. You can choose to share publicly (anyone with the link) or with CQ Contacts only. See [CQ Share](08-cq-share.md) for details.
+
 ---
 
 ## AI Integration

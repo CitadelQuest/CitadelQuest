@@ -64,6 +64,7 @@ class CQProfileController extends AbstractController
         $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
         $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
         $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
+        $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
         $spiritMode = (int) $this->settingsService->getSettingValue('profile.public_page_show_spirits', '1');
         $pageTheme = $this->settingsService->getSettingValue('profile.public_page_theme', '');
 
@@ -73,6 +74,11 @@ class CQProfileController extends AbstractController
             try {
                 $this->shareService->setUser($user);
                 $publicShares = $this->shareService->listPublicShares();
+
+                // Enrich shares with content preview data if enabled
+                if ($showShareContent && !empty($publicShares)) {
+                    $publicShares = $this->enrichSharesWithPreview($user, $username, $publicShares);
+                }
             } catch (\Exception $e) {
                 $this->logger->warning('CQProfileController: Failed to load public shares', [
                     'username' => $username,
@@ -112,6 +118,7 @@ class CQProfileController extends AbstractController
             'profile_has_photo' => $showPhoto && !empty($photoFileId),
             'profile_shares' => $publicShares,
             'profile_show_shares' => $showShares,
+            'profile_show_share_content' => $showShareContent,
             'profile_spirits' => $spirits,
             'profile_theme' => $pageTheme,
         ]);
@@ -255,6 +262,70 @@ class CQProfileController extends AbstractController
             ]);
             return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Enrich share records with content preview data for the public profile page.
+     * - Images: adds 'preview_type' => 'image', 'preview_url' for inline display
+     * - Text/Markdown: adds 'preview_type' => 'text', 'preview_content' with file content
+     * - Memory Packs: adds 'preview_type' => 'graph', 'preview_graph_url' for 3D visualization
+     */
+    private function enrichSharesWithPreview(User $user, string $username, array $shares): array
+    {
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $projectDir = $this->params->get('kernel.project_dir');
+
+        foreach ($shares as &$share) {
+            try {
+                if ($share['source_type'] === 'cqmpack') {
+                    $share['preview_type'] = 'graph';
+                    $share['preview_graph_url'] = '/' . $username . '/share/' . $share['share_url'] . '/graph';
+                    continue;
+                }
+
+                // Look up source file to get mime type and path
+                $file = $userDb->executeQuery(
+                    'SELECT * FROM project_file WHERE id = ?',
+                    [$share['source_id'] ?? '']
+                )->fetchAssociative();
+
+                if (!$file) continue;
+
+                $mimeType = $file['mime_type'] ?? '';
+                $fileName = $file['name'] ?? '';
+                $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+                // Image files
+                if (str_starts_with($mimeType, 'image/')) {
+                    $share['preview_type'] = 'image';
+                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'] . '?inline=1';
+                    continue;
+                }
+
+                // Text/Markdown files
+                if (in_array($ext, ['txt', 'md', 'markdown']) || str_starts_with($mimeType, 'text/')) {
+                    $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+                    $relativePath = ltrim($file['path'] ?? '', '/');
+                    $filePath = $relativePath
+                        ? $basePath . '/' . $relativePath . '/' . $file['name']
+                        : $basePath . '/' . $file['name'];
+
+                    if (file_exists($filePath)) {
+                        $content = file_get_contents($filePath, false, null, 0, 10000); // Limit to 10KB
+                        $share['preview_type'] = 'text';
+                        $share['preview_content'] = $content;
+                        $share['preview_ext'] = $ext;
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->debug('CQProfileController: Failed to enrich share preview', [
+                    'share_id' => $share['id'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return $shares;
     }
 
     /**

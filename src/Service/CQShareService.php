@@ -147,7 +147,7 @@ class CQShareService
     {
         $db = $this->getUserDb();
         return $db->executeQuery(
-            'SELECT id, source_type, title, share_url, scope, views, created_at, updated_at
+            'SELECT id, source_type, source_id, title, share_url, scope, views, created_at, updated_at
              FROM cq_share
              WHERE is_active = 1 AND scope = ?
              ORDER BY updated_at DESC',
