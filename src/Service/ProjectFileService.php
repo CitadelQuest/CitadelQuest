@@ -44,6 +44,7 @@ class ProjectFileService
      * @var string
      */
     private string $projectRootDir;
+    private ?User $user;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
@@ -53,7 +54,16 @@ class ProjectFileService
         private readonly HttpClientInterface $httpClient,
         private readonly CqContactService $cqContactService
     ) {
-        $this->projectRootDir = $this->params->get('kernel.project_dir') . '/var/user_data/' . $this->security->getUser()->getId() . '/p';
+        $this->user = $this->security->getUser();
+        $this->projectRootDir = $this->user
+            ? $this->params->get('kernel.project_dir') . '/var/user_data/' . $this->user->getId() . '/p'
+            : '';
+    }
+
+    public function setUser(User $user): void
+    {
+        $this->user = $user;
+        $this->projectRootDir = $this->params->get('kernel.project_dir') . '/var/user_data/' . $user->getId() . '/p';
     }
     
     /**
@@ -61,9 +71,10 @@ class ProjectFileService
      */
     private function getUserDb()
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
-        return $this->userDatabaseManager->getDatabaseConnection($user);
+        if (!$this->user) {
+            throw new \Exception('ProjectFileService: User not set');
+        }
+        return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
     
     /**

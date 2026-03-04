@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Service\CqContactService;
 use App\Service\CQShareService;
+use App\Service\ProjectFileService;
 use App\Service\SettingsService;
 use App\Service\UserDatabaseManager;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,6 +33,7 @@ class CQProfileController extends AbstractController
         private readonly SettingsService $settingsService,
         private readonly CqContactService $cqContactService,
         private readonly CQShareService $shareService,
+        private readonly ProjectFileService $projectFileService,
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly EntityManagerInterface $entityManager,
         private readonly ParameterBagInterface $params,
@@ -269,6 +271,12 @@ class CQProfileController extends AbstractController
 
         // Prefer .thumb version (smaller file, profile photo is never displayed full-size)
         $thumbPath = $filePath . '.thumb';
+
+        if (!file_exists($thumbPath)) {
+            $this->projectFileService->setUser($user);
+            $this->projectFileService->generateThumbnail($photoFileId);
+        }
+
         if (file_exists($thumbPath)) {
             $filePath = $thumbPath;
             $mimeType = 'image/jpeg'; // thumbnails are always JPEG
