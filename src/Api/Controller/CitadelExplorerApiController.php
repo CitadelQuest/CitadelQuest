@@ -1,0 +1,390 @@
+<?php
+
+namespace App\Api\Controller;
+
+use App\Service\CqContactService;
+use App\Service\ProjectFileService;
+use App\Service\CQMemoryLibraryService;
+use App\Service\CQMemoryPackService;
+use App\CitadelVersion;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\String\Slugger\SluggerInterface;
+
+/**
+ * Citadel Explorer API Controller
+ * 
+ * Enables discovering and interacting with any public CitadelQuest profile.
+ * Fetches remote profile JSON, proxies photos, downloads public shares.
+ */
+#[Route('/api/citadel-explorer')]
+#[IsGranted('ROLE_USER')]
+class CitadelExplorerApiController extends AbstractController
+{
+    public function __construct(
+        private readonly HttpClientInterface $httpClient,
+        private readonly LoggerInterface $logger,
+        private readonly ProjectFileService $projectFileService,
+        private readonly CQMemoryLibraryService $memoryLibraryService,
+        private readonly CQMemoryPackService $memoryPackService,
+        private readonly CqContactService $cqContactService,
+        private readonly SluggerInterface $slugger
+    ) {}
+
+    /**
+     * Fetch a remote Citadel's public profile JSON.
+     * Proxies GET {url}/json from the remote Citadel.
+     */
+    #[Route('/fetch', name: 'app_api_citadel_explorer_fetch', methods: ['POST'])]
+    public function fetch(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $url = $data['url'] ?? '';
+
+        if (empty($url) || !str_starts_with($url, 'https://')) {
+            return $this->json(['success' => false, 'message' => 'Invalid URL'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $jsonUrl = rtrim($url, '/') . '/json';
+
+            $response = $this->httpClient->request('GET', $jsonUrl, [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Remote server returned HTTP ' . $statusCode,
+                ], Response::HTTP_BAD_GATEWAY);
+            }
+
+            $profile = $response->toArray(false);
+
+            if (!($profile['success'] ?? false)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => $profile['message'] ?? 'Profile not available',
+                ]);
+            }
+
+            // Check if this user is already a contact
+            $existingContact = $this->cqContactService->findByUrl($url);
+            $profile['is_contact'] = $existingContact !== null;
+            $profile['contact_id'] = $existingContact?->getId();
+            $profile['contact_status'] = $existingContact?->getFriendRequestStatus();
+
+            return $this->json($profile);
+        } catch (\Exception $e) {
+            $this->logger->error('CitadelExplorerApiController::fetch error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->json([
+                'success' => false,
+                'message' => 'Failed to connect: ' . $e->getMessage(),
+            ], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
+     * Proxy a remote profile photo for display in the explorer.
+     */
+    #[Route('/photo', name: 'app_api_citadel_explorer_photo', methods: ['GET'])]
+    public function photo(Request $request): Response
+    {
+        $photoUrl = $request->query->get('url', '');
+        if (empty($photoUrl)) {
+            return new Response('', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $photoUrl, [
+                'headers' => [
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 10,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            $contentType = $response->getHeaders(false)['content-type'][0] ?? 'image/jpeg';
+            $content = $response->getContent(false);
+
+            return new Response($content, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=300',
+            ]);
+        } catch (\Exception $e) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    /**
+     * Proxy remote graph data (Memory Pack 3D preview) to avoid CORS issues.
+     */
+    #[Route('/graph', name: 'app_api_citadel_explorer_graph', methods: ['GET'])]
+    public function graph(Request $request): JsonResponse
+    {
+        $graphUrl = $request->query->get('url', '');
+        if (empty($graphUrl) || !str_starts_with($graphUrl, 'https://')) {
+            return $this->json(['error' => 'Invalid URL'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $graphUrl, [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json(['error' => 'Remote returned HTTP ' . $statusCode], Response::HTTP_BAD_GATEWAY);
+            }
+
+            $data = $response->toArray(false);
+
+            return $this->json($data, 200, [
+                'Cache-Control' => 'public, max-age=300',
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->warning('CitadelExplorerApiController::graph error', ['error' => $e->getMessage()]);
+            return $this->json(['error' => 'Failed to fetch graph'], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
+     * Check which shares from a remote profile have already been downloaded locally.
+     * Uses source_url matching in project_file_remote table.
+     */
+    #[Route('/check-downloads', name: 'app_api_citadel_explorer_check_downloads', methods: ['POST'])]
+    public function checkDownloads(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $shares = $data['shares'] ?? [];
+            $profileUrl = rtrim($data['profile_url'] ?? '', '/');
+
+            if (empty($profileUrl)) {
+                return $this->json(['success' => false, 'message' => 'Missing profile_url'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $results = [];
+            foreach ($shares as $share) {
+                $shareUrl = $share['share_url'] ?? '';
+                $sourceUrl = $profileUrl . '/share/' . $shareUrl;
+                $remote = $this->projectFileService->findRemoteFileBySourceUrl($sourceUrl);
+
+                $results[$shareUrl] = [
+                    'downloaded' => $remote !== null,
+                    'path' => $remote['path'] ?? null,
+                    'fileName' => $remote['name'] ?? null,
+                ];
+            }
+
+            return $this->json(['success' => true, 'downloads' => $results]);
+        } catch (\Exception $e) {
+            $this->logger->error('CitadelExplorerApiController::checkDownloads error', [
+                'error' => $e->getMessage(),
+            ]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Download a publicly shared item from a remote Citadel to the local File Browser.
+     * No federation auth needed — uses public share URLs.
+     */
+    #[Route('/download', name: 'app_api_citadel_explorer_download', methods: ['POST'])]
+    public function download(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $profileUrl = rtrim($data['profile_url'] ?? '', '/');
+            $shareUrl = $data['share_url'] ?? null;
+            $sourceType = $data['source_type'] ?? 'file';
+            $title = $data['title'] ?? 'Shared item';
+            $domain = $data['domain'] ?? 'unknown';
+            $username = $data['username'] ?? 'unknown';
+
+            if (!$profileUrl || !$shareUrl) {
+                return $this->json(['success' => false, 'message' => 'Missing profile_url or share_url'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Build public download URL
+            $downloadUrl = $profileUrl . '/share/' . $shareUrl;
+
+            // GET the file from remote Citadel (public, no auth)
+            $response = $this->httpClient->request('GET', $downloadUrl, [
+                'headers' => [
+                    'Accept' => 'application/octet-stream',
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 120,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json(['success' => false, 'message' => 'Download failed: HTTP ' . $statusCode], Response::HTTP_BAD_GATEWAY);
+            }
+
+            $binaryContent = $response->getContent(false);
+            if (empty($binaryContent)) {
+                return $this->json(['success' => false, 'message' => 'Empty file received'], Response::HTTP_BAD_GATEWAY);
+            }
+
+            // Extract filename from Content-Disposition header or use title
+            $contentDisposition = $response->getHeaders(false)['content-disposition'][0] ?? '';
+            $fileName = $title;
+            if (preg_match('/filename="?([^"]+)"?/', $contentDisposition, $m)) {
+                $fileName = $m[1];
+            }
+
+            $projectId = 'general';
+
+            if ($sourceType === 'cqmpack') {
+                return $this->downloadCqmpackToCitadel($projectId, $fileName, $binaryContent, $downloadUrl, $domain, $username);
+            } else {
+                return $this->downloadFileToCitadel($projectId, $fileName, $binaryContent, $downloadUrl);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('CitadelExplorerApiController::download error', [
+                'error' => $e->getMessage(),
+            ]);
+            return $this->json(['success' => false, 'message' => 'Download failed: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Save a downloaded .cqmpack to an explorer-specific memory directory.
+     */
+    private function downloadCqmpackToCitadel(string $projectId, string $fileName, string $content, string $sourceUrl, string $domain, string $username): JsonResponse
+    {
+        $slug = $this->slugger->slug($domain . '-' . $username)->lower()->toString();
+        $dirPath = '/memory/explore/' . $slug;
+
+        if (!str_ends_with($fileName, '.cqmpack')) {
+            $fileName .= '.cqmpack';
+        }
+
+        $existingFile = $this->projectFileService->findByPathAndName($projectId, $dirPath, $fileName);
+        if ($existingFile) {
+            $this->projectFileService->updateFile($existingFile->getId(), $content);
+            $fileId = $existingFile->getId();
+        } else {
+            $file = $this->projectFileService->createFile($projectId, $dirPath, $fileName, $content, 'application/x-sqlite3');
+            $fileId = $file->getId();
+        }
+
+        // Create remote file record for sync tracking
+        try {
+            $this->projectFileService->createRemoteFileRecord($fileId, $sourceUrl, null);
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to create remote file record for explorer cqmpack', ['error' => $e->getMessage()]);
+        }
+
+        // Set source metadata in the pack
+        try {
+            $this->memoryPackService->open($projectId, $dirPath, $fileName);
+            $this->memoryPackService->setSourceUrl($sourceUrl);
+            $this->memoryPackService->touchSyncedAt();
+            $purged = $this->memoryPackService->purgeNonCompletedJobs();
+            if ($purged > 0) {
+                $this->logger->info('Explorer download: purged {count} foreign jobs', ['count' => $purged]);
+            }
+            $this->memoryPackService->close();
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to set pack metadata after explorer download', ['error' => $e->getMessage()]);
+        }
+
+        // Create or update library for this explored profile
+        $libFileName = $slug . '.' . CQMemoryLibraryService::FILE_EXTENSION;
+        try {
+            $existingLib = $this->projectFileService->findByPathAndName($projectId, $dirPath, $libFileName);
+            if (!$existingLib) {
+                $this->memoryLibraryService->createLibrary($projectId, $dirPath, $slug, [
+                    'name' => $username . '\'s Shared Packs (' . $domain . ')',
+                    'description' => 'Memory Packs from ' . $username . ' at ' . $domain,
+                ]);
+            }
+
+            try {
+                $this->memoryLibraryService->addPackToLibrary($projectId, $dirPath, $libFileName, $dirPath, $fileName);
+            } catch (\RuntimeException $e) {
+                if (!str_contains($e->getMessage(), 'already exists')) {
+                    throw $e;
+                }
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to manage library for explorer download', ['error' => $e->getMessage()]);
+        }
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Memory Pack downloaded to ' . $dirPath . '/' . $fileName,
+            'path' => $dirPath,
+            'fileName' => $fileName,
+        ]);
+    }
+
+    /**
+     * Save a downloaded file to /downloads/ in the general project.
+     */
+    private function downloadFileToCitadel(string $projectId, string $fileName, string $content, string $sourceUrl): JsonResponse
+    {
+        $dirPath = '/downloads';
+
+        $existingFile = $this->projectFileService->findByPathAndName($projectId, $dirPath, $fileName);
+        if ($existingFile) {
+            $this->projectFileService->updateFile($existingFile->getId(), $content);
+            $fileId = $existingFile->getId();
+        } else {
+            $ext = pathinfo($fileName, PATHINFO_EXTENSION);
+            $mimeType = match (strtolower($ext)) {
+                'png' => 'image/png',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                'svg' => 'image/svg+xml',
+                'pdf' => 'application/pdf',
+                'txt' => 'text/plain',
+                'md' => 'text/markdown',
+                'json' => 'application/json',
+                default => 'application/octet-stream',
+            };
+
+            $file = $this->projectFileService->createFile($projectId, $dirPath, $fileName, $content, $mimeType);
+            $fileId = $file->getId();
+        }
+
+        try {
+            $this->projectFileService->createRemoteFileRecord($fileId, $sourceUrl, null);
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to create remote file record for explorer download', ['error' => $e->getMessage()]);
+        }
+
+        return $this->json([
+            'success' => true,
+            'message' => 'File downloaded to ' . $dirPath . '/' . $fileName,
+            'path' => $dirPath,
+            'fileName' => $fileName,
+        ]);
+    }
+}

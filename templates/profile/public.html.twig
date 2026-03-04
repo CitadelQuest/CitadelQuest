@@ -33,12 +33,25 @@
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
                             <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                            <small class="text-muted">
+                            <small class="text-muted d-inline-flex align-items-center">
                                 <i class="mdi mdi-web me-1"></i>
-                                {{ profile_domain }}
+                                {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
+                                <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
+                                        data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
+                                        title="Copy URL">
+                                    <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
+                                </button>
                             </small>
                             {% if profile_bio %}
-                                <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                                {% if profile_bio|length > 600 %}
+                                    <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
+                                        <span class="bio-short">{{ profile_bio[:600]|nl2br }}…</span>
+                                        <span class="bio-full d-none">{{ profile_bio|nl2br }}</span>
+                                        <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
+                                    </div>
+                                {% else %}
+                                    <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                                {% endif %}
                             {% endif %}
                         </div>
 
@@ -67,12 +80,25 @@
                     {# Username & Domain & Bio — mobile only (below photo+spirits row) #}
                     <div class="d-md-none mt-3">
                         <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                        <small class="text-muted">
+                        <small class="text-muted d-inline-flex align-items-center">
                             <i class="mdi mdi-web me-1"></i>
-                            {{ profile_domain }}
+                            {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
+                            <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
+                                    data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
+                                    title="Copy URL">
+                                <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
+                            </button>
                         </small>
                         {% if profile_bio %}
-                            <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                            {% if profile_bio|length > 600 %}
+                                <div class="text-light mt-2 mb-0 bio-container">
+                                    <span class="bio-short">{{ profile_bio[:600]|nl2br }}…</span>
+                                    <span class="bio-full d-none">{{ profile_bio|nl2br }}</span>
+                                    <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
+                                </div>
+                            {% else %}
+                                <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -183,4 +209,34 @@
         });
     </script>
     {% endif %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.copy-profile-url').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const url = this.dataset.url;
+                navigator.clipboard.writeText(url).then(() => {
+                    const icon = this.querySelector('i');
+                    icon.classList.remove('mdi-content-copy');
+                    icon.classList.add('mdi-check', 'text-success');
+                    setTimeout(() => {
+                        icon.classList.remove('mdi-check', 'text-success');
+                        icon.classList.add('mdi-content-copy');
+                    }, 2000);
+                });
+            });
+        });
+        document.querySelectorAll('.bio-toggle').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const container = this.closest('.bio-container');
+                const short = container.querySelector('.bio-short');
+                const full = container.querySelector('.bio-full');
+                const expanded = !full.classList.contains('d-none');
+                short.classList.toggle('d-none', !expanded);
+                full.classList.toggle('d-none', expanded);
+                this.textContent = expanded ? 'show more' : 'show less';
+            });
+        });
+    });
+    </script>
 {% endblock %}

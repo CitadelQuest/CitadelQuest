@@ -2,21 +2,77 @@
 
 {% block title %}{{ 'cq_contact.page_title'|trans }} - {{ parent() }}{% endblock %}
 
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        window.citadelExplorerConfig = {
+            translations: {
+                explore: '{{ "citadel_explorer.explore"|trans }}',
+                loading: '{{ "ui.loading"|trans }}',
+                error_loading: '{{ "cq_contact.error_loading"|trans }}',
+                no_items: '{{ "cq_contact.detail.no_items"|trans }}',
+                download_to_citadel: '{{ "cq_contact.detail.download_to_citadel"|trans }}',
+                downloading: '{{ "cq_contact.detail.downloading"|trans }}',
+                downloaded: '{{ "cq_contact.detail.downloaded"|trans }}',
+                download_failed: '{{ "cq_contact.detail.download_failed"|trans }}',
+                download_success: '{{ "cq_contact.detail.download_success"|trans }}',
+                memory_pack: '{{ "cq_contact.detail.memory_pack"|trans }}',
+                file: '{{ "cq_contact.detail.file"|trans }}',
+                views: '{{ "cq_contact.detail.views"|trans }}',
+                add_to_library: '{{ "cq_contact.detail.add_to_library"|trans }}',
+                ui_view: '{{ "ui.view"|trans }}',
+                add_contact: '{{ "cq_contact.add_contact"|trans }}',
+                send_friend_request: '{{ "cq_contact.send_friend_request"|trans }}',
+                friend_request_sent: '{{ "cq_contact.friend_request_sent"|trans }}',
+                already_contact: '{{ "citadel_explorer.already_contact"|trans }}',
+                view_contact: '{{ "citadel_explorer.view_contact"|trans }}',
+                not_citadelquest: '{{ "citadel_explorer.not_citadelquest"|trans }}',
+                profile_not_public: '{{ "citadel_explorer.profile_not_public"|trans }}',
+                shared_items: '{{ "cq_contact.detail.shared_items"|trans }}',
+                select_library: '{{ "cq_contact.detail.select_library"|trans }}',
+                loading_libraries: '{{ "cq_contact.detail.loading_libraries"|trans }}',
+                no_libraries: '{{ "cq_contact.detail.no_libraries"|trans }}',
+                added_to_library: '{{ "cq_contact.detail.added_to_library"|trans }}',
+                select_library_first: '{{ "cq_contact.detail.select_library_first"|trans }}',
+                nodes: '{{ "spirit.memory.nodes"|trans }}',
+                relationships: '{{ "spirit.memory.relationships"|trans }}',
+                show_more: '{{ "ui.show_more"|trans }}',
+                show_less: '{{ "ui.show_less"|trans }}',
+            }
+        };
+    </script>
+    {{ encore_entry_script_tags('citadel-explorer') }}
+{% endblock %}
+
 {% block body %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="glass-panel glass-panel-glow p-4">
+            <div class="glass-panel p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1 class="h3 mb-0">
                         <i class="mdi mdi-account-group me-2 text-cyber"></i>
                         {{ 'cq_contact.page_title'|trans }}
                     </h1>
-                    <button type="button" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#addContactModal">
-                        <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}
-                    </button>
                 </div>
 
+                {# Citadel Explorer — URL input #}
+                <div class="mb-4">
+                    <div class="input-group">
+                        <span class="input-group-text glass-panel"><i class="mdi mdi-earth text-cyber"></i></span>
+                        <input type="url" id="explorerUrlInput" class="form-control glass-input"
+                               placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
+                        <button class="btn btn-cyber" id="explorerFetchBtn" type="button" disabled>
+                            <i class="mdi mdi-magnify me-1"></i><span class="d-none d-md-inline-block">{{ 'citadel_explorer.explore'|trans }}</span>
+                        </button>
+                    </div>
+                    <div class="small text-muted ms-2 mt-1">{{ 'citadel_explorer.url_help'|trans }}</div>
+                </div>
+
+                {# Citadel Explorer — profile preview container #}
+                <div id="explorerPreview" class="d-none mb-4"></div>
+
+                {# Contacts list — search & filter #}
                 <div class="row mb-3">
                     <div class="col-md-6 mb-2">
                         <div class="input-group">
@@ -41,57 +97,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Contact Modal -->
-<div class="modal fade" id="addContactModal" tabindex="-1" aria-labelledby="addContactModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content glass-panel">
-            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
-                <h5 class="modal-title" id="addContactModalLabel"><i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.add_contact'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="addContactForm">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="cqContactUrl" class="form-label">
-                            <i class="mdi mdi-web me-2 text-cyber"></i>{{ 'cq_contact.url'|trans }}
-                        </label>
-                        <input type="url" class="form-control glass-input" id="cqContactUrl" required 
-                               placeholder="https://example.citadelquest.com/username" value="https://">
-                        <div class="small text-muted ms-2 mt-2">{{ 'cq_contact.url_help'|trans }}</div>
-                        <div id="contactUrlPreview" class="d-none mt-3">
-                            <div class="d-flex align-items-center p-2 rounded" style="background: rgba(255,255,255,0.05);">
-                                <div id="contactPreviewPhoto" class="me-3">
-                                    <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
-                                         style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
-                                        <i class="mdi mdi-account text-secondary" style="font-size: 24px;"></i>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div id="contactPreviewUsername" class="text-cyber fw-bold"></div>
-                                    <div id="contactPreviewDomain" class="text-muted small"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">
-                            <i class="mdi mdi-text-account me-2 text-cyber"></i>{{ 'cq_contact.description'|trans }}
-                        </label>
-                        <textarea class="form-control glass-input" id="description" rows="3" 
-                                  placeholder="{{ 'cq_contact.description_placeholder'|trans }}"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer d-flex justify-content-between border-top-0">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
-                        <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}</button>
-                    <button type="submit" id="addContactModalSubmit" class="btn btn-sm btn-cyber">
-                        <i class="mdi mdi-account-plus me-2"></i>{{ 'cq_contact.send_friend_request'|trans }}</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -147,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const contactsContainer = document.getElementById('contactsContainer');
     const contactSearch = document.getElementById('contactSearch');
     const statusFilter = document.getElementById('statusFilter');
-    const addContactForm = document.getElementById('addContactForm');
 
     let contacts = [];
 
@@ -231,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class="mdi mdi-web me-1 text-cyber opacity-50"></i>
                                 ${contact.cqContactUrl}
                             </p>
-                            ${contact.description ? `<p class="card-text text-muted small mb-3"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description}</p>` : '<div class="mb-3"></div>'}
+                            ${contact.description ? `<p class="card-text text-muted small mb-3"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description.length > 200 ? contact.description.substring(0, 200) + '...' : contact.description}</p>` : '<div class="mb-3"></div>'}
                             <div class="d-flex justify-content-end">
                                 <div class="btn-group" role="group">
                                     <button type="button" class="btn btn-sm btn-outline-secondary view-contact" 
@@ -424,80 +428,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add contact form submission
-    addContactForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const url = document.getElementById('cqContactUrl').value;
-        const description = document.getElementById('description').value;
-
-        // disable button
-        document.getElementById('addContactModalSubmit').disabled = true;
-        document.getElementById('addContactModalSubmit').classList.add('disabled');
-        document.getElementById('addContactModalSubmit').setAttribute('disabled', 'disabled');
-        
-        // Parse URL to extract domain and username
-        try {
-            const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/').filter(p => p);
-            const username = pathParts[pathParts.length - 1];
-            const domain = urlObj.hostname;
-            
-            fetch('/api/cq-contact', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    cqContactUrl: url,//`https://${domain}/${username}`,
-                    cqContactDomain: domain,
-                    cqContactUsername: username,
-                    description: description,
-                    //friendRequestStatus: 'SENT'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.id) {
-                    // Send friend request
-                    return fetch(`/api/cq-contact/${data.id}/friend-request`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            friendRequestStatus: 'SENT'
-                        })
-                    });
-                } else {
-                    throw new Error(data.error || 'Failed to create contact');
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.toast.success('{{ "cq_contact.friend_request_sent"|trans }}');
-                    document.getElementById('addContactModal').querySelector('[data-bs-dismiss="modal"]').click();
-                    addContactForm.reset();
-                    loadContacts();
-                } else {
-                    window.toast.error(data.message || data.error || '{{ "cq_contact.error_sending"|trans }}');
-                }
-            })
-            .catch(error => {
-                console.error('Error adding contact:', error);
-                window.toast.error(error.message || error.error || '{{ "cq_contact.error_adding"|trans }}');
-            })
-            .finally(() => {
-                document.getElementById('addContactModalSubmit').disabled = false;
-                document.getElementById('addContactModalSubmit').classList.remove('disabled');
-                document.getElementById('addContactModalSubmit').removeAttribute('disabled');
-            });
-        } catch (error) {
-            window.toast.error('{{ "cq_contact.invalid_url"|trans }}');
-        }
-    });
-
     // Delete confirmation button event listener
     document.getElementById('confirmDeleteContact').addEventListener('click', function() {
         const contactId = this.dataset.contactId;
@@ -506,80 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ========================================
-    // Add Contact URL preview
-    // ========================================
-    let previewTimeout = null;
-    const cqContactUrlInput = document.getElementById('cqContactUrl');
-    const contactUrlPreview = document.getElementById('contactUrlPreview');
-    const contactPreviewPhoto = document.getElementById('contactPreviewPhoto');
-    const contactPreviewUsername = document.getElementById('contactPreviewUsername');
-    const contactPreviewDomain = document.getElementById('contactPreviewDomain');
-
-    cqContactUrlInput.addEventListener('input', function() {
-        clearTimeout(previewTimeout);
-        const url = this.value.trim();
-
-        // Need at least https://x.y/username pattern
-        if (url.length < 10 || !url.startsWith('https://')) {
-            contactUrlPreview.classList.add('d-none');
-            return;
-        }
-
-        try {
-            const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/').filter(p => p);
-            if (pathParts.length === 0) {
-                contactUrlPreview.classList.add('d-none');
-                return;
-            }
-
-            const username = pathParts[pathParts.length - 1];
-            const domain = urlObj.hostname;
-
-            // Show preview immediately with parsed info
-            contactPreviewUsername.textContent = username;
-            contactPreviewDomain.textContent = domain;
-            contactUrlPreview.classList.remove('d-none');
-
-            // Reset photo to default
-            contactPreviewPhoto.innerHTML = `
-                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
-                     style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
-                    <i class="mdi mdi-loading mdi-spin text-muted" style="font-size: 20px;"></i>
-                </div>
-            `;
-
-            // Debounce the photo fetch
-            previewTimeout = setTimeout(() => {
-                const photoUrl = `/api/cq-contact/preview-photo?url=${encodeURIComponent(url)}`;
-                const img = new Image();
-                img.onload = function() {
-                    contactPreviewPhoto.innerHTML = `
-                        <img src="${photoUrl}" alt="${username}"
-                             class="rounded-circle border border-2 border-success"
-                             style="width: 48px; height: 48px; object-fit: cover;">
-                    `;
-                };
-                img.onerror = function() {
-                    contactPreviewPhoto.innerHTML = `
-                        <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
-                             style="width: 48px; height: 48px; background: rgba(255,255,255,0.05);">
-                            <i class="mdi mdi-account text-secondary" style="font-size: 24px;"></i>
-                        </div>
-                    `;
-                };
-                img.src = photoUrl;
-            }, 600);
-        } catch (e) {
-            contactUrlPreview.classList.add('d-none');
-        }
-    });
-
-    // Reset preview when modal closes
-    document.getElementById('addContactModal').addEventListener('hidden.bs.modal', function() {
-        contactUrlPreview.classList.add('d-none');
-    });
+    // Expose loadContacts globally so CitadelExplorer can refresh after adding contact
+    window.loadContacts = loadContacts;
 
     // Search and filter event listeners
     contactSearch.addEventListener('input', renderContacts);

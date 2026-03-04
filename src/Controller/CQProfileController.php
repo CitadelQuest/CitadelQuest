@@ -125,6 +125,92 @@ class CQProfileController extends AbstractController
     }
 
     /**
+     * Public profile JSON API: GET /{username}/json
+     * Returns public profile data as JSON for Citadel Explorer.
+     * Only returns data that's already publicly visible on the HTML profile page.
+     */
+    #[Route('/{username}/json', name: 'cq_profile_public_json', methods: ['GET'], priority: -10)]
+    public function publicProfileJson(Request $request, string $username): JsonResponse
+    {
+        $user = $this->resolveUser($username);
+        if (!$user) {
+            return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $this->settingsService->setUser($user);
+
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0');
+        if ($publicEnabled !== '1') {
+            return $this->json(['success' => false, 'message' => 'Profile not public'], Response::HTTP_NOT_FOUND);
+        }
+
+        $domain = $request->getHost();
+        $bio = $this->settingsService->getSettingValue('profile.bio');
+        $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+        $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
+        $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
+        $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
+        $spiritMode = (int) $this->settingsService->getSettingValue('profile.public_page_show_spirits', '1');
+
+        $response = [
+            'success' => true,
+            'username' => $username,
+            'domain' => $domain,
+            'bio' => $bio,
+            'photo_url' => ($showPhoto && $photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null,
+            'profile_url' => 'https://' . $domain . '/' . $username,
+        ];
+
+        // Public shares
+        $publicShares = [];
+        if ($showShares) {
+            try {
+                $this->shareService->setUser($user);
+                $publicShares = $this->shareService->listPublicShares();
+
+                if ($showShareContent && !empty($publicShares)) {
+                    $publicShares = $this->enrichSharesWithPreview($user, $username, $publicShares);
+
+                    // Convert preview URLs to absolute URLs for remote consumption
+                    foreach ($publicShares as &$s) {
+                        if (isset($s['preview_url'])) {
+                            $s['preview_url'] = 'https://' . $domain . $s['preview_url'];
+                        }
+                        if (isset($s['preview_graph_url'])) {
+                            $s['preview_graph_url'] = 'https://' . $domain . $s['preview_graph_url'];
+                        }
+                    }
+                    unset($s);
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('CQProfileController::publicProfileJson: shares error', [
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        $response['shares'] = $publicShares;
+        $response['show_share_content'] = $showShareContent;
+
+        // Spirits
+        $spirits = [];
+        if ($spiritMode > 0) {
+            try {
+                $allSpirits = $this->loadUserSpirits($user);
+                if ($spiritMode === 1) {
+                    foreach ($allSpirits as $s) {
+                        if ($s['isPrimary']) { $spirits[] = $s; break; }
+                    }
+                } else {
+                    $spirits = $allSpirits;
+                }
+            } catch (\Exception $e) {}
+        }
+        $response['spirits'] = $spirits;
+
+        return $this->json($response);
+    }
+
+    /**
      * Profile photo endpoint: GET /{username}/photo
      * Serves the user's profile photo if available and authorized.
      */
@@ -181,7 +267,14 @@ class CQProfileController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $mimeType = $file['mime_type'] ?? 'image/jpeg';
+        // Prefer .thumb version (smaller file, profile photo is never displayed full-size)
+        $thumbPath = $filePath . '.thumb';
+        if (file_exists($thumbPath)) {
+            $filePath = $thumbPath;
+            $mimeType = 'image/jpeg'; // thumbnails are always JPEG
+        } else {
+            $mimeType = $file['mime_type'] ?? 'image/jpeg';
+        }
 
         $response = new BinaryFileResponse($filePath);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $file['name']);

@@ -44,6 +44,7 @@ Encore
     .addEntry('cq-contact-detail', './assets/entries/cq-contact-detail.js')
     .addEntry('settings-profile', './assets/entries/settings-profile.js')
     .addEntry('profile-public', './assets/entries/profile-public.js')
+    .addEntry('citadel-explorer', './assets/entries/citadel-explorer.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

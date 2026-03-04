@@ -67,10 +67,10 @@
                                 </div>
                                 <div>
                                     <input type="file" id="profile-photo-input" accept="image/jpeg,image/png,image/webp,image/gif" class="d-none">
-                                    <button type="button" id="profile-photo-upload-btn" class="btn btn-sm btn-cyber me-2">
+                                    <button type="button" id="profile-photo-upload-btn" class="btn btn-sm btn-cyber me-2 mb-2">
                                         <i class="mdi mdi-upload me-1"></i>{{ 'profile.settings.upload_photo'|trans|default('Upload Photo') }}
                                     </button>
-                                    <button type="button" id="profile-photo-remove-btn" class="btn btn-sm btn-outline-danger {% if not photoFileId %}d-none{% endif %}">
+                                    <button type="button" id="profile-photo-remove-btn" class="btn btn-sm mb-2 btn-outline-danger {% if not photoFileId %}d-none{% endif %}">
                                         <i class="mdi mdi-delete me-1"></i>{{ 'profile.settings.remove_photo'|trans|default('Remove') }}
                                     </button>
                                     <div class="text-muted small mt-1">{{ 'profile.settings.photo_hint'|trans|default('JPEG, PNG, WebP or GIF. Max 5MB.') }}</div>
@@ -87,11 +87,10 @@
                             <h6><i class="mdi mdi-text me-2"></i>{{ 'profile.settings.bio_label'|trans|default('Bio') }}</h6>
                         </div>
                         <div class="col-12">
-                            <textarea id="profile-bio" class="form-control border-secondary" rows="3" 
-                                      placeholder="{{ 'profile.settings.bio_placeholder'|trans|default('Tell the world a bit about yourself...') }}"
-                                      maxlength="500">{{ settings['profile.bio']|default('') }}</textarea>
+                            <textarea id="profile-bio" class="form-control border-secondary" rows="5" 
+                                      placeholder="{{ 'profile.settings.bio_placeholder'|trans|default('Tell the world a bit about yourself...') }}">{{ settings['profile.bio']|default('') }}</textarea>
                             <div class="text-muted small mt-1">
-                                <span id="profile-bio-count">{{ settings['profile.bio']|default('')|length }}</span>/500
+                                <span id="profile-bio-count">{{ settings['profile.bio']|default('')|length }}</span> {{ 'profile.settings.bio_chars'|trans|default('characters') }}
                             </div>
                         </div>
                     </div>

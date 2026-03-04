@@ -445,6 +445,7 @@ profile:
         photo_hint: 'JPEG, PNG, WebP alebo GIF. Max 5MB.'
         bio_label: 'Bio'
         bio_placeholder: 'Povedzte svetu niečo o sebe...'
+        bio_chars: 'znakov'
         public_page: 'Verejná profilová stránka'
         public_page_desc: 'Keď je zapnutá, váš profil je dostupný na URL nižšie.'
         enable_public_page: 'Povoliť verejnú profilovú stránku'
@@ -892,6 +893,8 @@ ui:
     none: 'Žiadny'
     back: 'Späť'
     share: 'Zdieľať'
+    show_more: 'zobraziť viac'
+    show_less: 'zobraziť menej'
 
 file_browser:
     page_title: 'Správca súborov'
@@ -1027,6 +1030,15 @@ cq_contact:
         no_libraries: 'Žiadne knižnice nenájdené'
         error_loading_libraries: 'Chyba pri načítaní knižníc'
     view_details: 'Zobraziť detaily'
+
+citadel_explorer:
+    explore: 'Preskúmať'
+    url_placeholder: 'https://example.citadelquest.com/username'
+    url_help: 'Zadajte URL profilu CitadelQuest na preskúmanie verejného profilu a zdieľaných položiek'
+    already_contact: 'Už je kontakt'
+    view_contact: 'Zobraziť kontakt'
+    not_citadelquest: 'Nepodarilo sa pripojiť — toto nemusí byť CitadelQuest inštancia'
+    profile_not_public: 'Tento profil nie je verejne dostupný'
 
 cq_share:
     page_title: 'CQ Zdieľanie'

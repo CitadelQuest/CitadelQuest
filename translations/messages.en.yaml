@@ -453,6 +453,7 @@ profile:
         photo_hint: 'JPEG, PNG, WebP or GIF. Max 5MB.'
         bio_label: 'Bio'
         bio_placeholder: 'Tell the world a bit about yourself...'
+        bio_chars: 'characters'
         public_page: 'Public Profile Page'
         public_page_desc: 'When enabled, your profile is accessible at the URL below.'
         enable_public_page: 'Enable public profile page'
@@ -900,6 +901,8 @@ ui:
     none: 'None'
     back: 'Back'
     share: 'Share'
+    show_more: 'show more'
+    show_less: 'show less'
 
 file_browser:
     page_title: 'File Browser'
@@ -1035,6 +1038,15 @@ cq_contact:
         no_libraries: 'No libraries found'
         error_loading_libraries: 'Error loading libraries'
     view_details: 'View details'
+
+citadel_explorer:
+    explore: 'Explore'
+    url_placeholder: 'https://example.citadelquest.com/username'
+    url_help: 'Enter a CitadelQuest profile URL to explore their public profile and shared items'
+    already_contact: 'Already a contact'
+    view_contact: 'View Contact'
+    not_citadelquest: 'Could not connect — this may not be a CitadelQuest instance'
+    profile_not_public: 'This profile is not publicly available'
 
 cq_share:
     page_title: 'CQ Share'

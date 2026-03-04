@@ -68,8 +68,27 @@ export class ContactDetailManager {
             // Update bio
             const bioEl = document.getElementById('contactProfileBio');
             if (bioEl && profile.bio) {
-                const escaped = profile.bio.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-                bioEl.innerHTML = `<p class="text-light mb-0 ms-0 ms-md-5 ps-0 ps-md-2 mt-2">${escaped}</p>`;
+                const escaped = profile.bio.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const bioNl2br = escaped.replace(/\n/g, '<br>');
+                if (escaped.length > 600) {
+                    const shortBio = escaped.substring(0, 600).replace(/\n/g, '<br>');
+                    bioEl.innerHTML = `<div class="text-light mb-0 ms-0 ms-md-5 ps-0 ps-md-2 mt-2" style="word-break: break-word; overflow-wrap: break-word;">
+                        <span class="contact-bio-short">${shortBio}…</span>
+                        <span class="contact-bio-full d-none">${bioNl2br}</span>
+                        <a href="#" class="contact-bio-toggle text-cyber small ms-1">${this.trans.show_more || 'show more'}</a>
+                    </div>`;
+                    bioEl.querySelector('.contact-bio-toggle')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const short = bioEl.querySelector('.contact-bio-short');
+                        const full = bioEl.querySelector('.contact-bio-full');
+                        const expanded = !full.classList.contains('d-none');
+                        short.classList.toggle('d-none', !expanded);
+                        full.classList.toggle('d-none', expanded);
+                        e.target.textContent = expanded ? (this.trans.show_more || 'show more') : (this.trans.show_less || 'show less');
+                    });
+                } else {
+                    bioEl.innerHTML = `<p class="text-light mb-0 ms-0 ms-md-5 ps-0 ps-md-2 mt-2" style="word-break: break-word; overflow-wrap: break-word;">${bioNl2br}</p>`;
+                }
             } else if (bioEl && !profile.bio) {
                 bioEl.innerHTML = '';
             }
