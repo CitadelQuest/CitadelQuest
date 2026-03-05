@@ -21,6 +21,7 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('app', './assets/entries/app.js')
+    .addEntry('app-public', './assets/entries/app-public.js')
     .addEntry('backup', './assets/entries/backup.js')
     .addEntry('translations', './assets/entries/translations.js')
     .addEntry('visual-design', './assets/entries/visual-design.js')

@@ -10,6 +10,16 @@ export class ThemeService {
         this.themes = this.themeList.map(t => t.id);
         this.currentThemeIndex = 2; // Start with night-2 as it's good ol' CQ default
         
+        // If data-theme is already set server-side (e.g. public profile page), respect it
+        const serverTheme = document.documentElement.getAttribute('data-theme');
+        if (serverTheme) {
+            const index = this.themes.indexOf(serverTheme);
+            if (index !== -1) {
+                this.currentThemeIndex = index;
+            }
+            return;
+        }
+
         // Load saved theme if exists
         const savedTheme = localStorage.getItem('citadel-theme');
         if (savedTheme) {

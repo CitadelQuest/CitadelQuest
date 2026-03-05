@@ -226,17 +226,21 @@ class CQProfileController extends AbstractController
 
         $this->settingsService->setUser($user);
 
-        // Check access: public page enabled OR valid federation auth
-        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1';
-        $federationShowPhoto = $this->settingsService->getSettingValue('profile.federation_show_photo', '1') === '1';
-        
-        $isAuthenticated = false;
-        if (!$publicEnabled) {
-            // Try federation auth
-            $this->cqContactService->setUser($user);
-            $isAuthenticated = $this->checkFederationAuth($request);
-            if (!$isAuthenticated || !$federationShowPhoto) {
-                throw $this->createNotFoundException();
+        // Check access: own user OR public page enabled OR valid federation auth
+        $currentUser = $this->getUser();
+        $isOwnUser = $currentUser && $currentUser->getId() === $user->getId();
+
+        if (!$isOwnUser) {
+            $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1';
+            $federationShowPhoto = $this->settingsService->getSettingValue('profile.federation_show_photo', '1') === '1';
+
+            if (!$publicEnabled) {
+                // Try federation auth
+                $this->cqContactService->setUser($user);
+                $isAuthenticated = $this->checkFederationAuth($request);
+                if (!$isAuthenticated || !$federationShowPhoto) {
+                    throw $this->createNotFoundException();
+                }
             }
         }
 

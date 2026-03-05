@@ -1,11 +1,10 @@
-{% extends 'base.html.twig' %}
+{% extends 'base-public.html.twig' %}
+
+{% block html_attributes %}{% if profile_theme is defined and profile_theme %} data-theme="{{ profile_theme }}"{% endif %}{% endblock %}
 
 {% block title %}{{ profile_username }} @ {{ profile_domain }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
-{# Hide navigation on public profile page #}
-<style>.navbar { display: none !important; }</style>
-
 <div class="container mt-4 mb-5">
     <div class="row justify-content-center">
         <div class="col-lg-8 col-xl-7">
@@ -201,13 +200,6 @@
     {{ parent() }}
     {% if profile_show_share_content is defined and profile_show_share_content %}
         {{ encore_entry_script_tags('profile-public') }}
-    {% endif %}
-    {% if profile_theme is defined and profile_theme %}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.documentElement.setAttribute('data-theme', '{{ profile_theme }}');
-        });
-    </script>
     {% endif %}
     <script>
     document.addEventListener('DOMContentLoaded', function() {

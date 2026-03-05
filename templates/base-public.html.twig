@@ -1,0 +1,45 @@
+{#
+    Lightweight base template for public (unauthenticated) pages.
+    No Spirit Chat, CQ Chat, notifications, toast, theme service, or loading ghost.
+    Used by: CQ Profile public page.
+#}
+<!DOCTYPE html>
+<html{% block html_attributes %}{% endblock %}>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}CitadelQuest{% endblock %}</title>
+        
+        {# Favicon #}
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('build/images/apple-touch-icon.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('build/images/favicon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('build/images/favicon-16x16.png') }}">
+        <meta name="theme-color" content="#0a0b14">
+
+        {% block stylesheets %}
+            {{ encore_entry_link_tags('app-public') }}
+        {% endblock %}
+
+        {% block javascripts %}
+            {{ encore_entry_script_tags('app-public') }}
+        {% endblock %}
+    </head>
+    <body class="position-relative min-vh-100 citadel-background">
+
+        <main class="pb-5_">
+            {% block body %}{% endblock %}
+        </main>
+
+        <footer class="footer py-1 position-fixed bottom-0 start-0 end-0" style="z-index: 1020;">
+            <div class="container text-center">
+                <small>
+                    &copy; {{ date('now')|date('Y') }} 
+                    <span class="text-cyber">&bull; {{ 'app.name'|trans }}</span> {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} 
+                    <span class="text-cyber">&bull;</span> 
+                    <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans }}</span>
+                </small>
+            </div>
+        </footer>
+
+    </body>
+</html>
