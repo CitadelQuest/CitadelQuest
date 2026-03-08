@@ -50,10 +50,10 @@
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
                             <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                            <small class="text-muted d-inline-flex align-items-center">
+                            <small class="text-light opacity-50 d-inline-flex align-items-center">
                                 <i class="mdi mdi-web me-1"></i>
                                 {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
-                                <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
+                                <button class="btn btn-link btn-sm p-0 ms-2 text-light opacity-50 copy-profile-url"
                                         data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
                                         title="{{ 'citadel_explorer.copy_link'|trans }}">
                                     <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
@@ -86,7 +86,7 @@
                                         {{ spirit.name }}
                                         {% if spirit.isPrimary and profile_spirits|length > 1 %}<i class="mdi mdi-star text-warning" style="font-size: 0.65rem;"></i>{% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">{{ 'spirit.level'|trans }} {{ spirit.level }} | {{ spirit.experience }} XP</div>
+                                    <div class="text-light opacity-50" style="font-size: 0.65rem; line-height: 1;">{{ 'spirit.level'|trans }} {{ spirit.level }} | {{ spirit.experience }} XP</div>
                                 </div>
                             </div>
                             {% endfor %}
@@ -97,10 +97,10 @@
                     {# Username & Domain & Bio — mobile only (below photo+spirits row) #}
                     <div class="d-md-none mt-3">
                         <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                        <small class="text-muted d-inline-flex align-items-center">
+                        <small class="text-light opacity-50 d-inline-flex align-items-center">
                             <i class="mdi mdi-web me-1"></i>
                             {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
-                            <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
+                            <button class="btn btn-link btn-sm p-0 ms-2 text-light opacity-50 copy-profile-url"
                                     data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
                                     title="{{ 'citadel_explorer.copy_link'|trans }}">
                                 <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
@@ -151,7 +151,7 @@
                                     {% endif %}
                                 </a>
                                 <div class="d-flex align-items-center gap-2">
-                                    <small class="text-muted"><i class="mdi mdi-eye me-1"></i>{{ share.views }} {{ 'cq_contact.detail.views'|trans }}</small>
+                                    <small class="text-light opacity-50"><i class="mdi mdi-eye me-1"></i>{{ share.views }} {{ 'cq_contact.detail.views'|trans }}</small>
                                     <button class="btn btn-sm btn-outline-primary border-0 copy-share-url"
                                             data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}/share/{{ share.share_url }}"
                                             title="{{ 'citadel_explorer.copy_link'|trans }}">

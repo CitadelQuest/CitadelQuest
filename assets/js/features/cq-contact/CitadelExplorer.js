@@ -95,8 +95,17 @@ export class CitadelExplorer {
     }
 
     async explore() {
-        const url = this.urlInput.value.trim();
+        let url = this.urlInput.value.trim();
         if (!url || !url.startsWith('https://')) return;
+
+        // Detect share URL pattern: https://domain/username/share/{slug}
+        // Strip /share/{slug} to get profile URL, remember the slug for highlighting
+        this.highlightShareUrl = null;
+        const shareMatch = url.match(/^(https:\/\/[^/]+\/[^/]+)\/share\/([^/]+)\/?$/);
+        if (shareMatch) {
+            url = shareMatch[1];
+            this.highlightShareUrl = shareMatch[2];
+        }
 
         this.profileUrl = url;
         this.destroyGraphs();
@@ -130,7 +139,12 @@ export class CitadelExplorer {
             // Save URL to localStorage on successful explore
             localStorage.setItem('citadelExplorerUrl', url);
 
-            await this.renderProfile();
+            // Share URL → show only that share item; otherwise full profile
+            if (this.highlightShareUrl) {
+                await this.renderShareOnly();
+            } else {
+                await this.renderProfile();
+            }
         } catch (error) {
             console.error('Explorer fetch error:', error);
             this.showError(this.t('not_citadelquest', 'Could not connect to this Citadel'));
@@ -358,6 +372,143 @@ export class CitadelExplorer {
     }
 
     /**
+     * Render only a single share item (when navigated via share URL).
+     * Shows a compact profile header + the matched share with full content.
+     */
+    async renderShareOnly() {
+        const p = this.profile;
+        const profileLink = p.profile_url || this.profileUrl;
+        const slug = this.highlightShareUrl;
+
+        // Find the share directly from the already-fetched profile data
+        const shares = p.shares || [];
+        const share = shares.find(s => s.share_url === slug);
+        if (!share) {
+            this.showError(this.t('share_not_found', 'Shared item not found'));
+            return;
+        }
+
+        // Check download status for this single share
+        this.downloadStatus = {};
+        try {
+            let dlUrl, dlBody;
+            if (p.is_contact && p.contact_id) {
+                dlUrl = `/api/cq-contact/${p.contact_id}/check-downloads`;
+                dlBody = JSON.stringify({ shares: [share] });
+            } else {
+                dlUrl = '/api/citadel-explorer/check-downloads';
+                dlBody = JSON.stringify({ profile_url: p.profile_url || this.profileUrl, shares: [share] });
+            }
+            const dlResp = await fetch(dlUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: dlBody
+            });
+            const dlData = await dlResp.json();
+            if (dlData.success && dlData.downloads) {
+                this.downloadStatus = dlData.downloads;
+            }
+        } catch (e) {
+            console.warn('Failed to check download status:', e);
+        }
+
+        // Build compact profile header
+        let photoHtml = '';
+        if (p.photo_url) {
+            const proxyPhotoUrl = p.photo_url.startsWith('/api/')
+                ? p.photo_url
+                : `/api/citadel-explorer/photo?url=${encodeURIComponent(p.photo_url)}`;
+            photoHtml = `<img src="${proxyPhotoUrl}" alt="${p.username}"
+                class="rounded-circle border border-2 border-success me-2"
+                style="width: 36px; height: 36px; object-fit: cover;"
+                onerror="this.style.display='none'">`;
+        }
+
+        let html = `
+            <div class="glass-panel rounded p-4 glass-panel-glow">
+                <div class="d-block position-absolute top-0 end-0 m-1">
+                    <button class="btn btn-sm btn-outline-secondary" id="explorerCloseBtn" title="Close"
+                        style="padding: 0.1rem 0.4rem !important; opacity:0.6;">
+                        <i class="mdi mdi-close"></i>
+                    </button>
+                </div>
+
+                <div class="d-flex align-items-center mb-3">
+                    ${photoHtml}
+                    <div>
+                        <a href="#" class="text-cyber text-decoration-none fw-bold explorer-view-profile">${p.username || ''}</a>
+                        <small class="text-muted ms-2">
+                            <i class="mdi mdi-web me-1"></i>${p.domain || ''}
+                        </small>
+                    </div>
+                </div>
+
+                <div id="explorerSharesContainer"></div>
+            </div>`;
+
+        // Add to Library modal
+        html += `
+            <div class="modal fade" id="explorerAddToLibModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content glass-panel">
+                        <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                            <h5 class="modal-title">
+                                <i class="mdi mdi-book-plus-outline me-2"></i>${this.t('add_to_library', 'Add to Library')}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <select id="explorer-lib-select" class="form-select glass-input" disabled>
+                                <option value="">${this.t('loading_libraries', 'Loading libraries...')}</option>
+                            </select>
+                        </div>
+                        <div class="modal-footer border-top-0">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                                <i class="mdi mdi-cancel me-1"></i>Cancel
+                            </button>
+                            <button type="button" class="btn btn-cyber btn-sm" id="explorer-confirm-add-lib">
+                                <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        this.previewContainer.innerHTML = html;
+
+        const libModal = document.getElementById('explorerAddToLibModal');
+        if (libModal) document.body.appendChild(libModal);
+
+        // Render just the single share
+        const container = document.getElementById('explorerSharesContainer');
+        this.renderShares([share], container);
+
+        // Bind close button
+        document.getElementById('explorerCloseBtn')?.addEventListener('click', () => {
+            this.destroyGraphs();
+            this.previewContainer.classList.add('d-none');
+            this.previewContainer.innerHTML = '';
+            this.profile = null;
+            this.urlInput.value = '';
+            localStorage.removeItem('citadelExplorerUrl');
+            this.toggleUrlHelp();
+            const orphanModal = document.getElementById('explorerAddToLibModal');
+            if (orphanModal) orphanModal.remove();
+        });
+
+        // Bind "view full profile" link
+        this.previewContainer.querySelector('.explorer-view-profile')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.highlightShareUrl = null;
+            this.urlInput.value = profileLink;
+            this.explore();
+        });
+
+        // Bind add to library confirm
+        document.getElementById('explorer-confirm-add-lib')?.addEventListener('click', () => this.confirmAddToLibrary());
+    }
+
+    /**
      * Load shares and render them. When is_contact, fetches from the contact
      * federation endpoint (superset: public + CQ Contact scoped shares).
      * Otherwise uses public shares already in this.profile.
@@ -464,7 +615,7 @@ export class CitadelExplorer {
             }
 
             html += `
-                <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-4 py-3">
+                <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-4 py-3" data-share-url="${share.share_url}">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div>
                             <i class="mdi ${icon} ${iconColor} me-2"></i>
@@ -570,6 +721,7 @@ export class CitadelExplorer {
 
         // Initialize 3D graphs after DOM update
         this.initGraphPreviews();
+
     }
 
     // ========================================
