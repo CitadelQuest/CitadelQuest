@@ -581,10 +581,8 @@ export class FileTreeView {
         // Find the directory that matches the initial expand path
         const currentDirectory = this.findDirectoryByPath(this.treeData, this.initialExpandPath);
         
-        if (currentDirectory) {
-            // Call the onInit callback with the real directory data
-            this.onInit(currentDirectory);
-        }
+        // Always call onInit (even with null) so consumers like deep-link file select can run
+        this.onInit(currentDirectory);
     }
     
     /**
@@ -596,8 +594,8 @@ export class FileTreeView {
     findDirectoryByPath(tree, targetPath) {
         if (!tree) return null;
         
-        // Check if this is the target directory
-        if (tree.type === 'directory' && (/* tree.path == '/' ? '' : */ tree.path) + '/' + tree.name === targetPath) {
+        // Check if this is the target directory (match path construction from createTreeNode)
+        if (tree.type === 'directory' && (tree.path === '/' ? '' : tree.path) + '/' + tree.name === targetPath) {
             return tree;
         }
         

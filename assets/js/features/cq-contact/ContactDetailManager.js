@@ -60,7 +60,7 @@ export class ContactDetailManager {
                          onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon')?.classList.remove('d-none');">
                     <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none fallback-icon"
                          style="width: 64px; height: 64px; background: rgba(255,255,255,0.05);">
-                        <i class="mdi mdi-account text-secondary" style="font-size: 32px;"></i>
+                        <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 32px;"></i>
                     </div>
                 `;
             }
@@ -202,18 +202,18 @@ export class ContactDetailManager {
                 if (isCqmpack) {
                     actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-2" 
                         onclick="showPackInMemoryExplorer('${dl.path}', '${dl.fileName}')">
-                        <i class="mdi mdi-eye me-1"></i> ${this.t('ui_view', 'View')}
+                        <i class="mdi mdi-eye me-1"></i><span class="d-none d-md-inline-block"> ${this.t('ui_view', 'View')}</span>
                     </button>`;
                     actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-2" 
                         onclick="showAddToLibraryModal('${dl.path}', '${dl.fileName}')">
-                        <i class="mdi mdi-book-plus-outline me-1"></i> ${this.t('add_to_library', 'Add to Library')}
+                        <i class="mdi mdi-book-plus-outline me-1"></i><span class="d-none d-md-inline-block"> ${this.t('add_to_library', 'Add to Library')}</span>
                     </button>`;
                 }
             } else {
                 const safeTitle = share.title.replace(/'/g, "\\'");
                 actionsHtml = `<button class="btn btn-sm btn-cyber" data-share-url="${share.share_url}"
                         onclick="downloadToCitadel('${share.share_url}', '${share.source_type}', '${safeTitle}')">
-                    <i class="mdi mdi-download me-1"></i> ${this.t('download_to_citadel', 'Download to Citadel')}
+                    <i class="mdi mdi-download me-1"></i><span class="d-none d-md-inline-block"> ${this.t('download_to_citadel', 'Download to Citadel')}</span>
                 </button>`;
             }
 

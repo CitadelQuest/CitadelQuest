@@ -19,6 +19,7 @@ export class CitadelExplorer {
         this.urlInput = document.getElementById('explorerUrlInput');
         this.fetchBtn = document.getElementById('explorerFetchBtn');
         this.previewContainer = document.getElementById('explorerPreview');
+        this.urlHelp = document.getElementById('explorerUrlHelp');
 
         // Current profile state
         this.profile = null;
@@ -42,11 +43,22 @@ export class CitadelExplorer {
     init() {
         if (!this.urlInput || !this.fetchBtn) return;
 
-        // Restore URL from localStorage
-        const savedUrl = localStorage.getItem('citadelExplorerUrl');
+        // Check URL param first (e.g. /cq-contacts?url=https://...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramUrl = urlParams.get('url');
+        if (paramUrl) {
+            localStorage.setItem('citadelExplorerUrl', paramUrl);
+            // Clean URL without reloading (remove ?url= param)
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+        }
+
+        // Restore URL from localStorage (or just-set param)
+        const savedUrl = paramUrl || localStorage.getItem('citadelExplorerUrl');
         if (savedUrl) {
             this.urlInput.value = savedUrl;
             this.fetchBtn.disabled = false;
+            this.toggleUrlHelp();
             // Auto-explore on page load if URL was saved
             setTimeout(() => this.explore(), 100);
         }
@@ -55,6 +67,7 @@ export class CitadelExplorer {
         this.urlInput.addEventListener('input', () => {
             const url = this.urlInput.value.trim();
             this.fetchBtn.disabled = !url || !url.startsWith('https://');
+            this.toggleUrlHelp();
         });
 
         // Explore on button click
@@ -72,6 +85,13 @@ export class CitadelExplorer {
         window.explorerDownload = (shareUrl, sourceType, title) => this.downloadShare(shareUrl, sourceType, title);
         window.explorerAddToLibrary = (packPath, packName) => this.showAddToLibraryModal(packPath, packName);
         window.explorerViewInMemory = (packPath, packName) => this.viewInMemoryExplorer(packPath, packName);
+        window.explorerViewInFileBrowser = (filePath, fileName) => this.viewInFileBrowser(filePath, fileName);
+    }
+
+    toggleUrlHelp() {
+        if (this.urlHelp) {
+            this.urlHelp.style.display = this.urlInput.value.trim() ? 'none' : '';
+        }
     }
 
     async explore() {
@@ -134,7 +154,10 @@ export class CitadelExplorer {
         // Build photo HTML
         let photoHtml = '';
         if (p.photo_url) {
-            const proxyPhotoUrl = `/api/citadel-explorer/photo?url=${encodeURIComponent(p.photo_url)}`;
+            // Local contact photo proxy doesn't need the explorer proxy wrapper
+            const proxyPhotoUrl = p.photo_url.startsWith('/api/')
+                ? p.photo_url
+                : `/api/citadel-explorer/photo?url=${encodeURIComponent(p.photo_url)}`;
             photoHtml = `
                 <img src="${proxyPhotoUrl}" alt="${p.username}"
                      class="rounded-circle border border-2 border-success"
@@ -142,13 +165,13 @@ export class CitadelExplorer {
                      onerror="this.style.display='none'; this.nextElementSibling?.classList.remove('d-none');">
                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
-                    <i class="mdi mdi-account text-secondary" style="font-size: 40px;"></i>
+                    <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>`;
         } else {
             photoHtml = `
                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
-                    <i class="mdi mdi-account text-secondary" style="font-size: 40px;"></i>
+                    <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>`;
         }
 
@@ -179,9 +202,9 @@ export class CitadelExplorer {
         let contactActionHtml = '';
         if (p.is_contact) {
             contactActionHtml = `
-                <a href="/cq-contact/${p.contact_id}" class="btn btn-sm btn-outline-cyber">
-                    <i class="mdi mdi-account-check me-1"></i>${this.t('view_contact', 'View Contact')}
-                </a>`;
+                <span class="badge bg-success bg-opacity-25 px-2 py-1">
+                    <i class="mdi mdi-account-check"></i>
+                </span>`;
         } else {
             contactActionHtml = `
                 <button class="btn btn-sm btn-cyber" id="explorerAddContactBtn">
@@ -189,28 +212,28 @@ export class CitadelExplorer {
                 </button>`;
         }
 
-        // Build bio HTML with show more for long bios
+        // Build bio HTML with markdown rendering and show more for long bios
         let bioHtml = '';
         if (p.bio) {
-            const escaped = p.bio.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            const bioNl2br = escaped.replace(/\n/g, '<br>');
-            if (escaped.length > 600) {
-                const shortBio = escaped.substring(0, 600).replace(/\n/g, '<br>');
-                bioHtml = `<div class="text-light mt-2 mb-0" style="word-break: break-word; overflow-wrap: break-word;">
-                    <span class="explorer-bio-short">${shortBio}…</span>
-                    <span class="explorer-bio-full d-none">${bioNl2br}</span>
+            const fullBioHtml = this.md.render(p.bio);
+            if (p.bio.length > 600) {
+                const shortBio = this.md.render(p.bio.substring(0, 600) + '…');
+                bioHtml = `<div class="text-light mt-2 mb-0 explorer-bio-md" style="word-break: break-word; overflow-wrap: break-word;">
+                    <div class="explorer-bio-short">${shortBio}</div>
+                    <div class="explorer-bio-full d-none">${fullBioHtml}</div>
                     <a href="#" class="explorer-bio-toggle text-cyber small ms-1">${this.t('show_more', 'show more')}</a>
                 </div>`;
             } else {
-                bioHtml = `<p class="text-light mt-2 mb-0" style="word-break: break-word; overflow-wrap: break-word;">${bioNl2br}</p>`;
+                bioHtml = `<div class="text-light mt-2 mb-0 explorer-bio-md" style="word-break: break-word; overflow-wrap: break-word;">${fullBioHtml}</div>`;
             }
         }
 
         // Main profile card
         let html = `
-            <div class="glass-panel rounded p-4 bg-dark bg-opacity-50 glass-panel-glow">
-                <div class="d-flex justify-content-end mb-2">
-                    <button class="btn btn-sm btn-outline-secondary" id="explorerCloseBtn" title="Close">
+            <div class="glass-panel rounded p-4 glass-panel-glow">
+                <div class="d-block position-absolute top-0 end-0 m-1">
+                    <button class="btn btn-sm btn-outline-secondary" id="explorerCloseBtn" title="Close"
+                        style="padding: 0.1rem 0.4rem !important; opacity:0.6;">
                         <i class="mdi mdi-close"></i>
                     </button>
                 </div>
@@ -226,7 +249,7 @@ export class CitadelExplorer {
                             </a>
                         </small>
                     </div>
-                    <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0">
+                    <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
                         ${spiritsHtml ? `<div>${spiritsHtml}</div>` : ''}
                         ${contactActionHtml}
                     </div>
@@ -242,13 +265,15 @@ export class CitadelExplorer {
                 </div>
                 ${bioHtml}`;
 
-        // Shared items section
-        const shares = p.shares || [];
-        if (shares.length > 0) {
+        // Shared items section (single container for both public and contact-scoped shares)
+        // When is_contact, contact shares are a superset of public shares (scope 0+1)
+        const hasPublicShares = (p.shares || []).length > 0;
+        const needsSharesSection = hasPublicShares || (p.is_contact && p.contact_id);
+        if (needsSharesSection) {
             html += `
                 <hr class="border-secondary border-opacity-25 my-4">
                 <h5 class="text-cyber mb-3">
-                    <i class="mdi mdi-share-variant me-2"></i>${this.t('shared_items', 'Shared Items')}
+                    <i class="mdi mdi-share-variant me-2 text-success"></i>${this.t('shared_items', 'Shared Items')}
                 </h5>
                 <div id="explorerSharesContainer">
                     <div class="text-center py-3">
@@ -303,6 +328,7 @@ export class CitadelExplorer {
             this.profile = null;
             this.urlInput.value = '';
             localStorage.removeItem('citadelExplorerUrl');
+            this.toggleUrlHelp();
             // Remove orphaned modal from body
             const orphanModal = document.getElementById('explorerAddToLibModal');
             if (orphanModal) orphanModal.remove();
@@ -325,36 +351,78 @@ export class CitadelExplorer {
         // Bind add to library confirm
         document.getElementById('explorer-confirm-add-lib')?.addEventListener('click', () => this.confirmAddToLibrary());
 
-        // Render shares with download status
-        if (shares.length > 0) {
-            await this.checkDownloadStatus(shares);
-            this.renderShares(shares);
+        // Load and render shares — contact endpoint is superset of public shares
+        if (needsSharesSection) {
+            await this.loadAndRenderShares();
         }
     }
 
-    async checkDownloadStatus(shares) {
+    /**
+     * Load shares and render them. When is_contact, fetches from the contact
+     * federation endpoint (superset: public + CQ Contact scoped shares).
+     * Otherwise uses public shares already in this.profile.
+     */
+    async loadAndRenderShares() {
+        const container = document.getElementById('explorerSharesContainer');
+        if (!container) return;
+
+        const p = this.profile;
+        let shares;
+
+        if (p.is_contact && p.contact_id) {
+            // Fetch from contact API — returns public + CQ Contact scoped shares
+            try {
+                const response = await fetch(`/api/cq-contact/${p.contact_id}/shares`);
+                const data = await response.json();
+                shares = (data.success && data.shares) ? data.shares : [];
+            } catch (error) {
+                console.error('Error loading contact shares:', error);
+                container.innerHTML = `
+                    <div class="text-center py-3 text-muted small">
+                        <i class="mdi mdi-alert-circle me-1"></i>${error.message}
+                    </div>`;
+                return;
+            }
+        } else {
+            shares = p.shares || [];
+        }
+
+        if (shares.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-3 text-muted small">
+                    <i class="mdi mdi-share-off me-1"></i>${this.t('no_items', 'No shared items')}
+                </div>`;
+            return;
+        }
+
+        // Check download status — pick endpoint based on is_contact
+        this.downloadStatus = {};
         try {
-            const response = await fetch('/api/citadel-explorer/check-downloads', {
+            let dlUrl, dlBody;
+            if (p.is_contact && p.contact_id) {
+                dlUrl = `/api/cq-contact/${p.contact_id}/check-downloads`;
+                dlBody = JSON.stringify({ shares });
+            } else {
+                dlUrl = '/api/citadel-explorer/check-downloads';
+                dlBody = JSON.stringify({ profile_url: p.profile_url || this.profileUrl, shares });
+            }
+            const dlResp = await fetch(dlUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    profile_url: this.profile.profile_url || this.profileUrl,
-                    shares
-                })
+                body: dlBody
             });
-            const data = await response.json();
-            if (data.success && data.downloads) {
-                this.downloadStatus = data.downloads;
+            const dlData = await dlResp.json();
+            if (dlData.success && dlData.downloads) {
+                this.downloadStatus = dlData.downloads;
             }
         } catch (e) {
             console.warn('Failed to check download status:', e);
         }
+
+        this.renderShares(shares, container);
     }
 
-    renderShares(shares) {
-        const container = document.getElementById('explorerSharesContainer');
-        if (!container) return;
-
+    renderShares(shares, container) {
         let html = '<div class="list-group list-group-flush bg-transparent">';
 
         shares.forEach(share => {
@@ -366,19 +434,26 @@ export class CitadelExplorer {
             const dl = this.downloadStatus[share.share_url];
             const isDownloaded = dl && dl.downloaded;
 
-            // Download action
+            // Download action — single handler, endpoint chosen in downloadShare()
             let actionsHtml = '';
             if (isDownloaded) {
                 actionsHtml = `<span class="badge bg-success bg-opacity-25 px-2"><i class="mdi mdi-check me-1"></i>${this.t('downloaded', 'Downloaded!')}</span>`;
-                if (isCqmpack && dl.path && dl.fileName) {
-                    actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
-                        onclick="explorerViewInMemory('${dl.path}', '${dl.fileName}')">
-                        <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
-                    </button>`;
-                    actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1"
-                        onclick="explorerAddToLibrary('${dl.path}', '${dl.fileName}')">
-                        <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
-                    </button>`;
+                if (dl.path && dl.fileName) {
+                    if (isCqmpack) {
+                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                            onclick="explorerViewInMemory('${dl.path}', '${dl.fileName}')">
+                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                        </button>`;
+                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1"
+                            onclick="explorerAddToLibrary('${dl.path}', '${dl.fileName}')">
+                            <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
+                        </button>`;
+                    } else {
+                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                            onclick="explorerViewInFileBrowser('${dl.path}', '${dl.fileName}')">
+                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                        </button>`;
+                    }
                 }
             } else {
                 const safeTitle = (share.title || '').replace(/'/g, "\\'");
@@ -395,9 +470,13 @@ export class CitadelExplorer {
                             <i class="mdi ${icon} ${iconColor} me-2"></i>
                             <span class="text-light fw-bold">${share.title || ''}</span>
                             <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
+                            <small class="text-muted"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
+                            <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
+                                onclick="navigator.clipboard.writeText('${(this.profile.profile_url || this.profileUrl).replace(/'/g, "\\'")}/share/${share.share_url}').then(() => window.toast?.success('${this.t('link_copied', 'Link copied!')}'))">
+                                <i class="mdi mdi-link-variant"></i>
+                            </button>
                         </div>
                         <div class="d-flex align-items-center gap-2">
-                            <small class="text-muted"><i class="mdi mdi-eye me-1"></i>${share.views || 0} ${this.t('views', 'views')}</small>
                             <div id="explorer-actions-${share.share_url}" class="text-end">${actionsHtml}</div>
                         </div>
                     </div>`;
@@ -558,33 +637,57 @@ export class CitadelExplorer {
         btn.innerHTML = `<i class="mdi mdi-loading mdi-spin me-1"></i>${this.t('downloading', 'Downloading...')}`;
 
         try {
-            const response = await fetch('/api/citadel-explorer/download', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    profile_url: this.profile.profile_url || this.profileUrl,
-                    share_url: shareUrl,
-                    source_type: sourceType,
-                    title: title,
-                    domain: this.profile.domain,
-                    username: this.profile.username
-                })
-            });
+            const p = this.profile;
+            let response;
+
+            if (p.is_contact && p.contact_id) {
+                // Authenticated contact download
+                response = await fetch(`/api/cq-contact/${p.contact_id}/download-share`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        share_url: shareUrl,
+                        source_type: sourceType,
+                        title: title
+                    })
+                });
+            } else {
+                // Public explorer download
+                response = await fetch('/api/citadel-explorer/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        profile_url: p.profile_url || this.profileUrl,
+                        share_url: shareUrl,
+                        source_type: sourceType,
+                        title: title,
+                        domain: p.domain,
+                        username: p.username
+                    })
+                });
+            }
             const data = await response.json();
 
             if (data.success) {
                 window.toast?.success(data.message || this.t('download_success', 'Downloaded to your Citadel!'));
 
                 let html = `<span class="badge bg-success bg-opacity-25 px-2"><i class="mdi mdi-check me-1"></i>${this.t('downloaded', 'Downloaded!')}</span>`;
-                if (sourceType === 'cqmpack' && data.path && data.fileName) {
-                    html += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
-                        onclick="explorerViewInMemory('${data.path}', '${data.fileName}')">
-                        <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
-                    </button>`;
-                    html += ` <button class="btn btn-sm btn-outline-cyber ms-1"
-                        onclick="explorerAddToLibrary('${data.path}', '${data.fileName}')">
-                        <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
-                    </button>`;
+                if (data.path && data.fileName) {
+                    if (sourceType === 'cqmpack') {
+                        html += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                            onclick="explorerViewInMemory('${data.path}', '${data.fileName}')">
+                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                        </button>`;
+                        html += ` <button class="btn btn-sm btn-outline-cyber ms-1"
+                            onclick="explorerAddToLibrary('${data.path}', '${data.fileName}')">
+                            <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
+                        </button>`;
+                    } else {
+                        html += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                            onclick="explorerViewInFileBrowser('${data.path}', '${data.fileName}')">
+                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                        </button>`;
+                    }
                 }
                 actionsDiv.innerHTML = html;
             } else {
@@ -698,6 +801,11 @@ export class CitadelExplorer {
         window.location.href = '/memory';
     }
 
+    viewInFileBrowser(filePath, fileName) {
+        localStorage.setItem('fileBrowserSelectFile', JSON.stringify({ path: filePath, name: fileName }));
+        window.location.href = '/file-browser';
+    }
+
     // ========================================
     // Add Contact
     // ========================================
@@ -744,9 +852,9 @@ export class CitadelExplorer {
                 window.toast?.success(this.t('friend_request_sent', 'Friend request sent!'));
                 // Replace button with "View Contact" link
                 btn.outerHTML = `
-                    <a href="/cq-contact/${createData.id}" class="btn btn-sm btn-outline-cyber">
-                        <i class="mdi mdi-account-check me-1"></i>${this.t('view_contact', 'View Contact')}
-                    </a>`;
+                    <span class="badge bg-success bg-opacity-25 px-2 py-1">
+                        <i class="mdi mdi-account-check"></i>
+                    </span>`;
 
                 // Reload contacts list
                 if (typeof window.loadContacts === 'function') {

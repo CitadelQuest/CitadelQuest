@@ -206,7 +206,7 @@ export class ProfileSettingsManager {
                 this.photoPreview.innerHTML = `
                     <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
                          style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
-                        <i class="mdi mdi-account text-secondary" style="font-size: 48px;"></i>
+                        <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 48px;"></i>
                     </div>
                 `;
                 this.photoRemoveBtn?.classList.add('d-none');

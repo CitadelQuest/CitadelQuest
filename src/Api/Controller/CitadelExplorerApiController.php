@@ -38,8 +38,11 @@ class CitadelExplorerApiController extends AbstractController
     ) {}
 
     /**
-     * Fetch a remote Citadel's public profile JSON.
-     * Proxies GET {url}/json from the remote Citadel.
+     * Fetch a remote Citadel profile for the Explorer.
+     * 
+     * Two distinct paths:
+     * A) Active CQ Contact with API key → fetch via federation (respects CQ Contact visibility)
+     * B) Non-contact / unknown URL → fetch public profile JSON
      */
     #[Route('/fetch', name: 'app_api_citadel_explorer_fetch', methods: ['POST'])]
     public function fetch(Request $request): JsonResponse
@@ -51,6 +54,24 @@ class CitadelExplorerApiController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Invalid URL'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Check if this URL belongs to an existing CQ Contact
+        $existingContact = $this->cqContactService->findByUrl($url);
+
+        // Path A: Accepted CQ Contact — use federation endpoint directly
+        if ($existingContact && strtolower($existingContact->getFriendRequestStatus() ?? '') === 'accepted' && $existingContact->getCqContactApiKey()) {
+            return $this->fetchViaFederation($existingContact, $url);
+        }
+
+        // Path B: Not a contact — fetch public profile
+        return $this->fetchPublicProfile($url, $existingContact);
+    }
+
+    /**
+     * Fetch public profile JSON from a remote Citadel.
+     * Used for non-contact URLs (discovery / Add Contact flow).
+     */
+    private function fetchPublicProfile(string $url, ?\App\Entity\CqContact $existingContact): JsonResponse
+    {
         try {
             $jsonUrl = rtrim($url, '/') . '/json';
 
@@ -79,15 +100,93 @@ class CitadelExplorerApiController extends AbstractController
                 ]);
             }
 
-            // Check if this user is already a contact
-            $existingContact = $this->cqContactService->findByUrl($url);
+            // Enrich with contact info (e.g. pending friend request)
             $profile['is_contact'] = $existingContact !== null;
             $profile['contact_id'] = $existingContact?->getId();
             $profile['contact_status'] = $existingContact?->getFriendRequestStatus();
 
             return $this->json($profile);
         } catch (\Exception $e) {
-            $this->logger->error('CitadelExplorerApiController::fetch error', [
+            $this->logger->error('CitadelExplorerApiController::fetchPublicProfile error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->json([
+                'success' => false,
+                'message' => 'Failed to connect: ' . $e->getMessage(),
+            ], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
+     * Fetch profile via federation for an active CQ Contact.
+     * Returns CQ Contact visibility-scoped data (bio, photo, spirits, shares).
+     * Photo URL is returned as local proxy so the browser can display it directly.
+     */
+    private function fetchViaFederation(\App\Entity\CqContact $contact, string $url): JsonResponse
+    {
+        try {
+            $profileUrl = rtrim($contact->getCqContactUrl(), '/') . '/api/federation/user-profile';
+
+            $response = $this->httpClient->request('POST', $profileUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Remote server returned HTTP ' . $statusCode,
+                ], Response::HTTP_BAD_GATEWAY);
+            }
+
+            $fedData = $response->toArray(false);
+            if (!($fedData['success'] ?? false)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => $fedData['message'] ?? 'Profile not available',
+                ]);
+            }
+
+            $contactId = $contact->getId();
+
+            // Sync local contact description from remote bio
+            $remoteBio = $fedData['bio'] ?? null;
+            if ($remoteBio !== $contact->getDescription()) {
+                $contact->setDescription($remoteBio);
+                $this->cqContactService->updateContact($contact);
+            }
+
+            // Photo: use local proxy URL so browser can display without CORS issues
+            $photoUrl = !empty($fedData['photo_url'])
+                ? '/api/cq-contact/' . $contactId . '/profile-photo'
+                : null;
+
+            // Build profile response compatible with renderProfile() format
+            $profile = [
+                'success' => true,
+                'username' => $fedData['username'] ?? $contact->getCqContactUsername(),
+                'domain' => $fedData['domain'] ?? $contact->getCqContactDomain(),
+                'bio' => $remoteBio,
+                'photo_url' => $photoUrl,
+                'profile_url' => $url,
+                'shares' => $fedData['shared_items'] ?? [],
+                'spirits' => $fedData['spirits'] ?? [],
+                'is_contact' => true,
+                'contact_id' => $contactId,
+                'contact_status' => $contact->getFriendRequestStatus(),
+            ];
+
+            return $this->json($profile);
+        } catch (\Exception $e) {
+            $this->logger->error('CitadelExplorerApiController::fetchViaFederation error', [
+                'contactId' => $contact->getId(),
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);

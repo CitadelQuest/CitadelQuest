@@ -1039,6 +1039,9 @@ citadel_explorer:
     view_contact: 'Zobraziť kontakt'
     not_citadelquest: 'Nepodarilo sa pripojiť — toto nemusí byť CitadelQuest inštancia'
     profile_not_public: 'Tento profil nie je verejne dostupný'
+    copy_link: 'Kopírovať odkaz'
+    link_copied: 'Odkaz skopírovaný!'
+    contact_shared_items: 'Zdieľané s vami'
 
 cq_share:
     page_title: 'CQ Zdieľanie'

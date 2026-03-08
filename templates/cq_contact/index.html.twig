@@ -38,6 +38,9 @@
                 relationships: '{{ "spirit.memory.relationships"|trans }}',
                 show_more: '{{ "ui.show_more"|trans }}',
                 show_less: '{{ "ui.show_less"|trans }}',
+                copy_link: '{{ "citadel_explorer.copy_link"|trans }}',
+                link_copied: '{{ "citadel_explorer.link_copied"|trans }}',
+                contact_shared_items: '{{ "citadel_explorer.contact_shared_items"|trans }}',
             }
         };
     </script>
@@ -45,12 +48,12 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-4">
+<div class="container mt-1">
     <div class="row">
         <div class="col-12">
-            <div class="glass-panel p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1 class="h3 mb-0">
+            <div class="glass-panel_p-4 pt-1">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h1 class="h6 mb-0">
                         <i class="mdi mdi-account-group me-2 text-cyber"></i>
                         {{ 'cq_contact.page_title'|trans }}
                     </h1>
@@ -63,10 +66,10 @@
                         <input type="url" id="explorerUrlInput" class="form-control glass-input"
                                placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
                         <button class="btn btn-cyber" id="explorerFetchBtn" type="button" disabled>
-                            <i class="mdi mdi-magnify me-1"></i><span class="d-none d-md-inline-block">{{ 'citadel_explorer.explore'|trans }}</span>
+                            <i class="mdi mdi-magnify me-2"></i><span class="d-none d-md-inline-block">{{ 'citadel_explorer.explore'|trans }}</span>
                         </button>
                     </div>
-                    <div class="small text-muted ms-2 mt-1">{{ 'citadel_explorer.url_help'|trans }}</div>
+                    <div class="small text-muted ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
                 </div>
 
                 {# Citadel Explorer — profile preview container #}
@@ -76,7 +79,7 @@
                 <div class="row mb-3">
                     <div class="col-md-6 mb-2">
                         <div class="input-group">
-                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify"></i></span>
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify text-cyber"></i></span>
                             <input type="text" id="contactSearch" class="form-control glass-input" placeholder="{{ 'cq_contact.search_placeholder'|trans }}">
                         </div>
                     </div>
@@ -215,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');">
                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
                      style="width: 40px; height: 40px; background: rgba(255,255,255,0.05);">
-                    <i class="mdi mdi-account text-secondary" style="font-size: 20px;"></i>
+                    <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 20px;"></i>
                 </div>
             `;
             return `
@@ -224,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h6 class="card-title mb-0">
-                                    <a href="/cq-contact/${contact.id}" class="text-decoration-none text-light d-flex align-items-center">
+                                    <a href="/cq-contacts?url=${encodeURIComponent(contact.cqContactUrl)}" class="text-decoration-none text-light d-flex align-items-center">
                                         ${photoHtml}
                                         <span class="ms-2">${contact.cqContactUsername}</span>
                                     </a>

@@ -7,7 +7,7 @@
 {% block body %}
 <div class="container mt-4 mb-5">
     <div class="row justify-content-center">
-        <div class="col-lg-8 col-xl-7">
+        <div class="col-lg-10 col-xl-8">
 
             {# Profile Header #}
             <div class="card glass-panel mb-4">
@@ -24,7 +24,7 @@
                             {% else %}
                                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
                                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
-                                    <i class="mdi mdi-account text-secondary" style="font-size: 48px;"></i>
+                                    <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 48px;"></i>
                                 </div>
                             {% endif %}
                         </div>
@@ -43,13 +43,13 @@
                             </small>
                             {% if profile_bio %}
                                 {% if profile_bio|length > 600 %}
-                                    <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
-                                        <span class="bio-short">{{ profile_bio[:600]|nl2br }}…</span>
-                                        <span class="bio-full d-none">{{ profile_bio|nl2br }}</span>
+                                    <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
+                                        <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
+                                        <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
                                         <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
                                     </div>
                                 {% else %}
-                                    <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                                    <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -90,13 +90,13 @@
                         </small>
                         {% if profile_bio %}
                             {% if profile_bio|length > 600 %}
-                                <div class="text-light mt-2 mb-0 bio-container">
-                                    <span class="bio-short">{{ profile_bio[:600]|nl2br }}…</span>
-                                    <span class="bio-full d-none">{{ profile_bio|nl2br }}</span>
+                                <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
+                                    <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
+                                    <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
                                     <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
                                 </div>
                             {% else %}
-                                <p class="text-light mt-2 mb-0">{{ profile_bio|nl2br }}</p>
+                                <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -117,25 +117,30 @@
                         {% for share in profile_shares %}
                         <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-4 py-3">
                             {# Share header row #}
-                            <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: share.share_url}) }}"
-                               class="d-flex justify-content-between align-items-center text-decoration-none">
-                                <div>
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: share.share_url}) }}"
+                                   class="text-decoration-none">
                                     {% if share.source_type == 'cqmpack' %}
                                         <i class="mdi mdi-graph me-2 text-info"></i>
                                     {% else %}
                                         <i class="mdi mdi-file me-2 text-warning"></i>
                                     {% endif %}
-                                    <span class="text-light">{{ share.title }}</span>
+                                    <span class="text-light fw-bold">{{ share.title }}</span>
                                     {% if share.source_type == 'cqmpack' %}
                                         <span class="badge bg-info bg-opacity-25 text-info ms-2">{{ 'cq_contact.detail.memory_pack'|trans }}</span>
                                     {% else %}
                                         <span class="badge bg-warning bg-opacity-25 text-warning ms-2">{{ 'cq_contact.detail.file'|trans }}</span>
                                     {% endif %}
+                                </a>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted"><i class="mdi mdi-eye me-1"></i>{{ share.views }} {{ 'cq_contact.detail.views'|trans }}</small>
+                                    <button class="btn btn-sm btn-outline-primary border-0 copy-share-url"
+                                            data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}/share/{{ share.share_url }}"
+                                            title="{{ 'citadel_explorer.copy_link'|trans }}">
+                                        <i class="mdi mdi-link-variant"></i>
+                                    </button>
                                 </div>
-                                <div class="text-muted small">
-                                    <i class="mdi mdi-eye me-1"></i>{{ share.views }} {{ 'cq_contact.detail.views'|trans }}
-                                </div>
-                            </a>
+                            </div>
 
                             {# Content preview #}
                             {% if profile_show_share_content and share.preview_type is defined %}
@@ -198,9 +203,7 @@
 
 {% block javascripts %}
     {{ parent() }}
-    {% if profile_show_share_content is defined and profile_show_share_content %}
-        {{ encore_entry_script_tags('profile-public') }}
-    {% endif %}
+    {{ encore_entry_script_tags('profile-public') }}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.copy-profile-url').forEach(btn => {
@@ -213,6 +216,20 @@
                     setTimeout(() => {
                         icon.classList.remove('mdi-check', 'text-success');
                         icon.classList.add('mdi-content-copy');
+                    }, 2000);
+                });
+            });
+        });
+        document.querySelectorAll('.copy-share-url').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const url = this.dataset.url;
+                navigator.clipboard.writeText(url).then(() => {
+                    const icon = this.querySelector('i');
+                    icon.classList.remove('mdi-link-variant');
+                    icon.classList.add('mdi-check', 'text-success');
+                    setTimeout(() => {
+                        icon.classList.remove('mdi-check', 'text-success');
+                        icon.classList.add('mdi-link-variant');
                     }, 2000);
                 });
             });

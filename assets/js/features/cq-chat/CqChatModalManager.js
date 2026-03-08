@@ -682,7 +682,7 @@ export class CqChatModalManager {
         // Profile photo for message
         const photoSize = 24;
         const photoFallback = `onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');"`;
-        const fallbackIcon = `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-secondary" style="font-size:${photoSize/2}px;"></i></div>`;
+        const fallbackIcon = `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
         
         let nameDisplay;
         if (isOutgoing) {
@@ -692,7 +692,7 @@ export class CqChatModalManager {
             const contactPhotoUrl = contactId ? `/api/cq-contact/${contactId}/profile-photo` : '';
             const photoImg = contactPhotoUrl 
                 ? `<img src="${contactPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
-                : `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-secondary" style="font-size:${photoSize/2}px;"></i></div>`;
+                : `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
             nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2">${photoImg}<small class="text-cyber">${contactName}</small><small class="opacity-25">${contactDomain}</small></div>`;
         }
         

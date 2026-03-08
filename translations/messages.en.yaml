@@ -1047,6 +1047,9 @@ citadel_explorer:
     view_contact: 'View Contact'
     not_citadelquest: 'Could not connect — this may not be a CitadelQuest instance'
     profile_not_public: 'This profile is not publicly available'
+    copy_link: 'Copy link'
+    link_copied: 'Link copied!'
+    contact_shared_items: 'Shared with you'
 
 cq_share:
     page_title: 'CQ Share'

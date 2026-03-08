@@ -135,7 +135,7 @@ h5, .h5 {
 h6, .h6 {
     font-size: (vars.$base-font-size * 1.02) !important;
 }
-h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+/* h1, h2, h3, h4, h5, h6,  */.h1, .h2, .h3, .h4, .h5, .h6 {
     background: linear-gradient(135deg, colors.$cyber, bs.$success) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;

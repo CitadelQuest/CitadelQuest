@@ -8,7 +8,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/cq-contact')]
 #[IsGranted('ROLE_USER')]
 class CqContactController extends AbstractController
 {
@@ -17,7 +16,7 @@ class CqContactController extends AbstractController
     ) {
     }
 
-    #[Route('', name: 'app_cq_contact_index')]
+    #[Route('/cq-contacts', name: 'app_cq_contact_index')]
     public function index(): Response
     {
         return $this->render('cq_contact/index.html.twig', [
@@ -25,7 +24,13 @@ class CqContactController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}', name: 'app_cq_contact_detail')]
+    #[Route('/cq-contact', name: 'app_cq_contact_index_old')]
+    public function indexOldRedirect(): Response
+    {
+        return $this->redirectToRoute('app_cq_contact_index', [], Response::HTTP_MOVED_PERMANENTLY);
+    }
+
+    #[Route('/cq-contact/{id}', name: 'app_cq_contact_detail')]
     public function detail(string $id): Response
     {
         $contact = $this->cqContactService->findById($id);
@@ -33,11 +38,10 @@ class CqContactController extends AbstractController
             throw $this->createNotFoundException('Contact not found');
         }
 
-        // Mask API key before passing to template (serialized to JSON in frontend)
-        $contact->setCqContactApiKey('***');
-
-        return $this->render('cq_contact/detail.html.twig', [
-            'contact' => $contact,
-        ]);
+        // Redirect to Explorer with contact URL
+        return $this->redirect(
+            $this->generateUrl('app_cq_contact_index') . '?url=' . urlencode($contact->getCqContactUrl()),
+            Response::HTTP_MOVED_PERMANENTLY
+        );
     }
 }

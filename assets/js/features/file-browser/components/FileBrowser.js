@@ -82,6 +82,20 @@ export class FileBrowser {
             return;
         }
         
+        // Check for deep-link file selection (e.g. from Citadel Explorer "View" button)
+        const selectFileData = localStorage.getItem('fileBrowserSelectFile');
+        if (selectFileData) {
+            localStorage.removeItem('fileBrowserSelectFile');
+            try {
+                this.pendingFileSelect = JSON.parse(selectFileData);
+                // Override currentPath to the file's parent directory so tree expands there
+                this.currentPath = this.pendingFileSelect.path;
+                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+            } catch (e) {
+                console.warn('Invalid fileBrowserSelectFile data:', e);
+            }
+        }
+        
         // Create the UI structure
         this.createUIStructure();
         
@@ -1316,7 +1330,26 @@ export class FileBrowser {
                 projectId: this.projectId,
                 translations: this.translations,
                 onInit: (currentDirectory) => {
-                    // Show initial directory preview for currentPath
+                    // Deep-link: select a specific file after tree renders
+                    if (this.pendingFileSelect) {
+                        const { path, name } = this.pendingFileSelect;
+                        this.pendingFileSelect = null;
+                        // Find the file node in the expanded tree by matching path + name
+                        const allNodes = this.treeViewContainer.querySelectorAll('.file-tree-node:not([data-type="directory"]):not([data-type="projectRootDirectory"])');
+                        for (const node of allNodes) {
+                            if (node.dataset.path === path && node.dataset.name === name) {
+                                // Directly select: highlight in tree, update path, show preview
+                                this.fileTreeView.selectNode(node, false);
+                                node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                this.currentPath = path;
+                                this.updateBreadcrumbs();
+                                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                                this.selectFile(node.dataset.id);
+                                return;
+                            }
+                        }
+                    }
+                    // Default: show directory preview for currentPath
                     if (currentDirectory) {
                         this.selectFile(currentDirectory.id);
                     }
