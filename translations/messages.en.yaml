@@ -477,6 +477,18 @@ profile:
         photo_upload_error: 'Failed to upload photo'
         photo_removed: 'Profile photo removed'
         photo_remove_error: 'Failed to remove photo'
+        public_locale: 'Language'
+        public_locale_desc: 'Language used on your public profile page.'
+        custom_bg: 'Custom Background Image'
+        custom_bg_desc: 'Upload your own background image for your public profile page. Overrides the selected theme.'
+        upload_bg: 'Upload Image'
+        bg_hint: 'JPEG, PNG or WebP. Max 5MB. Recommended: 1920x1080 or larger.'
+        bg_uploaded: 'Background image uploaded'
+        bg_upload_error: 'Failed to upload background image'
+        bg_removed: 'Background image removed'
+        bg_remove_error: 'Failed to remove background image'
+        bg_overlay: 'Background Overlay'
+        bg_overlay_desc: 'Add a dark overlay on top of the background image for better text readability.'
     public:
         powered_by: 'Powered by CitadelQuest'
     email:

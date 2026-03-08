@@ -34,6 +34,8 @@
                      data-save-url="{{ path('app_user_settings_profile_save') }}"
                      data-photo-upload-url="{{ path('app_user_settings_profile_photo_upload') }}"
                      data-photo-delete-url="{{ path('app_user_settings_profile_photo_delete') }}"
+                     data-bg-upload-url="{{ path('app_user_settings_profile_bg_upload') }}"
+                     data-bg-delete-url="{{ path('app_user_settings_profile_bg_delete') }}"
                      data-public-url="{{ url('cq_profile_public', {username: user.username}) }}"
                      data-photo-file-id="{{ settings['profile.photo_project_file_id']|default('') }}"
                      data-translations="{{ {
@@ -42,7 +44,11 @@
                          'photo_uploaded': 'profile.settings.photo_uploaded'|trans|default('Profile photo uploaded'),
                          'photo_upload_error': 'profile.settings.photo_upload_error'|trans|default('Failed to upload photo'),
                          'photo_removed': 'profile.settings.photo_removed'|trans|default('Profile photo removed'),
-                         'photo_remove_error': 'profile.settings.photo_remove_error'|trans|default('Failed to remove photo')
+                         'photo_remove_error': 'profile.settings.photo_remove_error'|trans|default('Failed to remove photo'),
+                         'bg_uploaded': 'profile.settings.bg_uploaded'|trans|default('Background image uploaded'),
+                         'bg_upload_error': 'profile.settings.bg_upload_error'|trans|default('Failed to upload background image'),
+                         'bg_removed': 'profile.settings.bg_removed'|trans|default('Background image removed'),
+                         'bg_remove_error': 'profile.settings.bg_remove_error'|trans|default('Failed to remove background image')
                      }|json_encode|e('html_attr') }}">
 
                     {# Profile Photo #}
@@ -152,6 +158,9 @@
                                         {{ 'profile.settings.show_share_content'|trans|default('Show shared items content preview (images, text, Memory Pack graphs)') }}
                                     </label>
                                 </div>
+
+                                <hr class="border-secondary border-opacity-25">
+
                                 <div class="mb-3">
                                     <label class="form-label text-light" for="profile-public-show-spirits">
                                         <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'profile.settings.show_public_spirits'|trans|default('Spirit showcase') }}
@@ -172,11 +181,76 @@
 
                                 <hr class="border-secondary border-opacity-25">
 
+                                {# Language #}
+                                <div class="mb-3">
+                                    <label class="form-label text-light" for="profile-public-locale">
+                                        <i class="mdi mdi-translate me-2"></i>{{ 'profile.settings.public_locale'|trans|default('Language') }}
+                                    </label>
+                                    <p class="text-muted small mb-2">{{ 'profile.settings.public_locale_desc'|trans|default('Language used on your public profile page.') }}</p>
+                                    <select class="form-select form-select-sm bg-dark text-light border-secondary" id="profile-public-locale"
+                                            style="max-width: 250px;">
+                                        <option value="en" {% if settings['profile.public_page_locale']|default('en') == 'en' %}selected{% endif %}>
+                                            {{ 'navigation.language.en'|trans|default('English') }}
+                                        </option>
+                                        <option value="cs" {% if settings['profile.public_page_locale']|default('en') == 'cs' %}selected{% endif %}>
+                                            {{ 'navigation.language.cs'|trans|default('Čeština') }}
+                                        </option>
+                                        <option value="sk" {% if settings['profile.public_page_locale']|default('en') == 'sk' %}selected{% endif %}>
+                                            {{ 'navigation.language.sk'|trans|default('Slovenčina') }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <hr class="border-secondary border-opacity-25">
+
                                 {# Theme Selection #}
                                 <h6 class="mt-3 mb-2"><i class="mdi mdi-palette me-2"></i>{{ 'profile.settings.public_theme'|trans|default('Page Theme') }}</h6>
                                 <p class="text-muted small mb-2">{{ 'profile.settings.public_theme_desc'|trans|default('Choose a background theme for your public profile page.') }}</p>
                                 <div id="profile-theme-previews" class="d-flex flex-wrap gap-2 mb-2"
                                      data-current-theme="{{ settings['profile.public_page_theme']|default('') }}"></div>
+
+                                <hr class="border-secondary border-opacity-25">
+
+                                {# Custom Background Image #}
+                                <h6 class="mt-3 mb-2"><i class="mdi mdi-image me-2"></i>{{ 'profile.settings.custom_bg'|trans|default('Custom Background Image') }}</h6>
+                                <p class="text-muted small mb-2">{{ 'profile.settings.custom_bg_desc'|trans|default('Upload your own background image for your public profile page. Overrides the selected theme.') }}</p>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div id="profile-bg-preview" class="me-4">
+                                        {% if settings['profile.public_page_custom_bg_file_id']|default('') %}
+                                            <img src="{{ path('cq_profile_background', {username: user.username}) }}?t={{ 'now'|date('U') }}" 
+                                                 alt="Background"
+                                                 class="rounded border border-2 border-success"
+                                                 style="width: 120px; height: 68px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
+                                                 style="width: 120px; height: 68px; background: rgba(255,255,255,0.05);">
+                                                <i class="mdi mdi-image-area text-cyber opacity-75" style="font-size: 28px;"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <input type="file" id="profile-bg-input" accept="image/jpeg,image/png,image/webp" class="d-none">
+                                        <button type="button" id="profile-bg-upload-btn" class="btn btn-sm btn-cyber me-2 mb-2">
+                                            <i class="mdi mdi-upload me-1"></i>{{ 'profile.settings.upload_bg'|trans|default('Upload Image') }}
+                                        </button>
+                                        <button type="button" id="profile-bg-remove-btn" class="btn btn-sm mb-2 btn-outline-danger {% if not settings['profile.public_page_custom_bg_file_id']|default('') %}d-none{% endif %}">
+                                            <i class="mdi mdi-delete me-1"></i>{{ 'profile.settings.remove_photo'|trans|default('Remove') }}
+                                        </button>
+                                        <div class="text-muted small mt-1">{{ 'profile.settings.bg_hint'|trans|default('JPEG, PNG or WebP. Max 5MB. Recommended: 1920x1080 or larger.') }}</div>
+                                    </div>
+                                </div>
+
+                                <hr class="border-secondary border-opacity-25">
+
+                                {# Background Overlay Toggle #}
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="profile-bg-overlay"
+                                           {% if settings['profile.public_page_bg_overlay']|default('1') == '1' %}checked{% endif %}>
+                                    <label class="form-check-label text-light" for="profile-bg-overlay">
+                                        <i class="mdi mdi-texture me-2"></i>{{ 'profile.settings.bg_overlay'|trans|default('Background Overlay') }}
+                                    </label>
+                                    <p class="text-muted small mb-0 ms-4">{{ 'profile.settings.bg_overlay_desc'|trans|default('Add a dark overlay on top of the background image for better text readability.') }}</p>
+                                </div>
                             </div>
                         </div>
 

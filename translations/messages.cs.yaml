@@ -477,6 +477,18 @@ profile:
         photo_upload_error: 'Nepodařilo se nahrát fotku'
         photo_removed: 'Profilová fotka odstraněna'
         photo_remove_error: 'Nepodařilo se odstranit fotku'
+        public_locale: 'Jazyk'
+        public_locale_desc: 'Jazyk používaný na vaší veřejné profilové stránce.'
+        custom_bg: 'Vlastní obrázek pozadí'
+        custom_bg_desc: 'Nahrajte vlastní obrázek pozadí pro vaši veřejnou profilovou stránku. Přepíše vybraný motiv.'
+        upload_bg: 'Nahrát obrázek'
+        bg_hint: 'JPEG, PNG nebo WebP. Max 5MB. Doporučeno: 1920x1080 nebo větší.'
+        bg_uploaded: 'Obrázek pozadí nahrán'
+        bg_upload_error: 'Nepodařilo se nahrát obrázek pozadí'
+        bg_removed: 'Obrázek pozadí odstraněn'
+        bg_remove_error: 'Nepodařilo se odstranit obrázek pozadí'
+        bg_overlay: 'Překrytí pozadí'
+        bg_overlay_desc: 'Přidá tmavé překrytí přes obrázek pozadí pro lepší čitelnost textu.'
     public:
         powered_by: 'Poháněno CitadelQuest'
     email:

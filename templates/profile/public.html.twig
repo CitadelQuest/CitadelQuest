@@ -1,8 +1,26 @@
 {% extends 'base-public.html.twig' %}
 
-{% block html_attributes %}{% if profile_theme is defined and profile_theme %} data-theme="{{ profile_theme }}"{% endif %}{% endblock %}
+{% block html_attributes %} lang="{{ profile_locale|default('en') }}"{% if profile_theme is defined and profile_theme %} data-theme="{{ profile_theme }}"{% endif %}{% endblock %}
 
 {% block title %}{{ profile_username }} @ {{ profile_domain }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% if profile_custom_bg is defined and profile_custom_bg %}
+    <style>
+        .citadel-background::before {
+            background-image: url('{{ path('cq_profile_background', {username: profile_username}) }}') !important;
+        }
+    </style>
+    {% endif %}
+    {% if profile_bg_overlay is defined and not profile_bg_overlay %}
+    <style>
+        .citadel-background::after {
+            background-color: transparent !important;
+        }
+    </style>
+    {% endif %}
+{% endblock %}
 
 {% block body %}
 <div class="container mt-4 mb-5">
@@ -37,7 +55,7 @@
                                 {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
                                 <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
                                         data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
-                                        title="Copy URL">
+                                        title="{{ 'citadel_explorer.copy_link'|trans }}">
                                     <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
                                 </button>
                             </small>
@@ -46,7 +64,7 @@
                                     <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
                                         <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
                                         <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
-                                        <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
+                                        <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                     </div>
                                 {% else %}
                                     <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
@@ -68,7 +86,7 @@
                                         {{ spirit.name }}
                                         {% if spirit.isPrimary and profile_spirits|length > 1 %}<i class="mdi mdi-star text-warning" style="font-size: 0.65rem;"></i>{% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">Level {{ spirit.level }} | {{ spirit.experience }} XP</div>
+                                    <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">{{ 'spirit.level'|trans }} {{ spirit.level }} | {{ spirit.experience }} XP</div>
                                 </div>
                             </div>
                             {% endfor %}
@@ -84,7 +102,7 @@
                             {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
                             <button class="btn btn-link btn-sm p-0 ms-2 text-muted copy-profile-url"
                                     data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
-                                    title="Copy URL">
+                                    title="{{ 'citadel_explorer.copy_link'|trans }}">
                                 <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
                             </button>
                         </small>
@@ -93,7 +111,7 @@
                                 <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
                                     <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
                                     <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
-                                    <a href="#" class="bio-toggle text-cyber small ms-1">show more</a>
+                                    <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                 </div>
                             {% else %}
                                 <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
@@ -243,7 +261,7 @@
                 const expanded = !full.classList.contains('d-none');
                 short.classList.toggle('d-none', !expanded);
                 full.classList.toggle('d-none', expanded);
-                this.textContent = expanded ? 'show more' : 'show less';
+                this.textContent = expanded ? this.dataset.showMore : this.dataset.showLess;
             });
         });
     });

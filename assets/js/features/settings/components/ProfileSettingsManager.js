@@ -12,6 +12,8 @@ export class ProfileSettingsManager {
         this.saveUrl = this.container.dataset.saveUrl;
         this.photoUploadUrl = this.container.dataset.photoUploadUrl;
         this.photoDeleteUrl = this.container.dataset.photoDeleteUrl;
+        this.bgUploadUrl = this.container.dataset.bgUploadUrl;
+        this.bgDeleteUrl = this.container.dataset.bgDeleteUrl;
         this.publicUrl = this.container.dataset.publicUrl;
         this.translations = JSON.parse(this.container.dataset.translations || '{}');
 
@@ -30,6 +32,12 @@ export class ProfileSettingsManager {
         this.bioTextarea = document.getElementById('profile-bio');
         this.bioCount = document.getElementById('profile-bio-count');
 
+        // Background image
+        this.bgInput = document.getElementById('profile-bg-input');
+        this.bgUploadBtn = document.getElementById('profile-bg-upload-btn');
+        this.bgRemoveBtn = document.getElementById('profile-bg-remove-btn');
+        this.bgPreview = document.getElementById('profile-bg-preview');
+
         // Public page
         this.publicEnabledCheckbox = document.getElementById('profile-public-enabled');
         this.publicUrlRow = document.getElementById('profile-public-url-row');
@@ -39,6 +47,8 @@ export class ProfileSettingsManager {
         this.publicShowShareContentCheckbox = document.getElementById('profile-public-show-share-content');
         this.showShareContentRow = document.getElementById('profile-show-share-content-row');
         this.publicShowSpiritsSelect = document.getElementById('profile-public-show-spirits');
+        this.publicLocaleSelect = document.getElementById('profile-public-locale');
+        this.bgOverlayCheckbox = document.getElementById('profile-bg-overlay');
         this.selectedTheme = '';
 
         // Federation
@@ -55,6 +65,11 @@ export class ProfileSettingsManager {
         this.photoUploadBtn?.addEventListener('click', () => this.photoInput?.click());
         this.photoInput?.addEventListener('change', (e) => this.handlePhotoUpload(e));
         this.photoRemoveBtn?.addEventListener('click', () => this.handlePhotoRemove());
+
+        // Background image upload
+        this.bgUploadBtn?.addEventListener('click', () => this.bgInput?.click());
+        this.bgInput?.addEventListener('change', (e) => this.handleBgUpload(e));
+        this.bgRemoveBtn?.addEventListener('click', () => this.handleBgRemove());
 
         // Bio character count
         this.bioTextarea?.addEventListener('input', () => {
@@ -221,6 +236,73 @@ export class ProfileSettingsManager {
         }
     }
 
+    async handleBgUpload(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('background', file);
+
+        try {
+            this.bgUploadBtn.disabled = true;
+            const response = await fetch(this.bgUploadUrl, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    this.bgPreview.innerHTML = `
+                        <img src="${ev.target.result}" 
+                             alt="Background" 
+                             class="rounded border border-2 border-success"
+                             style="width: 120px; height: 68px; object-fit: cover;">
+                    `;
+                };
+                reader.readAsDataURL(file);
+
+                this.bgRemoveBtn?.classList.remove('d-none');
+                window.toast?.success(this.translations.bg_uploaded);
+            } else {
+                window.toast?.error(data.message || this.translations.bg_upload_error);
+            }
+        } catch (err) {
+            window.toast?.error(this.translations.bg_upload_error);
+        } finally {
+            this.bgUploadBtn.disabled = false;
+            this.bgInput.value = '';
+        }
+    }
+
+    async handleBgRemove() {
+        try {
+            this.bgRemoveBtn.disabled = true;
+            const response = await fetch(this.bgDeleteUrl, {
+                method: 'DELETE',
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                this.bgPreview.innerHTML = `
+                    <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
+                         style="width: 120px; height: 68px; background: rgba(255,255,255,0.05);">
+                        <i class="mdi mdi-image-area text-cyber opacity-75" style="font-size: 28px;"></i>
+                    </div>
+                `;
+                this.bgRemoveBtn?.classList.add('d-none');
+                window.toast?.success(this.translations.bg_removed);
+            } else {
+                window.toast?.error(data.message || this.translations.bg_remove_error);
+            }
+        } catch (err) {
+            window.toast?.error(this.translations.bg_remove_error);
+        } finally {
+            this.bgRemoveBtn.disabled = false;
+        }
+    }
+
     copyPublicUrl() {
         const urlInput = document.getElementById('profile-public-url');
         if (urlInput) {
@@ -245,7 +327,9 @@ export class ProfileSettingsManager {
                 public_page_show_shares: this.publicShowSharesCheckbox?.checked ? '1' : '0',
                 public_page_show_share_content: this.publicShowShareContentCheckbox?.checked ? '1' : '0',
                 public_page_show_spirits: this.publicShowSpiritsSelect?.value ?? '1',
+                public_page_locale: this.publicLocaleSelect?.value ?? 'en',
                 public_page_theme: this.selectedTheme ?? '',
+                public_page_bg_overlay: this.bgOverlayCheckbox?.checked ? '1' : '0',
                 federation_show_bio: this.federationBioCheckbox?.checked ? '1' : '0',
                 federation_show_photo: this.federationPhotoCheckbox?.checked ? '1' : '0',
                 federation_show_spirits: this.federationSpiritsSelect?.value ?? '1',

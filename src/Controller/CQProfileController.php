@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * CQ Profile Controller
@@ -37,7 +38,8 @@ class CQProfileController extends AbstractController
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly EntityManagerInterface $entityManager,
         private readonly ParameterBagInterface $params,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly TranslatorInterface $translator
     ) {}
 
     /**
@@ -69,6 +71,15 @@ class CQProfileController extends AbstractController
         $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
         $spiritMode = (int) $this->settingsService->getSettingValue('profile.public_page_show_spirits', '1');
         $pageTheme = $this->settingsService->getSettingValue('profile.public_page_theme', '');
+        $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+        $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
+
+        // Apply locale setting for this public profile page
+        $locale = $this->settingsService->getSettingValue('profile.public_page_locale', 'en');
+        if (in_array($locale, ['en', 'cs', 'sk'])) {
+            $request->setLocale($locale);
+            $this->translator->setLocale($locale);
+        }
 
         // Get public shares (scope=0) if enabled
         $publicShares = [];
@@ -123,6 +134,9 @@ class CQProfileController extends AbstractController
             'profile_show_share_content' => $showShareContent,
             'profile_spirits' => $spirits,
             'profile_theme' => $pageTheme,
+            'profile_custom_bg' => !empty($customBgFileId),
+            'profile_bg_overlay' => $bgOverlay,
+            'profile_locale' => $locale,
         ]);
     }
 
@@ -210,6 +224,67 @@ class CQProfileController extends AbstractController
         $response['spirits'] = $spirits;
 
         return $this->json($response);
+    }
+
+    /**
+     * Custom background image endpoint: GET /{username}/background
+     * Serves the user's custom background image for their public profile.
+     */
+    #[Route('/{username}/background', name: 'cq_profile_background', methods: ['GET'], priority: -10)]
+    public function profileBackground(Request $request, string $username): Response
+    {
+        $user = $this->resolveUser($username);
+        if (!$user) {
+            throw $this->createNotFoundException();
+        }
+
+        $this->settingsService->setUser($user);
+
+        // Background is only served if public page is enabled
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1';
+        $currentUser = $this->getUser();
+        $isOwnUser = $currentUser && $currentUser->getId() === $user->getId();
+
+        if (!$isOwnUser && !$publicEnabled) {
+            throw $this->createNotFoundException();
+        }
+
+        $bgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+        if (!$bgFileId) {
+            throw $this->createNotFoundException();
+        }
+
+        // Look up the file in user's database
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $file = $userDb->executeQuery(
+            'SELECT * FROM project_file WHERE id = ?',
+            [$bgFileId]
+        )->fetchAssociative();
+
+        if (!$file) {
+            throw $this->createNotFoundException();
+        }
+
+        // Construct absolute path
+        $projectDir = $this->params->get('kernel.project_dir');
+        $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+        $relativePath = ltrim($file['path'] ?? '', '/');      
+        $filePath = $relativePath
+            ? $basePath . '/' . $relativePath . '/' . $file['name']
+            : $basePath . '/' . $file['name'];
+
+        if (!file_exists($filePath)) {
+            throw $this->createNotFoundException();
+        }
+
+        $mimeType = $file['mime_type'] ?? 'image/jpeg';
+
+        $response = new BinaryFileResponse($filePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $file['name']);
+        $response->headers->set('Content-Type', $mimeType);
+        $response->headers->set('Cache-Control', 'public, max-age=3600');
+
+        return $response;
     }
 
     /**

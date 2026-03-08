@@ -674,7 +674,9 @@ class UserSettingsController extends AbstractController
                 'profile.public_page_show_shares',
                 'profile.public_page_show_share_content',
                 'profile.public_page_show_spirits',
+                'profile.public_page_locale',
                 'profile.public_page_theme',
+                'profile.public_page_bg_overlay',
                 'profile.federation_show_bio',
                 'profile.federation_show_photo',
                 'profile.federation_show_spirits',
@@ -770,6 +772,83 @@ class UserSettingsController extends AbstractController
             return new JsonResponse(['success' => true, 'message' => 'Profile photo removed']);
         } catch (\Exception $e) {
             $this->logger->error('UserSettingsController::profilePhotoDelete error', ['error' => $e->getMessage()]);
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/profile/background', name: 'app_user_settings_profile_bg_upload', methods: ['POST'])]
+    public function profileBgUpload(Request $request): JsonResponse
+    {
+        try {
+            $uploadedFile = $request->files->get('background');
+            if (!$uploadedFile) {
+                return new JsonResponse(['success' => false, 'message' => 'No file uploaded'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Validate image type
+            $mimeType = $uploadedFile->getMimeType();
+            if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp'])) {
+                return new JsonResponse(['success' => false, 'message' => 'Invalid image type. Allowed: JPEG, PNG, WebP'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Validate file size (5MB max)
+            if ($uploadedFile->getSize() > 5 * 1024 * 1024) {
+                return new JsonResponse(['success' => false, 'message' => 'File too large. Maximum 5MB.'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Delete old background if exists
+            $oldBgId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+            if ($oldBgId) {
+                try {
+                    $this->projectFileService->delete($oldBgId);
+                } catch (\Exception $e) {
+                    // Old file may already be gone
+                }
+            }
+
+            // Upload new background to general project under /profile/
+            $extension = $uploadedFile->guessExtension() ?? 'jpg';
+            $fileName = 'background.' . $extension;
+
+            // Check if a file with this name exists and delete it first
+            $existingFile = $this->projectFileService->findByPathAndName('general', '/profile', $fileName);
+            if ($existingFile) {
+                $this->projectFileService->delete($existingFile->getId());
+            }
+
+            $file = $this->projectFileService->uploadFile('general', '/profile', $uploadedFile);
+
+            // Save file ID to settings
+            $this->settingsService->setSetting('profile.public_page_custom_bg_file_id', $file->getId());
+
+            return new JsonResponse([
+                'success' => true,
+                'message' => 'Background image uploaded',
+                'fileId' => $file->getId(),
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::profileBgUpload error', ['error' => $e->getMessage()]);
+            return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/profile/background', name: 'app_user_settings_profile_bg_delete', methods: ['DELETE'])]
+    public function profileBgDelete(): JsonResponse
+    {
+        try {
+            $bgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+            if ($bgFileId) {
+                try {
+                    $this->projectFileService->delete($bgFileId);
+                } catch (\Exception $e) {
+                    // File may already be gone
+                }
+                $this->settingsService->setSetting('profile.public_page_custom_bg_file_id', null);
+            }
+
+            return new JsonResponse(['success' => true, 'message' => 'Background image removed']);
+        } catch (\Exception $e) {
+            $this->logger->error('UserSettingsController::profileBgDelete error', ['error' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
