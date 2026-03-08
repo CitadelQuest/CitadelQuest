@@ -146,6 +146,33 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label for="editShareDescription" class="form-label">
+                            <i class="mdi mdi-text me-2 text-cyber"></i>{{ 'cq_share.field_description'|trans }}
+                        </label>
+                        <textarea class="form-control glass-input" id="editShareDescription" rows="3" placeholder="{{ 'cq_share.field_description_placeholder'|trans }}"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareDescDisplayStyle" class="form-label">
+                            <i class="mdi mdi-page-layout-body me-2 text-cyber"></i>{{ 'cq_share.field_desc_display_style'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareDescDisplayStyle">
+                            <option value="0">{{ 'cq_share.desc_style_above'|trans }}</option>
+                            <option value="1">{{ 'cq_share.desc_style_below'|trans }}</option>
+                            <option value="2">{{ 'cq_share.desc_style_left'|trans }}</option>
+                            <option value="3">{{ 'cq_share.desc_style_right'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareDisplayStyle" class="form-label">
+                            <i class="mdi mdi-eye-settings me-2 text-cyber"></i>{{ 'cq_share.field_display_style'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareDisplayStyle">
+                            <option value="0">{{ 'cq_share.display_style_off'|trans }}</option>
+                            <option value="1">{{ 'cq_share.display_style_preview'|trans }}</option>
+                            <option value="2">{{ 'cq_share.display_style_full'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">
                             <i class="mdi mdi-toggle-switch me-2 text-cyber"></i>{{ 'cq_share.field_status'|trans }}
                         </label>
@@ -268,6 +295,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const scopeIcon = s.scope == 0 ? 'mdi-earth' : 'mdi-account-group';
             const scopeName = s.scope == 0 ? '{{ 'cq_share.scope_public'|trans }}' : '{{ 'cq_share.scope_contacts'|trans }}';
             const scopeColor = s.scope == 0 ? 'text-success' : 'text-primary';
+            const ds = parseInt(s.display_style ?? 1);
+            const dsIcons = ['mdi-eye-off', 'mdi-eye', 'mdi-eye-plus'];
+            const dsLabels = ['{{ 'cq_share.display_style_off'|trans }}', '{{ 'cq_share.display_style_preview'|trans }}', '{{ 'cq_share.display_style_full'|trans }}'];
+            const dsColors = ['text-secondary', 'text-info', 'text-success'];
+            const descSnippet = (s.description || '').length > 60 ? s.description.substring(0, 60) + '…' : (s.description || '');
             const activeClass = s.is_active == 1 ? '' : 'opacity-50';
             const activeBadge = s.is_active == 1
                 ? '<i class="mdi mdi-check-circle text-success" title="{{ 'cq_share.filter_active'|trans }}"></i>'
@@ -290,8 +322,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="small mb-2">
                                 <span class="text-muted me-3"><i class="mdi ${scopeIcon} me-1 ${scopeColor}"></i>${scopeName}</span>
                                 <span class="text-muted me-3"><i class="mdi ${typeIcon} me-1"></i>${typeName}</span>
-                                <span class="text-muted"><i class="mdi mdi-eye me-1"></i>${s.views}&nbsp;{{ 'cq_contact.detail.views'|trans }}</span>
+                                <span class="text-muted me-3"><i class="mdi mdi-eye me-1"></i>${s.views}&nbsp;{{ 'cq_contact.detail.views'|trans }}</span>
+                                <span class="text-muted" title="{{ 'cq_share.field_display_style'|trans }}"><i class="mdi ${dsIcons[ds]} me-1 ${dsColors[ds]}"></i>${dsLabels[ds]}</span>
                             </div>
+                            ${descSnippet ? `<div class="small text-muted text-truncate mb-1" title="${s.description}"><i class="mdi mdi-text me-1"></i>${descSnippet}</div>` : ''}
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <code class="small flex-grow-1 text-truncate" title="${shareLink}" style="cursor: pointer;" onclick="copyToClipboard('${shareLink}')">${shareLink}</code>
                                 <button class="btn btn-sm btn-outline-cyber" onclick="copyToClipboard('${shareLink}')" title="Copy link">
@@ -387,6 +421,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('editShareTitle').value = share.title;
         document.getElementById('editShareUrlSlug').value = share.share_url;
         document.getElementById('editShareScope').value = share.scope;
+        document.getElementById('editShareDisplayStyle').value = share.display_style ?? 1;
+        document.getElementById('editShareDescription').value = share.description || '';
+        document.getElementById('editShareDescDisplayStyle').value = share.description_display_style ?? 1;
         document.getElementById('editShareActive').checked = share.is_active == 1;
     }
 
@@ -404,6 +441,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: document.getElementById('editShareTitle').value,
                 share_url: document.getElementById('editShareUrlSlug').value,
                 scope: parseInt(document.getElementById('editShareScope').value),
+                display_style: parseInt(document.getElementById('editShareDisplayStyle').value),
+                description: document.getElementById('editShareDescription').value,
+                description_display_style: parseInt(document.getElementById('editShareDescDisplayStyle').value),
                 is_active: document.getElementById('editShareActive').checked ? 1 : 0
             })
         })

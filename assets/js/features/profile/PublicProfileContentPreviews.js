@@ -15,6 +15,7 @@ export class PublicProfileContentPreviews {
 
     init() {
         this.renderBioMarkdown();
+        this.renderDescriptionMarkdown();
         this.renderMarkdownPreviews();
         this.initMemoryPackGraphs();
     }
@@ -37,6 +38,19 @@ export class PublicProfileContentPreviews {
                     child.innerHTML = md.render(childRaw + suffix);
                 }
             });
+        });
+    }
+
+    /**
+     * Render share description text with markdown-it
+     */
+    renderDescriptionMarkdown() {
+        const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        document.querySelectorAll('.share-desc-md').forEach(el => {
+            const raw = el.dataset.raw;
+            if (raw) {
+                el.innerHTML = md.render(raw);
+            }
         });
     }
 

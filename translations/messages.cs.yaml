@@ -1104,6 +1104,17 @@ cq_share:
     
     # Edit modal
     edit_title: 'Upravit sdílení'
+    field_description: 'Popis'
+    field_description_placeholder: 'Volitelný popis tohoto sdílení...'
+    field_desc_display_style: 'Pozice popisu'
+    desc_style_above: 'Nad náhledem obsahu'
+    desc_style_below: 'Pod náhledem obsahu'
+    desc_style_left: 'Sloupec vlevo od náhledu'
+    desc_style_right: 'Sloupec vpravo od náhledu'
+    field_display_style: 'Styl zobrazení'
+    display_style_off: 'Náhled vypnut'
+    display_style_preview: 'Náhled'
+    display_style_full: 'Celý obsah'
     field_status: 'Stav'
     field_status_active: 'Aktivní'
     save: 'Uložit'

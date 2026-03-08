@@ -1104,6 +1104,17 @@ cq_share:
     
     # Edit modal
     edit_title: 'Edit Share'
+    field_description: 'Description'
+    field_description_placeholder: 'Optional description for this share...'
+    field_desc_display_style: 'Description Position'
+    desc_style_above: 'Above content preview'
+    desc_style_below: 'Below content preview'
+    desc_style_left: 'Column left of preview'
+    desc_style_right: 'Column right of preview'
+    field_display_style: 'Display Style'
+    display_style_off: 'Preview Off'
+    display_style_preview: 'Preview'
+    display_style_full: 'Full Content'
     field_status: 'Status'
     field_status_active: 'Active'
     save: 'Save'
