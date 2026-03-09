@@ -50,13 +50,13 @@
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
                             <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                            <small class="text-light opacity-50 d-inline-flex align-items-center">
-                                <i class="mdi mdi-web me-1"></i>
-                                {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
-                                <button class="btn btn-link btn-sm p-0 ms-2 text-light opacity-50 copy-profile-url"
+                            <small class="text-light d-inline-flex align-items-center">
+                                <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
+                                <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
+                                <button class="ms-1 btn btn-sm btn-outline-primary border-0 copy-profile-url"
                                         data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
                                         title="{{ 'citadel_explorer.copy_link'|trans }}">
-                                    <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
+                                    <i class="mdi mdi-link-variant opacity-75"></i>
                                 </button>
                             </small>
                             {% if profile_bio %}
@@ -97,13 +97,13 @@
                     {# Username & Domain & Bio — mobile only (below photo+spirits row) #}
                     <div class="d-md-none mt-3">
                         <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
-                        <small class="text-light opacity-50 d-inline-flex align-items-center">
-                            <i class="mdi mdi-web me-1"></i>
-                            {{ app.request.schemeAndHttpHost }}/{{ profile_username }}
-                            <button class="btn btn-link btn-sm p-0 ms-2 text-light opacity-50 copy-profile-url"
+                        <small class="text-light d-inline-flex align-items-center">
+                            <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
+                            <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
+                            <button class="ms-1 btn btn-sm btn-outline-primary border-0 copy-profile-url"
                                     data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"
                                     title="{{ 'citadel_explorer.copy_link'|trans }}">
-                                <i class="mdi mdi-content-copy" style="font-size: 0.85rem;"></i>
+                                <i class="mdi mdi-link-variant opacity-75"></i>
                             </button>
                         </small>
                         {% if profile_bio %}

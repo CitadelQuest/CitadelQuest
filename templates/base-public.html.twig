@@ -31,11 +31,14 @@
         </main>
 
         <footer class="footer py-1 position-fixed bottom-0 start-0 end-0" style="z-index: 1020;">
-            <div class="container text-center">
-                <small>
-                    &copy; {{ date('now')|date('Y') }} 
-                    <span class="text-cyber">&bull; {{ 'app.name'|trans }}</span> {{ 'app.footer.version'|trans({'%version%': citadel_version}) }} 
-                    <span class="text-cyber">&bull;</span> 
+            <div class="container">
+                <small class="d-flex align-items-center justify-content-center">
+                    <a href="https://www.citadelquest.com/" target="_blank" title="CitadelQuest" style="display:contents;">
+                    <img src="{{ asset('build/images/favicon-16x16.png') }}" title="CitadelQuest" />
+                    <span class="text-cyber me-1">{{ 'app.name'|trans }}</span>
+                    </a>
+                    <span>{{ 'app.footer.version'|trans({'%version%': citadel_version}) }}, {{ date('now')|date('Y') }}</span>
+                    <span class="text-cyber mx-1">&bull;</span> 
                     <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans }}</span>
                 </small>
             </div>
