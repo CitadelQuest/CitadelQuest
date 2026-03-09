@@ -11,11 +11,11 @@
 {% block body %}
 <div class="container mt-3">
     <input type="hidden" id="spirit-id" value="{{ spiritId is defined ? spiritId : '' }}">
-    <div class="glass-panel pt-4">
+    <div class="glass-panel_pt-4">
         {# <div class="text-white p-4">
             <h2 class="mb-0">{{ 'spirit.title'|trans }}</h2>
         </div> #}
-        <div class="px-4 pb-4 pt-1 mb-2">
+        <div class="px-4_ pb-4 pt-1 mb-2">
             <div id="spirit-container">
                 <div class="text-center mb-4" id="spirit-loading">
                     <div class="spinner-border text-primary" role="status">
@@ -219,7 +219,7 @@
 
     {# All Spirits List #}
     <div class="row mt-5">
-        <div class="col-12 glass-panel p-4">
+        <div class="col-12 glass-panel_p-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4>
                     <a href="{{ path('spirits_index') }}">

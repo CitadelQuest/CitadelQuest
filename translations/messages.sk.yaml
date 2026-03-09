@@ -125,7 +125,7 @@ navigation:
         backup: 'Záloha'
 
 spirit:
-    title: 'Váš Duch'
+    title: 'Váš Spirit'
     level: 'Úroveň'
     experience: 'Skúsenosti'
     loading: 'Načítavam...'
@@ -133,14 +133,14 @@ spirit:
     consciousness_level: 'Úroveň vedomia'
     last_interaction: 'Posledná interakcia'
     created_at: 'Vytvorený'
-    no_spirit: 'Zatiaľ nemáte žiadneho Ducha.'
-    create_button: 'Vytvoriť Ducha'
-    create_title: 'Vytvoriť Vášho Ducha'
-    name: 'Meno Ducha'
-    create_success: 'Váš Duch bol vytvorený!'
-    create_error: 'Nepodarilo sa vytvoriť Ducha. Skúste to prosím znova.'
+    no_spirit: 'Zatiaľ nemáte žiadneho Spirita.'
+    create_button: 'Vytvoriť Spirita'
+    create_title: 'Vytvoriť Vášho Spirita'
+    name: 'Meno Spirita'
+    create_success: 'Váš Spirit bol vytvorený!'
+    create_error: 'Nepodarilo sa vytvoriť Spirita. Skúste to prosím znova.'
     detail:
-        connecting: 'Pripájam sa k vašemu Duchovi...'
+        connecting: 'Pripájam sa k vašemu Spiritovi...'
         loading_interactions: 'Načítavam interakcie...'
         loading_conversations: 'Načítavam konverzácie...'
     settings:
@@ -148,39 +148,39 @@ spirit:
         ai_model: 'AI Model'
         use_primary_model: 'Použiť primárny AI Model'
         system_prompt: 'Systémový prompt'
-        system_prompt_placeholder: 'Definujte, ako sa má váš Duch správať a aké znalosti by mal mať...'
-        system_prompt_help: "Definujte charakter, osobnosť a oblasti expertízy vášho Ducha."
+        system_prompt_placeholder: 'Definujte, ako sa má váš Spirit správať a aké znalosti by mal mať...'
+        system_prompt_help: "Definujte charakter, osobnosť a oblasti expertízy vášho Spirita."
         price_hint: 'názov modelu [kontextové okno] (cena vstupu / cena výstupu) v Kreditoch za milión tokenov'
-        saved: 'Nastavenia Ducha úspešne uložené'
-        save_error: 'Nepodarilo sa uložiť nastavenia Ducha'
+        saved: 'Nastavenia Spirita úspešne uložené'
+        save_error: 'Nepodarilo sa uložiť nastavenia Spirita'
     spirits_list:
-        title: 'Duchovia'
-        description: 'Spravujte svojich AI Duchov'
-        no_spirits: 'Zatiaľ žiadni Duchovia. Vytvorte svojho prvého Ducha a začnite!'
-        create_new: 'Vytvoriť nového Ducha'
+        title: 'Spiriti'
+        description: 'Spravujte svojich AI Spiritov'
+        no_spirits: 'Zatiaľ žiadni Spiriti. Vytvorte svojho prvého Spirita a začnite!'
+        create_new: 'Vytvoriť nového Spirita'
         view: 'Zobraziť'
         delete: 'Zmazať'
         is_primary: 'Primárny'
-        confirm_delete: 'Naozaj chcete zmazať tohto Ducha?'
-        confirm_delete_primary: 'Nemožno zmazať primárneho Ducha. Musíte najprv nastaviť iného Ducha ako primárneho.'
-        delete_success: 'Duch úspešne zmazaný'
-        delete_error: 'Nepodarilo sa zmazať Ducha'
-        create_success: 'Duch úspešne vytvorený'
-        create_error: 'Nepodarilo sa vytvoriť Ducha'
+        confirm_delete: 'Naozaj chcete zmazať tohto Spirita?'
+        confirm_delete_primary: 'Nemožno zmazať primárneho Spirita. Musíte najprv nastaviť iného Spirita ako primárneho.'
+        delete_success: 'Spirit úspešne zmazaný'
+        delete_error: 'Nepodarilo sa zmazať Spirita'
+        create_success: 'Spirit úspešne vytvorený'
+        create_error: 'Nepodarilo sa vytvoriť Spirita'
     create_spirit_modal:
-        title: 'Vytvoriť nového Ducha'
-        name_label: 'Meno Ducha'
-        name_placeholder: 'Zadajte meno pre vášho Ducha'
+        title: 'Vytvoriť nového Spirita'
+        name_label: 'Meno Spirita'
+        name_placeholder: 'Zadajte meno pre vášho Spirita'
         color_label: 'Vyberte farbu'
         create: 'Vytvoriť'
         cancel: 'Zrušiť'
     delete_spirit_modal:
-        title: 'Zmazať Ducha'
-        message: 'Naozaj chcete zmazať tohto Ducha? Túto akciu nemožno vrátiť späť.'
+        title: 'Zmazať Spirita'
+        message: 'Naozaj chcete zmazať tohto Spirita? Túto akciu nemožno vrátiť späť.'
         delete: 'Zmazať'
         cancel: 'Zrušiť'
     spirit_detail:
-        title: 'Detaily Ducha'
+        title: 'Detaily Spirita'
         conversations: 'Konverzácie'
         interactions: 'Nedávne interakcie'
         no_conversations: 'Žiadne konverzácie k dispozícii'
@@ -194,10 +194,10 @@ spirit:
         unlock_error: 'Nepodarilo sa odomknúť schopnosť. Skúste to prosím znova.'
     menu:
         talk: 'Rozhovor'
-        settings: 'Duch - profil'
-        spirits: 'Duchovia'
+        settings: 'Spirit - profil'
+        spirits: 'Spiriti'
     chat:
-        title: 'Rozhovor s Duchom '
+        title: 'Rozhovor s Spiritom '
         conversations: 'Konverzácie'
         search_conversations: 'Hľadať konverzácie...'
         new_conversation: 'Nová konverzácia'
@@ -207,8 +207,8 @@ spirit:
         conversation_deleted: 'Konverzácia úspešne zmazaná'
         no_conversations: 'Zatiaľ žiadne konverzácie'
         type_message: 'Napíšte vašu správu...'
-        no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu! Pozdravte svojho Ducha :)'
-        loading_response: 'Duch rozmýšľa...'
+        no_messages: 'Zatiaľ žiadne správy. Začnite konverzáciu! Pozdravte svojho Spirita :)'
+        loading_response: 'Spirit rozmýšľa...'
         response_max_output: 'Maximálna dĺžka odpovede'
         response_temperature: 'Teplota odpovede'
         load_older: 'Načítať staršie správy'
@@ -221,7 +221,7 @@ spirit:
         extract_memory_started: 'Extrakcia pamäte spustená!'
         conversation_closed: 'Konverzácia uzavretá — pamäť extrahovaná'
     prompt_builder:
-        title: 'Staviteľ systémového promptu Ducha'
+        title: 'Staviteľ systémového promptu Spirita'
         button: 'Pokročilý staviteľ promptu'
         loading: 'Načítavam štruktúru promptu...'
         view_mode: 'Režim zobrazenia'
@@ -234,23 +234,23 @@ spirit:
         saved: 'Konfigurácia úspešne uložená'
         no_tools: 'Žiadne AI nástroje nie sú k dispozícii'
         section:
-            identity: 'Identita Ducha'
+            identity: 'Identita Spirita'
             custom_prompt: 'Vlastný systémový prompt'
             system_info: 'Systémové informácie'
-            memory: 'Pamäť Ducha'
+            memory: 'Pamäť Spirita'
             tools: 'Inštrukcie pre AI nástroje'
             language: 'Jazyk odpovedí'
         system_info_hint: 'Vypnite pre testovanie zamerané na súkromie bez systémového kontextu'
-        memory_hint: 'Pamäť Ducha poskytuje kontext z predchádzajúcich konverzácií'
+        memory_hint: 'Pamäť Spirita poskytuje kontext z predchádzajúcich konverzácií'
         tools_hint: 'Inštrukcie pre používanie AI nástrojov (volanie funkcií)'
-        language_hint: 'Ovláda jazyk odpovedí Ducha'
+        language_hint: 'Ovláda jazyk odpovedí Spirita'
     memory:
         title: 'Prieskumník Pamäte'
         explore: 'Preskúmať'
         packs: 'balíčky'
         nodes: 'uzly'
         relationships: 'vzťahy'
-        type: 'Typ Pamäte Ducha'
+        type: 'Typ Pamäte Spirita'
         type_saved: 'Typ pamäte aktualizovaný'
         reset_view: 'Predvolený pohľad'
         top_view: 'Pohľad zhora'
@@ -329,10 +329,10 @@ spirit:
             extraction_completed: 'Extrakcia dokončená!'
             extraction_failed: 'Extrakcia zlyhala: {error}'
             select_file_first: 'Najprv vyberte súbor'
-            select_spirit: 'Vybrať Ducha'
+            select_spirit: 'Vybrať Spirita'
             select_conversation: 'Vybrať Konverzáciu'
-            conversation_hint: 'Extrahovať spomienky z konverzácie s Duchom'
-            no_spirits: 'Žiadni Duchovia'
+            conversation_hint: 'Extrahovať spomienky z konverzácie s Spiritom'
+            no_spirits: 'Žiadni Spiriti'
             no_conversations: 'Žiadne konverzácie'
             select_conversation_first: 'Najprv vyberte konverzáciu'
             tab_extract_analyze: 'Extrakcia & Analýza'
@@ -405,32 +405,32 @@ spirit:
             delete_error: 'Nepodarilo sa zmazať pack'
 
 spirits:
-    title: 'Duchovia'
-    manage: 'Spravovať Duchov'
-    create: 'Vytvoriť Ducha'
-    name: 'Meno Ducha'
-    name_help: 'Zadajte meno pre vášho Ducha'
-    color: 'Farba Ducha'
-    color_help: 'Vyberte farbu pre vášho Ducha'
+    title: 'Spiriti'
+    manage: 'Spravovať Spiritov'
+    create: 'Vytvoriť Spirita'
+    name: 'Meno Spirita'
+    name_help: 'Zadajte meno pre vášho Spirita'
+    color: 'Farba Spirita'
+    color_help: 'Vyberte farbu pre vášho Spirita'
     delete: 'Zmazať'
-    delete_confirm: 'Naozaj chcete zmazať tohto Ducha?'
-    delete_conversations: 'Všetky konverzácie tohto Ducha budú zmazané'
-    delete_interactions: 'Všetky interakcie tohto Ducha budú zmazané'
-    delete_settings: 'Všetky nastavenia tohto Ducha budú zmazané'
-    no_spirits: 'Zatiaľ žiadni Duchovia'
-    no_spirits_desc: 'Vytvorte svojho prvého Ducha a začnite!'
-    primary: 'Primárny Duch'
-    spirit: 'Duch'
+    delete_confirm: 'Naozaj chcete zmazať tohto Spirita?'
+    delete_conversations: 'Všetky konverzácie tohto Spirita budú zmazané'
+    delete_interactions: 'Všetky interakcie tohto Spirita budú zmazané'
+    delete_settings: 'Všetky nastavenia tohto Spirita budú zmazané'
+    no_spirits: 'Zatiaľ žiadni Spiriti'
+    no_spirits_desc: 'Vytvorte svojho prvého Spirita a začnite!'
+    primary: 'Primárny Spirit'
+    spirit: 'Spirit'
     level: 'Úroveň'
     experience: 'XP'
     next_level: 'Ďalšia úroveň'
     last_interaction: 'Posledný:'
-    created_success: 'Duch úspešne vytvorený!'
-    deleted_success: 'Duch úspešne zmazaný!'
-    error_name_required: 'Zadajte prosím meno Ducha'
-    error_create_failed: 'Nepodarilo sa vytvoriť Ducha'
-    error_delete_failed: 'Nepodarilo sa zmazať Ducha'
-    error_load_failed: 'Nepodarilo sa načítať Duchov'
+    created_success: 'Spirit úspešne vytvorený!'
+    deleted_success: 'Spirit úspešne zmazaný!'
+    error_name_required: 'Zadajte prosím meno Spirita'
+    error_create_failed: 'Nepodarilo sa vytvoriť Spirita'
+    error_delete_failed: 'Nepodarilo sa zmazať Spirita'
+    error_load_failed: 'Nepodarilo sa načítať Spiritov'
 
 profile:
     title: 'Nastavenia profilu'
@@ -452,17 +452,17 @@ profile:
         show_public_photo: 'Zobraziť profilovú fotku na verejnej stránke'
         show_public_shares: 'Zobraziť verejné zdieľané položky na profilovej stránke'
         show_share_content: 'Zobraziť náhľad obsahu zdieľaných položiek (obrázky, text, Memory Pack grafy)'
-        show_public_spirits: 'Prezentácia duchov'
+        show_public_spirits: 'Prezentácia spiritov'
         spirits_off: 'Vypnuté'
-        spirits_primary: 'Len primárny Duch'
-        spirits_all: 'Všetci Duchovia'
+        spirits_primary: 'Len primárny Spirit'
+        spirits_all: 'Všetci Spiriti'
         public_theme: 'Téma stránky'
         public_theme_desc: 'Vyberte pozadie pre vašu verejnú profilovú stránku.'
         federation: 'Viditeľnosť pre CQ kontakty'
         federation_desc: 'Ovládajte, čo vaše CQ kontakty môžu vidieť o vás.'
         federation_bio: 'Zdieľať bio s CQ kontaktmi'
         federation_photo: 'Zdieľať profilovú fotku s CQ kontaktmi'
-        federation_spirits: 'Zdieľať duchov s CQ kontaktmi'
+        federation_spirits: 'Zdieľať spiritov s CQ kontaktmi'
         saved: 'Nastavenia profilu uložené'
         save_error: 'Nepodarilo sa uložiť nastavenia profilu'
         photo_uploaded: 'Profilová fotka nahraná'
@@ -514,8 +514,8 @@ dashboard:
     welcome: 'Vitajte, %username%!'
     description: 'Váš osobný prehľad CitadelQuest a rýchly prístup ku všetkým funkciám.'
     quick_actions: 'Rýchle akcie'
-    spirit_description: 'Porozprávajte sa so svojím AI Duchom'
-    spirits_description: 'Spravujte svojich AI Duchov'
+    spirit_description: 'Porozprávajte sa so svojím AI Spiritom'
+    spirits_description: 'Spravujte svojich AI Spiritov'
     explorer_description: 'Preskúmajte CQ Profily a spravujte svoje CQ Kontakty'
     shares_description: 'Zdieľajte súbory a Memory Packy'
     files_description: 'Prehliadajte a spravujte svoje súbory'
@@ -557,7 +557,7 @@ settings:
         error: 'Nepodarilo sa optimalizovať databázu'
     ai:
         page_title: 'Nastavenia AI služieb'
-        description: 'Nakonfigurujte nastavenia AI služieb pre vášho Ducha a ďalšie AI funkcie.'
+        description: 'Nakonfigurujte nastavenia AI služieb pre vášho Spirita a ďalšie AI funkcie.'
         models:
             title: 'AI Modely'
             description: 'Vyberte, ktoré AI modely použiť pre rôzne účely.'
@@ -692,17 +692,17 @@ welcome:
             get_key_url_text: "Získajte ho tu"
             validate: "Overiť a pokračovať"
         step2:
-            title: "Vytvorte si svojho Ducha"
-            description: "Váš Duch je váš osobný AI sprievodca a spoločník. <br/> Dajte mu meno a vyberte farbu."
-            name_label: "Meno Ducha"
-            name_placeholder: "Zadajte meno pre vášho Ducha"
-            model_label: "Vyberte AI model Ducha"
+            title: "Vytvorte si svojho Spirita"
+            description: "Váš Spirit je váš osobný AI sprievodca a spoločník. <br/> Dajte mu meno a vyberte farbu."
+            name_label: "Meno Spirita"
+            name_placeholder: "Zadajte meno pre vášho Spirita"
+            model_label: "Vyberte AI model Spirita"
             color_label: "Vyberte farbu"
             back: "Späť"
-            create: "Vytvoriť Ducha"
+            create: "Vytvoriť Spirita"
         step3:
             title: "Pripravení začať"
-            description: "Váš Duch bol vytvorený a je pripravený vám pomáhať."
+            description: "Váš Spirit bol vytvorený a je pripravený vám pomáhať."
             start_journey: "Začnite svoju cestu"
         completed: "Úvodné nastavenie bolo úspešne dokončené!"
         skip: "Preskočiť"
@@ -965,7 +965,7 @@ file_browser:
 cq_explorer:
     page_title: 'CQ Prieskumník'
     tip_empty_title: 'Začnite s CQ Prieskumníkom'
-    tip_empty_text: 'Preskúmajte profily CitadelQuestu, objavujte zdieľaný obsah a spojte sa s ďalšími Citadelami. Začnite preskúmaním oficiálneho CQ Používateľského manuálu — stiahnite ho a pridajte do Pamäťovej knižnice vášho Ducha, aby vám pomohol s navigáciou!'
+    tip_empty_text: 'Preskúmajte profily CitadelQuestu, objavujte zdieľaný obsah a spojte sa s ďalšími Citadelami. Začnite preskúmaním oficiálneho CQ Používateľského manuálu — stiahnite ho a pridajte do Pamäťovej knižnice vášho Spirita, aby vám pomohol s navigáciou!'
     tip_empty_cta: 'Preskúmať CQ Používateľský manuál'
 
 cq_contact:
