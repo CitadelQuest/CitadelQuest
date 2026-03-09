@@ -8,7 +8,7 @@ export class ThemeService {
             { id: 'clear',   name: 'Clear' },
         ];
         this.themes = this.themeList.map(t => t.id);
-        this.currentThemeIndex = 2; // Start with night-2 as it's good ol' CQ default
+        this.currentThemeIndex = 0; // Start with night-2 as it's good ol' CQ default
         
         // If data-theme is already set server-side (e.g. public profile page), respect it
         const serverTheme = document.documentElement.getAttribute('data-theme');
