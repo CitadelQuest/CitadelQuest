@@ -664,6 +664,15 @@ export class CitadelExplorer {
                         html += `<div><img src="${share.preview_url}" alt="${share.title || ''}" class="rounded w-100" style="${imgStyle}"></div>`;
                     }
 
+                    if (share.preview_type === 'html' && share.preview_content) {
+                        if (ds === 1) {
+                            const escaped = share.preview_content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                            html += `<div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;"><pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre></div>`;
+                        } else if (ds === 2) {
+                            html += `<div class="rounded" style="background: rgba(0,0,0,0.1);">${share.preview_content}</div>`;
+                        }
+                    }
+
                     if (share.preview_type === 'text' && share.preview_content) {
                         const ext = share.preview_ext || '';
                         const scrollStyle = ds === 1

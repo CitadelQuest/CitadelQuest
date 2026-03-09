@@ -482,6 +482,21 @@ class CQProfileController extends AbstractController
                     continue;
                 }
 
+                // HTML files
+                if ($ext === 'html') {
+                    $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+                    $relativePath = ltrim($file['path'] ?? '', '/');
+                    $filePath = $relativePath
+                        ? $basePath . '/' . $relativePath . '/' . $file['name']
+                        : $basePath . '/' . $file['name'];
+
+                    if (file_exists($filePath)) {
+                        $share['preview_type'] = 'html';
+                        $share['preview_content'] = file_get_contents($filePath);
+                    }
+                    continue;
+                }
+
                 // Text/Markdown files
                 if (in_array($ext, ['txt', 'md', 'markdown']) || str_starts_with($mimeType, 'text/')) {
                     $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];

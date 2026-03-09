@@ -192,6 +192,19 @@
                                     </div>
                                     {% endif %}
 
+                                    {# HTML file preview/full #}
+                                    {% if share.preview_type == 'html' %}
+                                    {% if ds == 1 %}
+                                    <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
+                                        <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
+                                    </div>
+                                    {% elseif ds == 2 %}
+                                    <div class="rounded" style="background: rgba(0,0,0,0.1);">
+                                        {{ share.preview_content|raw }}
+                                    </div>
+                                    {% endif %}
+                                    {% endif %}
+
                                     {# Text/Markdown preview/full #}
                                     {% if share.preview_type == 'text' %}
                                     <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);{% if ds == 1 %} max-height: 300px; overflow-y: auto;{% endif %}">
