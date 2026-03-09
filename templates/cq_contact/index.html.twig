@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'cq_contact.page_title'|trans }} - {{ parent() }}{% endblock %}
+{% block title %}{{ 'cq_explorer.page_title'|trans }} - {{ parent() }}{% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
@@ -52,31 +52,31 @@
     <div class="row">
         <div class="col-12">
             <div class="glass-panel_p-4 pt-1">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+                {# <div class="d-flex justify-content-between align-items-center mb-2">
                     <h1 class="h6 mb-0">
                         <i class="mdi mdi-account-group me-2 text-cyber"></i>
                         {{ 'cq_contact.page_title'|trans }}
                     </h1>
-                </div>
+                </div> #}
 
                 {# Citadel Explorer — URL input #}
                 <div class="mb-4">
-                    <div class="input-group">
+                    <div class="input-group input-group-sm">
                         <span class="input-group-text glass-panel"><i class="mdi mdi-earth text-cyber"></i></span>
                         <input type="url" id="explorerUrlInput" class="form-control glass-input"
                                placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
-                        <button class="btn btn-cyber" id="explorerFetchBtn" type="button" disabled>
+                        <button class="btn btn-sm btn-cyber" id="explorerFetchBtn" type="button" disabled>
                             <i class="mdi mdi-magnify me-2"></i><span class="d-none d-md-inline-block">{{ 'citadel_explorer.explore'|trans }}</span>
                         </button>
                     </div>
-                    <div class="small text-muted ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
+                    <div class="small text-light opacity-50 ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
                 </div>
 
                 {# Citadel Explorer — profile preview container #}
-                <div id="explorerPreview" class="d-none mb-4"></div>
+                <div id="explorerPreview" class="d-none mb-5"></div>
 
                 {# Contacts list — search & filter #}
-                <div class="row mb-3">
+                <div class="row mb-3 d-none" id="contactsFilterRow">
                     <div class="col-md-6 mb-2">
                         <div class="input-group">
                             <span class="input-group-text glass-panel"><i class="mdi mdi-magnify text-cyber"></i></span>
@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const contactsContainer = document.getElementById('contactsContainer');
     const contactSearch = document.getElementById('contactSearch');
     const statusFilter = document.getElementById('statusFilter');
+    const contactsFilterRow = document.getElementById('contactsFilterRow');
 
     let contacts = [];
 
@@ -199,14 +200,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (filteredContacts.length === 0) {
-            contactsContainer.innerHTML = `
-                <div class="text-center py-5">
-                    <i class="mdi mdi-account-off text-muted fs-2"></i>
-                    <p class="mt-2 text-muted">{{ 'cq_contact.no_contacts'|trans }}</p>
-                </div>
-            `;
+            contactsFilterRow.classList.add('d-none');
+            let emptyHtml = `
+                <div class="text-center py-1 pt-2 glass-panel">
+                    <i class="mdi mdi-account-off text-light opacity-75 fs-2"></i>
+                    <p class="mt-2 text-light opacity-75">{{ 'cq_contact.no_contacts'|trans }}</p>
+                </div>`;
+            // Show tip only when there are truly no contacts (not just filtered out)
+            if (contacts.length === 0) {
+                emptyHtml += `
+                <div class="glass-panel p-4 mt-2 rounded">
+                    <h6 class="text-cyber mb-2"><i class="mdi mdi-lightbulb-on me-2"></i>{{ 'cq_explorer.tip_empty_title'|trans }}</h6>
+                    <p class="text-light small mb-3">{{ 'cq_explorer.tip_empty_text'|trans }}</p>
+                    <a href="/cq-contacts?url=https://one.citadelquest.world/Human/share/CQ-User-Manual.cqmpack" class="btn btn-sm btn-cyber">
+                        <i class="mdi mdi-book-open-page-variant me-2"></i>{{ 'cq_explorer.tip_empty_cta'|trans }}
+                    </a>
+                </div>`;
+            }
+            contactsContainer.innerHTML = emptyHtml;
             return;
         }
+
+        contactsFilterRow.classList.remove('d-none');
 
         const contactsHtml = filteredContacts.map(contact => {
             const statusBadge = getStatusBadge(contact.friendRequestStatus, contact.isActive);

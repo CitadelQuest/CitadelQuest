@@ -106,6 +106,25 @@
                             </a>
                         </div>
 
+                        <!-- CQ Explorer -->
+                        <div class="col-6 col-md-6 col-lg-4">
+                            <a href="{{ path('app_cq_contact_index') }}" class="text-decoration-none">
+                                <div class="card glass-panel h-100 glass-panel-glow position-relative">
+                                    <div class="card-body text-center">
+                                        <i class="mdi mdi-account-group fs-1 text-primary mb-2"></i>
+                                        <h6 class="text-light">{{ 'cq_explorer.page_title'|trans }}</h6>
+                                        <small class="text-muted">{{ 'dashboard.explorer_description'|trans }}</small>
+                                        <!-- Friend Request Badge -->
+                                        <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-danger d-none" 
+                                              id="friend-request-badge" 
+                                              style="font-size: 0.75rem;">
+                                            0
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+
                         <!-- CQ Memory -->
                         <div class="col-6 col-md-6 col-lg-4">
                             <a href="{{ path('cq_memory_explorer') }}" class="text-decoration-none">
@@ -127,25 +146,6 @@
                                         <i class="mdi mdi-folder-file opacity-75 fs-1 text-warning mb-2"></i>
                                         <h6 class="text-light">{{ 'file_browser.page_title'|trans }}</h6>
                                         <small class="text-muted">{{ 'dashboard.files_description'|trans }}</small>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-
-                        <!-- CQ Contacts -->
-                        <div class="col-6 col-md-6 col-lg-4">
-                            <a href="{{ path('app_cq_contact_index') }}" class="text-decoration-none">
-                                <div class="card glass-panel h-100 glass-panel-glow position-relative">
-                                    <div class="card-body text-center">
-                                        <i class="mdi mdi-account-group fs-1 text-primary mb-2"></i>
-                                        <h6 class="text-light">{{ 'cq_contact.page_title'|trans }}</h6>
-                                        <small class="text-muted">{{ 'dashboard.contacts_description'|trans }}</small>
-                                        <!-- Friend Request Badge -->
-                                        <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-danger d-none" 
-                                              id="friend-request-badge" 
-                                              style="font-size: 0.75rem;">
-                                            0
-                                        </span>
                                     </div>
                                 </div>
                             </a>

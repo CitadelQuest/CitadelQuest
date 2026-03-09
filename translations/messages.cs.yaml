@@ -524,7 +524,7 @@ dashboard:
     quick_actions: 'Rychlé akce'
     spirit_description: 'Chatuj s tvým AI Duchem'
     spirits_description: 'Spravuj své AI Duchy společníky'
-    contacts_description: 'Spravuj své kontakty v Citadele'
+    explorer_description: 'Prozkoumej CQ Profily a spravuj své CQ Kontakty'
     shares_description: 'Sdílej soubory a Memory Packy'
     files_description: 'Procházej a spravuj své soubory'
     settings_description: 'Nakonfiguruj svůj CitadelQuest'
@@ -969,6 +969,12 @@ file_browser:
     no_images: 'Žádné obrázky v této složce'
     download_zip: 'Stáhnout ZIP'
     preparing_zip: 'Připravuji ZIP ke stažení...'
+
+cq_explorer:
+    page_title: 'CQ Průzkumník'
+    tip_empty_title: 'Začni s CQ Průzkumníkem'
+    tip_empty_text: 'Prozkoumej profily CitadelQuestu, objevuj sdílený obsah a spojuj se s dalšími Citadelami. Začni prozkoumáním oficiálního CQ Uživatelského manuálu — stáhni ho a přidej do Paměťové knihovny svého Ducha, aby ti pomohl s navigací!'
+    tip_empty_cta: 'Prozkoumat CQ Uživatelský manuál'
 
 cq_contact:
     page_title: 'CQ Kontakty'

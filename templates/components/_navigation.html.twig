@@ -27,6 +27,12 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
                     <li>
+                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_contact_index') }}">
+                            <i class="mdi mdi-account-group me-3{% if app.request.pathInfo == path('app_cq_contact_index') %} text-cyber{% else %} text-primary opacity-75{% endif %}"></i>
+                            {{ 'cq_explorer.page_title'|trans }}
+                        </a>
+                    </li>
+                    <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('cq_memory_explorer') }}">
                             <i class="mdi mdi-graph me-3{% if app.request.pathInfo starts with '/memory' %} text-cyber{% else %} text-info{% endif %}"></i>
                             {{ 'cq_memory.page_title'|trans }}
@@ -36,12 +42,6 @@
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_file_browser') }}">
                             <i class="mdi mdi-folder-file me-3{% if app.request.pathInfo == path('app_file_browser') %} text-cyber{% else %} text-warning{% endif %}"></i>
                             {{ 'file_browser.page_title'|trans }}
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_contact_index') }}">
-                            <i class="mdi mdi-account-group me-3{% if app.request.pathInfo == path('app_cq_contact_index') %} text-cyber{% else %} text-primary opacity-75{% endif %}"></i>
-                            {{ 'cq_contact.page_title'|trans }}
                         </a>
                     </li>
                     <li>

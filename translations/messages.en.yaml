@@ -524,7 +524,7 @@ dashboard:
     quick_actions: 'Quick Actions'
     spirit_description: 'Chat with your AI Spirit'
     spirits_description: 'Manage your AI Spirit companions'
-    contacts_description: 'Manage your Citadel contacts'
+    explorer_description: 'Explore CQ Profiles and Manage your CQ Contacts'
     shares_description: 'Share files and Memory Packs'
     files_description: 'Browse and manage your files'
     settings_description: 'Configure your CitadelQuest'
@@ -969,6 +969,12 @@ file_browser:
     no_images: 'No images in this directory'
     download_zip: 'Download ZIP'
     preparing_zip: 'Preparing ZIP download...'
+
+cq_explorer:
+    page_title: 'CQ Explorer'
+    tip_empty_title: 'Get Started with CQ Explorer'
+    tip_empty_text: 'Explore CitadelQuest profiles, discover shared content and connect with other Citadels. Start by exploring the official CQ User Manual — download it and add it to your Spirit''s Memory Library to help your Spirit guide you!'
+    tip_empty_cta: 'Explore CQ User Manual'
 
 cq_contact:
     page_title: 'CQ Contacts'
