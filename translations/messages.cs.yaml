@@ -969,6 +969,8 @@ file_browser:
     no_images: 'Žádné obrázky v této složce'
     download_zip: 'Stáhnout ZIP'
     preparing_zip: 'Připravuji ZIP ke stažení...'
+    shared_edit: 'Sdílené - upravit'
+    share_updated: 'Sdílení bylo úspěšně aktualizováno'
 
 cq_explorer:
     page_title: 'CQ Průzkumník'

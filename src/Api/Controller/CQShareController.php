@@ -366,6 +366,29 @@ class CQShareController extends AbstractController
         }
     }
 
+    #[Route('/api/share/by-source/{sourceId}', name: 'api_share_by_source', methods: ['GET'])]
+    public function getShareBySource(string $sourceId): JsonResponse
+    {
+        try {
+            $shares = $this->shareService->findBySourceId($sourceId);
+            if (empty($shares)) {
+                return $this->json(['success' => false, 'message' => 'No share found for this source'], Response::HTTP_NOT_FOUND);
+            }
+            // Return the first active share (most common case)
+            $activeShare = null;
+            foreach ($shares as $share) {
+                if ($share['is_active'] == 1) {
+                    $activeShare = $share;
+                    break;
+                }
+            }
+            return $this->json(['success' => true, 'share' => $activeShare ?? $shares[0]]);
+        } catch (\Exception $e) {
+            $this->logger->error('CQShareController::getShareBySource error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/api/share/{id}', name: 'api_share_update', methods: ['PUT'])]
     public function updateShare(Request $request, string $id): JsonResponse
     {

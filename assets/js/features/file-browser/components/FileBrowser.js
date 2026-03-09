@@ -255,6 +255,13 @@ export class FileBrowser {
                     }
                     break;
                     
+                case 'edit-share':
+                    const editShareFileId = actionButton.dataset.fileId;
+                    if (editShareFileId) {
+                        this.handleEditShare(editShareFileId);
+                    }
+                    break;
+                    
                 case 'delete':
                     const deleteFileId = actionButton.dataset.fileId;
                     if (deleteFileId) {
@@ -820,6 +827,11 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.share || 'Share'}</span>
                     </button>` : ''}
+                    ${!isRemote && isShared ? `
+                    <button class="btn btn-sm btn-outline-success me-2" data-action="edit-share" data-file-id="${file.id}"
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.shared_edit || 'Shared - edit'}</span>
+                    </button>` : ''}
                     ${!isRemote && this.isTextFile(extension) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
@@ -1165,6 +1177,190 @@ export class FileBrowser {
         } catch (error) {
             console.error('Error creating share:', error);
             window.toast.error('Failed to create share');
+        }
+    }
+
+    /**
+     * Handle edit share — opens Edit Share modal for an already shared file
+     * @param {string} fileId - File ID (source_id of the share)
+     */
+    async handleEditShare(fileId) {
+        try {
+            const response = await fetch(`/api/share/by-source/${fileId}`);
+            const data = await response.json();
+
+            if (!data.success || !data.share) {
+                window.toast.error('Share not found');
+                return;
+            }
+
+            const share = data.share;
+            this.openEditShareModal(share);
+        } catch (error) {
+            console.error('Error fetching share:', error);
+            window.toast.error('Failed to load share data');
+        }
+    }
+
+    /**
+     * Create the Edit Share modal if it doesn't exist yet
+     */
+    ensureEditShareModal() {
+        if (document.getElementById('fbEditShareModal')) return;
+
+        const modalHtml = `
+        <div class="modal fade" id="fbEditShareModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content glass-panel">
+                    <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                        <h5 class="modal-title"><i class="mdi mdi-pencil me-2"></i>${this.translations.edit_share_title || 'Edit Share'}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="fbEditShareForm">
+                        <input type="hidden" id="fbEditShareId">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="fbEditShareTitle" class="form-label">
+                                    <i class="mdi mdi-format-title me-2 text-cyber"></i>${this.translations.field_title || 'Title'}
+                                </label>
+                                <input type="text" class="form-control glass-input" id="fbEditShareTitle" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fbEditShareUrlSlug" class="form-label">
+                                    <i class="mdi mdi-link me-2 text-cyber"></i>${this.translations.field_url_slug || 'Share URL Slug'}
+                                </label>
+                                <input type="text" class="form-control glass-input" id="fbEditShareUrlSlug" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fbEditShareScope" class="form-label">
+                                    <i class="mdi mdi-eye me-2 text-cyber"></i>${this.translations.field_scope || 'Scope'}
+                                </label>
+                                <select class="form-select glass-input" id="fbEditShareScope">
+                                    <option value="1">${this.translations.scope_contacts || 'CQ Contacts only'}</option>
+                                    <option value="0">${this.translations.scope_public || 'Public (anyone with link)'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fbEditShareDescription" class="form-label">
+                                    <i class="mdi mdi-text me-2 text-cyber"></i>${this.translations.field_description || 'Description'}
+                                </label>
+                                <textarea class="form-control glass-input" id="fbEditShareDescription" rows="3" placeholder="${this.translations.field_description_placeholder || 'Optional description for this share...'}"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fbEditShareDescDisplayStyle" class="form-label">
+                                    <i class="mdi mdi-page-layout-body me-2 text-cyber"></i>${this.translations.field_desc_position || 'Description Position'}
+                                </label>
+                                <select class="form-select glass-input" id="fbEditShareDescDisplayStyle">
+                                    <option value="0">${this.translations.desc_above || 'Above content preview'}</option>
+                                    <option value="1">${this.translations.desc_below || 'Below content preview'}</option>
+                                    <option value="2">${this.translations.desc_left || 'Left of content preview'}</option>
+                                    <option value="3">${this.translations.desc_right || 'Right of content preview'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fbEditShareDisplayStyle" class="form-label">
+                                    <i class="mdi mdi-eye-settings me-2 text-cyber"></i>${this.translations.field_display_style || 'Display Style'}
+                                </label>
+                                <select class="form-select glass-input" id="fbEditShareDisplayStyle">
+                                    <option value="0">${this.translations.display_off || 'Off (download only)'}</option>
+                                    <option value="1">${this.translations.display_preview || 'Content Preview'}</option>
+                                    <option value="2">${this.translations.display_full || 'Full Content'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="mdi mdi-toggle-switch me-2 text-cyber"></i>${this.translations.field_status || 'Status'}
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="fbEditShareActive" checked>
+                                    <label class="form-check-label" for="fbEditShareActive">${this.translations.status_active || 'Active'}</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer d-flex justify-content-between border-top-0">
+                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                                <i class="mdi mdi-cancel me-2"></i>${this.translations.cancel || 'Cancel'}
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-cyber" id="fbEditShareSubmit">
+                                <i class="mdi mdi-content-save me-2"></i>${this.translations.save || 'SAVE'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Bind form submit
+        document.getElementById('fbEditShareForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveEditShare();
+        });
+    }
+
+    /**
+     * Open the Edit Share modal and populate with share data
+     * @param {Object} share - Share data from API
+     */
+    openEditShareModal(share) {
+        this.ensureEditShareModal();
+
+        document.getElementById('fbEditShareId').value = share.id;
+        document.getElementById('fbEditShareTitle').value = share.title;
+        document.getElementById('fbEditShareUrlSlug').value = share.share_url;
+        document.getElementById('fbEditShareScope').value = share.scope;
+        document.getElementById('fbEditShareDisplayStyle').value = share.display_style ?? 1;
+        document.getElementById('fbEditShareDescription').value = share.description || '';
+        document.getElementById('fbEditShareDescDisplayStyle').value = share.description_display_style ?? 1;
+        document.getElementById('fbEditShareActive').checked = share.is_active == 1;
+
+        const modal = new bootstrap.Modal(document.getElementById('fbEditShareModal'));
+        modal.show();
+    }
+
+    /**
+     * Save edited share data via API
+     */
+    async saveEditShare() {
+        const id = document.getElementById('fbEditShareId').value;
+        const btn = document.getElementById('fbEditShareSubmit');
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/api/share/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: document.getElementById('fbEditShareTitle').value,
+                    share_url: document.getElementById('fbEditShareUrlSlug').value,
+                    scope: parseInt(document.getElementById('fbEditShareScope').value),
+                    display_style: parseInt(document.getElementById('fbEditShareDisplayStyle').value),
+                    description: document.getElementById('fbEditShareDescription').value,
+                    description_display_style: parseInt(document.getElementById('fbEditShareDescDisplayStyle').value),
+                    is_active: document.getElementById('fbEditShareActive').checked ? 1 : 0
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                window.toast.success(this.translations.share_updated || 'Share updated successfully');
+                // Close modal
+                const modalEl = document.getElementById('fbEditShareModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+                // Refresh file preview to reflect potential isShared/isActive change
+                if (this.selectedFile) {
+                    this.selectFile(this.selectedFile.id);
+                }
+            } else {
+                window.toast.error(data.message || 'Failed to update share');
+            }
+        } catch (error) {
+            console.error('Error updating share:', error);
+            window.toast.error('Failed to update share');
+        } finally {
+            btn.disabled = false;
         }
     }
 
