@@ -19,7 +19,7 @@ use App\CitadelVersion;
  */
 class AIToolWebService
 {
-    private const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
+    private const MAX_CONTENT_SIZE = 1024 * 1024 * 3; // 3MB
     private const HTTP_TIMEOUT = 15; // seconds
     private const MAX_REDIRECTS = 5;
     private const CACHE_DURATION_HOURS = 24;
@@ -41,6 +41,7 @@ class AIToolWebService
      * 
      * @param array $arguments Tool arguments:
      *   - url: string (required) - The web URL to fetch
+     *   - resultFormat: string (optional) - 'AI-friendly-content'(default) | 'raw-html-code' (skip cleanup/AI, return raw HTML)
      *   - forceRefresh: bool (optional) - Force refresh even if cached
      *   - maxLength: int (optional) - Maximum content length to return
      * 
@@ -51,6 +52,7 @@ class AIToolWebService
         $this->validateArguments($arguments, ['url']);
         
         $url = $arguments['url'];
+        $resultFormat = $arguments['resultFormat'] ?? 'AI-friendly-content';
         $forceRefresh = $arguments['forceRefresh'] ?? false;
         $maxLength = $arguments['maxLength'] ?? self::MAX_OUTPUT_LENGTH;
         $projectId = $arguments['projectId'] ?? 'general';
@@ -65,6 +67,31 @@ class AIToolWebService
         }
         
         try {
+            // Raw HTML mode: skip cache, cleanup, AI extraction — return raw HTTP response
+            if ($resultFormat === 'raw-html-code') {
+                $fetchResult = $this->fetchWithLimits($url);
+                if (!$fetchResult['success']) {
+                    return $fetchResult;
+                }
+                
+                $finalUrl = $fetchResult['url'];
+                $title = '';
+                if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $fetchResult['content'], $m)) {
+                    $title = html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                }
+                
+                return [
+                    'success' => true,
+                    'url' => $finalUrl,
+                    'title' => $title,
+                    'content' => $fetchResult['content'],
+                    'cached' => false,
+                    'resultFormat' => 'raw-html-code',
+                    'fetched_at' => (new \DateTime())->format('c'),
+                    '_frontendData' => $this->buildFrontendData($finalUrl, $title ?: $url, false)
+                ];
+            }
+            
             // Check cache first (unless force refresh)
             if (!$forceRefresh) {
                 $cached = $this->checkCache($url, $projectId);
@@ -262,7 +289,7 @@ class AIToolWebService
                 if ($contentLength > self::MAX_CONTENT_SIZE) {
                     return [
                         'success' => false,
-                        'error' => 'Content too large: ' . round($contentLength / 1024 / 1024, 2) . 'MB (max 1MB)'
+                        'error' => 'Content too large: ' . round($contentLength / 1024 / 1024 / 3, 2) . 'MB (max 3MB)'
                     ];
                 }
             }
@@ -274,7 +301,7 @@ class AIToolWebService
                 if (strlen($content) > self::MAX_CONTENT_SIZE) {
                     return [
                         'success' => false,
-                        'error' => 'Content too large (exceeded 1MB during download)'
+                        'error' => 'Content too large (exceeded 3MB during download)'
                     ];
                 }
             }
