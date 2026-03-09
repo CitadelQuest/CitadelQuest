@@ -115,12 +115,17 @@ class CQShareService
     }
 
     /**
-     * List all shares for the current user
+     * List all shares for the current user, enriched with source file path+name
      */
     public function listAll(): array
     {
         $db = $this->getUserDb();
-        return $db->executeQuery('SELECT * FROM cq_share ORDER BY created_at DESC')->fetchAllAssociative();
+        return $db->executeQuery(
+            'SELECT s.*, pf.path AS source_file_path, pf.name AS source_file_name
+             FROM cq_share s
+             LEFT JOIN project_file pf ON pf.id = s.source_id
+             ORDER BY s.created_at DESC'
+        )->fetchAllAssociative();
     }
 
     /**

@@ -334,13 +334,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <small class="text-muted"><i class="mdi mdi-clock-outline me-1"></i>${updatedAt}</small>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-sm btn-outline-secondary edit-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#editShareModal" title="Edit">
-                                        <i class="mdi mdi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger delete-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#deleteShareModal" title="Delete">
-                                        <i class="mdi mdi-delete"></i>
-                                    </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    
+                                    <div class="btn-group btn-group-sm">
+                                    ${s.source_file_name ? `<button class="btn btn-sm btn-outline-secondary view-share" data-source-type="${s.source_type}" data-file-path="${s.source_file_path || ''}" data-file-name="${s.source_file_name}">
+                                        <i class="mdi mdi-eye"></i>
+                                    </button>` : ''}
+                                        <button class="btn btn-sm btn-outline-secondary edit-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#editShareModal" title="Edit">
+                                            <i class="mdi mdi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger delete-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#deleteShareModal" title="Delete">
+                                            <i class="mdi mdi-delete"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -351,6 +357,21 @@ document.addEventListener('DOMContentLoaded', function() {
         sharesContainer.innerHTML = '<div class="row">' + html + '</div>';
 
         // Event listeners
+        document.querySelectorAll('.view-share').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sourceType = btn.dataset.sourceType;
+                const filePath = btn.dataset.filePath || '';
+                const fileName = btn.dataset.fileName;
+                if (sourceType === 'cqmpack') {
+                    localStorage.setItem('cqMemoryPack_global', JSON.stringify({ path: filePath, name: fileName }));
+                    localStorage.removeItem('cqMemoryLib_global');
+                    window.location.href = '/memory';
+                } else {
+                    localStorage.setItem('fileBrowserSelectFile', JSON.stringify({ path: filePath, name: fileName }));
+                    window.location.href = '/file-browser';
+                }
+            });
+        });
         document.querySelectorAll('.edit-share').forEach(btn => {
             btn.addEventListener('click', () => openEditModal(btn.dataset.shareId));
         });
