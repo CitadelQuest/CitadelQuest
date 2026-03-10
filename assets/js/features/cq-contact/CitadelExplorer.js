@@ -1,6 +1,7 @@
 import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
 import MarkdownIt from 'markdown-it';
 import * as bootstrap from 'bootstrap';
+import { renderSharePreviewBlock } from '../../shared/share-preview';
 
 /**
  * CitadelExplorer
@@ -526,6 +527,10 @@ export class CitadelExplorer {
                 const response = await fetch(`/api/cq-contact/${p.contact_id}/shares`);
                 const data = await response.json();
                 shares = (data.success && data.shares) ? data.shares : [];
+                // Store show_share_content from federation response
+                if (data.show_share_content !== undefined) {
+                    this.profile.show_share_content = data.show_share_content;
+                }
             } catch (error) {
                 console.error('Error loading contact shares:', error);
                 container.innerHTML = `
@@ -633,103 +638,12 @@ export class CitadelExplorer {
                         </div>
                     </div>`;
 
-            // Description + Content preview with layout control
-            const ds = parseInt(share.display_style ?? 1);
-            const desc = (share.description || '').trim();
-            const dds = parseInt(share.description_display_style ?? 1);
-            const hasPreview = this.profile.show_share_content && share.preview_type && ds > 0;
-            const hasDesc = desc.length > 0;
-            const isColumn = dds === 2 || dds === 3;
-
-            if (hasDesc || hasPreview) {
-                const descRendered = this.md.render(desc);
-                const descHtml = `<div class="p-3 rounded text-light small" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">${descRendered}</div>`;
-                const colWidth = isColumn && hasDesc && hasPreview ? ' style="width: 40%; min-width: 120px;"' : '';
-                const wrapClass = isColumn && hasDesc && hasPreview ? ' d-flex flex-column flex-md-row gap-3' : '';
-
-                html += `<div class="mt-3${wrapClass}">`;
-
-                // Description above (0) or left (2)
-                if (hasDesc && (dds === 0 || dds === 2)) {
-                    html += `<div class="${isColumn && hasPreview ? 'flex-shrink-0' : ''} mb-${isColumn ? '0' : '3'}"${colWidth}>${descHtml}</div>`;
-                }
-
-                // Content preview block
-                if (hasPreview) {
-                    html += `<div class="${isColumn && hasDesc ? 'flex-grow-1' : ''}" style="min-width: 0;">`;
-
-                    if (share.preview_type === 'image' && share.preview_url) {
-                        const imgStyle = ds === 1
-                            ? 'max-height: 500px; object-fit: contain; background: rgba(0,0,0,0.2);'
-                            : 'background: rgba(0,0,0,0.2);';
-                        html += `<div><img src="${share.preview_url}" alt="${share.title || ''}" class="rounded w-100" style="${imgStyle}"></div>`;
-                    }
-
-                    if (share.preview_type === 'pdf' && share.preview_url) {
-                        const pdfHeight = ds === 1 ? '500px' : '90vh';
-                        const pdfSrc = share.preview_url.startsWith('http')
-                            ? `/api/citadel-explorer/share-content?url=${encodeURIComponent(share.preview_url)}`
-                            : share.preview_url;
-                        html += `<div class="rounded" style="background: rgba(0,0,0,0.2);"><iframe src="${pdfSrc}" class="w-100 rounded border-0" style="height: ${pdfHeight};"></iframe></div>`;
-                    }
-
-                    if (share.preview_type === 'html' && share.preview_content) {
-                        if (ds === 1) {
-                            const escaped = share.preview_content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            html += `<div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;"><pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre></div>`;
-                        } else if (ds === 2) {
-                            html += `<div class="rounded" style="background: rgba(0,0,0,0.1);">${share.preview_content}</div>`;
-                        }
-                    }
-
-                    if (share.preview_type === 'text' && share.preview_content) {
-                        const ext = share.preview_ext || '';
-                        const scrollStyle = ds === 1
-                            ? 'background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;'
-                            : 'background: rgba(0,0,0,0.2);';
-                        if (['md', 'markdown'].includes(ext)) {
-                            const rendered = this.md.render(share.preview_content);
-                            html += `<div class="p-3 rounded share-preview-scroll" style="${scrollStyle}"><div class="text-light small">${rendered}</div></div>`;
-                        } else {
-                            const escaped = share.preview_content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            html += `<div class="p-3 rounded share-preview-scroll" style="${scrollStyle}"><pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre></div>`;
-                        }
-                    }
-
-                    if (share.preview_type === 'graph' && share.preview_graph_url) {
-                        html += `
-                            <div>
-                                <div class="share-graph-preview memory-graph-preview rounded"
-                                     data-graph-url="${share.preview_graph_url}"
-                                     style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
-                                    <div class="graph-loading position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
-                                        <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                    </div>
-                                    <canvas class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
-                                </div>
-                                <div class="d-flex justify-content-center align-items-center mt-2 share-graph-stats">
-                                    <small class="text-secondary">
-                                        <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
-                                        <span class="stat-nodes">0</span>x ${this.t('nodes', 'nodes')} &nbsp; · &nbsp;
-                                        <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
-                                        <span class="stat-edges">0</span>x ${this.t('relationships', 'relationships')}
-                                    </small>
-                                </div>
-                            </div>`;
-                    }
-
-                    html += `</div>`;
-                }
-
-                // Description below (1) or right (3)
-                if (hasDesc && (dds === 1 || dds === 3)) {
-                    html += `<div class="${isColumn && hasPreview ? 'flex-shrink-0' : ''} mt-${isColumn ? '0' : '3'}"${colWidth}>${descHtml}</div>`;
-                }
-
-                html += `</div>`;
-            }
+            // Description + Content preview (shared rendering)
+            html += renderSharePreviewBlock(share, {
+                showContent: this.profile.show_share_content,
+                md: this.md,
+                t: (k, f) => this.t(k, f)
+            });
 
             html += `</div>`;
         });

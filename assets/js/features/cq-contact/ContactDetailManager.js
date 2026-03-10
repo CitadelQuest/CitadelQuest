@@ -1,4 +1,6 @@
 import * as bootstrap from 'bootstrap';
+import MarkdownIt from 'markdown-it';
+import { renderSharePreviewBlock } from '../../shared/share-preview';
 
 /**
  * ContactDetailManager
@@ -16,6 +18,8 @@ export class ContactDetailManager {
 
         // Download status cache
         this.downloadStatus = {};
+        this.showShareContent = false;
+        this.md = new MarkdownIt({ html: false, linkify: true, typographer: true });
 
         // Add to Library state
         this.addToLibPackPath = null;
@@ -146,6 +150,7 @@ export class ContactDetailManager {
                 return;
             }
 
+            this.showShareContent = data.show_share_content || false;
             const shares = data.shares || [];
             if (shares.length === 0) {
                 this.sharesContainer.innerHTML = `
@@ -186,11 +191,11 @@ export class ContactDetailManager {
     }
 
     renderShares(shares) {
-        let html = '<div class="row g-3">';
+        let html = '<div class="list-group list-group-flush bg-transparent">';
 
         shares.forEach(share => {
             const isCqmpack = share.source_type === 'cqmpack';
-            const isPdf = (share.title || '').toLowerCase().endsWith('.pdf');
+            const isPdf = share.preview_type === 'pdf' || (share.title || '').toLowerCase().endsWith('.pdf');
             const icon = isCqmpack ? 'mdi-graph' : (isPdf ? 'mdi-file-pdf-box' : 'mdi-file');
             const iconColor = isCqmpack ? 'text-info' : (isPdf ? 'text-danger' : 'text-warning');
             const typeLabel = isCqmpack ? this.t('memory_pack', 'Memory Pack') : this.t('file', 'File');
@@ -199,7 +204,7 @@ export class ContactDetailManager {
 
             let actionsHtml = '';
             if (isDownloaded) {
-                actionsHtml += `<span class="badge bg-success bg-opacity-25 disabled w-100 px-2"><i class="mdi mdi-check me-1"></i> ${this.t('downloaded', 'Downloaded!')}</span>`;
+                actionsHtml += `<span class="badge bg-success bg-opacity-25 px-2"><i class="mdi mdi-check me-1"></i> ${this.t('downloaded', 'Downloaded!')}</span>`;
                 if (isCqmpack) {
                     actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-2" 
                         onclick="showPackInMemoryExplorer('${dl.path}', '${dl.fileName}')">
@@ -219,28 +224,27 @@ export class ContactDetailManager {
             }
 
             html += `
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card glass-panel h-100">
-                        <div class="card-body">
-                            <div class="d-flex align-items-start mb-2">
-                                <i class="mdi ${icon} ${iconColor} fs-4 me-2 mt-1"></i>
-                                <div class="flex-grow-1 min-width-0">
-                                    <span class="mb-1 text-light text-wrap fw-bold">${share.title}</span>
-                                    <div class="small text-muted">
-                                        <span><i class="mdi ${icon} me-1"></i>${typeLabel}</span>
-                                        <span class="mx-1">&middot;</span>
-                                        <small class="text-muted">
-                                            <i class="mdi mdi-eye me-1"></i>${share.views || 0} ${this.t('views', 'views')}
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-center align-items-center flex-wrap gap-2 mt-2" id="actions-${share.share_url}">
-                                ${actionsHtml}
-                            </div>
+                <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-4 py-3" data-share-url="${share.share_url}">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <i class="mdi ${icon} ${iconColor} me-2"></i>
+                            <span class="text-light fw-bold">${share.title || ''}</span>
+                            <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
+                            <small class="text-muted"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
                         </div>
-                    </div>
-                </div>`;
+                        <div class="d-flex align-items-center gap-2">
+                            <div id="actions-${share.share_url}" class="text-end">${actionsHtml}</div>
+                        </div>
+                    </div>`;
+
+            // Description + Content preview (shared rendering)
+            html += renderSharePreviewBlock(share, {
+                showContent: this.showShareContent,
+                md: this.md,
+                t: (k, f) => this.t(k, f)
+            });
+
+            html += `</div>`;
         });
 
         html += '</div>';

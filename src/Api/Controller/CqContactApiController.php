@@ -287,6 +287,7 @@ class CqContactApiController extends AbstractController
                 'success' => true,
                 'shares' => $data['shares'] ?? [],
                 'username' => $data['username'] ?? $contact->getCqContactUsername(),
+                'show_share_content' => $data['show_share_content'] ?? false,
             ]);
         } catch (\Exception $e) {
             $this->logger->error('CqContactApiController::getContactShares error', [

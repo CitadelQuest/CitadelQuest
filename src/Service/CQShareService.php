@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Uid\Uuid;
 use Psr\Log\LoggerInterface;
 
@@ -27,7 +28,8 @@ class CQShareService
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ParameterBagInterface $params
     ) {
         $this->user = $security->getUser();
     }
@@ -136,7 +138,7 @@ class CQShareService
     {
         $db = $this->getUserDb();
         return $db->executeQuery(
-            'SELECT id, source_type, title, share_url, scope, views, display_style, description, description_display_style, created_at, updated_at
+            'SELECT id, source_type, source_id, title, share_url, scope, views, display_style, description, description_display_style, created_at, updated_at
              FROM cq_share
              WHERE is_active = 1 AND scope IN (?, ?)
              ORDER BY updated_at DESC',
@@ -264,6 +266,111 @@ class CQShareService
             'SELECT * FROM cq_share WHERE source_id = ?',
             [$sourceId]
         )->fetchAllAssociative();
+    }
+
+    // ========================================
+    // Preview enrichment
+    // ========================================
+
+    /**
+     * Enrich share records with content preview data.
+     * Adds preview_type, preview_url, preview_content, preview_ext, preview_graph_url
+     * depending on the source file type. Used by public profile and federation endpoints.
+     */
+    public function enrichSharesWithPreview(User $user, string $username, array $shares): array
+    {
+        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
+        $projectDir = $this->params->get('kernel.project_dir');
+
+        foreach ($shares as &$share) {
+            try {
+                if ($share['source_type'] === 'cqmpack') {
+                    $share['preview_type'] = 'graph';
+                    $share['preview_graph_url'] = '/' . $username . '/share/' . $share['share_url'] . '/graph';
+                    continue;
+                }
+
+                // Look up source file to get mime type and path
+                $file = $userDb->executeQuery(
+                    'SELECT * FROM project_file WHERE id = ?',
+                    [$share['source_id'] ?? '']
+                )->fetchAssociative();
+
+                if (!$file) continue;
+
+                $mimeType = $file['mime_type'] ?? '';
+                $fileName = $file['name'] ?? '';
+                $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+                // Image files
+                if (str_starts_with($mimeType, 'image/')) {
+                    $share['preview_type'] = 'image';
+                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'] . '?inline=1';
+                    continue;
+                }
+
+                // PDF files
+                if ($ext === 'pdf') {
+                    $share['preview_type'] = 'pdf';
+                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'] . '?inline=1';
+                    continue;
+                }
+
+                // HTML files
+                if ($ext === 'html') {
+                    $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+                    $relativePath = ltrim($file['path'] ?? '', '/');
+                    $filePath = $relativePath
+                        ? $basePath . '/' . $relativePath . '/' . $file['name']
+                        : $basePath . '/' . $file['name'];
+
+                    if (file_exists($filePath)) {
+                        $share['preview_type'] = 'html';
+                        $share['preview_content'] = file_get_contents($filePath);
+                    }
+                    continue;
+                }
+
+                // Text/Markdown files
+                if (in_array($ext, ['txt', 'md', 'markdown']) || str_starts_with($mimeType, 'text/')) {
+                    $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
+                    $relativePath = ltrim($file['path'] ?? '', '/');
+                    $filePath = $relativePath
+                        ? $basePath . '/' . $relativePath . '/' . $file['name']
+                        : $basePath . '/' . $file['name'];
+
+                    if (file_exists($filePath)) {
+                        $content = file_get_contents($filePath, false, null, 0, 10000); // Limit to 10KB
+                        $share['preview_type'] = 'text';
+                        $share['preview_content'] = $content;
+                        $share['preview_ext'] = $ext;
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->debug('CQShareService: Failed to enrich share preview', [
+                    'share_id' => $share['id'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        return $shares;
+    }
+
+    /**
+     * Convert relative preview URLs to absolute URLs for remote consumption.
+     */
+    public function convertPreviewUrlsToAbsolute(array &$shares, string $domain): void
+    {
+        foreach ($shares as &$s) {
+            if (isset($s['preview_url'])) {
+                $s['preview_url'] = 'https://' . $domain . $s['preview_url'];
+            }
+            if (isset($s['preview_graph_url'])) {
+                $s['preview_graph_url'] = 'https://' . $domain . $s['preview_graph_url'];
+            }
+        }
+        unset($s);
     }
 
     /**

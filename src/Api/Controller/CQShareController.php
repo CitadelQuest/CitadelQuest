@@ -5,6 +5,7 @@ namespace App\Api\Controller;
 use App\Entity\User;
 use App\Service\CQShareService;
 use App\Service\CqContactService;
+use App\Service\SettingsService;
 use App\Service\UserDatabaseManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,6 +31,7 @@ class CQShareController extends AbstractController
     public function __construct(
         private readonly CQShareService $shareService,
         private readonly CqContactService $cqContactService,
+        private readonly SettingsService $settingsService,
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly EntityManagerInterface $entityManager,
         private readonly ParameterBagInterface $params,
@@ -62,10 +64,21 @@ class CQShareController extends AbstractController
 
             $shares = $this->shareService->listActiveForFederation();
 
+            // Enrich with preview data if the user has share content enabled
+            $this->settingsService->setUser($user);
+            $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
+
+            if ($showShareContent && !empty($shares)) {
+                $shares = $this->shareService->enrichSharesWithPreview($user, $username, $shares);
+                $domain = $request->getHost();
+                $this->shareService->convertPreviewUrlsToAbsolute($shares, $domain);
+            }
+
             return $this->json([
                 'success' => true,
                 'username' => $username,
                 'shares' => $shares,
+                'show_share_content' => $showShareContent,
             ]);
         } catch (\Exception $e) {
             $this->logger->error('CQShareController::federationListShares error', [

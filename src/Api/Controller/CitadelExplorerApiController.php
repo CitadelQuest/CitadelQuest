@@ -177,6 +177,7 @@ class CitadelExplorerApiController extends AbstractController
                 'photo_url' => $photoUrl,
                 'profile_url' => $url,
                 'shares' => $fedData['shared_items'] ?? [],
+                'show_share_content' => $fedData['show_share_content'] ?? false,
                 'spirits' => $fedData['spirits'] ?? [],
                 'is_contact' => true,
                 'contact_id' => $contactId,
