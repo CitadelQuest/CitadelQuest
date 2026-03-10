@@ -578,8 +578,9 @@ export class CitadelExplorer {
 
         shares.forEach(share => {
             const isCqmpack = share.source_type === 'cqmpack';
-            const icon = isCqmpack ? 'mdi-graph' : 'mdi-file';
-            const iconColor = isCqmpack ? 'text-info' : 'text-warning';
+            const isPdf = share.preview_type === 'pdf';
+            const icon = isCqmpack ? 'mdi-graph' : (isPdf ? 'mdi-file-pdf-box' : 'mdi-file');
+            const iconColor = isCqmpack ? 'text-info' : (isPdf ? 'text-danger' : 'text-warning');
             const typeLabel = isCqmpack ? this.t('memory_pack', 'Memory Pack') : this.t('file', 'File');
 
             const dl = this.downloadStatus[share.share_url];
@@ -662,6 +663,14 @@ export class CitadelExplorer {
                             ? 'max-height: 500px; object-fit: contain; background: rgba(0,0,0,0.2);'
                             : 'background: rgba(0,0,0,0.2);';
                         html += `<div><img src="${share.preview_url}" alt="${share.title || ''}" class="rounded w-100" style="${imgStyle}"></div>`;
+                    }
+
+                    if (share.preview_type === 'pdf' && share.preview_url) {
+                        const pdfHeight = ds === 1 ? '500px' : '90vh';
+                        const pdfSrc = share.preview_url.startsWith('http')
+                            ? `/api/citadel-explorer/share-content?url=${encodeURIComponent(share.preview_url)}`
+                            : share.preview_url;
+                        html += `<div class="rounded" style="background: rgba(0,0,0,0.2);"><iframe src="${pdfSrc}" class="w-100 rounded border-0" style="height: ${pdfHeight};"></iframe></div>`;
                     }
 
                     if (share.preview_type === 'html' && share.preview_content) {

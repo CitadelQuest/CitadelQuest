@@ -190,8 +190,9 @@ export class ContactDetailManager {
 
         shares.forEach(share => {
             const isCqmpack = share.source_type === 'cqmpack';
-            const icon = isCqmpack ? 'mdi-graph' : 'mdi-file';
-            const iconColor = isCqmpack ? 'text-info' : 'text-warning';
+            const isPdf = (share.title || '').toLowerCase().endsWith('.pdf');
+            const icon = isCqmpack ? 'mdi-graph' : (isPdf ? 'mdi-file-pdf-box' : 'mdi-file');
+            const iconColor = isCqmpack ? 'text-info' : (isPdf ? 'text-danger' : 'text-warning');
             const typeLabel = isCqmpack ? this.t('memory_pack', 'Memory Pack') : this.t('file', 'File');
             const dl = this.downloadStatus[share.share_url];
             const isDownloaded = dl && dl.downloaded;

@@ -24,8 +24,18 @@ class SecurityHeadersSubscriber implements EventSubscriberInterface
 
         $response = $event->getResponse();
         
+        // Allow cross-origin framing for inline public share responses (e.g. PDF preview in CQ Explorer)
+        $allowFrame = $response->headers->has('X-CQ-Allow-Frame');
+
         foreach ($this->securityHeaders as $header => $value) {
+            if ($allowFrame && $header === 'X-Frame-Options') {
+                continue;
+            }
             $response->headers->set($header, $value);
+        }
+
+        if ($allowFrame) {
+            $response->headers->remove('X-CQ-Allow-Frame');
         }
     }
 

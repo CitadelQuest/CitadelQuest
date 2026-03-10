@@ -200,13 +200,19 @@ class CQShareController extends AbstractController
         }
 
         $response = new BinaryFileResponse($filePath);
-        $disposition = ($request->query->get('inline') === '1')
+        $isInline = $request->query->get('inline') === '1';
+        $disposition = $isInline
             ? ResponseHeaderBag::DISPOSITION_INLINE
             : ResponseHeaderBag::DISPOSITION_ATTACHMENT;
         $response->setContentDisposition($disposition, $file['name']);
         $response->headers->set('Content-Type', $mimeType);
         $response->headers->set('X-CQ-Share-Id', $share['id']);
         $response->headers->set('X-CQ-Share-Updated', $share['updated_at']);
+
+        // Allow cross-origin iframe embedding for inline public shares (PDF preview in CQ Explorer)
+        if ($isInline && (int) ($share['scope'] ?? -1) === CQShareService::SCOPE_PUBLIC) {
+            $response->headers->set('X-CQ-Allow-Frame', '1');
+        }
 
         return $response;
     }

@@ -270,6 +270,44 @@ class CitadelExplorerApiController extends AbstractController
     }
 
     /**
+     * Proxy remote share content (e.g. PDF) to avoid X-Frame-Options cross-origin blocking.
+     * Used by CQ Explorer to embed remote PDFs in iframes.
+     */
+    #[Route('/share-content', name: 'app_api_citadel_explorer_share_content', methods: ['GET'])]
+    public function shareContent(Request $request): Response
+    {
+        $contentUrl = $request->query->get('url', '');
+        if (empty($contentUrl) || !str_starts_with($contentUrl, 'https://')) {
+            return new Response('', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $contentUrl, [
+                'headers' => [
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 30,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return new Response('', Response::HTTP_NOT_FOUND);
+            }
+
+            $contentType = $response->getHeaders(false)['content-type'][0] ?? 'application/octet-stream';
+            $content = $response->getContent(false);
+
+            return new Response($content, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'public, max-age=300',
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->warning('CitadelExplorerApiController::shareContent error', ['error' => $e->getMessage()]);
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    /**
      * Check which shares from a remote profile have already been downloaded locally.
      * Uses source_url matching in project_file_remote table.
      */

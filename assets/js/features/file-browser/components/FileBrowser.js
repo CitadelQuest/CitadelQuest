@@ -1171,6 +1171,13 @@ export class FileBrowser {
                 } catch {
                     window.toast.success(`Share created: ${shareLink}`);
                 }
+                // Refresh file preview to swap Share → Shared-edit button
+                if (this.selectedFile) {
+                    this.selectedFile.isShared = true;
+                    const cached = this.files.find(f => f.id === fileId);
+                    if (cached) cached.isShared = true;
+                    this.selectFile(this.selectedFile.id);
+                }
             } else {
                 window.toast.error(data.message || 'Failed to create share');
             }

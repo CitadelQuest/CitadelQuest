@@ -140,6 +140,8 @@
                                    class="text-decoration-none">
                                     {% if share.source_type == 'cqmpack' %}
                                         <i class="mdi mdi-graph me-2 text-info"></i>
+                                    {% elseif share.preview_type is defined and share.preview_type == 'pdf' %}
+                                        <i class="mdi mdi-file-pdf-box me-2 text-danger"></i>
                                     {% else %}
                                         <i class="mdi mdi-file me-2 text-warning"></i>
                                     {% endif %}
@@ -189,6 +191,14 @@
                                     <div>
                                         <img src="{{ share.preview_url }}" alt="{{ share.title }}"
                                              class="rounded w-100" style="{% if ds == 1 %}max-height: 500px; object-fit: contain; {% endif %}background: rgba(0,0,0,0.2);">
+                                    </div>
+                                    {% endif %}
+
+                                    {# PDF file preview/full #}
+                                    {% if share.preview_type == 'pdf' %}
+                                    <div class="rounded" style="background: rgba(0,0,0,0.2);">
+                                        <iframe src="{{ share.preview_url }}" class="w-100 rounded border-0"
+                                                style="{% if ds == 1 %}height: 500px;{% else %}height: 90vh;{% endif %}"></iframe>
                                     </div>
                                     {% endif %}
 
