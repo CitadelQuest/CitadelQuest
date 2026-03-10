@@ -24,7 +24,7 @@ export class PublicProfileContentPreviews {
      * Render bio text with markdown-it
      */
     renderBioMarkdown() {
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
         document.querySelectorAll('.bio-md').forEach(el => {
             const raw = el.dataset.raw;
             if (raw) {
@@ -45,7 +45,7 @@ export class PublicProfileContentPreviews {
      * Render share description text with markdown-it
      */
     renderDescriptionMarkdown() {
-        const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
         document.querySelectorAll('.share-desc-md').forEach(el => {
             const raw = el.dataset.raw;
             if (raw) {
