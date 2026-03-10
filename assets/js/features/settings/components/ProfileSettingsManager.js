@@ -56,8 +56,8 @@ export class ProfileSettingsManager {
         this.federationPhotoCheckbox = document.getElementById('profile-federation-photo');
         this.federationSpiritsSelect = document.getElementById('profile-federation-spirits');
 
-        // Save
-        this.saveBtn = document.getElementById('profile-save-btn');
+        // Save (multiple buttons with same class)
+        this.saveBtns = document.querySelectorAll('.profile-save-btn');
     }
 
     initEventListeners() {
@@ -91,8 +91,8 @@ export class ProfileSettingsManager {
         // Copy URL
         this.copyUrlBtn?.addEventListener('click', () => this.copyPublicUrl());
 
-        // Save
-        this.saveBtn?.addEventListener('click', () => this.saveSettings());
+        // Save (all save buttons trigger the same handler)
+        this.saveBtns.forEach(btn => btn.addEventListener('click', () => this.saveSettings()));
 
         // Theme previews for public profile
         this.initThemePreviews();
@@ -315,9 +315,10 @@ export class ProfileSettingsManager {
     }
 
     async saveSettings() {
-        const spinner = this.saveBtn.querySelector('.spinner-border');
-        spinner?.classList.remove('d-none');
-        this.saveBtn.disabled = true;
+        this.saveBtns.forEach(btn => {
+            btn.querySelector('.spinner-border')?.classList.remove('d-none');
+            btn.disabled = true;
+        });
 
         try {
             const payload = {
@@ -350,8 +351,10 @@ export class ProfileSettingsManager {
         } catch (err) {
             window.toast?.error(this.translations.save_error);
         } finally {
-            spinner?.classList.add('d-none');
-            this.saveBtn.disabled = false;
+            this.saveBtns.forEach(btn => {
+                btn.querySelector('.spinner-border')?.classList.add('d-none');
+                btn.disabled = false;
+            });
         }
     }
 }

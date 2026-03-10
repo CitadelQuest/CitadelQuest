@@ -67,7 +67,7 @@
                                         <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                     </div>
                                 {% else %}
-                                    <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|raw|nl2br }}</div>
+                                    <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -114,7 +114,7 @@
                                     <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                 </div>
                             {% else %}
-                                <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|raw|nl2br }}</div>
+                                <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
                             {% endif %}
                         {% endif %}
                     </div>
