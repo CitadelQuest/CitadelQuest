@@ -305,14 +305,14 @@ class CQShareService
                 // Image files
                 if (str_starts_with($mimeType, 'image/')) {
                     $share['preview_type'] = 'image';
-                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'] . '?inline=1';
+                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'];
                     continue;
                 }
 
                 // PDF files
                 if ($ext === 'pdf') {
                     $share['preview_type'] = 'pdf';
-                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'] . '?inline=1';
+                    $share['preview_url'] = '/' . $username . '/share/' . $share['share_url'];
                     continue;
                 }
 
