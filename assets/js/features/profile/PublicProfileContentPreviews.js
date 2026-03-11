@@ -1,5 +1,4 @@
 import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
-import MarkdownIt from 'markdown-it';
 
 /**
  * PublicProfileContentPreviews
@@ -14,57 +13,7 @@ export class PublicProfileContentPreviews {
     }
 
     init() {
-        this.renderBioMarkdown();
-        this.renderDescriptionMarkdown();
-        this.renderMarkdownPreviews();
         this.initMemoryPackGraphs();
-    }
-
-    /**
-     * Render bio text with markdown-it
-     */
-    renderBioMarkdown() {
-        const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
-        document.querySelectorAll('.bio-md').forEach(el => {
-            const raw = el.dataset.raw;
-            if (raw) {
-                el.innerHTML = md.render(raw);
-            }
-            // Also render child bio-short / bio-full if present
-            el.querySelectorAll('.bio-short, .bio-full').forEach(child => {
-                const childRaw = child.dataset.raw;
-                if (childRaw) {
-                    const suffix = child.classList.contains('bio-short') ? '…' : '';
-                    child.innerHTML = md.render(childRaw + suffix);
-                }
-            });
-        });
-    }
-
-    /**
-     * Render share description text with markdown-it
-     */
-    renderDescriptionMarkdown() {
-        const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
-        document.querySelectorAll('.share-desc-md').forEach(el => {
-            const raw = el.dataset.raw;
-            if (raw) {
-                el.innerHTML = md.render(raw);
-            }
-        });
-    }
-
-    /**
-     * Render markdown content for .md file previews
-     */
-    renderMarkdownPreviews() {
-        const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
-        document.querySelectorAll('.share-md-content').forEach(el => {
-            const raw = el.dataset.raw;
-            if (raw) {
-                el.innerHTML = md.render(raw);
-            }
-        });
     }
 
     /**

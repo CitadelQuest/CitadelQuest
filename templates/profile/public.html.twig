@@ -55,7 +55,7 @@
     {% if share.preview_type == 'text' %}
     <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);{% if ds == 1 %} max-height: 300px; overflow-y: auto;{% endif %}">
         {% if share.preview_ext in ['md', 'markdown'] %}
-            <div class="share-md-content text-light small" data-raw="{{ share.preview_content|e('html_attr') }}"></div>
+            <div class="text-light small">{{ share.preview_content|markdown_to_html }}</div>
         {% else %}
             <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
         {% endif %}
@@ -125,13 +125,13 @@
                             </small>
                             {% if profile_bio %}
                                 {% if profile_bio|length > 600 %}
-                                    <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
-                                        <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
-                                        <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
+                                    <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
+                                        <div class="bio-short">{{ (profile_bio[:600] ~ '…')|markdown_to_html }}</div>
+                                        <div class="bio-full d-none">{{ profile_bio|markdown_to_html }}</div>
                                         <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                     </div>
                                 {% else %}
-                                    <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
+                                    <div class="text-light mt-2 mb-0" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|markdown_to_html }}</div>
                                 {% endif %}
                             {% endif %}
                         </div>
@@ -172,13 +172,13 @@
                         </small>
                         {% if profile_bio %}
                             {% if profile_bio|length > 600 %}
-                                <div class="text-light mt-2 mb-0 bio-container bio-md" style="word-break: break-word;overflow-wrap: break-word;">
-                                    <div class="bio-short" data-raw="{{ profile_bio[:600]|e('html_attr') }}">{{ profile_bio[:600]|nl2br }}…</div>
-                                    <div class="bio-full d-none" data-raw="{{ profile_bio|e('html_attr') }}">{{ profile_bio|nl2br }}</div>
+                                <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
+                                    <div class="bio-short">{{ (profile_bio[:600] ~ '…')|markdown_to_html }}</div>
+                                    <div class="bio-full d-none">{{ profile_bio|markdown_to_html }}</div>
                                     <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
                                 </div>
                             {% else %}
-                                <div class="text-light mt-2 mb-0 bio-md" data-raw="{{ profile_bio|e('html_attr') }}" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|nl2br }}</div>
+                                <div class="text-light mt-2 mb-0" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|markdown_to_html }}</div>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -269,7 +269,7 @@
                                 {% if hasDesc and (dds == 0 or dds == 2) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mb-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
-                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                    <div class="p-3 rounded" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|markdown_to_html }}</div>
                                 </div>
                                 {% endif %}
 
@@ -282,7 +282,7 @@
                                 {% if hasDesc and (dds == 1 or dds == 3) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mt-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
-                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                    <div class="p-3 rounded" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|markdown_to_html }}</div>
                                 </div>
                                 {% endif %}
                             </div>
@@ -354,7 +354,7 @@
                                 {% if hasDesc and (dds == 0 or dds == 2) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mb-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
-                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                    <div class="p-3 rounded" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|markdown_to_html }}</div>
                                 </div>
                                 {% endif %}
 
@@ -367,7 +367,7 @@
                                 {% if hasDesc and (dds == 1 or dds == 3) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mt-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
-                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                    <div class="p-3 rounded" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|markdown_to_html }}</div>
                                 </div>
                                 {% endif %}
                             </div>

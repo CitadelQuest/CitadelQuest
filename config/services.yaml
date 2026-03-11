@@ -26,6 +26,17 @@ services:
     App\:
         resource: '../src/'
 
+    # Twig Markdown extension (league/commonmark + twig/markdown-extra)
+    League\CommonMark\CommonMarkConverter: ~
+
+    Twig\Extra\Markdown\LeagueExtension:
+        arguments:
+            - '@League\CommonMark\CommonMarkConverter'
+
+    Twig\Extra\Markdown\MarkdownRuntime:
+        arguments:
+            - '@Twig\Extra\Markdown\LeagueExtension'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 
