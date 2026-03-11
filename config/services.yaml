@@ -26,16 +26,15 @@ services:
     App\:
         resource: '../src/'
 
-    # Twig Markdown extension (league/commonmark + twig/markdown-extra)
-    League\CommonMark\CommonMarkConverter: ~
-
-    Twig\Extra\Markdown\LeagueExtension:
-        arguments:
-            - '@League\CommonMark\CommonMarkConverter'
-
-    Twig\Extra\Markdown\MarkdownRuntime:
-        arguments:
-            - '@Twig\Extra\Markdown\LeagueExtension'
+    # GFM extensions for Twig markdown_to_html filter (tables, strikethrough, autolinks, task lists)
+    League\CommonMark\Extension\Table\TableExtension:
+        tags: ['twig.markdown.league_extension']
+    League\CommonMark\Extension\Strikethrough\StrikethroughExtension:
+        tags: ['twig.markdown.league_extension']
+    League\CommonMark\Extension\Autolink\AutolinkExtension:
+        tags: ['twig.markdown.league_extension']
+    League\CommonMark\Extension\TaskList\TaskListExtension:
+        tags: ['twig.markdown.league_extension']
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
