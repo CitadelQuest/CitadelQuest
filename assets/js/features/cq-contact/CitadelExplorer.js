@@ -27,6 +27,7 @@ export class CitadelExplorer {
         this.profileUrl = null;
         this.downloadStatus = {};
         this.graphViews = [];
+        this.activeGroupSlug = null;
 
         // Add to Library state
         this.addToLibPackPath = null;
@@ -102,10 +103,25 @@ export class CitadelExplorer {
         // Detect share URL pattern: https://domain/username/share/{slug}
         // Strip /share/{slug} to get profile URL, remember the slug for highlighting
         this.highlightShareUrl = null;
+        this.activeGroupSlug = null;
         const shareMatch = url.match(/^(https:\/\/[^/]+\/[^/]+)\/share\/([^/]+)\/?$/);
         if (shareMatch) {
             url = shareMatch[1];
             this.highlightShareUrl = shareMatch[2];
+        }
+
+        // Detect group URL pattern: https://domain/username/{groupSlug}
+        // Strip /{groupSlug} to get profile URL, remember slug for group navigation
+        if (!this.highlightShareUrl) {
+            const groupMatch = url.match(/^(https:\/\/[^/]+\/[^/]+)\/([^/]+)\/?$/);
+            if (groupMatch) {
+                // Make sure it's not a known sub-path like /json, /photo, /background, /shares
+                const knownPaths = ['json', 'photo', 'background', 'shares', 'api'];
+                if (!knownPaths.includes(groupMatch[2])) {
+                    url = groupMatch[1];
+                    this.activeGroupSlug = groupMatch[2];
+                }
+            }
         }
 
         this.profileUrl = url;
@@ -207,7 +223,7 @@ export class CitadelExplorer {
                             <div class="small fw-bold text-light" style="line-height: 1.2;">
                                 ${spirit.name} ${star}
                             </div>
-                            <div class="text-muted" style="font-size: 0.65rem; line-height: 1;">Level ${spirit.level || 1} | ${spirit.experience || 0} XP</div>
+                            <div class="text-light opacity-50" style="font-size: 0.65rem; line-height: 1;">Level ${spirit.level || 1} | ${spirit.experience || 0} XP</div>
                         </div>
                     </div>`;
             }).join('');
@@ -243,10 +259,22 @@ export class CitadelExplorer {
             }
         }
 
+        // Background image support
+        let bgClass = '';
+        let bgStyle = '';
+        if (p.background_url) {
+            const proxyBgUrl = p.background_url.startsWith('/') 
+                ? p.background_url 
+                : `/api/citadel-explorer/photo?url=${encodeURIComponent(p.background_url)}`;
+            bgClass = `profile-header-bg${p.bg_overlay === false ? ' no-overlay' : ''}`;
+            bgStyle = `--header-bg-image: url('${proxyBgUrl}');`;
+        }
+
         // Main profile card
         let html = `
-            <div class="glass-panel rounded p-4 glass-panel-glow">
-                <div class="d-block position-absolute top-0 end-0 m-1">
+            <div class="${bgClass ? bgClass + ' glass-panel-glow' : 'glass-panel rounded p-4 glass-panel-glow'}"${bgStyle ? ` style="${bgStyle}"` : ''}>
+                ${bgClass ? '<div class="p-4 m-4 glass-panel">' : ''}
+                <div class="d-block position-absolute top-0 end-0 m-1" style="z-index: 3;">
                     <button class="btn btn-sm btn-outline-secondary" id="explorerCloseBtn" title="Close"
                         style="padding: 0.1rem 0.4rem !important; opacity:0.6;">
                         <i class="mdi mdi-close"></i>
@@ -259,10 +287,11 @@ export class CitadelExplorer {
                         <h3 class="h4 mb-1 text-cyber">${p.username || ''}</h3>
                         <small class="text-muted">
                             <i class="mdi mdi-web me-1"></i>
-                            <a href="${profileLink}" target="_blank" class="text-muted text-decoration-none">
+                            <a href="${profileLink}" target="_blank" class="text-light opacity-50 text-decoration-none">
                                 ${p.domain || ''}
                             </a>
                         </small>
+                        ${bioHtml}
                     </div>
                     <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
                         ${spiritsHtml ? `<div>${spiritsHtml}</div>` : ''}
@@ -277,27 +306,74 @@ export class CitadelExplorer {
                             ${p.domain || ''}
                         </a>
                     </small>
-                </div>
-                ${bioHtml}`;
+                    ${bioHtml}
+                </div>`;
+
+        // Close header wrapper when background is present
+        if (bgClass) {
+            html += `</div></div>`;
+        }
 
         // Shared items section (single container for both public and contact-scoped shares)
         // When is_contact, contact shares are a superset of public shares (scope 0+1)
         const hasPublicShares = (p.shares || []).length > 0;
-        const needsSharesSection = hasPublicShares || (p.is_contact && p.contact_id);
+        const hasShareGroups = (p.share_groups || []).length > 0;
+        const needsSharesSection = hasPublicShares || hasShareGroups || (p.is_contact && p.contact_id);
         if (needsSharesSection) {
-            html += `
-                <hr class="border-secondary border-opacity-25 my-4">
-                <h5 class="text-cyber mb-3">
-                    <i class="mdi mdi-share-variant me-2 text-success"></i>${this.t('shared_items', 'Shared Items')}
-                </h5>
-                <div id="explorerSharesContainer">
-                    <div class="text-center py-3">
-                        <i class="mdi mdi-loading mdi-spin text-cyber"></i>
-                    </div>
-                </div>`;
+            // Navigation panel for groups (matching public profile style)
+            const navGroups = (p.share_groups || []).filter(g => g.show_in_nav && (g.items || []).length > 0);
+            let navPanelHtml = '';
+            if (navGroups.length > 0) {
+                // Default to first group when no specific slug (profile homepage)
+                if (!this.activeGroupSlug) {
+                    this.activeGroupSlug = navGroups[0].url_slug || navGroups[0].id;
+                }
+                let badgesHtml = '';
+                navGroups.forEach(group => {
+                    const slug = group.url_slug || group.id;
+                    const isActive = this.activeGroupSlug && slug === this.activeGroupSlug;
+                    const iconColor = group.icon_color || '#95ec86';
+                    badgesHtml += `
+                        <a href="#" class="text-decoration-none explorer-group-nav" data-group-slug="${slug}">
+                            <span class="glass-panel ${isActive ? 'bg-success bg-opacity-25' : ''} py-2 px-3" style="font-size: 0.85rem;">
+                                <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-1" style="color: ${iconColor};"></i>
+                                <span class="${isActive ? 'text-cyber' : 'text-light opacity-75'}">${group.title || ''}</span>
+                            </span>
+                        </a>`;
+                });
+                navPanelHtml = `
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center flex-wrap gap-2">${badgesHtml}</div>
+                    </div>`;
+            }
+
+            if (bgClass) {
+                // Nav + shares sit below the bg header card
+                html += `
+                    <div class="mt-3">
+                        ${navPanelHtml}
+                        <div id="explorerSharesContainer">
+                            <div class="text-center py-3">
+                                <i class="mdi mdi-loading mdi-spin text-cyber"></i>
+                            </div>
+                        </div>
+                    </div>`;
+            } else {
+                html += `
+                    <hr class="border-secondary border-opacity-25 my-4">
+                    ${navPanelHtml}
+                    <div id="explorerSharesContainer">
+                        <div class="text-center py-3">
+                            <i class="mdi mdi-loading mdi-spin text-cyber"></i>
+                        </div>
+                    </div>`;
+            }
         }
 
-        html += `</div>`;
+        // Close outer div (only for non-bg case; bg case already closed above)
+        if (!bgClass) {
+            html += `</div>`;
+        }
 
         // Add to Library modal (reuse pattern from ContactDetailManager)
         html += `
@@ -370,6 +446,15 @@ export class CitadelExplorer {
         if (needsSharesSection) {
             await this.loadAndRenderShares();
         }
+
+        // Bind group navigation badges
+        document.querySelectorAll('.explorer-group-nav').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                const slug = el.dataset.groupSlug;
+                this.switchGroup(slug);
+            });
+        });
     }
 
     /**
@@ -521,12 +606,15 @@ export class CitadelExplorer {
         const p = this.profile;
         let shares;
 
+        let shareGroups = [];
+
         if (p.is_contact && p.contact_id) {
             // Fetch from contact API — returns public + CQ Contact scoped shares
             try {
                 const response = await fetch(`/api/cq-contact/${p.contact_id}/shares`);
                 const data = await response.json();
                 shares = (data.success && data.shares) ? data.shares : [];
+                shareGroups = (data.success && data.share_groups) ? data.share_groups : [];
                 // Store show_share_content from federation response
                 if (data.show_share_content !== undefined) {
                     this.profile.show_share_content = data.show_share_content;
@@ -541,9 +629,10 @@ export class CitadelExplorer {
             }
         } else {
             shares = p.shares || [];
+            shareGroups = p.share_groups || [];
         }
 
-        if (shares.length === 0) {
+        if (shares.length === 0 && shareGroups.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-3 text-muted small">
                     <i class="mdi mdi-share-off me-1"></i>${this.t('no_items', 'No shared items')}
@@ -575,85 +664,208 @@ export class CitadelExplorer {
             console.warn('Failed to check download status:', e);
         }
 
-        this.renderShares(shares, container);
+        // Collect all shares (ungrouped + group items) for download status check
+        const allSharesForDl = [...shares];
+        shareGroups.forEach(g => (g.items || []).forEach(item => allSharesForDl.push(item)));
+
+        // Cache for switchGroup re-rendering
+        this._lastShareGroups = shareGroups;
+        this._lastUngroupedShares = shares;
+
+        this.renderShareGroups(shareGroups, shares, container);
     }
 
-    renderShares(shares, container) {
-        let html = '<div class="list-group list-group-flush bg-transparent">';
+    /**
+     * Render share groups followed by ungrouped shares into the container.
+     * When activeGroupSlug is set, show only that group's content.
+     */
+    renderShareGroups(groups, ungroupedShares, container) {
+        let html = '';
 
-        shares.forEach(share => {
-            const isCqmpack = share.source_type === 'cqmpack';
-            const isPdf = share.preview_type === 'pdf';
-            const icon = isCqmpack ? 'mdi-graph' : (isPdf ? 'mdi-file-pdf-box' : 'mdi-file');
-            const iconColor = isCqmpack ? 'text-info' : (isPdf ? 'text-danger' : 'text-warning');
-            const typeLabel = isCqmpack ? this.t('memory_pack', 'Memory Pack') : this.t('file', 'File');
+        // Determine which groups to render
+        let groupsToRender = groups;
+        if (this.activeGroupSlug) {
+            const activeGroup = groups.find(g => (g.url_slug || g.id) === this.activeGroupSlug);
+            groupsToRender = activeGroup ? [activeGroup] : groups;
+        }
 
-            const dl = this.downloadStatus[share.share_url];
-            const isDownloaded = dl && dl.downloaded;
+        // Render group(s) as card sections
+        groupsToRender.forEach(group => {
+            const items = group.items || [];
+            if (items.length === 0) return;
 
-            // Download action — single handler, endpoint chosen in downloadShare()
-            let actionsHtml = '';
-            if (isDownloaded) {
-                actionsHtml = `<span class="badge bg-success bg-opacity-25 px-2"><i class="mdi mdi-check me-1"></i>${this.t('downloaded', 'Downloaded!')}</span>`;
-                if (dl.path && dl.fileName) {
-                    if (isCqmpack) {
-                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
-                            onclick="explorerViewInMemory('${dl.path}', '${dl.fileName}')">
-                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
-                        </button>`;
-                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1"
-                            onclick="explorerAddToLibrary('${dl.path}', '${dl.fileName}')">
-                            <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
-                        </button>`;
-                    } else {
-                        actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
-                            onclick="explorerViewInFileBrowser('${dl.path}', '${dl.fileName}')">
-                            <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
-                        </button>`;
-                    }
-                }
-            } else {
-                const safeTitle = (share.title || '').replace(/'/g, "\\'");
-                actionsHtml = `<button class="btn btn-sm btn-cyber" data-share-url="${share.share_url}"
-                    onclick="explorerDownload('${share.share_url}', '${share.source_type}', '${safeTitle}')">
-                    <i class="mdi mdi-download me-1"></i>${this.t('download_to_citadel', 'Download to Citadel')}
-                </button>`;
-            }
-
+            const iconColor = group.icon_color || '#95ec86';
             html += `
-                <div class="list-group-item bg-transparent border-secondary border-opacity-25 px-4 py-3" data-share-url="${share.share_url}">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div>
-                            <i class="mdi ${icon} ${iconColor} me-2"></i>
-                            <span class="text-light fw-bold">${share.title || ''}</span>
-                            <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
-                            <small class="text-muted"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
-                            <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
-                                onclick="navigator.clipboard.writeText('${(this.profile.profile_url || this.profileUrl).replace(/'/g, "\\'")}/share/${share.share_url}').then(() => window.toast?.success('${this.t('link_copied', 'Link copied!')}'))">
-                                <i class="mdi mdi-link-variant"></i>
-                            </button>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div id="explorer-actions-${share.share_url}" class="text-end">${actionsHtml}</div>
-                        </div>
-                    </div>`;
+            <div class="card glass-panel mb-3" id="share-group-${group.id}">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <div class="mb-0">
+                        <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-2" style="color: ${iconColor};"></i>
+                        <span class="text-cyber">${group.title || ''}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush bg-transparent">`;
 
-            // Description + Content preview (shared rendering)
-            html += renderSharePreviewBlock(share, {
-                showContent: this.profile.show_share_content,
-                md: this.md,
-                t: (k, f) => this.t(k, f)
+            items.forEach(item => {
+                html += this.renderShareItem(item, {
+                    showHeader: item.show_header != 0,
+                    displayStyle: item.effective_display_style ?? item.share_display_style,
+                    descriptionDisplayStyle: item.effective_description_display_style ?? item.share_description_display_style,
+                    title: item.share_title || item.title || '',
+                });
             });
 
-            html += `</div>`;
+            html += `</div></div></div>`;
         });
 
-        html += '</div>';
+        // Render ungrouped shares (only when no specific group is active)
+        if (ungroupedShares.length > 0 && !this.activeGroupSlug) {
+            html += `
+            <div class="card glass-panel">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <div class="mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span>
+                            <i class="mdi mdi-share-variant me-2 text-success opacity-50"></i>
+                            <span class="text-cyber">${this.t('shared_items', 'Shared Items')}</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush bg-transparent">`;
+
+            ungroupedShares.forEach(share => {
+                html += this.renderShareItem(share);
+            });
+
+            html += `</div></div></div>`;
+        }
+
         container.innerHTML = html;
-
-        // Initialize 3D graphs after DOM update
         this.initGraphPreviews();
+    }
 
+    /**
+     * Switch to a different group in the explorer (in-place, no reload).
+     * Toggles activeGroupSlug and re-renders shares + nav badge states.
+     */
+    switchGroup(slug) {
+        // Toggle: clicking the same group deselects it (show all)
+        this.activeGroupSlug = (this.activeGroupSlug === slug) ? null : slug;
+
+        // Update nav badge active states
+        document.querySelectorAll('.explorer-group-nav').forEach(el => {
+            const badgeSlug = el.dataset.groupSlug;
+            const span = el.querySelector('.glass-panel');
+            const label = el.querySelector('span:last-child');
+            if (!span) return;
+            if (badgeSlug === this.activeGroupSlug) {
+                span.classList.add('bg-success', 'bg-opacity-25');
+                if (label) { label.classList.remove('opacity-75'); label.classList.add('text-cyber'); }
+            } else {
+                span.classList.remove('bg-success', 'bg-opacity-25');
+                if (label) { label.classList.add('opacity-75'); label.classList.remove('text-cyber'); }
+            }
+        });
+
+        // Re-render shares content
+        const container = document.getElementById('explorerSharesContainer');
+        if (container && this._lastShareGroups !== undefined) {
+            this.renderShareGroups(this._lastShareGroups, this._lastUngroupedShares, container);
+        }
+
+        // Update URL in input to reflect the active group
+        if (this.urlInput && this.profileUrl) {
+            this.urlInput.value = this.activeGroupSlug
+                ? this.profileUrl + '/' + this.activeGroupSlug
+                : this.profileUrl;
+            localStorage.setItem('citadelExplorerUrl', this.urlInput.value);
+        }
+    }
+
+    /**
+     * Render a single share item (used by both groups and ungrouped shares).
+     * @param {Object} share - Share data
+     * @param {Object} opts - Options: showHeader, displayStyle, descriptionDisplayStyle, title
+     */
+    renderShareItem(share, opts = {}) {
+        const showHeader = opts.showHeader !== false;
+        const title = opts.title || share.title || '';
+
+        const isCqmpack = share.source_type === 'cqmpack';
+        const isPdf = share.preview_type === 'pdf';
+        const icon = isCqmpack ? 'mdi-graph' : (isPdf ? 'mdi-file-pdf-box' : 'mdi-file');
+        const iconColor = isCqmpack ? 'text-info' : (isPdf ? 'text-danger' : 'text-warning');
+        const typeLabel = isCqmpack ? this.t('memory_pack', 'Memory Pack') : this.t('file', 'File');
+
+        const dl = this.downloadStatus[share.share_url];
+        const isDownloaded = dl && dl.downloaded;
+
+        let actionsHtml = '';
+        if (isDownloaded) {
+            actionsHtml = `<span class="badge bg-success bg-opacity-25 px-2"><i class="mdi mdi-check me-1"></i>${this.t('downloaded', 'Downloaded!')}</span>`;
+            if (dl.path && dl.fileName) {
+                if (isCqmpack) {
+                    actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                        onclick="explorerViewInMemory('${dl.path}', '${dl.fileName}')">
+                        <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                    </button>`;
+                    actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1"
+                        onclick="explorerAddToLibrary('${dl.path}', '${dl.fileName}')">
+                        <i class="mdi mdi-book-plus-outline me-1"></i>${this.t('add_to_library', 'Add to Library')}
+                    </button>`;
+                } else {
+                    actionsHtml += ` <button class="btn btn-sm btn-outline-cyber ms-1 md-my-0 my-2"
+                        onclick="explorerViewInFileBrowser('${dl.path}', '${dl.fileName}')">
+                        <i class="mdi mdi-eye me-1"></i>${this.t('ui_view', 'View')}
+                    </button>`;
+                }
+            }
+        } else {
+            const safeTitle = (title).replace(/'/g, "\\'");
+            actionsHtml = `<button class="btn btn-sm btn-cyber" data-share-url="${share.share_url}"
+                onclick="explorerDownload('${share.share_url}', '${share.source_type}', '${safeTitle}')">
+                <i class="mdi mdi-download me-1"></i>${this.t('download_to_citadel', 'Download to Citadel')}
+            </button>`;
+        }
+
+        let html = `<div class="list-group-item bg-transparent border-0 px-4 py-3" data-share-url="${share.share_url}">`;
+
+        if (showHeader) {
+            html += `
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <i class="mdi ${icon} ${iconColor} me-2"></i>
+                        <span class="text-light fw-bold">${title}</span>
+                        <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
+                        <small class="text-muted"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
+                        <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
+                            onclick="navigator.clipboard.writeText('${(this.profile.profile_url || this.profileUrl).replace(/'/g, "\\'")}/share/${share.share_url}').then(() => window.toast?.success('${this.t('link_copied', 'Link copied!')}'))">
+                            <i class="mdi mdi-link-variant"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="explorer-actions-${share.share_url}" class="text-end">${actionsHtml}</div>
+                    </div>
+                </div>`;
+        }
+
+        // Build preview options with overrides from group item config
+        const previewOpts = {
+            showContent: this.profile.show_share_content,
+            md: this.md,
+            t: (k, f) => this.t(k, f)
+        };
+        if (opts.displayStyle !== undefined && opts.displayStyle !== null) {
+            previewOpts.displayStyleOverride = opts.displayStyle;
+        }
+        if (opts.descriptionDisplayStyle !== undefined && opts.descriptionDisplayStyle !== null) {
+            previewOpts.descriptionDisplayStyleOverride = opts.descriptionDisplayStyle;
+        }
+
+        html += renderSharePreviewBlock(share, previewOpts);
+        html += `</div>`;
+
+        return html;
     }
 
     // ========================================

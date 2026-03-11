@@ -22,13 +22,77 @@
     {% endif %}
 {% endblock %}
 
+{# ================================================================ #}
+{# Macro: share content preview (image / PDF / HTML / text / graph) #}
+{# ================================================================ #}
+{% macro share_preview(share, ds, username) %}
+    {% if share.preview_type == 'image' %}
+    <div>
+        <img src="{{ share.preview_url }}" alt="{{ share.title|default(share.share_title|default('')) }}"
+             class="rounded w-100" style="{% if ds == 1 %}max-height: 500px; object-fit: contain; {% endif %}background: rgba(0,0,0,0.2);">
+    </div>
+    {% endif %}
+
+    {% if share.preview_type == 'pdf' %}
+    <div class="rounded" style="background: rgba(0,0,0,0.2);">
+        <iframe src="{{ share.preview_url }}" class="w-100 rounded border-0"
+                style="{% if ds == 1 %}height: 500px;{% else %}height: 90vh;{% endif %}"></iframe>
+    </div>
+    {% endif %}
+
+    {% if share.preview_type == 'html' %}
+    {% if ds == 1 %}
+    <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
+        <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
+    </div>
+    {% elseif ds == 2 %}
+    <div class="rounded" style="background: rgba(0,0,0,0.1);">
+        {{ share.preview_content|raw }}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if share.preview_type == 'text' %}
+    <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);{% if ds == 1 %} max-height: 300px; overflow-y: auto;{% endif %}">
+        {% if share.preview_ext in ['md', 'markdown'] %}
+            <div class="share-md-content text-light small" data-raw="{{ share.preview_content|e('html_attr') }}"></div>
+        {% else %}
+            <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if share.preview_type == 'graph' %}
+    <div>
+        <div class="share-graph-preview memory-graph-preview rounded"
+             data-graph-url="{{ share.preview_graph_url }}"
+             style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
+            <div class="graph-loading position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
+                <div class="spinner-border spinner-border-sm text-cyber" role="status">
+                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                </div>
+            </div>
+            <canvas class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+        </div>
+        <div class="d-flex justify-content-center align-items-center mt-2 share-graph-stats">
+            <small class="text-secondary">
+                <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
+                <span class="stat-nodes">0</span>x {{ 'spirit.memory.nodes'|trans }} &nbsp; · &nbsp;
+                <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
+                <span class="stat-edges">0</span>x {{ 'spirit.memory.relationships'|trans }}
+            </small>
+        </div>
+    </div>
+    {% endif %}
+{% endmacro %}
+
 {% block body %}
 <div class="container mt-4 mb-5">
     <div class="row justify-content-center">
         <div class="col-lg-10 col-xl-8">
 
             {# Profile Header #}
-            <div class="card glass-panel mb-4">
+            <div class="card glass-panel mb-3">
                 <div class="card-body p-4">
                     {# Top row: Photo + (desktop: text) + Spirits #}
                     <div class="d-flex align-items-start">
@@ -121,13 +185,127 @@
                 </div>
             </div>
 
-            {# Public Shared Items #}
+            {# ============================================================ #}
+            {# Profile Content — Navigation Panel + Active Group Content     #}
+            {# ============================================================ #}
+            {% if profile_show_profile_content|default(true) and profile_share_groups|default([])|length > 0 %}
+
+            {# Navigation panel — single row with group links #}
+            {% set navGroups = profile_share_groups|default([])|filter(g => g.show_in_nav and g.items|default([])|length > 0) %}
+            {% if navGroups|length > 0 %}
+            <div class="mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        {% for group in navGroups %}
+                        {% set isActive = profile_active_group is not null and group.id == profile_active_group.id %}
+                        {% set groupUrl = path('cq_profile_public_group', {username: profile_username, groupSlug: group.url_slug|default(group.id)}) %}
+                        <a href="{{ groupUrl }}" class="text-decoration-none">
+                            <span class="glass-panel {{ isActive ? 'bg-success bg-opacity-25' : '' }} py-2 px-3" style="font-size: 0.85rem;">
+                                <i class="mdi {{ group.mdi_icon|default('mdi-folder') }} me-1" style="color: {{ group.icon_color|default('#95ec86') }};"></i>
+                                <span class="{{ isActive ? 'text-cyber' : 'text-light opacity-75' }}">{{ group.title }}</span>
+                            </span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {# Active group content #}
+            {% if profile_active_group is not null and profile_active_group.items|default([])|length > 0 %}
+            {% set group = profile_active_group %}
+            <div class="card glass-panel mb-4" id="share-group-{{ group.id }}">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <div class="mb-0">
+                        <i class="mdi {{ group.mdi_icon|default('mdi-folder') }} me-2" style="color: {{ group.icon_color|default('#95ec86') }};"></i>
+                        <span class="text-cyber">{{ group.title }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush bg-transparent">
+                        {% for item in group.items %}
+                        {% set share = item %}
+                        {% set showHeader = item.show_header|default(1) %}
+                        {% set ds = item.effective_display_style|default(item.share_display_style|default(1)) %}
+                        {% set desc = item.description|default('') %}
+                        {% set dds = item.effective_description_display_style|default(item.share_description_display_style|default(1)) %}
+                        <div class="list-group-item bg-transparent border-0 px-4 py-3">
+                            {% if showHeader %}
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: item.share_url}) }}"
+                                   class="text-decoration-none">
+                                    {% if item.source_type == 'cqmpack' %}
+                                        <i class="mdi mdi-graph me-2 text-info"></i>
+                                    {% elseif item.preview_type is defined and item.preview_type == 'pdf' %}
+                                        <i class="mdi mdi-file-pdf-box me-2 text-danger"></i>
+                                    {% else %}
+                                        <i class="mdi mdi-file me-2 text-warning"></i>
+                                    {% endif %}
+                                    <span class="text-light fw-bold">{{ item.share_title }}</span>
+                                    {% if item.source_type == 'cqmpack' %}
+                                        <span class="badge bg-info bg-opacity-25 text-info ms-2">{{ 'cq_contact.detail.memory_pack'|trans }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-25 text-warning ms-2">{{ 'cq_contact.detail.file'|trans }}</span>
+                                    {% endif %}
+                                </a>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-light opacity-50"><i class="mdi mdi-eye me-1"></i>{{ item.views }} {{ 'cq_contact.detail.views'|trans }}</small>
+                                    <button class="btn btn-sm btn-outline-primary border-0 copy-share-url"
+                                            data-url="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}/share/{{ item.share_url }}"
+                                            title="{{ 'citadel_explorer.copy_link'|trans }}">
+                                        <i class="mdi mdi-link-variant"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% set hasPreview = profile_show_share_content and share.preview_type is defined and ds > 0 %}
+                            {% set hasDesc = desc|trim is not empty %}
+
+                            {% if hasDesc or hasPreview %}
+                            {% set isColumn = dds == 2 or dds == 3 %}
+                            <div class="{% if showHeader %}mt-3{% endif %}{% if isColumn and hasDesc and hasPreview %} d-flex flex-column flex-md-row gap-3{% endif %}">
+                                {% if hasDesc and (dds == 0 or dds == 2) %}
+                                <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mb-{% if not isColumn %}3{% else %}0{% endif %}"
+                                     {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
+                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                </div>
+                                {% endif %}
+
+                                {% if hasPreview %}
+                                <div class="{% if isColumn and hasDesc %}flex-grow-1 min-width-0{% endif %}">
+                                    {{ _self.share_preview(share, ds, profile_username) }}
+                                </div>
+                                {% endif %}
+
+                                {% if hasDesc and (dds == 1 or dds == 3) %}
+                                <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mt-{% if not isColumn %}3{% else %}0{% endif %}"
+                                     {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
+                                    <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% endif %}
+
+            {# ============================================================ #}
+            {# Ungrouped Shared Items (old shares)                           #}
+            {# ============================================================ #}
             {% if profile_show_shares and profile_shares|length > 0 %}
             <div class="card glass-panel">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <div class="mb-0">
-                        <i class="mdi mdi-share-variant me-2 text-success opacity-50"></i>
-                        <span class="text-cyber">{{ 'cq_contact.detail.shared_items'|trans }}</span>
+                    <div class="mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span>
+                            <i class="mdi mdi-share-variant me-2 text-success opacity-50"></i>
+                            <span class="text-cyber">{{ 'cq_contact.detail.shared_items'|trans }}</span>
+                        </span>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -170,12 +348,8 @@
                             {% set hasDesc = desc|trim is not empty %}
 
                             {% if hasDesc or hasPreview %}
-                            {# Row layout: above (0) / below (1) or Column layout: left (2) / right (3) #}
                             {% set isColumn = dds == 2 or dds == 3 %}
-
                             <div class="mt-3{% if isColumn and hasDesc and hasPreview %} d-flex flex-column flex-md-row gap-3{% endif %}">
-
-                                {# Description block — above (0) or left (2) rendered first #}
                                 {% if hasDesc and (dds == 0 or dds == 2) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mb-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
@@ -183,83 +357,18 @@
                                 </div>
                                 {% endif %}
 
-                                {# Content preview block #}
                                 {% if hasPreview %}
                                 <div class="{% if isColumn and hasDesc %}flex-grow-1 min-width-0{% endif %}">
-                                    {# Image preview/full #}
-                                    {% if share.preview_type == 'image' %}
-                                    <div>
-                                        <img src="{{ share.preview_url }}" alt="{{ share.title }}"
-                                             class="rounded w-100" style="{% if ds == 1 %}max-height: 500px; object-fit: contain; {% endif %}background: rgba(0,0,0,0.2);">
-                                    </div>
-                                    {% endif %}
-
-                                    {# PDF file preview/full #}
-                                    {% if share.preview_type == 'pdf' %}
-                                    <div class="rounded" style="background: rgba(0,0,0,0.2);">
-                                        <iframe src="{{ share.preview_url }}" class="w-100 rounded border-0"
-                                                style="{% if ds == 1 %}height: 500px;{% else %}height: 90vh;{% endif %}"></iframe>
-                                    </div>
-                                    {% endif %}
-
-                                    {# HTML file preview/full #}
-                                    {% if share.preview_type == 'html' %}
-                                    {% if ds == 1 %}
-                                    <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
-                                        <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
-                                    </div>
-                                    {% elseif ds == 2 %}
-                                    <div class="rounded" style="background: rgba(0,0,0,0.1);">
-                                        {{ share.preview_content|raw }}
-                                    </div>
-                                    {% endif %}
-                                    {% endif %}
-
-                                    {# Text/Markdown preview/full #}
-                                    {% if share.preview_type == 'text' %}
-                                    <div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);{% if ds == 1 %} max-height: 300px; overflow-y: auto;{% endif %}">
-                                        {% if share.preview_ext in ['md', 'markdown'] %}
-                                            <div class="share-md-content text-light small" data-raw="{{ share.preview_content|e('html_attr') }}"></div>
-                                        {% else %}
-                                            <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ share.preview_content }}</pre>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-
-                                    {# Memory Pack 3D graph preview (same for ds=1 and ds=2) #}
-                                    {% if share.preview_type == 'graph' %}
-                                    <div>
-                                        <div class="share-graph-preview memory-graph-preview rounded"
-                                             data-graph-url="{{ share.preview_graph_url }}"
-                                             style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
-                                            <div class="graph-loading position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
-                                                <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                                                    <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
-                                                </div>
-                                            </div>
-                                            <canvas class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
-                                        </div>
-                                        <div class="d-flex justify-content-center align-items-center mt-2 share-graph-stats">
-                                            <small class="text-secondary">
-                                                <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
-                                                <span class="stat-nodes">0</span>x {{ 'spirit.memory.nodes'|trans }} &nbsp; · &nbsp;
-                                                <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
-                                                <span class="stat-edges">0</span>x {{ 'spirit.memory.relationships'|trans }}
-                                            </small>
-                                        </div>
-                                    </div>
-                                    {% endif %}
+                                    {{ _self.share_preview(share, ds, profile_username) }}
                                 </div>
                                 {% endif %}
 
-                                {# Description block — below (1) or right (3) rendered after preview #}
                                 {% if hasDesc and (dds == 1 or dds == 3) %}
                                 <div class="{% if isColumn and hasPreview %}flex-shrink-0{% endif %} text-light small mt-{% if not isColumn %}3{% else %}0{% endif %}"
                                      {% if isColumn and hasPreview %}style="width: 40%; min-width: 120px;"{% endif %}>
                                     <div class="p-3 rounded share-desc-md" data-raw="{{ desc|e('html_attr') }}" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">{{ desc|nl2br }}</div>
                                 </div>
                                 {% endif %}
-
                             </div>
                             {% endif %}
                         </div>

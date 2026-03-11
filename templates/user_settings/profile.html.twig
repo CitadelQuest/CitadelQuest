@@ -17,6 +17,9 @@
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-cyber border-0">
                         <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
                     </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-folder-multiple me-2"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
+                    </a>
                     <hr class="my-2 border-secondary">
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
@@ -151,10 +154,17 @@
                                     </label>
                                 </div>
                                 <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="profile-public-show-profile-content"
+                                           {% if settings['profile.public_page_show_profile_content']|default('1') == '1' %}checked{% endif %}>
+                                    <label class="form-check-label text-light" for="profile-public-show-profile-content">
+                                        {{ 'profile.settings.show_profile_content'|trans|default('Show CQ Profile Content (content groups)') }}
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="profile-public-show-shares"
                                            {% if settings['profile.public_page_show_shares']|default('1') == '1' %}checked{% endif %}>
                                     <label class="form-check-label text-light" for="profile-public-show-shares">
-                                        {{ 'profile.settings.show_public_shares'|trans|default('Show public shared items on profile page') }}
+                                        {{ 'profile.settings.show_public_shares'|trans|default('Show shared items list on profile page') }}
                                     </label>
                                 </div>
                                 <div class="form-check form-switch mb-2 ms-4 {% if settings['profile.public_page_show_shares']|default('1') != '1' %}d-none{% endif %}" id="profile-show-share-content-row">

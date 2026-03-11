@@ -286,6 +286,7 @@ class CqContactApiController extends AbstractController
             return $this->json([
                 'success' => true,
                 'shares' => $data['shares'] ?? [],
+                'share_groups' => $data['share_groups'] ?? [],
                 'username' => $data['username'] ?? $contact->getCqContactUsername(),
                 'show_share_content' => $data['show_share_content'] ?? false,
             ]);

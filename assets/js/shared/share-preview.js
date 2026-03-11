@@ -9,10 +9,10 @@
  * @param {Function} options.t - Translation function (key, fallback) => string
  * @returns {string} HTML string for the preview block
  */
-export function renderSharePreviewBlock(share, { showContent, md, t }) {
-    const ds = parseInt(share.display_style ?? 1);
+export function renderSharePreviewBlock(share, { showContent, md, t, displayStyleOverride, descriptionDisplayStyleOverride }) {
+    const ds = parseInt(displayStyleOverride ?? share.display_style ?? 1);
     const desc = (share.description || '').trim();
-    const dds = parseInt(share.description_display_style ?? 1);
+    const dds = parseInt(descriptionDisplayStyleOverride ?? share.description_display_style ?? 1);
     const hasPreview = showContent && share.preview_type && ds > 0;
     const hasDesc = desc.length > 0;
     const isColumn = dds === 2 || dds === 3;

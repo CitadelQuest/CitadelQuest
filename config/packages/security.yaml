@@ -52,6 +52,7 @@ security:
         - { path: ^/.*/background$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/json$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/[A-Za-z0-9_-]+$, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/, roles: ROLE_USER, requires_channel: https }
 
 when@test:

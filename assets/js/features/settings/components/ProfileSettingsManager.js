@@ -43,6 +43,7 @@ export class ProfileSettingsManager {
         this.publicUrlRow = document.getElementById('profile-public-url-row');
         this.copyUrlBtn = document.getElementById('profile-copy-url-btn');
         this.publicShowPhotoCheckbox = document.getElementById('profile-public-show-photo');
+        this.publicShowProfileContentCheckbox = document.getElementById('profile-public-show-profile-content');
         this.publicShowSharesCheckbox = document.getElementById('profile-public-show-shares');
         this.publicShowShareContentCheckbox = document.getElementById('profile-public-show-share-content');
         this.showShareContentRow = document.getElementById('profile-show-share-content-row');
@@ -325,6 +326,7 @@ export class ProfileSettingsManager {
                 bio: this.bioTextarea?.value || '',
                 public_page_enabled: this.publicEnabledCheckbox?.checked ? '1' : '0',
                 public_page_show_photo: this.publicShowPhotoCheckbox?.checked ? '1' : '0',
+                public_page_show_profile_content: this.publicShowProfileContentCheckbox?.checked ? '1' : '0',
                 public_page_show_shares: this.publicShowSharesCheckbox?.checked ? '1' : '0',
                 public_page_show_share_content: this.publicShowShareContentCheckbox?.checked ? '1' : '0',
                 public_page_show_spirits: this.publicShowSpiritsSelect?.value ?? '1',

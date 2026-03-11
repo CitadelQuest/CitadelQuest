@@ -69,3 +69,47 @@ $bg-overlay-opacity: 0.64;  // Decreased opacity for better readability
     }
 }
 
+// Reusable profile header background (CQ Explorer, inline cards, etc.)
+.profile-header-bg {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.5rem;
+
+    // Background image layer (set via --header-bg-image custom property)
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: var(--header-bg-image);
+        background-size: cover;
+        background-position: center;
+        z-index: 0;
+    }
+
+    // Overlay layer
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(colors.$body-bg, $bg-overlay-opacity);
+        z-index: 1;
+    }
+
+    // No overlay variant
+    &.no-overlay::after {
+        background-color: transparent;
+    }
+
+    // Content sits above both layers
+    > * {
+        position: relative;
+        z-index: 2;
+    }
+}
+

@@ -46,6 +46,7 @@ Encore
     .addEntry('settings-profile', './assets/entries/settings-profile.js')
     .addEntry('profile-public', './assets/entries/profile-public.js')
     .addEntry('citadel-explorer', './assets/entries/citadel-explorer.js')
+    .addEntry('settings-share-groups', './assets/entries/settings-share-groups.js')
 
     // Enable SASS/SCSS support
     .enableSassLoader()

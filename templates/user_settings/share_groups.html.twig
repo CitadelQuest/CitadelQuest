@@ -1,0 +1,228 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'share_groups.settings.page_title'|trans|default('Share Groups') }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent pb-2">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2"></i> {{ 'settings.general.title'|trans|default('General Settings') }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                    </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action link-light bg-cyber border-0">
+                        <i class="mdi mdi-folder-multiple me-2"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
+                    </a>
+                    <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel">
+                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="mdi mdi-folder-multiple me-3"></i>{{ 'share_groups.settings.title'|trans|default('Share Groups') }}</h4>
+                    <button type="button" class="btn btn-sm btn-cyber" id="btn-create-group">
+                        <i class="mdi mdi-plus me-1"></i>{{ 'share_groups.create'|trans|default('New Group') }}
+                    </button>
+                </div>
+                <div class="p-4" id="share-groups-settings"
+                     data-api-url="/api/share-group"
+                     data-shares-url="/api/share"
+                     data-translations="{{ {
+                         'create_group': 'share_groups.create'|trans|default('New Group'),
+                         'edit_group': 'share_groups.edit'|trans|default('Edit Group'),
+                         'delete_group': 'share_groups.delete'|trans|default('Delete Group'),
+                         'delete_group_confirm': 'share_groups.delete_confirm'|trans|default('Delete this group? Items will be ungrouped.'),
+                         'add_share': 'share_groups.add_share'|trans|default('Add Share'),
+                         'remove_item': 'share_groups.remove_item'|trans|default('Remove'),
+                         'no_groups': 'share_groups.no_groups'|trans|default('No share groups yet. Create one to organize your shared items.'),
+                         'no_shares': 'share_groups.no_shares'|trans|default('No active shares available.'),
+                         'group_title': 'share_groups.group_title'|trans|default('Group Title'),
+                         'icon': 'share_groups.icon'|trans|default('Icon'),
+                         'icon_color': 'share_groups.icon_color'|trans|default('Icon Color'),
+                         'url_slug': 'share_groups.url_slug'|trans|default('URL Slug'),
+                         'scope': 'share_groups.scope'|trans|default('Visibility'),
+                         'scope_public': 'share_groups.scope_public'|trans|default('Public'),
+                         'scope_federation': 'share_groups.scope_federation'|trans|default('CQ Contacts'),
+                         'scope_contacts': 'share_groups.scope_contacts'|trans|default('Specific Contacts'),
+                         'show_in_nav': 'share_groups.show_in_nav'|trans|default('Show in navigation'),
+                         'active': 'share_groups.active'|trans|default('Active'),
+                         'show_header': 'share_groups.show_header'|trans|default('Show header'),
+                         'display_style': 'share_groups.display_style'|trans|default('Display'),
+                         'ds_hidden': 'share_groups.ds_hidden'|trans|default('Hidden'),
+                         'ds_preview': 'share_groups.ds_preview'|trans|default('Preview'),
+                         'ds_full': 'share_groups.ds_full'|trans|default('Full'),
+                         'ds_inherit': 'share_groups.ds_inherit'|trans|default('From share'),
+                         'desc_ds': 'share_groups.desc_ds'|trans|default('Description'),
+                         'desc_above': 'share_groups.desc_above'|trans|default('Above'),
+                         'desc_below': 'share_groups.desc_below'|trans|default('Below'),
+                         'desc_left': 'share_groups.desc_left'|trans|default('Left'),
+                         'desc_right': 'share_groups.desc_right'|trans|default('Right'),
+                         'saved': 'share_groups.saved'|trans|default('Group saved'),
+                         'deleted': 'share_groups.deleted'|trans|default('Group deleted'),
+                         'error': 'share_groups.error'|trans|default('An error occurred'),
+                         'item_added': 'share_groups.item_added'|trans|default('Share added to group'),
+                         'item_removed': 'share_groups.item_removed'|trans|default('Share removed from group'),
+                         'save': 'ui.save'|trans|default('Save'),
+                         'cancel': 'ui.cancel'|trans|default('Cancel'),
+                         'loading': 'ui.loading'|trans|default('Loading...'),
+                         'empty_group': 'share_groups.empty_group'|trans|default('No shares in this group yet.'),
+                         'select_share': 'share_groups.select_share'|trans|default('Select a share to add'),
+                         'items': 'share_groups.items'|trans|default('items')
+                     }|json_encode|e('html_attr') }}">
+
+                    {# Loading state #}
+                    <div id="share-groups-loading" class="text-center py-5">
+                        <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                        <span class="text-muted ms-2">{{ 'ui.loading'|trans|default('Loading...') }}</span>
+                    </div>
+
+                    {# Groups list container #}
+                    <div id="share-groups-list" class="d-none"></div>
+
+                    {# Empty state #}
+                    <div id="share-groups-empty" class="d-none text-center py-5">
+                        <i class="mdi mdi-folder-open-outline text-muted" style="font-size: 48px; opacity: 0.3;"></i>
+                        <p class="text-muted mt-2">{{ 'share_groups.no_groups'|trans|default('No share groups yet. Create one to organize your shared items.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Group Edit Modal #}
+<div class="modal fade" id="groupEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="groupEditModalTitle">
+                    <i class="mdi mdi-folder-multiple me-2"></i>{{ 'share_groups.create'|trans|default('New Group') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="group-edit-id" value="">
+                
+                <div class="mb-3">
+                    <label class="form-label" for="group-edit-title"><i class="mdi mdi-label me-2 text-cyber"></i>{{ 'share_groups.group_title'|trans|default('Group Title') }}</label>
+                    <input type="text" class="form-control glass-input" id="group-edit-title" maxlength="128" autofocus>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="group-edit-icon"><i class="mdi mdi-palette me-2 text-cyber"></i>{{ 'share_groups.icon'|trans|default('Icon') }}</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <div id="group-icon-preview" class="d-flex align-items-center justify-content-center rounded border border-secondary" 
+                             style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); cursor: pointer;"
+                             title="Click to change icon">
+                            <i class="mdi mdi-folder text-cyber" style="font-size: 22px;" id="group-icon-preview-i"></i>
+                        </div>
+                        <input type="text" class="form-control form-control-sm glass-input" 
+                               id="group-edit-icon" value="mdi-folder" placeholder="mdi-folder" style="max-width: 200px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-icon-picker" title="Browse icons">
+                            <i class="mdi mdi-palette"></i>
+                        </button>
+                    </div>
+                    <div class="text-muted small mt-1">MDI icon class, e.g. <code>mdi-folder</code>, <code>mdi-star</code>, <code>mdi-music</code></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="group-edit-icon-color"><i class="mdi mdi-format-color-fill me-2 text-cyber"></i>{{ 'share_groups.icon_color'|trans|default('Icon Color') }}</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="color" class="form-control form-control-color border-secondary" id="group-edit-icon-color" value="#95ec86" style="width: 40px; height: 40px;">
+                        <input type="text" class="form-control form-control-sm glass-input" id="group-edit-icon-color-text" value="#95ec86" placeholder="#95ec86" style="max-width: 120px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-reset-icon-color" title="Reset to default">
+                            <i class="mdi mdi-refresh"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="group-edit-slug"><i class="mdi mdi-link-variant me-2 text-cyber"></i>{{ 'share_groups.url_slug'|trans|default('URL Slug') }}</label>
+                    <input type="text" class="form-control form-control-sm glass-input" id="group-edit-slug" placeholder="my-content" maxlength="128">
+                    <div class="text-muted small mt-1">{{ 'share_groups.url_slug_hint'|trans|default('URL-friendly identifier, e.g.') }} <code>{{ app.request.schemeAndHttpHost }}/{{ app.user.username }}/<span id="slug-preview-val">my-content</span></code></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="group-edit-scope"><i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'share_groups.scope'|trans|default('Visibility') }}</label>
+                    <select class="form-select form-select-sm glass-input" id="group-edit-scope">
+                        <option value="0">{{ 'share_groups.scope_public'|trans|default('Public') }}</option>
+                        <option value="1">{{ 'share_groups.scope_federation'|trans|default('CQ Contacts') }}</option>
+                    </select>
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="group-edit-nav" checked>
+                    <label class="form-check-label text-light small" for="group-edit-nav">{{ 'share_groups.show_in_nav'|trans|default('Show in navigation') }}</label>
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="group-edit-active" checked>
+                    <label class="form-check-label text-light small" for="group-edit-active">{{ 'share_groups.active'|trans|default('Active') }}</label>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans|default('Cancel') }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="btn-save-group">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans|default('Save') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Add Share to Group Modal #}
+<div class="modal fade" id="addShareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title">
+                    <i class="mdi mdi-plus-circle me-2"></i>{{ 'share_groups.add_share'|trans|default('Add Share') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body" id="add-share-modal-body">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Icon Picker Modal #}
+<div class="modal fade" id="iconPickerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title"><i class="mdi mdi-palette me-2"></i>{{ 'share_groups.icon'|trans|default('Icon') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control form-control-sm glass-input mb-3" 
+                       id="icon-picker-search" placeholder="Search icons...">
+                <div id="icon-picker-grid" class="d-flex flex-wrap gap-1" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-share-groups') }}
+{% endblock %}

@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\User;
+use App\Service\CQShareGroupService;
 use App\Service\CQShareService;
 use App\Service\CqContactService;
 use App\Service\SettingsService;
@@ -30,6 +31,7 @@ class CQShareController extends AbstractController
 {
     public function __construct(
         private readonly CQShareService $shareService,
+        private readonly CQShareGroupService $shareGroupService,
         private readonly CqContactService $cqContactService,
         private readonly SettingsService $settingsService,
         private readonly UserDatabaseManager $userDatabaseManager,
@@ -67,17 +69,40 @@ class CQShareController extends AbstractController
             // Enrich with preview data if the user has share content enabled
             $this->settingsService->setUser($user);
             $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
+            $domain = $request->getHost();
+
+            // Load share groups for federation
+            $this->shareGroupService->setUser($user);
+            $federationScopes = [CQShareGroupService::SCOPE_PUBLIC, CQShareGroupService::SCOPE_CQ_CONTACT];
+            $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);
+
+            // Filter out grouped shares from ungrouped list
+            $groupedShareIds = $this->shareGroupService->getGroupedShareIds($federationScopes);
+            if (!empty($groupedShareIds)) {
+                $shares = array_values(array_filter($shares, fn($s) => !in_array($s['id'], $groupedShareIds)));
+            }
 
             if ($showShareContent && !empty($shares)) {
                 $shares = $this->shareService->enrichSharesWithPreview($user, $username, $shares);
-                $domain = $request->getHost();
                 $this->shareService->convertPreviewUrlsToAbsolute($shares, $domain);
+            }
+
+            // Enrich group items with preview data
+            if ($showShareContent && !empty($shareGroups)) {
+                foreach ($shareGroups as &$group) {
+                    if (!empty($group['items'])) {
+                        $group['items'] = $this->shareService->enrichSharesWithPreview($user, $username, $group['items']);
+                        $this->shareService->convertPreviewUrlsToAbsolute($group['items'], $domain);
+                    }
+                }
+                unset($group);
             }
 
             return $this->json([
                 'success' => true,
                 'username' => $username,
                 'shares' => $shares,
+                'share_groups' => $shareGroups,
                 'show_share_content' => $showShareContent,
             ]);
         } catch (\Exception $e) {

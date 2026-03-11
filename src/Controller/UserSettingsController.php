@@ -671,6 +671,7 @@ class UserSettingsController extends AbstractController
                 'profile.bio',
                 'profile.public_page_enabled',
                 'profile.public_page_show_photo',
+                'profile.public_page_show_profile_content',
                 'profile.public_page_show_shares',
                 'profile.public_page_show_share_content',
                 'profile.public_page_show_spirits',
@@ -851,5 +852,15 @@ class UserSettingsController extends AbstractController
             $this->logger->error('UserSettingsController::profileBgDelete error', ['error' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    // ========================================
+    // Share Groups Settings
+    // ========================================
+
+    #[Route('/profile/share-groups', name: 'app_user_settings_share_groups', methods: ['GET'])]
+    public function shareGroups(): Response
+    {
+        return $this->render('user_settings/share_groups.html.twig');
     }
 }
