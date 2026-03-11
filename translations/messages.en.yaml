@@ -839,6 +839,15 @@ admin:
         max_users_help: '0 = unlimited'
         max_users_updated: 'Max users allowed updated to %count%'
         max_users_reached: 'Registration is closed. Maximum number of users (%count%) has been reached.'
+        homepage_redirect: 'Homepage'
+        homepage_redirect_label: 'Homepage Redirect'
+        homepage_redirect_help: 'Redirect Citadel homepage to a user''s public CQ Profile page (for unauthenticated visitors)'
+        homepage_redirect_user: 'Profile'
+        select_user: 'Select user'
+        homepage_redirect_enabled: 'Homepage redirect enabled'
+        homepage_redirect_disabled: 'Homepage redirect disabled'
+        homepage_redirect_username_updated: 'Homepage redirect user updated'
+        homepage_redirect_user_not_found: 'User not found'
     
     logs:
         title: 'System Logs'

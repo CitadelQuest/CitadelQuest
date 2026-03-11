@@ -839,6 +839,15 @@ admin:
         max_users_help: '0 = neomezeně'
         max_users_updated: 'Maximální počet uživatelů aktualizován na %count%'
         max_users_reached: 'Registrace je uzavřena. Maximální počet uživatelů (%count%) byl dosažen.'
+        homepage_redirect: 'Domovská stránka'
+        homepage_redirect_label: 'Přesměrování domovské stránky'
+        homepage_redirect_help: 'Přesměrovat domovskou stránku Citadely na veřejný CQ Profil uživatele (pro nepřihlášené návštěvníky)'
+        homepage_redirect_user: 'Profil'
+        select_user: 'Vybrat uživatele'
+        homepage_redirect_enabled: 'Přesměrování domovské stránky zapnuto'
+        homepage_redirect_disabled: 'Přesměrování domovské stránky vypnuto'
+        homepage_redirect_username_updated: 'Uživatel pro přesměrování aktualizován'
+        homepage_redirect_user_not_found: 'Uživatel nenalezen'
     
     logs:
         title: 'Systémové logy'

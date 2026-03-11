@@ -49,11 +49,17 @@ class AdminController extends AbstractController
         $registrationEnabled = $this->systemSettingsService->getBooleanValue('cq_register', true);
         $maxUsersAllowed = $this->systemSettingsService->getSettingValue('cq_register_max_users_allowed', '0');
 
+        // Homepage redirect settings
+        $homepageRedirectEnabled = $this->systemSettingsService->getBooleanValue('cq_homepage_redirect', false);
+        $homepageRedirectUsername = $this->systemSettingsService->getSettingValue('cq_homepage_redirect_username', '');
+
         return $this->render('admin/dashboard.html.twig', [
             'users' => $users,
             'userStats' => $userStats,
             'registrationEnabled' => $registrationEnabled,
             'maxUsersAllowed' => (int) $maxUsersAllowed,
+            'homepageRedirectEnabled' => $homepageRedirectEnabled,
+            'homepageRedirectUsername' => $homepageRedirectUsername,
         ]);
     }
 
@@ -253,6 +259,49 @@ class AdminController extends AbstractController
                 'admin.settings.max_users_updated',
                 ['%count%' => $maxUsers === 0 ? 'unlimited' : $maxUsers]
             )
+        ]);
+    }
+
+    #[Route('/settings/homepage-redirect/toggle', name: 'app_admin_toggle_homepage_redirect', methods: ['POST'])]
+    public function toggleHomepageRedirect(): JsonResponse
+    {
+        $currentValue = $this->systemSettingsService->getBooleanValue('cq_homepage_redirect', false);
+        $newValue = !$currentValue;
+
+        $this->systemSettingsService->setBooleanValue('cq_homepage_redirect', $newValue);
+
+        return $this->json([
+            'success' => true,
+            'enabled' => $newValue,
+            'message' => $this->translator->trans(
+                $newValue ? 'admin.settings.homepage_redirect_enabled' : 'admin.settings.homepage_redirect_disabled'
+            )
+        ]);
+    }
+
+    #[Route('/settings/homepage-redirect/username', name: 'app_admin_set_homepage_redirect_username', methods: ['POST'])]
+    public function setHomepageRedirectUsername(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $username = trim($data['username'] ?? '');
+
+        if (!empty($username)) {
+            // Verify user exists
+            $user = $this->userRepository->findOneBy(['username' => $username]);
+            if (!$user) {
+                return $this->json([
+                    'success' => false,
+                    'message' => $this->translator->trans('admin.settings.homepage_redirect_user_not_found')
+                ], 400);
+            }
+        }
+
+        $this->systemSettingsService->setSetting('cq_homepage_redirect_username', $username);
+
+        return $this->json([
+            'success' => true,
+            'username' => $username,
+            'message' => $this->translator->trans('admin.settings.homepage_redirect_username_updated')
         ]);
     }
 

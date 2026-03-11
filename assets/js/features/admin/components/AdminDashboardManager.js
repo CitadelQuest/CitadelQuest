@@ -18,6 +18,8 @@ export class AdminDashboardManager {
         
         this.registrationToggle = document.getElementById('registrationToggle');
         this.maxUsersInput = document.getElementById('maxUsersInput');
+        this.homepageRedirectToggle = document.getElementById('homepageRedirectToggle');
+        this.homepageRedirectUsername = document.getElementById('homepageRedirectUsername');
     }
 
     init() {
@@ -25,6 +27,8 @@ export class AdminDashboardManager {
         this.initUpdateModal();
         this.initRegistrationToggle();
         this.initMaxUsersInput();
+        this.initHomepageRedirectToggle();
+        this.initHomepageRedirectUsername();
         this.checkUpdateAvailable();
     }
 
@@ -241,6 +245,77 @@ export class AdminDashboardManager {
         } catch (error) {
             // Silently fail — update check is non-critical
         }
+    }
+
+    /**
+     * Initialize the homepage redirect toggle
+     */
+    initHomepageRedirectToggle() {
+        if (!this.homepageRedirectToggle) return;
+
+        this.homepageRedirectToggle.addEventListener('change', async (e) => {
+            const toggle = e.target;
+            const url = toggle.dataset.url;
+            const originalState = toggle.checked;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    window.toast.success(data.message);
+                    toggle.checked = data.enabled;
+                } else {
+                    window.toast.error(data.message || 'Failed to toggle homepage redirect');
+                    toggle.checked = originalState;
+                }
+            } catch (error) {
+                console.error('Error toggling homepage redirect:', error);
+                window.toast.error('Failed to toggle homepage redirect');
+                toggle.checked = originalState;
+            }
+        });
+    }
+
+    /**
+     * Initialize the homepage redirect username selector
+     */
+    initHomepageRedirectUsername() {
+        if (!this.homepageRedirectUsername) return;
+
+        this.homepageRedirectUsername.addEventListener('change', async () => {
+            const select = this.homepageRedirectUsername;
+            const url = select.dataset.url;
+            const username = select.value;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    window.toast.success(data.message);
+                } else {
+                    window.toast.error(data.message || 'Failed to set homepage redirect user');
+                }
+            } catch (error) {
+                console.error('Error setting homepage redirect user:', error);
+                window.toast.error('Failed to set homepage redirect user');
+            }
+        });
     }
 
     /**
