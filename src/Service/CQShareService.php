@@ -380,6 +380,7 @@ class CQShareService
     {
         return [
             'id' => $share['id'],
+            'share_url' => $share['share_url'] ?? null,
             'title' => $share['title'],
             'source_type' => $share['source_type'],
             'updated_at' => $share['updated_at'],

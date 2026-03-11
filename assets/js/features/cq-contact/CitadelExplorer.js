@@ -466,9 +466,42 @@ export class CitadelExplorer {
         const profileLink = p.profile_url || this.profileUrl;
         const slug = this.highlightShareUrl;
 
-        // Find the share directly from the already-fetched profile data
-        const shares = p.shares || [];
-        const share = shares.find(s => s.share_url === slug);
+        // Find the share from all available data: ungrouped shares + share group items
+        let share = (p.shares || []).find(s => s.share_url === slug);
+        if (!share) {
+            for (const group of (p.share_groups || [])) {
+                share = (group.items || []).find(s => s.share_url === slug);
+                if (share) break;
+            }
+        }
+
+        // Fallback: fetch share metadata directly from remote (handles toggled-off shares)
+        if (!share) {
+            try {
+                const shareMetaUrl = `${profileLink}/share/${slug}`;
+                let metaResp;
+                if (p.is_contact && p.contact_id) {
+                    metaResp = await fetch(`/api/cq-contact/${p.contact_id}/share-meta`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ share_url: slug })
+                    });
+                } else {
+                    metaResp = await fetch('/api/citadel-explorer/fetch-share', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: shareMetaUrl })
+                    });
+                }
+                const metaData = await metaResp.json();
+                if (metaData.success && metaData.share) {
+                    share = metaData.share;
+                }
+            } catch (e) {
+                console.warn('Failed to fetch share metadata directly:', e);
+            }
+        }
+
         if (!share) {
             this.showError(this.t('share_not_found', 'Shared item not found'));
             return;
@@ -567,7 +600,10 @@ export class CitadelExplorer {
 
         // Render just the single share
         const container = document.getElementById('explorerSharesContainer');
-        this.renderShares([share], container);
+        if (container) {
+            container.innerHTML = this.renderShareItem(share, { showContent: true });
+            this.initGraphPreviews();
+        }
 
         // Bind close button
         document.getElementById('explorerCloseBtn')?.addEventListener('click', () => {

@@ -202,6 +202,52 @@ class CitadelExplorerApiController extends AbstractController
     }
 
     /**
+     * Fetch share metadata directly from a remote Citadel.
+     * Fallback for when the share isn't included in the profile JSON (e.g. visibility toggles).
+     */
+    #[Route('/fetch-share', name: 'app_api_citadel_explorer_fetch_share', methods: ['POST'])]
+    public function fetchShare(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $url = $data['url'] ?? '';
+
+        if (empty($url) || !str_starts_with($url, 'https://')) {
+            return $this->json(['success' => false, 'message' => 'Invalid URL'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $response = $this->httpClient->request('POST', $url, [
+                'headers' => [
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                    'Content-Type' => 'application/json',
+                ],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $shareData = $response->toArray(false);
+            if (!($shareData['success'] ?? false) || empty($shareData['share'])) {
+                return $this->json(['success' => false, 'message' => 'Share not found']);
+            }
+
+            return $this->json([
+                'success' => true,
+                'share' => $shareData['share'],
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('CitadelExplorerApiController::fetchShare error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->json(['success' => false, 'message' => 'Failed to fetch share'], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
      * Proxy a remote profile photo for display in the explorer.
      */
     #[Route('/photo', name: 'app_api_citadel_explorer_photo', methods: ['GET'])]

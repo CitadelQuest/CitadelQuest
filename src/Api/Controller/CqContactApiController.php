@@ -300,6 +300,64 @@ class CqContactApiController extends AbstractController
     }
 
     /**
+     * Fetch a single share's metadata from a remote contact's Citadel.
+     * Fallback for when the share isn't included in the profile/shares response.
+     */
+    #[Route('/{id}/share-meta', name: 'app_api_cq_contact_share_meta', methods: ['POST'])]
+    public function getContactShareMeta(Request $request, string $id): JsonResponse
+    {
+        try {
+            $contact = $this->cqContactService->findById($id);
+            if (!$contact) {
+                return $this->json(['success' => false, 'message' => 'Contact not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$contact->getCqContactApiKey()) {
+                return $this->json(['success' => false, 'message' => 'No API key'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            $shareUrl = $data['share_url'] ?? '';
+            if (empty($shareUrl)) {
+                return $this->json(['success' => false, 'message' => 'Missing share_url'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Build remote share URL: {contactUrl}/share/{shareUrl}
+            $remoteUrl = rtrim($contact->getCqContactUrl(), '/') . '/share/' . $shareUrl;
+
+            $response = $this->httpClient->request('POST', $remoteUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                    'Content-Type' => 'application/json',
+                ],
+                'timeout' => 15,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $shareData = $response->toArray(false);
+            if (!($shareData['success'] ?? false) || empty($shareData['share'])) {
+                return $this->json(['success' => false, 'message' => 'Share not found']);
+            }
+
+            return $this->json([
+                'success' => true,
+                'share' => $shareData['share'],
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('CqContactApiController::getContactShareMeta error', [
+                'contactId' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return $this->json(['success' => false, 'message' => 'Connection failed'], Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    /**
      * Check which shares have already been downloaded locally.
      * Looks up project_file_remote.source_url — the actual download URL stored when a share was downloaded.
      * Returns a map of share_url → { downloaded: bool, path, fileName } for each share.
