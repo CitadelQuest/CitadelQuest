@@ -116,8 +116,8 @@ class CQProfileController extends AbstractController
                 $this->shareGroupService->setUser($user);
                 $allShareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareGroupService::SCOPE_PUBLIC]);
 
-                // Enrich group items with preview data
-                if ($showShareContent && !empty($allShareGroups)) {
+                // Profile Content groups always get content previews (independent from show_share_content toggle)
+                if (!empty($allShareGroups)) {
                     $this->shareService->setUser($user);
                     foreach ($allShareGroups as &$group) {
                         if (!empty($group['items'])) {
@@ -276,7 +276,8 @@ class CQProfileController extends AbstractController
                 $this->shareGroupService->setUser($user);
                 $shareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareGroupService::SCOPE_PUBLIC]);
 
-                if ($showShareContent && !empty($shareGroups)) {
+                // Profile Content groups always get content previews (independent from show_share_content toggle)
+                if (!empty($shareGroups)) {
                     $this->shareService->setUser($user);
                     foreach ($shareGroups as &$group) {
                         if (!empty($group['items'])) {
@@ -530,30 +531,40 @@ class CQProfileController extends AbstractController
             $response['background_url'] = !empty($customBgFileId) ? ('https://' . $domain . '/' . $username . '/background') : null;
             $response['bg_overlay'] = $bgOverlay;
 
-            // Shared items and share groups (always include for authenticated contacts)
+            // Shared items and share groups — respect visibility toggles
             $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
+            $showProfileContent = $this->settingsService->getSettingValue('profile.public_page_show_profile_content', '1') === '1';
+            $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
             try {
                 $this->shareService->setUser($user);
                 $this->shareGroupService->setUser($user);
-                $sharedItems = $this->shareService->listActiveForFederation();
 
-                // Load share groups for federation
+                // Load share groups for federation (only if profile content toggle is on)
                 $federationScopes = [CQShareGroupService::SCOPE_PUBLIC, CQShareGroupService::SCOPE_CQ_CONTACT];
-                $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);
-
-                // Filter out grouped shares from ungrouped list
-                $groupedShareIds = $this->shareGroupService->getGroupedShareIds($federationScopes);
-                if (!empty($groupedShareIds)) {
-                    $sharedItems = array_values(array_filter($sharedItems, fn($s) => !in_array($s['id'], $groupedShareIds)));
+                $shareGroups = [];
+                if ($showProfileContent) {
+                    $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);
                 }
 
-                if ($showShareContent && !empty($sharedItems)) {
-                    $sharedItems = $this->shareService->enrichSharesWithPreview($user, $username, $sharedItems);
-                    $this->shareService->convertPreviewUrlsToAbsolute($sharedItems, $domain);
+                // Ungrouped shares (only if shares toggle is on)
+                $sharedItems = [];
+                if ($showShares) {
+                    $sharedItems = $this->shareService->listActiveForFederation();
+
+                    // Filter out grouped shares from ungrouped list
+                    $groupedShareIds = $this->shareGroupService->getGroupedShareIds($federationScopes);
+                    if (!empty($groupedShareIds)) {
+                        $sharedItems = array_values(array_filter($sharedItems, fn($s) => !in_array($s['id'], $groupedShareIds)));
+                    }
+
+                    if ($showShareContent && !empty($sharedItems)) {
+                        $sharedItems = $this->shareService->enrichSharesWithPreview($user, $username, $sharedItems);
+                        $this->shareService->convertPreviewUrlsToAbsolute($sharedItems, $domain);
+                    }
                 }
 
-                // Enrich group items with preview data
-                if ($showShareContent && !empty($shareGroups)) {
+                // Profile Content groups always get content previews (independent from show_share_content toggle)
+                if (!empty($shareGroups)) {
                     foreach ($shareGroups as &$group) {
                         if (!empty($group['items'])) {
                             $group['items'] = $this->shareService->enrichSharesWithPreview($user, $username, $group['items']);

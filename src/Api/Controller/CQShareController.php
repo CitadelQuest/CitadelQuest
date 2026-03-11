@@ -64,31 +64,40 @@ class CQShareController extends AbstractController
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
-            $shares = $this->shareService->listActiveForFederation();
-
             // Enrich with preview data if the user has share content enabled
             $this->settingsService->setUser($user);
             $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
+            $showProfileContent = $this->settingsService->getSettingValue('profile.public_page_show_profile_content', '1') === '1';
+            $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
             $domain = $request->getHost();
 
-            // Load share groups for federation
+            // Load share groups for federation (only if profile content toggle is on)
             $this->shareGroupService->setUser($user);
             $federationScopes = [CQShareGroupService::SCOPE_PUBLIC, CQShareGroupService::SCOPE_CQ_CONTACT];
-            $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);
-
-            // Filter out grouped shares from ungrouped list
-            $groupedShareIds = $this->shareGroupService->getGroupedShareIds($federationScopes);
-            if (!empty($groupedShareIds)) {
-                $shares = array_values(array_filter($shares, fn($s) => !in_array($s['id'], $groupedShareIds)));
+            $shareGroups = [];
+            if ($showProfileContent) {
+                $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);
             }
 
-            if ($showShareContent && !empty($shares)) {
-                $shares = $this->shareService->enrichSharesWithPreview($user, $username, $shares);
-                $this->shareService->convertPreviewUrlsToAbsolute($shares, $domain);
+            // Ungrouped shares (only if shares toggle is on)
+            $shares = [];
+            if ($showShares) {
+                $shares = $this->shareService->listActiveForFederation();
+
+                // Filter out grouped shares from ungrouped list
+                $groupedShareIds = $this->shareGroupService->getGroupedShareIds($federationScopes);
+                if (!empty($groupedShareIds)) {
+                    $shares = array_values(array_filter($shares, fn($s) => !in_array($s['id'], $groupedShareIds)));
+                }
+
+                if ($showShareContent && !empty($shares)) {
+                    $shares = $this->shareService->enrichSharesWithPreview($user, $username, $shares);
+                    $this->shareService->convertPreviewUrlsToAbsolute($shares, $domain);
+                }
             }
 
-            // Enrich group items with preview data
-            if ($showShareContent && !empty($shareGroups)) {
+            // Profile Content groups always get content previews (independent from show_share_content toggle)
+            if (!empty($shareGroups)) {
                 foreach ($shareGroups as &$group) {
                     if (!empty($group['items'])) {
                         $group['items'] = $this->shareService->enrichSharesWithPreview($user, $username, $group['items']);

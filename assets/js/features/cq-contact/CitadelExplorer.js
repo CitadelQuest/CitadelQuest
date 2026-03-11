@@ -223,7 +223,7 @@ export class CitadelExplorer {
                             <div class="small fw-bold text-light" style="line-height: 1.2;">
                                 ${spirit.name} ${star}
                             </div>
-                            <div class="text-light opacity-50" style="font-size: 0.65rem; line-height: 1;">Level ${spirit.level || 1} | ${spirit.experience || 0} XP</div>
+                            <div class="text-light opacity-75" style="font-size: 0.65rem; line-height: 1;">Level ${spirit.level || 1} | ${spirit.experience || 0} XP</div>
                         </div>
                     </div>`;
             }).join('');
@@ -285,9 +285,9 @@ export class CitadelExplorer {
                     <div class="me-3 flex-shrink-0">${photoHtml}</div>
                     <div class="flex-grow-1 d-none d-md-block">
                         <h3 class="h4 mb-1 text-cyber">${p.username || ''}</h3>
-                        <small class="text-muted">
+                        <small class="text-light opacity-75">
                             <i class="mdi mdi-web me-1"></i>
-                            <a href="${profileLink}" target="_blank" class="text-light opacity-50 text-decoration-none">
+                            <a href="${profileLink}" target="_blank" class="text-light opacity-75 text-decoration-none">
                                 ${p.domain || ''}
                             </a>
                         </small>
@@ -300,9 +300,9 @@ export class CitadelExplorer {
                 </div>
                 <div class="d-md-none mt-3">
                     <h3 class="h4 mb-1 text-cyber">${p.username || ''}</h3>
-                    <small class="text-muted">
+                    <small class="text-light opacity-75">
                         <i class="mdi mdi-web me-1"></i>
-                        <a href="${profileLink}" target="_blank" class="text-muted text-decoration-none">
+                        <a href="${profileLink}" target="_blank" class="text-light opacity-75 text-decoration-none">
                             ${p.domain || ''}
                         </a>
                     </small>
@@ -523,7 +523,7 @@ export class CitadelExplorer {
                     ${photoHtml}
                     <div>
                         <a href="#" class="text-cyber text-decoration-none fw-bold explorer-view-profile">${p.username || ''}</a>
-                        <small class="text-muted ms-2">
+                        <small class="text-light opacity-75 ms-2">
                             <i class="mdi mdi-web me-1"></i>${p.domain || ''}
                         </small>
                     </div>
@@ -712,14 +712,15 @@ export class CitadelExplorer {
                     displayStyle: item.effective_display_style ?? item.share_display_style,
                     descriptionDisplayStyle: item.effective_description_display_style ?? item.share_description_display_style,
                     title: item.share_title || item.title || '',
+                    showContent: true, // Profile Content groups always show previews
                 });
             });
 
             html += `</div></div></div>`;
         });
 
-        // Render ungrouped shares (only when no specific group is active)
-        if (ungroupedShares.length > 0 && !this.activeGroupSlug) {
+        // Render ungrouped shares (always visible below groups, matching public profile)
+        if (ungroupedShares.length > 0) {
             html += `
             <div class="card glass-panel">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
@@ -837,7 +838,7 @@ export class CitadelExplorer {
                         <i class="mdi ${icon} ${iconColor} me-2"></i>
                         <span class="text-light fw-bold">${title}</span>
                         <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
-                        <small class="text-muted"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
+                        <small class="text-light opacity-75"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
                         <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
                             onclick="navigator.clipboard.writeText('${(this.profile.profile_url || this.profileUrl).replace(/'/g, "\\'")}/share/${share.share_url}').then(() => window.toast?.success('${this.t('link_copied', 'Link copied!')}'))">
                             <i class="mdi mdi-link-variant"></i>
@@ -851,7 +852,7 @@ export class CitadelExplorer {
 
         // Build preview options with overrides from group item config
         const previewOpts = {
-            showContent: this.profile.show_share_content,
+            showContent: opts.showContent !== undefined ? opts.showContent : this.profile.show_share_content,
             md: this.md,
             t: (k, f) => this.t(k, f)
         };

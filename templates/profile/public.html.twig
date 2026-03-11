@@ -259,7 +259,8 @@
                             </div>
                             {% endif %}
 
-                            {% set hasPreview = profile_show_share_content and share.preview_type is defined and ds > 0 %}
+                            {# Profile Content groups always show previews (independent from show_share_content toggle) #}
+                            {% set hasPreview = share.preview_type is defined and ds > 0 %}
                             {% set hasDesc = desc|trim is not empty %}
 
                             {% if hasDesc or hasPreview %}
