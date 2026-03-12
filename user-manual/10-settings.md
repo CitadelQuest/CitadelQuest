@@ -68,10 +68,13 @@ Manage your public identity and control what others see. See [CQ Profile](09-cq-
 ### Public Profile Page
 - **Enable/disable** your public profile at `/{username}`
 - **Profile photo** — upload, remove
-- **Bio** — short personal description
-- **Show/hide** photo, shared items on public page
+- **Bio** — personal description with Markdown/HTML support and character counter
+- **Show/hide** photo, profile content groups, shared items list on public page
 - **Spirit showcase** — Off / Primary Spirit only / All Spirits
+- **Language** — choose language for the public profile page
 - **Theme** — choose a background theme for your public page
+- **Custom background image** — upload your own background
+- **Background overlay** — dark overlay for text readability
 
 ### CQ Contact Visibility
 - **Share bio** with contacts
@@ -80,9 +83,23 @@ Manage your public identity and control what others see. See [CQ Profile](09-cq-
 
 ---
 
+## Profile Content
+
+**Route**: `/settings/share-groups`
+
+Organize your shared items into content groups that appear as tabbed navigation on your public profile and in CQ Explorer. See [CQ Share — Share Groups](08-cq-share.md) for the full guide.
+
+- **Create groups** with custom title, icon, color, and visibility
+- **Add shares** to groups and reorder them
+- **Override display styles** per group item
+- Groups appear as tabs on your public profile page and in CQ Explorer
+
+---
+
 ## Settings Navigation
 
 The settings sidebar provides quick access to:
 - **General Settings** — login, theme, database, migration
-- **AI Services** — models, gateway, credits
 - **CQ Profile** — public profile page, contact visibility
+- **Profile Content** — share groups for profile page
+- **AI Services** — models, gateway, credits

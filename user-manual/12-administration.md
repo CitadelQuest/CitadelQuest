@@ -53,12 +53,26 @@ Check for and install updates to CitadelQuest:
 
 ---
 
-## Registration Control
+## System Settings
 
-Admins can **enable or disable** new user registration:
-- **Toggle Registration** button on the admin dashboard
+The admin dashboard includes system-level configuration panels:
+
+### User Registration
+
+- **Toggle Registration** — enable or disable new user registration
+- **Max users** — set a maximum number of allowed users (0 = unlimited)
 - When disabled, the registration page shows a "Registration is currently disabled" message
 - Useful for limiting access to your Citadel
+
+### Homepage Redirect
+
+Redirect the Citadel homepage (`https://your-citadel.com`) to a user's public CQ Profile page — for unauthenticated visitors only. Authenticated users still see their Dashboard.
+
+1. Select a **Profile** user from the dropdown (any registered user)
+2. **Toggle** the redirect on
+3. Visitors to your root URL are now redirected to that user's public profile page
+
+This is ideal when you want your Citadel's domain to serve as a personal website or landing page powered by [CQ Profile](09-cq-profile.md).
 
 ---
 

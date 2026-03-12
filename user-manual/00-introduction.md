@@ -27,9 +27,10 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | **CQ Memory** | Knowledge graphs — extract, visualize, and share structured knowledge |
 | **File Browser** | Personal cloud storage — your files, always accessible |
 | **CQ Chat** | Private messaging across CitadelQuest instances |
-| **CQ Contacts** | Friend system connecting different Citadels |
+| **CQ Explorer** | Explore profiles, manage contacts, follow users across Citadels |
+| **CQ Follow** | One-way subscription to any public CQ Profile for content updates |
 | **CQ Share** | Share files and Memory Packs with contacts or publicly |
-| **CQ Profile** | Beautiful public profile page with Spirit showcase and themes |
+| **CQ Profile** | Public profile page with Spirit showcase, content groups, and themes |
 | **Backup** | Full backup and restore of your data |
 | **Multi-language** | English, Czech, Slovak |
 
@@ -66,7 +67,7 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | [04 — CQ Memory](04-cq-memory.md) | Knowledge graphs and Memory Explorer |
 | [05 — File Browser](05-file-browser.md) | Personal cloud file management |
 | [06 — CQ Chat](06-cq-chat.md) | Private messaging across Citadels |
-| [07 — CQ Contacts](07-cq-contacts.md) | Friend system and connections |
+| [07 — CQ Explorer](07-cq-contacts.md) | Profile exploration, contacts, and following |
 | [08 — CQ Share](08-cq-share.md) | Sharing files and knowledge |
 | [09 — CQ Profile](09-cq-profile.md) | Public profile page and identity |
 | [10 — Settings](10-settings.md) | Configuration and preferences |

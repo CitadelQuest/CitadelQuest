@@ -6,21 +6,23 @@ The Dashboard is your home screen — the central hub of your CitadelQuest exper
 
 ## Quick Actions
 
-Six cards providing fast access to the main features:
+Nine cards providing fast access to the main features:
 
 | Card | Description | Route |
 |------|-------------|-------|
 | **Spirits** | Manage your AI Spirit companions | `/spirits` |
+| **CQ Explorer** | Explore CQ Profiles and manage your CQ Contacts | `/cq-contacts` |
+| **CQ Profile** | Customize your public profile | `/settings/profile` |
 | **CQ Memory** | Explore and manage your knowledge graphs | `/memory` |
 | **File Browser** | Browse and manage your files | `/file-browser` |
-| **CQ Contacts** | Manage your Citadel contacts | `/cq-contact` |
+| **CQ Share** | Share files and Memory Packs | `/share` |
 | **Settings** | Configure your CitadelQuest | `/settings` |
 | **Backup** | Create and restore backups | `/backup` |
 
-If you have **Admin** privileges, a 7th card appears:
-- **Admin** — access the administration panel (`/administration`)
+If you have **Admin** privileges, a 9th card appears:
+- **Admin Panel** — access the administration panel (`/administration`)
 
-> **Tip**: The CQ Contacts card shows a red badge when you have pending friend requests.
+> **Tip**: The CQ Explorer card shows a **red badge** when you have pending friend requests, and a **yellow badge** when followed profiles have new content.
 
 ---
 
@@ -61,9 +63,10 @@ The navigation bar is always visible and provides:
    - icon - click to open `Spirit Chat` modal
    - name - link to Spirit's profile page
 3. **User Menu** (your username):
+   - CQ Explorer
+   - CQ Profile
    - CQ Memory
    - File Browser
-   - CQ Contacts
    - Settings
    - Admin (if admin)
    - Logout
