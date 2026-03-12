@@ -574,6 +574,8 @@ dashboard:
     settings_description: 'Configure your CitadelQuest'
     backup_description: 'Create and restore backups'
     memory_description: 'Explore and manage your knowledge graphs'
+    feed_description: 'Follow profiles and see updates'
+    profile_description: 'Customize your public profile'
     admin_description: 'Citadel administration'
 
 cq_memory:
@@ -1266,3 +1268,18 @@ cq_chat:
     selected: 'Selected'
     create_group: 'Create Chat'
     cancel: 'Cancel'
+
+feed:
+    title: 'CQ Feed'
+    follow: 'Follow'
+    following: 'Following'
+    unfollow: 'Unfollow'
+    followers: 'Followers'
+    following_feed: 'Following'
+    followers_feed: 'Followers'
+    loading: 'Loading...'
+    no_following: 'Not following anyone yet'
+    no_followers: 'No followers yet'
+    new_content: 'New'
+    follow_success: 'Following!'
+    unfollow_success: 'Unfollowed'

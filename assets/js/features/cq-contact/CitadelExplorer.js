@@ -48,6 +48,8 @@ export class CitadelExplorer {
         // Check URL param first (e.g. /cq-contacts?url=https://...)
         const urlParams = new URLSearchParams(window.location.search);
         const paramUrl = urlParams.get('url');
+        const sinceParam = urlParams.get('since');
+        this.sinceTimestamp = sinceParam || null;
         if (paramUrl) {
             localStorage.setItem('citadelExplorerUrl', paramUrl);
             // Clean URL without reloading (remove ?url= param)
@@ -156,6 +158,11 @@ export class CitadelExplorer {
             // Save URL to localStorage on successful explore
             localStorage.setItem('citadelExplorerUrl', url);
 
+            // Notify sidebar to highlight active item
+            if (window.explorerSidebar) {
+                window.explorerSidebar.highlightActiveItem(url);
+            }
+
             // Share URL → show only that share item; otherwise full profile
             if (this.highlightShareUrl) {
                 await this.renderShareOnly();
@@ -243,6 +250,27 @@ export class CitadelExplorer {
                 </button>`;
         }
 
+        // Build follow action button
+        let followActionHtml = '';
+        if (p.cq_contact_id) {
+            const isFollowing = p.is_following || false;
+            followActionHtml = `
+                <button class="btn btn-sm ${isFollowing ? 'btn-warning' : 'btn-outline-warning'}" id="explorerFollowBtn"
+                        data-cq-contact-id="${p.cq_contact_id}"
+                        data-cq-contact-url="${p.profile_url || ''}"
+                        data-cq-contact-domain="${p.domain || ''}"
+                        data-cq-contact-username="${p.username || ''}"
+                        data-following="${isFollowing ? '1' : '0'}">
+                    <i class="mdi ${isFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${isFollowing ? this.t('following', 'Following') : this.t('follow', 'Follow')}</span>
+                </button>`;
+        }
+
+        // Follower count badge
+        let followerCountHtml = '';
+        if (p.follower_count > 0) {
+            followerCountHtml = `<small class="text-light opacity-50"><i class="mdi mdi-account-group me-1"></i>${p.follower_count}</small>`;
+        }
+
         // Build bio HTML with markdown rendering and show more for long bios
         let bioHtml = '';
         if (p.bio) {
@@ -296,6 +324,8 @@ export class CitadelExplorer {
                     <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
                         ${spiritsHtml ? `<div>${spiritsHtml}</div>` : ''}
                         ${contactActionHtml}
+                        ${followActionHtml}
+                        ${followerCountHtml}
                     </div>
                 </div>
                 <div class="d-md-none mt-3">
@@ -333,11 +363,15 @@ export class CitadelExplorer {
                     const slug = group.url_slug || group.id;
                     const isActive = this.activeGroupSlug && slug === this.activeGroupSlug;
                     const iconColor = group.icon_color || '#95ec86';
+                    const groupItems = group.items || [];
+                    const navHasNew = this.sinceTimestamp && groupItems.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp);
+                    const navNewClass = navHasNew ? 'border-start border-end border-3 border-top-0 border-bottom-0 border-warning' : '';
                     badgesHtml += `
                         <a href="#" class="text-decoration-none explorer-group-nav" data-group-slug="${slug}">
-                            <span class="glass-panel ${isActive ? 'bg-success bg-opacity-25' : ''} py-2 px-3" style="font-size: 0.85rem;">
+                            <span class="glass-panel ${isActive ? 'bg-success bg-opacity-25' : ''} ${navNewClass} py-2 px-3" style="font-size: 0.85rem;">
                                 <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-1" style="color: ${iconColor};"></i>
                                 <span class="${isActive ? 'text-cyber' : 'text-light opacity-75'}">${group.title || ''}</span>
+                                ${navHasNew ? '<i class="mdi mdi-bell-ring text-warning ms-1" style="font-size: 0.7rem;"></i>' : ''}
                             </span>
                         </a>`;
                 });
@@ -438,6 +472,9 @@ export class CitadelExplorer {
 
         // Bind add contact button
         document.getElementById('explorerAddContactBtn')?.addEventListener('click', () => this.addContact());
+
+        // Bind follow button
+        document.getElementById('explorerFollowBtn')?.addEventListener('click', () => this.toggleFollow());
 
         // Bind add to library confirm
         document.getElementById('explorer-confirm-add-lib')?.addEventListener('click', () => this.confirmAddToLibrary());
@@ -730,6 +767,7 @@ export class CitadelExplorer {
             const items = group.items || [];
             if (items.length === 0) return;
 
+            const groupHasNew = this.sinceTimestamp && items.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp);
             const iconColor = group.icon_color || '#95ec86';
             html += `
             <div class="card glass-panel mb-3" id="share-group-${group.id}">
@@ -737,6 +775,7 @@ export class CitadelExplorer {
                     <div class="mb-0">
                         <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-2" style="color: ${iconColor};"></i>
                         <span class="text-cyber">${group.title || ''}</span>
+                        ${groupHasNew ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring me-1"></i>New</span>' : ''}
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -757,6 +796,7 @@ export class CitadelExplorer {
 
         // Render ungrouped shares (always visible below groups, matching public profile)
         if (ungroupedShares.length > 0) {
+            const sharesHasNew = this.sinceTimestamp && ungroupedShares.some(s => (s.updated_at || s.share_updated_at) && (s.updated_at || s.share_updated_at) > this.sinceTimestamp);
             html += `
             <div class="card glass-panel">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
@@ -764,6 +804,7 @@ export class CitadelExplorer {
                         <span>
                             <i class="mdi mdi-share-variant me-2 text-success opacity-50"></i>
                             <span class="text-cyber">${this.t('shared_items', 'Shared Items')}</span>
+                            ${sharesHasNew ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring me-1"></i>New</span>' : ''}
                         </span>
                     </div>
                 </div>
@@ -865,7 +906,13 @@ export class CitadelExplorer {
             </button>`;
         }
 
-        let html = `<div class="list-group-item bg-transparent border-0 px-4 py-3" data-share-url="${share.share_url}">`;
+        // Check if this share is new since last visit (from Feed)
+        // Group items have share_updated_at, ungrouped shares have updated_at
+        const shareUpdatedAt = share.updated_at || share.share_updated_at;
+        const isNewSinceVisit = this.sinceTimestamp && shareUpdatedAt && shareUpdatedAt > this.sinceTimestamp;
+        const newHighlight = isNewSinceVisit ? 'bg-warning bg-opacity-10 border-start border-3 border-warning' : '';
+
+        let html = `<div class="list-group-item bg-transparent border-0 px-4 py-3 ${newHighlight}" data-share-url="${share.share_url}">`;
 
         if (showHeader) {
             html += `
@@ -873,6 +920,7 @@ export class CitadelExplorer {
                     <div>
                         <i class="mdi ${icon} ${iconColor} me-2"></i>
                         <span class="text-light fw-bold">${title}</span>
+                        ${isNewSinceVisit ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring me-1"></i>New</span>' : ''}
                         <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
                         <small class="text-light opacity-75"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
                         <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
@@ -1229,6 +1277,55 @@ export class CitadelExplorer {
             console.error('Add contact error:', error);
             window.toast?.error(error.message);
             btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }
+
+    // ========================================
+    // Follow / Unfollow
+    // ========================================
+
+    async toggleFollow() {
+        const btn = document.getElementById('explorerFollowBtn');
+        if (!btn) return;
+
+        const isFollowing = btn.dataset.following === '1';
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="mdi mdi-loading mdi-spin me-1"></i>`;
+
+        try {
+            const endpoint = isFollowing ? '/api/follow/unfollow' : '/api/follow/follow';
+            const body = isFollowing
+                ? { cq_contact_id: btn.dataset.cqContactId }
+                : {
+                    cq_contact_id: btn.dataset.cqContactId,
+                    cq_contact_url: btn.dataset.cqContactUrl,
+                    cq_contact_domain: btn.dataset.cqContactDomain,
+                    cq_contact_username: btn.dataset.cqContactUsername,
+                };
+
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+                const nowFollowing = !isFollowing;
+                btn.dataset.following = nowFollowing ? '1' : '0';
+                btn.className = `btn btn-sm ${nowFollowing ? 'btn-success' : 'btn-outline-success'}`;
+                btn.innerHTML = `<i class="mdi ${nowFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${nowFollowing ? this.t('following', 'Following') : this.t('follow', 'Follow')}</span>`;
+                window.toast?.success(nowFollowing ? this.t('follow_success', 'Following!') : this.t('unfollow_success', 'Unfollowed'));
+            } else {
+                throw new Error(data.error || 'Failed');
+            }
+        } catch (error) {
+            console.error('Follow toggle error:', error);
+            window.toast?.error(error.message);
+            btn.innerHTML = origHtml;
+        } finally {
             btn.disabled = false;
         }
     }

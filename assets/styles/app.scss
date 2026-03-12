@@ -32,6 +32,10 @@
         background-size: 800% 100%;
         transition: background-size vars.$duration-quick vars.$ease-smooth;
     }
+
+    &.active {
+        background-color: rgba(colors.$success, 0.25) !important;
+    }
     
     &:hover {
         .bg-cyber-g {
@@ -640,6 +644,18 @@ div[data-type="tool_calls_frontend_data"] pre
     max-width: 300px;
     pointer-events: none;
     box-shadow: 0 0 8px rgba(colors.$cyber, 0.5);
+}
+
+// Explorer sidebar hover items
+.sidebar-hover-item {
+    transition: background 0.15s ease !important;
+    &:hover {
+        background: rgba(colors.$cyber, 0.08);
+    }
+    &.sidebar-active {
+        background: rgba(colors.$cyber, 0.12);
+        border-right: 2px solid colors.$cyber;
+    }
 }
 
 // Reusable tab nav style (consistent across app — Memory Explorer, CQ Profile, etc.)

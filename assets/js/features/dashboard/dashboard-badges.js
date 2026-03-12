@@ -7,6 +7,7 @@ class DashboardBadgeManager {
     constructor() {
         this.friendRequestBadge = document.getElementById('friend-request-badge');
         this.updateAvailableBadge = document.getElementById('update-available-badge');
+        this.feedNewBadge = document.getElementById('feed-new-badge');
         this.init();
     }
 
@@ -20,6 +21,12 @@ class DashboardBadgeManager {
         // Load update badge (admin only — element only exists for admins)
         if (this.updateAvailableBadge) {
             this.checkUpdateAvailable();
+        }
+
+        // Load feed badge
+        if (this.feedNewBadge) {
+            this.checkFeedUpdates();
+            setInterval(() => this.checkFeedUpdates(), 60000);
         }
     }
 
@@ -51,6 +58,26 @@ class DashboardBadgeManager {
             }
         } catch (error) {
             // Silently fail — update check is non-critical
+        }
+    }
+
+    async checkFeedUpdates() {
+        try {
+            const response = await fetch('/api/follow/feed-updates');
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (!data.success) return;
+
+            const newCount = (data.items || []).filter(item => item.has_new).length;
+            if (newCount > 0) {
+                this.feedNewBadge.textContent = newCount;
+                this.feedNewBadge.classList.remove('d-none');
+            } else {
+                this.feedNewBadge.classList.add('d-none');
+            }
+        } catch (error) {
+            // Silently fail — feed check is non-critical
         }
     }
 

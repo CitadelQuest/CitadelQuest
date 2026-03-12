@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const dsIcons = ['mdi-eye-off', 'mdi-eye', 'mdi-eye-plus'];
             const dsLabels = ['{{ 'cq_share.display_style_off'|trans }}', '{{ 'cq_share.display_style_preview'|trans }}', '{{ 'cq_share.display_style_full'|trans }}'];
             const dsColors = ['text-secondary', 'text-info', 'text-success'];
-            const descSnippet = (s.description || '').length > 60 ? s.description.substring(0, 60) + '…' : (s.description || '');
+            const descSnippet = '';//(s.description || '').length > 60 ? s.description.substring(0, 60) + '…' : (s.description || '');
             const activeClass = s.is_active == 1 ? '' : 'opacity-50';
             const activeBadge = s.is_active == 1
                 ? '<i class="mdi mdi-check-circle text-success" title="{{ 'cq_share.filter_active'|trans }}"></i>'
@@ -326,19 +326,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <span class="text-muted" title="{{ 'cq_share.field_display_style'|trans }}"><i class="mdi ${dsIcons[ds]} me-1 ${dsColors[ds]}"></i>${dsLabels[ds]}</span>
                             </div>
                             ${descSnippet ? `<div class="small text-muted text-truncate mb-1" title="${s.description}"><i class="mdi mdi-text me-1"></i>${descSnippet}</div>` : ''}
-                            <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="d-flex_ d-none align-items-center gap-2 mb-2">
                                 <code class="small flex-grow-1 text-truncate" title="${shareLink}" style="cursor: pointer;" onclick="copyToClipboard('${shareLink}')">${shareLink}</code>
+                                
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
                                 <button class="btn btn-sm btn-outline-cyber" onclick="copyToClipboard('${shareLink}')" title="Copy link">
                                     <i class="mdi mdi-content-copy"></i>
                                 </button>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
                                 <small class="text-muted"><i class="mdi mdi-clock-outline me-1"></i>${updatedAt}</small>
                                 <div class="d-flex align-items-center gap-2">
                                     
                                     <div class="btn-group btn-group-sm">
                                     ${s.source_file_name ? `<button class="btn btn-sm btn-outline-secondary view-share" data-source-type="${s.source_type}" data-file-path="${s.source_file_path || ''}" data-file-name="${s.source_file_name}">
-                                        <i class="mdi mdi-eye"></i>
+                                        <i class="mdi ${isCqmpack ? `mdi-graph text-info` : `mdi-folder-file text-warning`} opacity-75"></i>
                                     </button>` : ''}
                                         <button class="btn btn-sm btn-outline-secondary edit-share" data-share-id="${s.id}" data-bs-toggle="modal" data-bs-target="#editShareModal" title="Edit">
                                             <i class="mdi mdi-pencil"></i>

@@ -163,6 +163,20 @@ class CQShareService
     }
 
     /**
+     * Get the most recent updated_at from public shares.
+     * Used by federation last-updated endpoint for feed polling.
+     */
+    public function getLastPublicShareUpdatedAt(): ?string
+    {
+        $db = $this->getUserDb();
+        $result = $db->executeQuery(
+            'SELECT MAX(updated_at) FROM cq_share WHERE is_active = 1 AND scope = ?',
+            [self::SCOPE_PUBLIC]
+        )->fetchOne();
+        return $result ?: null;
+    }
+
+    /**
      * Update share properties
      */
     public function update(string $id, array $data): ?array

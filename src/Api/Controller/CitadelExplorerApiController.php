@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\CqContactService;
+use App\Service\CQFollowService;
 use App\Service\ProjectFileService;
 use App\Service\CQMemoryLibraryService;
 use App\Service\CQMemoryPackService;
@@ -34,6 +35,7 @@ class CitadelExplorerApiController extends AbstractController
         private readonly CQMemoryLibraryService $memoryLibraryService,
         private readonly CQMemoryPackService $memoryPackService,
         private readonly CqContactService $cqContactService,
+        private readonly CQFollowService $followService,
         private readonly SluggerInterface $slugger
     ) {}
 
@@ -104,6 +106,18 @@ class CitadelExplorerApiController extends AbstractController
             $profile['is_contact'] = $existingContact !== null;
             $profile['contact_id'] = $existingContact?->getId();
             $profile['contact_status'] = $existingContact?->getFriendRequestStatus();
+
+            // Enrich with follow status
+            $cqContactId = $profile['cq_contact_id'] ?? null;
+            if ($cqContactId) {
+                try {
+                    $profile['is_following'] = $this->followService->isFollowing($cqContactId);
+                } catch (\Exception $e) {
+                    $profile['is_following'] = false;
+                }
+            } else {
+                $profile['is_following'] = false;
+            }
 
             return $this->json($profile);
         } catch (\Exception $e) {
@@ -186,6 +200,21 @@ class CitadelExplorerApiController extends AbstractController
                 'contact_id' => $contactId,
                 'contact_status' => $contact->getFriendRequestStatus(),
             ];
+
+            // Add cq_contact_id from federation response if available
+            $cqContactId = $fedData['cq_contact_id'] ?? null;
+            if ($cqContactId) {
+                $profile['cq_contact_id'] = $cqContactId;
+                try {
+                    $profile['is_following'] = $this->followService->isFollowing($cqContactId);
+                } catch (\Exception $e) {
+                    $profile['is_following'] = false;
+                }
+            } else {
+                $profile['is_following'] = false;
+            }
+
+            $profile['follower_count'] = $fedData['follower_count'] ?? 0;
 
             return $this->json($profile);
         } catch (\Exception $e) {

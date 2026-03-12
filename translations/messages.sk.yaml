@@ -566,6 +566,8 @@ dashboard:
     settings_description: 'Nakonfigurujte svoj CitadelQuest'
     backup_description: 'Vytvárajte a obnovujte zálohy'
     memory_description: 'Skúmajte a spravujte vaše znalostné grafy'
+    feed_description: 'Sledujte profily a ich novinky'
+    profile_description: 'Upravte si svoj verejný profil'
     admin_description: 'Administrácia Citadely'
 
 cq_memory:
@@ -1257,3 +1259,18 @@ cq_chat:
     selected: 'Vybraných'
     create_group: 'Vytvoriť chat'
     cancel: 'Zrušiť'
+
+feed:
+    title: 'CQ Novinky'
+    follow: 'Sledovať'
+    following: 'Sledované'
+    unfollow: 'Prestať sledovať'
+    followers: 'Sledovatelia'
+    following_feed: 'Sledované'
+    followers_feed: 'Sledovatelia'
+    loading: 'Načítavam...'
+    no_following: 'Zatiaľ nikoho nesledujete'
+    no_followers: 'Zatiaľ nemáte žiadnych sledovateľov'
+    new_content: 'Nové'
+    follow_success: 'Sledujete!'
+    unfollow_success: 'Prestali ste sledovať'

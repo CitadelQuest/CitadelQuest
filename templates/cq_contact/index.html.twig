@@ -41,6 +41,21 @@
                 copy_link: '{{ "citadel_explorer.copy_link"|trans }}',
                 link_copied: '{{ "citadel_explorer.link_copied"|trans }}',
                 contact_shared_items: '{{ "citadel_explorer.contact_shared_items"|trans }}',
+                follow: '{{ "feed.follow"|trans }}',
+                following: '{{ "feed.following"|trans }}',
+                follow_success: '{{ "feed.follow_success"|trans }}',
+                unfollow_success: '{{ "feed.unfollow_success"|trans }}',
+            }
+        };
+        window.explorerSidebarConfig = {
+            translations: {
+                following: '{{ "feed.following"|trans }}',
+                followers: '{{ "feed.followers"|trans }}',
+                contacts: '{{ "cq_contact.page_title"|trans }}',
+                no_following: '{{ "feed.no_following"|trans }}',
+                no_followers: '{{ "feed.no_followers"|trans }}',
+                no_contacts: '{{ "cq_contact.no_contacts"|trans }}',
+                friend_request_updated: '{{ "cq_contact.friend_request_updated"|trans }}',
             }
         };
     </script>
@@ -48,17 +63,11 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-1">
+<div class="container-fluid mt-1 px-md-4">
     <div class="row">
-        <div class="col-12">
-            <div class="glass-panel_p-4 pt-1">
-                {# <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h1 class="h6 mb-0">
-                        <i class="mdi mdi-account-group me-2 text-cyber"></i>
-                        {{ 'cq_contact.page_title'|trans }}
-                    </h1>
-                </div> #}
-
+        {# ===== Main Content — CQ Explorer ===== #}
+        <div class="col-md-9 col-12">
+            <div class="pt-1">
                 {# Citadel Explorer — URL input #}
                 <div class="mb-4">
                     <div class="input-group input-group-sm">
@@ -74,30 +83,47 @@
 
                 {# Citadel Explorer — profile preview container #}
                 <div id="explorerPreview" class="d-none mb-5"></div>
+            </div>
+        </div>
 
-                {# Contacts list — search & filter #}
-                <div class="row mb-3 d-none" id="contactsFilterRow">
-                    <div class="col-md-6 mb-2">
-                        <div class="input-group">
-                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify text-cyber"></i></span>
-                            <input type="text" id="contactSearch" class="form-control glass-input" placeholder="{{ 'cq_contact.search_placeholder'|trans }}">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <select id="statusFilter" class="form-select glass-input">
-                            <option value="">{{ 'cq_contact.filter_all'|trans }}</option>
-                            <option value="active">{{ 'cq_contact.filter_active'|trans }}</option>
-                            <option value="pending">{{ 'cq_contact.filter_pending'|trans }}</option>
-                            <option value="rejected">{{ 'cq_contact.filter_rejected'|trans }}</option>
-                        </select>
-                    </div>
+        {# ===== Sidebar — Following / Followers / Contacts ===== #}
+        <div class="col-md-3 col-12">
+            {# CQ Contacts #}
+            <div class="mb-3 glass-panel p-2">
+                <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="contacts">
+                    <i class="mdi mdi-account-multiple me-2 text-success"></i>
+                    <span class="small fw-bold text-light opacity-75">{{ 'cq_contact.page_title'|trans }}</span>
+                    <span class="badge bg-success bg-opacity-25 text-success ms-auto" id="sidebarContactsCount">0</span>
+                    <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
                 </div>
+                <div id="sidebarContactsList" style="max-height: 350px; overflow-y: auto;">
+                    <div class="text-center py-2"><i class="mdi mdi-loading mdi-spin text-cyber small"></i></div>
+                </div>
+            </div>
 
-                <div id="contactsContainer">
-                    <div class="text-center py-5">
-                        <i class="mdi mdi-loading mdi-spin text-cyber fs-2"></i>
-                        <p class="mt-2">{{ 'cq_contact.loading'|trans }}</p>
-                    </div>
+            {# Following #}
+            <div class="mb-3 glass-panel p-2">
+                <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="following">
+                    <i class="mdi mdi-rss me-2 text-warning"></i>
+                    <span class="small fw-bold text-light opacity-75">{{ 'feed.following'|trans }}</span>
+                    <span class="badge bg-warning bg-opacity-25 text-warning ms-auto" id="sidebarFollowingCount">0</span>
+                    <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
+                </div>
+                <div id="sidebarFollowingList" style="max-height: 280px; overflow-y: auto;">
+                    <div class="text-center py-2"><i class="mdi mdi-loading mdi-spin text-cyber small"></i></div>
+                </div>
+            </div>
+
+            {# Followers #}
+            <div class="mb-3 glass-panel p-2">
+                <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="followers">
+                    <i class="mdi mdi-account-group me-2 text-info"></i>
+                    <span class="small fw-bold text-light opacity-75">{{ 'feed.followers'|trans }}</span>
+                    <span class="badge bg-info bg-opacity-25 text-info ms-auto" id="sidebarFollowersCount">0</span>
+                    <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
+                </div>
+                <div id="sidebarFollowersList" style="max-height: 280px; overflow-y: auto;">
+                    <div class="text-center py-2"><i class="mdi mdi-loading mdi-spin text-cyber small"></i></div>
                 </div>
             </div>
         </div>
@@ -152,264 +178,22 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const contactsContainer = document.getElementById('contactsContainer');
-    const contactSearch = document.getElementById('contactSearch');
-    const statusFilter = document.getElementById('statusFilter');
-    const contactsFilterRow = document.getElementById('contactsFilterRow');
-
-    let contacts = [];
-
-    // Load contacts
-    function loadContacts() {
-        fetch('/api/cq-contact')
-            .then(response => response.json())
-            .then(data => {
-                contacts = data;
-                renderContacts();
-            })
-            .catch(error => {
-                console.error('Error loading contacts:', error);
-                contactsContainer.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="mdi mdi-alert me-2"></i>{{ 'cq_contact.error_loading'|trans }}
-                    </div>
-                `;
-            });
-    }
-
-    // Render contacts
-    function renderContacts() {
-        const searchTerm = contactSearch.value.toLowerCase();
-        const statusFilterValue = statusFilter.value;
-
-        let filteredContacts = contacts.filter(contact => {
-            const matchesSearch = contact.cqContactUsername.toLowerCase().includes(searchTerm) ||
-                                contact.cqContactDomain.toLowerCase().includes(searchTerm) ||
-                                (contact.description && contact.description.toLowerCase().includes(searchTerm));
-            
-            let matchesStatus = true;
-            if (statusFilterValue === 'active') {
-                matchesStatus = contact.isActive && contact.friendRequestStatus === 'ACCEPTED';
-            } else if (statusFilterValue === 'pending') {
-                matchesStatus = contact.friendRequestStatus === 'SENT' || contact.friendRequestStatus === 'RECEIVED';
-            } else if (statusFilterValue === 'rejected') {
-                matchesStatus = contact.friendRequestStatus === 'REJECTED';
-            }
-
-            return matchesSearch && matchesStatus;
-        });
-
-        if (filteredContacts.length === 0) {
-            contactsFilterRow.classList.add('d-none');
-            let emptyHtml = `
-                <div class="text-center py-1 pt-2 glass-panel">
-                    <i class="mdi mdi-account-off text-light opacity-75 fs-2"></i>
-                    <p class="mt-2 text-light opacity-75">{{ 'cq_contact.no_contacts'|trans }}</p>
-                </div>`;
-            // Show tip only when there are truly no contacts (not just filtered out)
-            if (contacts.length === 0) {
-                emptyHtml += `
-                <div class="glass-panel p-4 mt-2 rounded">
-                    <h6 class="text-cyber mb-2"><i class="mdi mdi-lightbulb-on me-2"></i>{{ 'cq_explorer.tip_empty_title'|trans }}</h6>
-                    <p class="text-light small mb-3">{{ 'cq_explorer.tip_empty_text'|trans }}</p>
-                    <a href="/cq-contacts?url=https://one.citadelquest.world/Human/share/CQ-User-Manual.cqmpack" class="btn btn-sm btn-cyber">
-                        <i class="mdi mdi-book-open-page-variant me-2"></i>{{ 'cq_explorer.tip_empty_cta'|trans }}
-                    </a>
-                </div>`;
-            }
-            contactsContainer.innerHTML = emptyHtml;
-            return;
-        }
-
-        contactsFilterRow.classList.remove('d-none');
-
-        const contactsHtml = filteredContacts.map(contact => {
-            const statusBadge = getStatusBadge(contact.friendRequestStatus, contact.isActive);
-            const photoHtml = `
-                <img src="/api/cq-contact/${contact.id}/profile-photo" 
-                     alt="${contact.cqContactUsername}"
-                     class="rounded-circle border border-2 border-success"
-                     style="width: 40px; height: 40px; object-fit: cover;"
-                     onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');">
-                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
-                     style="width: 40px; height: 40px; background: rgba(255,255,255,0.05);">
-                    <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 20px;"></i>
-                </div>
-            `;
-            return `
-                <div class="col-12 col-md-6 col-lg-4 col-xl-3 mb-3">
-                    <div class="card glass-panel h-100 contact-card" data-contact-id="${contact.id}">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="card-title mb-0">
-                                    <a href="/cq-contacts?url=${encodeURIComponent(contact.cqContactUrl)}" class="text-decoration-none text-light d-flex align-items-center">
-                                        ${photoHtml}
-                                        <span class="ms-2">${contact.cqContactUsername}</span>
-                                    </a>
-                                </h6>
-                                ${statusBadge}
-                            </div>
-                            <p class="card-text text-muted small mb-2">
-                                <i class="mdi mdi-web me-1 text-cyber opacity-50"></i>
-                                ${contact.cqContactUrl}
-                            </p>
-                            ${contact.description ? `<p class="card-text text-muted small mb-3"><i class="mdi mdi-text-account me-1 text-cyber opacity-50"></i>${contact.description.length > 200 ? contact.description.substring(0, 200) + '...' : contact.description}</p>` : '<div class="mb-3"></div>'}
-                            <div class="d-flex justify-content-end">
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary view-contact" 
-                                            data-contact-id="${contact.id}"
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#contactDetailModal"
-                                            title="{{ 'cq_contact.view_details'|trans }}">
-                                        <i class="mdi mdi-account-details"></i>
-                                    </button>
-                                    ${getActionButtons(contact)}
-                                    <button type="button" class="btn btn-sm btn-outline-danger delete-contact" 
-                                            data-contact-id="${contact.id}"
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#deleteContactModal"
-                                            title="{{ 'ui.delete'|trans }}">
-                                        <i class="mdi mdi-account-minus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        contactsContainer.innerHTML = '<div class="row">' + contactsHtml + '</div>';
-
-        // Add event listeners for view contact buttons
-        document.querySelectorAll('.view-contact').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const contactId = e.target.closest('.view-contact').dataset.contactId;
-                showContactDetail(contactId);
-            });
-        });
-
-        document.querySelectorAll('.accept-request').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const contactId = e.target.closest('.accept-request').dataset.contactId;
-                handleFriendRequest(contactId, 'ACCEPTED');
-            });
-        });
-
-        document.querySelectorAll('.reject-request').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const contactId = e.target.closest('.reject-request').dataset.contactId;
-                handleFriendRequest(contactId, 'REJECTED');
-            });
-        });
-
-        // Add event listeners for delete contact buttons
-        document.querySelectorAll('.delete-contact').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const contactId = e.target.closest('.delete-contact').dataset.contactId;
-                // Store the contact ID for deletion when modal opens
-                document.getElementById('confirmDeleteContact').dataset.contactId = contactId;
-            });
-        });
-    }
-
-    function getStatusBadge(status, isActive) {
-        if (status === 'ACCEPTED' && isActive) {
-            return '<span class="badge bg-success opacity-50 mb-2"><i class="mdi mdi-check"></i></span>';
-        } else if (status === 'SENT') {
-            return '<span class="badge bg-warning mb-2"><i class="mdi mdi-clock me-1"></i>{{ "cq_contact.status_sent"|trans }}</span>';
-        } else if (status === 'RECEIVED') {
-            return '<span class="badge bg-info mb-2"><i class="mdi mdi-inbox me-1"></i>{{ "cq_contact.status_received"|trans }}</span>';
-        } else if (status === 'REJECTED') {
-            return '<span class="badge bg-danger mb-2"><i class="mdi mdi-close me-1"></i>{{ "cq_contact.status_rejected"|trans }}</span>';
-        }
-        return '<span class="badge bg-secondary mb-2">{{ "cq_contact.status_unknown"|trans }}</span>';
-    }
-
-    function getActionButtons(contact) {
-        if (contact.friendRequestStatus === 'RECEIVED') {
-            return `
-                <button type="button" class="btn btn-sm btn-success accept-request" data-contact-id="${contact.id}">
-                    <i class="mdi mdi-check"></i>
-                </button>
-                <button type="button" class="btn btn-sm btn-danger reject-request" data-contact-id="${contact.id}">
-                    <i class="mdi mdi-close"></i>
-                </button>
-            `;
-        }
-        return '';
-    }
-
-    function showContactDetail(contactId) {
-        const contact = contacts.find(c => c.id === contactId);
-        if (!contact) return;
-
-        document.getElementById('contactDetailContent').innerHTML = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>{{ 'cq_contact.contact_info'|trans }}</h6>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-account me-2 text-cyber"></i> {{ 'cq_contact.username'|trans }}:
-                        </strong>
-                        <span class="ms-3">${contact.cqContactUsername}</span>
-                        </p>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-web me-2 text-cyber"></i> {{ 'cq_contact.domain'|trans }}:
-                        </strong>
-                        <span class="ms-3">${contact.cqContactDomain}</span>
-                    </p>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-web me-2 text-cyber"></i> {{ 'cq_contact.url'|trans }}:
-                        </strong>
-                        <span class="ms-3"><a href="${contact.cqContactUrl}" target="_blank">${contact.cqContactUrl}</a></span>
-                    </p>
-                    <p>
-                        ${getStatusBadge(contact.friendRequestStatus, contact.isActive)}
-                    </p>
-                </div>
-                <div class="col-md-6">
-                    <h6>{{ 'cq_contact.additional_info'|trans }}</h6>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-text-account me-2 text-cyber"></i> {{ 'cq_contact.description'|trans }}:
-                        </strong>
-                        <span class="ms-3">${contact.description || '{{ "ui.none"|trans }}'}</span>
-                    </p>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-clock me-2 text-cyber"></i> {{ 'cq_contact.created_at'|trans }}:
-                        </strong>
-                        <span class="ms-3">${new Date(contact.createdAt).toLocaleString()}</span>
-                    </p>
-                    <p>
-                        <strong class="w-100 d-inline-block">
-                            <i class="mdi mdi-clock me-2 text-cyber"></i> {{ 'cq_contact.updated_at'|trans }}:
-                        </strong>
-                        <span class="ms-3">${new Date(contact.updatedAt).toLocaleString()}</span>
-                    </p>
-                </div>
-            </div>
-        `;
-
-        // Modal will be triggered by the data-bs-toggle attribute on the button
-    }
-
+    // Delete contact handler (used by delete confirmation modal)
     function deleteContact(contactId) {
-        fetch(`/api/cq-contact/${contactId}`, {
+        fetch('/api/cq-contact/' + contactId, {
             method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            headers: { 'Content-Type': 'application/json' }
         })
         .then(response => response.json())
         .then(data => {
             if (data) {
                 window.toast.success('{{ "cq_contact.contact_deleted"|trans }}');
-                loadContacts();
-                // Hide the modal using Bootstrap's data-bs-dismiss
+                // Refresh sidebar contacts
+                if (window.explorerSidebar) {
+                    window.explorerSidebar.loadContacts().then(() => {
+                        window.explorerSidebar.renderContactsSidebar();
+                    });
+                }
                 document.querySelector('#deleteContactModal [data-bs-dismiss="modal"]').click();
             } else {
                 window.toast.error(data.message || '{{ "cq_contact.error_deleting"|trans }}');
@@ -421,48 +205,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function handleFriendRequest(contactId, status) {
-        fetch(`/api/cq-contact/${contactId}/friend-request`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                friendRequestStatus: status
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                window.toast.success('{{ "cq_contact.friend_request_updated"|trans }}');
-                loadContacts();
-            } else {
-                window.toast.error(data.message || data.error || '{{ "cq_contact.error_updating"|trans }}');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating friend request:', error);
-            window.toast.error(error.message || error.error || '{{ "cq_contact.error_updating"|trans }}');
-        });
-    }
-
-    // Delete confirmation button event listener
+    // Delete confirmation button
     document.getElementById('confirmDeleteContact').addEventListener('click', function() {
         const contactId = this.dataset.contactId;
-        if (contactId) {
-            deleteContact(contactId);
-        }
+        if (contactId) deleteContact(contactId);
     });
 
     // Expose loadContacts globally so CitadelExplorer can refresh after adding contact
-    window.loadContacts = loadContacts;
-
-    // Search and filter event listeners
-    contactSearch.addEventListener('input', renderContacts);
-    statusFilter.addEventListener('change', renderContacts);
-
-    // Initial load
-    loadContacts();
+    window.loadContacts = function() {
+        if (window.explorerSidebar) {
+            window.explorerSidebar.loadContacts().then(() => {
+                window.explorerSidebar.renderContactsSidebar();
+            });
+        }
+    };
 });
 </script>
 {% endblock %}

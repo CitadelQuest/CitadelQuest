@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Service\CqContactService;
+use App\Service\CQFollowService;
 use App\Service\CQShareGroupService;
 use App\Service\CQShareService;
 use App\Service\ProjectFileService;
@@ -34,6 +35,7 @@ class CQProfileController extends AbstractController
     public function __construct(
         private readonly SettingsService $settingsService,
         private readonly CqContactService $cqContactService,
+        private readonly CQFollowService $followService,
         private readonly CQShareService $shareService,
         private readonly CQShareGroupService $shareGroupService,
         private readonly ProjectFileService $projectFileService,
@@ -258,8 +260,16 @@ class CQProfileController extends AbstractController
         $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
         $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
 
+        // Follower count
+        $followerCount = 0;
+        try {
+            $this->followService->setUser($user);
+            $followerCount = $this->followService->getFollowerCount();
+        } catch (\Exception $e) {}
+
         $response = [
             'success' => true,
+            'cq_contact_id' => $user->getId()->toRfc4122(),
             'username' => $username,
             'domain' => $domain,
             'bio' => $bio,
@@ -267,6 +277,7 @@ class CQProfileController extends AbstractController
             'profile_url' => 'https://' . $domain . '/' . $username,
             'background_url' => !empty($customBgFileId) ? ('https://' . $domain . '/' . $username . '/background') : null,
             'bg_overlay' => $bgOverlay,
+            'follower_count' => $followerCount,
         ];
 
         // Profile Content (share groups) — independent from old shares
@@ -510,10 +521,19 @@ class CQProfileController extends AbstractController
             // Build response based on user's federation visibility settings
             $domain = $request->getHost();
             
+            // Follower count
+            $followerCount = 0;
+            try {
+                $this->followService->setUser($user);
+                $followerCount = $this->followService->getFollowerCount();
+            } catch (\Exception $e) {}
+
             $response = [
                 'success' => true,
+                'cq_contact_id' => $user->getId()->toRfc4122(),
                 'username' => $username,
                 'domain' => $domain,
+                'follower_count' => $followerCount,
             ];
 
             // Bio — only include if federation sharing is enabled
