@@ -679,3 +679,19 @@ div[data-type="tool_calls_frontend_data"] pre
         }
     }
 }
+
+.sidebarContactsList,
+.sidebarFollowersList,
+.sidebarFollowingList {
+    max-height: 30vh;
+    overflow-y: auto;
+    @include mix.cyber-scrollbar;
+}
+.sidebarFollowersList {
+    max-height: 20vh;
+}
+.sidebarFollowingList {
+    max-height: 15vh;
+    overflow-y: auto;
+    @include mix.cyber-scrollbar;
+}
