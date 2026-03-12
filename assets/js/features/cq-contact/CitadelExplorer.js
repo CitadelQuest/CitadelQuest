@@ -255,13 +255,13 @@ export class CitadelExplorer {
         if (p.cq_contact_id) {
             const isFollowing = p.is_following || false;
             followActionHtml = `
-                <button class="btn btn-sm ${isFollowing ? 'btn-warning' : 'btn-outline-warning'}" id="explorerFollowBtn"
+                <button class="btn btn-sm ${isFollowing ? 'btn-warning opacity-75' : 'btn-outline-warning'}" id="explorerFollowBtn"
                         data-cq-contact-id="${p.cq_contact_id}"
                         data-cq-contact-url="${p.profile_url || ''}"
                         data-cq-contact-domain="${p.domain || ''}"
                         data-cq-contact-username="${p.username || ''}"
                         data-following="${isFollowing ? '1' : '0'}">
-                    <i class="mdi ${isFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${isFollowing ? this.t('following', 'Following') : this.t('follow', 'Follow')}</span>
+                    <i class="mdi ${isFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${isFollowing ? ''/* this.t('following', 'Following') */ : this.t('follow', 'Follow')}</span>
                 </button>`;
         }
 
@@ -1316,7 +1316,7 @@ export class CitadelExplorer {
                 const nowFollowing = !isFollowing;
                 btn.dataset.following = nowFollowing ? '1' : '0';
                 btn.className = `btn btn-sm ${nowFollowing ? 'btn-success' : 'btn-outline-success'}`;
-                btn.innerHTML = `<i class="mdi ${nowFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${nowFollowing ? this.t('following', 'Following') : this.t('follow', 'Follow')}</span>`;
+                btn.innerHTML = `<i class="mdi ${nowFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${nowFollowing ? ''/* this.t('following', 'Following') */ : this.t('follow', 'Follow')}</span>`;
                 window.toast?.success(nowFollowing ? this.t('follow_success', 'Following!') : this.t('unfollow_success', 'Unfollowed'));
             } else {
                 throw new Error(data.error || 'Failed');

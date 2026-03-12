@@ -654,7 +654,7 @@ div[data-type="tool_calls_frontend_data"] pre
     }
     &.sidebar-active {
         background: rgba(colors.$cyber, 0.12);
-        border-right: 2px solid colors.$cyber;
+        border-left: 2px solid colors.$cyber;
     }
 }
 
