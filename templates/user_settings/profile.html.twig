@@ -31,7 +31,7 @@
         <div class="col-md-9">
             <div class="glass-panel">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
-                    <h4 class="mb-0"><i class="mdi mdi-account-circle me-3"></i>{{ 'profile.settings.title'|trans|default('Profile') }}</h4>
+                    <h4 class="mb-0"><i class="mdi mdi-account-circle me-3 text-cyber"></i>{{ 'profile.settings.title'|trans|default('Profile') }}</h4>
                 </div>
                 <div class="p-4" id="profile-settings"
                      data-save-url="{{ path('app_user_settings_profile_save') }}"
@@ -57,7 +57,7 @@
                     {# Profile Photo #}
                     <div class="row mb-4">
                         <div class="col-12 mb-3">
-                            <h6><i class="mdi mdi-camera me-2"></i>{{ 'profile.settings.photo'|trans|default('Profile Photo') }}</h6>
+                            <h6><i class="mdi mdi-camera me-2 text-cyber"></i>{{ 'profile.settings.photo'|trans|default('Profile Photo') }}</h6>
                         </div>
                         <div class="col-12">
                             <div class="d-flex align-items-center">
@@ -93,7 +93,7 @@
                     {# Bio #}
                     <div class="row mb-4">
                         <div class="col-12 mb-3">
-                            <h6><i class="mdi mdi-text me-2"></i>{{ 'profile.settings.bio_label'|trans|default('Bio') }}</h6>
+                            <h6><i class="mdi mdi-text me-2 text-cyber"></i>{{ 'profile.settings.bio_label'|trans|default('Bio') }}</h6>
                         </div>
                         <div class="col-12">
                             <textarea id="profile-bio" class="form-control border-secondary" rows="5" 
@@ -200,7 +200,7 @@
                                 {# Language #}
                                 <div class="mb-3">
                                     <label class="form-label text-light" for="profile-public-locale">
-                                        <i class="mdi mdi-translate me-2"></i>{{ 'profile.settings.public_locale'|trans|default('Language') }}
+                                        <i class="mdi mdi-translate me-2 text-cyber"></i>{{ 'profile.settings.public_locale'|trans|default('Language') }}
                                     </label>
                                     <p class="text-muted small mb-2">{{ 'profile.settings.public_locale_desc'|trans|default('Language used on your public profile page.') }}</p>
                                     <select class="form-select form-select-sm bg-dark text-light border-secondary" id="profile-public-locale"
@@ -220,7 +220,7 @@
                                 <hr class="border-secondary border-opacity-25">
 
                                 {# Theme Selection #}
-                                <h6 class="mt-3 mb-2"><i class="mdi mdi-palette me-2"></i>{{ 'profile.settings.public_theme'|trans|default('Page Theme') }}</h6>
+                                <h6 class="mt-3 mb-2"><i class="mdi mdi-palette me-2 text-cyber"></i>{{ 'profile.settings.public_theme'|trans|default('Page Theme') }}</h6>
                                 <p class="text-muted small mb-2">{{ 'profile.settings.public_theme_desc'|trans|default('Choose a background theme for your public profile page.') }}</p>
                                 <div id="profile-theme-previews" class="d-flex flex-wrap gap-2 mb-2"
                                      data-current-theme="{{ settings['profile.public_page_theme']|default('') }}"></div>
@@ -228,7 +228,7 @@
                                 <hr class="border-secondary border-opacity-25">
 
                                 {# Custom Background Image #}
-                                <h6 class="mt-3 mb-2"><i class="mdi mdi-image me-2"></i>{{ 'profile.settings.custom_bg'|trans|default('Custom Background Image') }}</h6>
+                                <h6 class="mt-3 mb-2"><i class="mdi mdi-image me-2 text-cyber"></i>{{ 'profile.settings.custom_bg'|trans|default('Custom Background Image') }}</h6>
                                 <p class="text-muted small mb-2">{{ 'profile.settings.custom_bg_desc'|trans|default('Upload your own background image for your public profile page. Overrides the selected theme.') }}</p>
                                 <div class="d-flex align-items-center mb-3">
                                     <div id="profile-bg-preview" class="me-4">
@@ -263,7 +263,7 @@
                                     <input class="form-check-input" type="checkbox" id="profile-bg-overlay"
                                            {% if settings['profile.public_page_bg_overlay']|default('1') == '1' %}checked{% endif %}>
                                     <label class="form-check-label text-light" for="profile-bg-overlay">
-                                        <i class="mdi mdi-texture me-2"></i>{{ 'profile.settings.bg_overlay'|trans|default('Background Overlay') }}
+                                        <i class="mdi mdi-texture me-2 text-cyber"></i>{{ 'profile.settings.bg_overlay'|trans|default('Background Overlay') }}
                                     </label>
                                     <p class="text-muted small mb-0 ms-4">{{ 'profile.settings.bg_overlay_desc'|trans|default('Add a dark overlay on top of the background image for better text readability.') }}</p>
                                 </div>

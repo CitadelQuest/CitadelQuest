@@ -287,6 +287,11 @@ class CitadelExplorerApiController extends AbstractController
             return new Response('', Response::HTTP_BAD_REQUEST);
         }
 
+        // Forward ?full=1 for fullscreen modal
+        if ($request->query->get('full') === '1') {
+            $photoUrl .= (str_contains($photoUrl, '?') ? '&' : '?') . 'full=1';
+        }
+
         try {
             $response = $this->httpClient->request('GET', $photoUrl, [
                 'headers' => [

@@ -19,6 +19,13 @@
 @use "./components/_ai-model-selector";
 @use "./notifications";
 
+.btn.btn-sm
+ {
+    padding: 0.2rem 0.6rem !important;
+    font-size: 0.8rem !important;
+    padding-top: 0.3rem !important;
+}
+
 // Glass panel hover effect
 .glass-panel {
     .bg-cyber-g {

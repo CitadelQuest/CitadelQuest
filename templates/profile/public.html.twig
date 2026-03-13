@@ -99,10 +99,12 @@
                         {# Profile Photo #}
                         <div class="me-3 me-md-4 flex-shrink-0">
                             {% if profile_has_photo %}
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#profilePhotoModal" style="cursor: pointer;">
                                 <img src="{{ path('cq_profile_photo', {username: profile_username}) }}" 
                                      alt="{{ profile_username }}" 
                                      class="rounded-circle border border-2 border-success"
                                      style="width: 96px; height: 96px; object-fit: cover;">
+                                </a>
                             {% else %}
                                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
                                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
@@ -193,13 +195,13 @@
             {# Navigation panel — single row with group links #}
             {% set navGroups = profile_share_groups|default([])|filter(g => g.show_in_nav and g.items|default([])|length > 0) %}
             {% if navGroups|length > 0 %}
-            <div class="mb-3">
+            <div class="mb-2 px-2" id="profile-content-nav">
                 <div class="card-body">
                     <div class="d-flex align-items-center flex-wrap gap-2">
                         {% for group in navGroups %}
                         {% set isActive = profile_active_group is not null and group.id == profile_active_group.id %}
                         {% set groupUrl = path('cq_profile_public_group', {username: profile_username, groupSlug: group.url_slug|default(group.id)}) %}
-                        <a href="{{ groupUrl }}" class="text-decoration-none">
+                        <a href="{{ groupUrl }}" class="text-decoration-none mb-2">
                             <span class="glass-panel {{ isActive ? 'bg-success bg-opacity-25' : '' }} py-2 px-3" style="font-size: 0.85rem;">
                                 <i class="mdi {{ group.mdi_icon|default('mdi-folder') }} me-1" style="color: {{ group.icon_color|default('#95ec86') }};"></i>
                                 <span class="{{ isActive ? 'text-cyber' : 'text-light opacity-75' }}">{{ group.title }}</span>
@@ -382,6 +384,25 @@
         </div>
     </div>
 </div>
+
+{% if profile_has_photo %}
+{# Photo Fullscreen Modal #}
+<div class="modal fade" id="profilePhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content glass-panel border-0" style="background: transparent;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-circle me-2"></i>{{ profile_username }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-4">
+                <img src="{{ path('cq_profile_photo', {username: profile_username}) }}?full=1" alt="{{ profile_username }}" 
+                     class="rounded-circle border border-2 border-success"
+                     style="max-width: 90vw; max-height: 75vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block javascripts %}
@@ -429,6 +450,14 @@
                 this.textContent = expanded ? this.dataset.showMore : this.dataset.showLess;
             });
         });
+        // Profile photo fullscreen modal — handled via data-bs-toggle/data-bs-target attributes
+        // Scroll to content navigation if a specific group was requested via URL
+        {% if profile_active_group_slug is defined and profile_active_group_slug is not null %}
+        const navEl = document.getElementById('profile-content-nav');
+        if (navEl) {
+            navEl.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
+        {% endif %}
     });
     </script>
 {% endblock %}

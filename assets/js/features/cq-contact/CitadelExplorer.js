@@ -34,6 +34,7 @@ export class CitadelExplorer {
         this.addToLibPackName = null;
 
         this.md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+        this._originalTitle = document.title;
 
         this.init();
     }
@@ -158,16 +159,20 @@ export class CitadelExplorer {
             // Save URL to localStorage on successful explore
             localStorage.setItem('citadelExplorerUrl', url);
 
-            // Notify sidebar to highlight active item
-            if (window.explorerSidebar) {
-                window.explorerSidebar.highlightActiveItem(url);
-            }
-
             // Share URL → show only that share item; otherwise full profile
             if (this.highlightShareUrl) {
                 await this.renderShareOnly();
             } else {
                 await this.renderProfile();
+            }
+
+            // Notify sidebar to highlight active item (after render completes)
+            if (window.explorerSidebar) {
+                window.explorerSidebar.highlightActiveItem(url);
+                // Also try canonical profile_url from response in case it differs
+                if (data.profile_url && data.profile_url !== url) {
+                    window.explorerSidebar.highlightActiveItem(data.profile_url);
+                }
             }
         } catch (error) {
             console.error('Explorer fetch error:', error);
@@ -189,14 +194,28 @@ export class CitadelExplorer {
         const p = this.profile;
         const profileLink = p.profile_url || this.profileUrl;
 
+        // Update page title with profile info
+        if (p.username) {
+            const baseTitle = document.title.replace(/^.*?\s-\s/, '');
+            document.title = `${p.username} / ${p.domain || ''} - ${baseTitle}`;
+        }
+
+        // Remove any previous photo modal from body (profile switch)
+        const oldPhotoModal = document.getElementById('explorerPhotoModal');
+        if (oldPhotoModal) oldPhotoModal.remove();
+
         // Build photo HTML
         let photoHtml = '';
+        let photoModalHtml = '';
         if (p.photo_url) {
             // Local contact photo proxy doesn't need the explorer proxy wrapper
             const proxyPhotoUrl = p.photo_url.startsWith('/api/')
                 ? p.photo_url
                 : `/api/citadel-explorer/photo?url=${encodeURIComponent(p.photo_url)}`;
+            // Full-size photo URL for the modal (append ?full=1)
+            const fullPhotoUrl = proxyPhotoUrl + (proxyPhotoUrl.includes('?') ? '&full=1' : '?full=1');
             photoHtml = `
+                <a href="#" class="explorer-photo-trigger" style="cursor: pointer;">
                 <img src="${proxyPhotoUrl}" alt="${p.username}"
                      class="rounded-circle border border-2 border-success"
                      style="width: 96px; height: 96px; object-fit: cover;"
@@ -204,6 +223,22 @@ export class CitadelExplorer {
                 <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
+                </div>
+                </a>`;
+            photoModalHtml = `
+                <div class="modal fade" id="explorerPhotoModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content glass-panel border-0" style="background: transparent;">
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-circle me-2"></i>${p.username || ''}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-center p-4">
+                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded-circle border border-2 border-success"
+                                     style="max-width: 90vw; max-height: 75vh; object-fit: contain;">
+                            </div>
+                        </div>
+                    </div>
                 </div>`;
         } else {
             photoHtml = `
@@ -222,11 +257,11 @@ export class CitadelExplorer {
                     ? `<i class="mdi mdi-star text-warning" style="font-size: 0.65rem;"></i>` : '';
                 return `
                     <div class="d-flex align-items-center mb-1" style="white-space: nowrap;">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center me-2"
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
                              style="width: 28px; height: 28px; background: ${color}21;">
                             <i class="mdi mdi-ghost" style="color: ${color}; font-size: 14px;"></i>
                         </div>
-                        <div>
+                        <div class="d-none d-sm-inline-block ms-2">
                             <div class="small fw-bold text-light" style="line-height: 1.2;">
                                 ${spirit.name} ${star}
                             </div>
@@ -238,7 +273,17 @@ export class CitadelExplorer {
 
         // Build contact action button
         let contactActionHtml = '';
-        if (p.is_contact) {
+        if (p.is_contact && p.cq_contact_id) {
+            contactActionHtml = `
+                <a href="#" class="badge bg-success bg-opacity-25 px-2 py-1 text-decoration-none explorer-contact-status-toggle" 
+                   data-contact-id="${p.cq_contact_id}" title="${this.t('delete_contact', 'Remove contact')}" style="cursor: pointer;">
+                    <i class="mdi mdi-account-check"></i>
+                </a>
+                <a href="#" class="d-none align-items-center text-danger explorer-contact-delete-btn" 
+                   data-delete-id="${p.cq_contact_id}" title="${this.t('delete_contact', 'Remove contact')}" style="padding: 4px;">
+                    <i class="mdi mdi-account-minus" style="font-size: 1rem;"></i>
+                </a>`;
+        } else if (p.is_contact) {
             contactActionHtml = `
                 <span class="badge bg-success bg-opacity-25 px-2 py-1">
                     <i class="mdi mdi-account-check"></i>
@@ -254,21 +299,33 @@ export class CitadelExplorer {
         let followActionHtml = '';
         if (p.cq_contact_id) {
             const isFollowing = p.is_following || false;
-            followActionHtml = `
-                <button class="btn btn-sm ${isFollowing ? 'btn-warning opacity-75' : 'btn-outline-warning'}" id="explorerFollowBtn"
-                        data-cq-contact-id="${p.cq_contact_id}"
-                        data-cq-contact-url="${p.profile_url || ''}"
-                        data-cq-contact-domain="${p.domain || ''}"
-                        data-cq-contact-username="${p.username || ''}"
-                        data-following="${isFollowing ? '1' : '0'}">
-                    <i class="mdi ${isFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${isFollowing ? ''/* this.t('following', 'Following') */ : this.t('follow', 'Follow')}</span>
-                </button>`;
+            if (isFollowing) {
+                // Toggle pattern: click badge → reveal Unfollow button (auto-hides after 3s)
+                followActionHtml = `
+                    <a href="#" class="badge bg-warning bg-opacity-25 px-2 py-1 text-decoration-none explorer-follow-status-toggle" 
+                       style="cursor: pointer;" title="${this.t('unfollow', 'Unfollow')}">
+                        <i class="mdi mdi-rss text-warning"></i>
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger d-none explorer-unfollow-btn"
+                            data-cq-contact-id="${p.cq_contact_id}">
+                        <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>
+                    </button>`;
+            } else {
+                followActionHtml = `
+                    <button class="btn btn-sm btn-outline-warning" id="explorerFollowBtn"
+                            data-cq-contact-id="${p.cq_contact_id}"
+                            data-cq-contact-url="${p.profile_url || ''}"
+                            data-cq-contact-domain="${p.domain || ''}"
+                            data-cq-contact-username="${p.username || ''}">
+                        <i class="mdi mdi-rss me-1"></i><span class="d-none d-md-inline-block">${this.t('follow', 'Follow')}</span>
+                    </button>`;
+            }
         }
 
         // Follower count badge
         let followerCountHtml = '';
         if (p.follower_count > 0) {
-            followerCountHtml = `<small class="text-light opacity-50"><i class="mdi mdi-account-group me-1"></i>${p.follower_count}</small>`;
+            followerCountHtml = `<small class="text-light opacity-50"><i class="mdi mdi-account-voice me-1"></i>${p.follower_count}</small>`;
         }
 
         // Build bio HTML with markdown rendering and show more for long bios
@@ -322,7 +379,7 @@ export class CitadelExplorer {
                         ${bioHtml}
                     </div>
                     <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
-                        ${spiritsHtml ? `<div>${spiritsHtml}</div>` : ''}
+                        ${spiritsHtml ? `<div class="d-flex gap-2 flex-sm-column flex-row">${spiritsHtml}</div>` : ''}
                         ${contactActionHtml}
                         ${followActionHtml}
                         ${followerCountHtml}
@@ -367,7 +424,7 @@ export class CitadelExplorer {
                     const navHasNew = this.sinceTimestamp && groupItems.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp);
                     const navNewClass = navHasNew ? 'border-start border-end border-3 border-top-0 border-bottom-0 border-warning' : '';
                     badgesHtml += `
-                        <a href="#" class="text-decoration-none explorer-group-nav" data-group-slug="${slug}">
+                        <a href="#" class="text-decoration-none explorer-group-nav mb-2" data-group-slug="${slug}">
                             <span class="glass-panel ${isActive ? 'bg-success bg-opacity-25' : ''} ${navNewClass} py-2 px-3" style="font-size: 0.85rem;">
                                 <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-1" style="color: ${iconColor};"></i>
                                 <span class="${isActive ? 'text-cyber' : 'text-light opacity-75'}">${group.title || ''}</span>
@@ -376,7 +433,7 @@ export class CitadelExplorer {
                         </a>`;
                 });
                 navPanelHtml = `
-                    <div class="mb-3">
+                    <div class="mb-2 px-2">
                         <div class="d-flex align-items-center flex-wrap gap-2">${badgesHtml}</div>
                     </div>`;
             }
@@ -437,13 +494,32 @@ export class CitadelExplorer {
                 </div>
             </div>`;
 
+        // Append photo modal if present
+        html += photoModalHtml;
+
         this.previewContainer.innerHTML = html;
 
-        // Move the modal to document.body so it's not trapped inside the preview container (z-index)
+        // Move modals to document.body so they're not trapped inside the preview container (z-index)
         const libModal = document.getElementById('explorerAddToLibModal');
         if (libModal) {
             document.body.appendChild(libModal);
         }
+        const photoModal = document.getElementById('explorerPhotoModal');
+        if (photoModal) {
+            document.body.appendChild(photoModal);
+        }
+
+        // Bind photo click to open fullscreen modal
+        document.querySelectorAll('.explorer-photo-trigger').forEach(trigger => {
+            trigger.addEventListener('click', (e) => {
+                e.preventDefault();
+                const modal = document.getElementById('explorerPhotoModal');
+                if (modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                }
+            });
+        });
 
         // Bind close button
         document.getElementById('explorerCloseBtn')?.addEventListener('click', () => {
@@ -451,30 +527,81 @@ export class CitadelExplorer {
             this.previewContainer.classList.add('d-none');
             this.previewContainer.innerHTML = '';
             this.profile = null;
+            this.profileUrl = null;
             this.urlInput.value = '';
             localStorage.removeItem('citadelExplorerUrl');
             this.toggleUrlHelp();
-            // Remove orphaned modal from body
+            // Clear sidebar highlights
+            if (window.explorerSidebar) {
+                window.explorerSidebar.highlightActiveItem(null);
+            }
+            // Remove orphaned modals from body
             const orphanModal = document.getElementById('explorerAddToLibModal');
             if (orphanModal) orphanModal.remove();
+            const orphanPhotoModal = document.getElementById('explorerPhotoModal');
+            if (orphanPhotoModal) orphanPhotoModal.remove();
+            // Restore original page title
+            document.title = this._originalTitle;
         });
 
-        // Bind bio show more/less toggle
-        document.querySelector('.explorer-bio-toggle')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            const short = document.querySelector('.explorer-bio-short');
-            const full = document.querySelector('.explorer-bio-full');
-            const expanded = !full.classList.contains('d-none');
-            short.classList.toggle('d-none', !expanded);
-            full.classList.toggle('d-none', expanded);
-            e.target.textContent = expanded ? this.t('show_more', 'show more') : this.t('show_less', 'show less');
+        // Bind bio show more/less toggle (both desktop and mobile instances)
+        document.querySelectorAll('.explorer-bio-toggle').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const container = e.target.closest('.explorer-bio-md');
+                if (!container) return;
+                const short = container.querySelector('.explorer-bio-short');
+                const full = container.querySelector('.explorer-bio-full');
+                const expanded = !full.classList.contains('d-none');
+                short.classList.toggle('d-none', !expanded);
+                full.classList.toggle('d-none', expanded);
+                e.target.textContent = expanded ? this.t('show_more', 'show more') : this.t('show_less', 'show less');
+            });
         });
 
         // Bind add contact button
         document.getElementById('explorerAddContactBtn')?.addEventListener('click', () => this.addContact());
 
-        // Bind follow button
+        // Bind explorer profile contact status toggle → reveal delete button
+        document.querySelector('.explorer-contact-status-toggle')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const toggle = e.currentTarget;
+            toggle.classList.add('d-none');
+            const deleteBtn = toggle.nextElementSibling;
+            if (deleteBtn && deleteBtn.classList.contains('explorer-contact-delete-btn')) {
+                deleteBtn.classList.remove('d-none');
+                deleteBtn.classList.add('d-inline-flex');
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    if (deleteBtn.classList.contains('d-inline-flex')) {
+                        deleteBtn.classList.remove('d-inline-flex');
+                        deleteBtn.classList.add('d-none');
+                        toggle.classList.remove('d-none');
+                    }
+                }, 3000);
+            }
+        });
+
+        // Bind explorer profile delete contact button → open modal
+        document.querySelector('.explorer-contact-delete-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const contactId = e.currentTarget.dataset.deleteId;
+            const confirmBtn = document.getElementById('confirmDeleteContact');
+            if (confirmBtn) {
+                confirmBtn.dataset.contactId = contactId;
+                const modal = document.getElementById('deleteContactModal');
+                if (modal) {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                }
+            }
+        });
+
+        // Bind follow button (for non-following state)
         document.getElementById('explorerFollowBtn')?.addEventListener('click', () => this.toggleFollow());
+
+        // Bind unfollow toggle + confirm (for already-following state)
+        this.bindExplorerUnfollowHandlers();
 
         // Bind add to library confirm
         document.getElementById('explorer-confirm-add-lib')?.addEventListener('click', () => this.confirmAddToLibrary());
@@ -492,6 +619,14 @@ export class CitadelExplorer {
                 this.switchGroup(slug);
             });
         });
+
+        // Scroll to content navigation if a specific group was requested via URL
+        if (this.activeGroupSlug) {
+            const navPanel = document.querySelector('.explorer-group-nav');
+            if (navPanel) {
+                setTimeout(() => navPanel.closest('.mb-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+            }
+        }
     }
 
     /**
@@ -713,16 +848,20 @@ export class CitadelExplorer {
             return;
         }
 
+        // Collect all shares (ungrouped + group items) for download status check
+        const allSharesForDl = [...shares];
+        shareGroups.forEach(g => (g.items || []).forEach(item => allSharesForDl.push(item)));
+
         // Check download status — pick endpoint based on is_contact
         this.downloadStatus = {};
         try {
             let dlUrl, dlBody;
             if (p.is_contact && p.contact_id) {
                 dlUrl = `/api/cq-contact/${p.contact_id}/check-downloads`;
-                dlBody = JSON.stringify({ shares });
+                dlBody = JSON.stringify({ shares: allSharesForDl });
             } else {
                 dlUrl = '/api/citadel-explorer/check-downloads';
-                dlBody = JSON.stringify({ profile_url: p.profile_url || this.profileUrl, shares });
+                dlBody = JSON.stringify({ profile_url: p.profile_url || this.profileUrl, shares: allSharesForDl });
             }
             const dlResp = await fetch(dlUrl, {
                 method: 'POST',
@@ -736,10 +875,6 @@ export class CitadelExplorer {
         } catch (e) {
             console.warn('Failed to check download status:', e);
         }
-
-        // Collect all shares (ungrouped + group items) for download status check
-        const allSharesForDl = [...shares];
-        shareGroups.forEach(g => (g.items || []).forEach(item => allSharesForDl.push(item)));
 
         // Cache for switchGroup re-rendering
         this._lastShareGroups = shareGroups;
@@ -1285,47 +1420,125 @@ export class CitadelExplorer {
     // Follow / Unfollow
     // ========================================
 
+    bindExplorerUnfollowHandlers() {
+        // Bind follow status toggle → reveal Unfollow button
+        document.querySelector('.explorer-follow-status-toggle')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            const toggle = e.currentTarget;
+            toggle.classList.add('d-none');
+            const unfollowBtn = toggle.nextElementSibling;
+            if (unfollowBtn && unfollowBtn.classList.contains('explorer-unfollow-btn')) {
+                unfollowBtn.classList.remove('d-none');
+                this._unfollowTimer = setTimeout(() => {
+                    if (!unfollowBtn.classList.contains('d-none')) {
+                        unfollowBtn.classList.add('d-none');
+                        toggle.classList.remove('d-none');
+                    }
+                }, 3000);
+            }
+        });
+
+        // Bind Unfollow confirm button
+        document.querySelector('.explorer-unfollow-btn')?.addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            const contactId = btn.dataset.cqContactId;
+            if (this._unfollowTimer) clearTimeout(this._unfollowTimer);
+            btn.disabled = true;
+            btn.innerHTML = `<i class="mdi mdi-loading mdi-spin"></i>`;
+            try {
+                const resp = await fetch('/api/follow/unfollow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cq_contact_id: contactId })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    window.toast?.success(this.t('unfollow_success', 'Unfollowed'));
+                    const wrapper = btn.parentElement;
+                    if (wrapper) {
+                        const p = this.profile;
+                        const toggle = wrapper.querySelector('.explorer-follow-status-toggle');
+                        if (toggle) toggle.remove();
+                        // Replace via outerHTML to discard old event handlers
+                        const followBtnHtml = `<button class="btn btn-sm btn-outline-warning" id="explorerFollowBtn"
+                            data-cq-contact-id="${contactId}"
+                            data-cq-contact-url="${p?.profile_url || ''}"
+                            data-cq-contact-domain="${p?.domain || ''}"
+                            data-cq-contact-username="${p?.username || ''}">
+                            <i class="mdi mdi-rss me-1"></i><span class="d-none d-md-inline-block">${this.t('follow', 'Follow')}</span>
+                        </button>`;
+                        btn.outerHTML = followBtnHtml;
+                        // Bind the new element
+                        document.getElementById('explorerFollowBtn')?.addEventListener('click', () => this.toggleFollow());
+                    }
+                    if (window.explorerSidebar) {
+                        await window.explorerSidebar.loadFollowingList();
+                        window.explorerSidebar.renderFollowingSidebar();
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed');
+                }
+            } catch (error) {
+                console.error('Unfollow error:', error);
+                window.toast?.error(error.message);
+                btn.disabled = false;
+                btn.innerHTML = `<i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>`;
+            }
+        });
+    }
+
     async toggleFollow() {
         const btn = document.getElementById('explorerFollowBtn');
         if (!btn) return;
 
-        const isFollowing = btn.dataset.following === '1';
         const origHtml = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = `<i class="mdi mdi-loading mdi-spin me-1"></i>`;
 
         try {
-            const endpoint = isFollowing ? '/api/follow/unfollow' : '/api/follow/follow';
-            const body = isFollowing
-                ? { cq_contact_id: btn.dataset.cqContactId }
-                : {
+            const resp = await fetch('/api/follow/follow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     cq_contact_id: btn.dataset.cqContactId,
                     cq_contact_url: btn.dataset.cqContactUrl,
                     cq_contact_domain: btn.dataset.cqContactDomain,
                     cq_contact_username: btn.dataset.cqContactUsername,
-                };
-
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                })
             });
             const data = await resp.json();
 
             if (data.success) {
-                const nowFollowing = !isFollowing;
-                btn.dataset.following = nowFollowing ? '1' : '0';
-                btn.className = `btn btn-sm ${nowFollowing ? 'btn-success' : 'btn-outline-success'}`;
-                btn.innerHTML = `<i class="mdi ${nowFollowing ? 'mdi-account-check' : 'mdi-rss'} me-1"></i><span class="follow-label">${nowFollowing ? ''/* this.t('following', 'Following') */ : this.t('follow', 'Follow')}</span>`;
-                window.toast?.success(nowFollowing ? this.t('follow_success', 'Following!') : this.t('unfollow_success', 'Unfollowed'));
+                window.toast?.success(this.t('follow_success', 'Following!'));
+                // Replace Follow button with status badge + unfollow toggle
+                const contactId = btn.dataset.cqContactId;
+                const wrapper = btn.parentElement;
+                if (wrapper) {
+                    const toggleHtml = `
+                        <a href="#" class="badge bg-warning bg-opacity-25 px-2 py-1 text-decoration-none explorer-follow-status-toggle" 
+                           style="cursor: pointer;" title="${this.t('unfollow', 'Unfollow')}">
+                            <i class="mdi mdi-rss text-warning"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger d-none explorer-unfollow-btn"
+                                data-cq-contact-id="${contactId}">
+                            <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>
+                        </button>`;
+                    btn.outerHTML = toggleHtml;
+                    // Re-bind the new toggle + unfollow handlers
+                    this.bindExplorerUnfollowHandlers();
+                }
+                // Refresh sidebar
+                if (window.explorerSidebar) {
+                    await window.explorerSidebar.loadFollowingList();
+                    window.explorerSidebar.renderFollowingSidebar();
+                }
             } else {
                 throw new Error(data.error || 'Failed');
             }
         } catch (error) {
-            console.error('Follow toggle error:', error);
+            console.error('Follow error:', error);
             window.toast?.error(error.message);
             btn.innerHTML = origHtml;
-        } finally {
             btn.disabled = false;
         }
     }

@@ -1,3 +1,5 @@
+import * as bootstrap from 'bootstrap';
+
 /**
  * ExplorerSidebar
  * 
@@ -147,14 +149,15 @@ export class ExplorerSidebar {
     }
 
     highlightActiveItem(profileUrl) {
-        if (!profileUrl) return;
-        // Normalize: strip trailing slash
-        const normalized = profileUrl.replace(/\/$/, '');
-
         // Clear all active states across all three lists
         document.querySelectorAll('.sidebar-hover-item.sidebar-active').forEach(el => {
             el.classList.remove('sidebar-active');
         });
+
+        if (!profileUrl) return;
+
+        // Normalize: strip trailing slash
+        const normalized = profileUrl.replace(/\/$/, '');
 
         // Find and highlight matching items
         document.querySelectorAll('[data-profile-url]').forEach(el => {
@@ -262,11 +265,19 @@ export class ExplorerSidebar {
             const newClass = hasNew ? ' bg-warning bg-opacity-10' : '';
             const dotHidden = hasNew ? '' : ' d-none';
 
-            html += '<a href="#" class="d-flex align-items-center text-decoration-none text-light px-2 py-1 rounded sidebar-hover-item' + newClass + '" data-profile-url="' + this.escHtml(f.cq_contact_url) + '" data-since="' + this.escHtml(sinceValue) + '" data-cq-contact-id="' + f.cq_contact_id + '">' +
+            html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item' + newClass + '">' +
+                '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(f.cq_contact_url) + '" data-since="' + this.escHtml(sinceValue) + '" data-cq-contact-id="' + f.cq_contact_id + '">' +
                 this.avatarHtml(photoUrl, 28, 'border-success') +
                 '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
-                '<span class="feed-new-dot ms-auto flex-shrink-0' + dotHidden + '" data-dot-id="' + f.cq_contact_id + '"><span class="badge bg-warning bg-opacity-75 rounded-pill" style="width: 8px; height: 8px; padding: 0;"></span></span>' +
-                '</a>';
+                '</a>' +
+                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-1">' +
+                '<span class="feed-new-dot' + dotHidden + '" data-dot-id="' + f.cq_contact_id + '"><span class="badge bg-warning bg-opacity-75 rounded-pill" style="width: 8px; height: 8px; padding: 0;"></span></span>' +
+                '<a href="#" class="follow-status-toggle d-inline-flex align-items-center text-warning opacity-50" data-cq-contact-id="' + f.cq_contact_id + '" title="' + this.t('unfollow', 'Unfollow') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-rss" style="font-size: 0.75rem;"></i></a>' +
+                '<a href="#" class="follow-unfollow-btn d-none align-items-center text-danger" data-cq-contact-id="' + f.cq_contact_id + '" title="' + this.t('unfollow', 'Unfollow') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-rss-off" style="font-size: 0.85rem;"></i></a>' +
+                '</div>' +
+                '</div>';
         });
         this.followingListEl.innerHTML = html;
 
@@ -285,6 +296,59 @@ export class ExplorerSidebar {
                 }
 
                 this.exploreProfile(profileUrl, sinceVal || null);
+            });
+        });
+
+        // Bind follow status toggle: click RSS icon → reveal unfollow button
+        this.followingListEl.querySelectorAll('.follow-status-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggle.classList.remove('d-inline-flex');
+                toggle.classList.add('d-none');
+                const unfollowBtn = toggle.nextElementSibling;
+                if (unfollowBtn && unfollowBtn.classList.contains('follow-unfollow-btn')) {
+                    unfollowBtn.classList.remove('d-none');
+                    unfollowBtn.classList.add('d-inline-flex');
+                    // Auto-hide after 3 seconds
+                    setTimeout(() => {
+                        if (unfollowBtn.classList.contains('d-inline-flex')) {
+                            unfollowBtn.classList.remove('d-inline-flex');
+                            unfollowBtn.classList.add('d-none');
+                            toggle.classList.remove('d-none');
+                            toggle.classList.add('d-inline-flex');
+                        }
+                    }, 3000);
+                }
+            });
+        });
+
+        // Bind unfollow button: perform unfollow and remove item
+        this.followingListEl.querySelectorAll('.follow-unfollow-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const contactId = btn.dataset.cqContactId;
+                btn.innerHTML = '<i class="mdi mdi-loading mdi-spin" style="font-size: 0.85rem;"></i>';
+                try {
+                    const resp = await fetch('/api/follow/unfollow', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cq_contact_id: contactId })
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.toast?.success(this.t('unfollow_success', 'Unfollowed'));
+                        await this.loadFollowingList();
+                        this.renderFollowingSidebar();
+                    } else {
+                        throw new Error(data.error || 'Failed');
+                    }
+                } catch (error) {
+                    console.error('Sidebar unfollow error:', error);
+                    window.toast?.error(error.message);
+                    btn.innerHTML = '<i class="mdi mdi-rss-off" style="font-size: 0.85rem;"></i>';
+                }
             });
         });
     }
@@ -356,6 +420,31 @@ export class ExplorerSidebar {
             });
         });
 
+        // Bind status toggle: click accepted badge → reveal delete button
+        this.contactsListEl.querySelectorAll('.contact-status-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Hide the check icon, show the delete button
+                toggle.classList.remove('d-inline-flex');
+                toggle.classList.add('d-none');
+                const deleteBtn = toggle.nextElementSibling;
+                if (deleteBtn && deleteBtn.classList.contains('contact-delete-btn')) {
+                    deleteBtn.classList.remove('d-none');
+                    deleteBtn.classList.add('d-inline-flex');
+                    // Auto-hide after 3 seconds if not clicked
+                    setTimeout(() => {
+                        if (deleteBtn.classList.contains('d-inline-flex')) {
+                            deleteBtn.classList.remove('d-inline-flex');
+                            deleteBtn.classList.add('d-none');
+                            toggle.classList.remove('d-none');
+                            toggle.classList.add('d-inline-flex');
+                        }
+                    }, 3000);
+                }
+            });
+        });
+
         // Bind friend request action handlers
         this.contactsListEl.querySelectorAll('[data-accept-id]').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -389,13 +478,23 @@ export class ExplorerSidebar {
     getContactStatusIcon(contact) {
         const s = contact.friendRequestStatus;
         if (s === 'ACCEPTED' && contact.isActive) {
-            return '<i class="mdi mdi-check-circle text-success opacity-50" style="font-size: 0.75rem;"></i>';
+            // Clickable badge: click to reveal delete button
+            return '<a href="#" class="contact-status-toggle d-inline-flex align-items-center" data-contact-id="' + contact.id + '" title="' + this.t('delete_contact', 'Remove contact') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-check-circle text-success opacity-50" style="font-size: 0.75rem;"></i></a>' +
+                '<a href="#" class="contact-delete-btn d-none align-items-center text-danger" data-delete-id="' + contact.id + '" title="' + this.t('delete_contact', 'Remove contact') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-account-minus" style="font-size: 0.85rem;"></i></a>';
         } else if (s === 'SENT') {
-            return '<i class="mdi mdi-clock text-warning" style="font-size: 0.75rem;" title="Pending"></i>';
+            return '<span class="contact-status-toggle d-inline-flex align-items-center" data-contact-id="' + contact.id + '" style="padding: 4px; cursor: pointer;">' +
+                '<i class="mdi mdi-clock text-warning" style="font-size: 0.75rem;" title="Pending"></i></span>' +
+                '<a href="#" class="contact-delete-btn d-none align-items-center text-danger" data-delete-id="' + contact.id + '" title="' + this.t('delete_contact', 'Remove contact') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-account-minus" style="font-size: 0.85rem;"></i></a>';
         } else if (s === 'RECEIVED') {
             return '<i class="mdi mdi-inbox text-info" style="font-size: 0.75rem;" title="Received"></i>';
         } else if (s === 'REJECTED') {
-            return '<i class="mdi mdi-close-circle text-danger opacity-50" style="font-size: 0.75rem;"></i>';
+            return '<span class="contact-status-toggle d-inline-flex align-items-center" data-contact-id="' + contact.id + '" style="padding: 4px; cursor: pointer;">' +
+                '<i class="mdi mdi-close-circle text-danger opacity-50" style="font-size: 0.75rem;"></i></span>' +
+                '<a href="#" class="contact-delete-btn d-none align-items-center text-danger" data-delete-id="' + contact.id + '" title="' + this.t('delete_contact', 'Remove contact') + '" style="padding: 4px;">' +
+                '<i class="mdi mdi-account-minus" style="font-size: 0.85rem;"></i></a>';
         }
         return '';
     }

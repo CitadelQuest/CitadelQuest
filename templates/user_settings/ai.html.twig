@@ -41,7 +41,7 @@
                     <form method="post" action="{{ path('app_user_settings_ai') }}">                        
                         <div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h5 class="mb-0"><i class="mdi mdi-robot me-3"></i>{{ 'settings.ai.models.title'|trans|default('AI Models') }}</h5>
+                                <h5 class="mb-0"><i class="mdi mdi-robot me-3 text-cyber"></i>{{ 'settings.ai.models.title'|trans|default('AI Models') }}</h5>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="sync_models_btn" onclick="syncAiModels()">
                                     <i class="mdi mdi-refresh me-1"></i> {{ 'settings.ai.models.update'|trans|default('Update Models List') }}
                                 </button>

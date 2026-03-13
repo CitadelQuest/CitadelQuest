@@ -20,7 +20,7 @@
                 <div class="row mb-3">
                     <div class="col-md-6 mb-2">
                         <div class="input-group">
-                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify"></i></span>
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-magnify text-secondary"></i></span>
                             <input type="text" id="shareSearch" class="form-control glass-input" placeholder="{{ 'cq_share.search_placeholder'|trans }}">
                         </div>
                     </div>
@@ -330,11 +330,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <code class="small flex-grow-1 text-truncate" title="${shareLink}" style="cursor: pointer;" onclick="copyToClipboard('${shareLink}')">${shareLink}</code>
                                 
                             </div>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center gap-1">
                                 <button class="btn btn-sm btn-outline-cyber" onclick="copyToClipboard('${shareLink}')" title="Copy link">
                                     <i class="mdi mdi-content-copy"></i>
                                 </button>
-                                <small class="text-muted"><i class="mdi mdi-clock-outline me-1"></i>${updatedAt}</small>
+                                <small class="text-muted d-none d-md-inline-block">
+                                    <i class="mdi mdi-clock-outline me-1"></i>${updatedAt}
+                                </small>
                                 <div class="d-flex align-items-center gap-2">
                                     
                                     <div class="btn-group btn-group-sm">

@@ -473,19 +473,26 @@ class CQProfileController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        // Prefer .thumb version (smaller file, profile photo is never displayed full-size)
-        $thumbPath = $filePath . '.thumb';
+        // Use full-size original when ?full=1 is requested (e.g. fullscreen modal)
+        $wantFull = $request->query->get('full') === '1';
 
-        if (!file_exists($thumbPath)) {
-            $this->projectFileService->setUser($user);
-            $this->projectFileService->generateThumbnail($photoFileId);
-        }
-
-        if (file_exists($thumbPath)) {
-            $filePath = $thumbPath;
-            $mimeType = 'image/jpeg'; // thumbnails are always JPEG
-        } else {
+        if ($wantFull) {
             $mimeType = $file['mime_type'] ?? 'image/jpeg';
+        } else {
+            // Prefer .thumb version (smaller file, profile photo is never displayed full-size)
+            $thumbPath = $filePath . '.thumb';
+
+            if (!file_exists($thumbPath)) {
+                $this->projectFileService->setUser($user);
+                $this->projectFileService->generateThumbnail($photoFileId);
+            }
+
+            if (file_exists($thumbPath)) {
+                $filePath = $thumbPath;
+                $mimeType = 'image/jpeg'; // thumbnails are always JPEG
+            } else {
+                $mimeType = $file['mime_type'] ?? 'image/jpeg';
+            }
         }
 
         $response = new BinaryFileResponse($filePath);

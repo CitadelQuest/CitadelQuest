@@ -715,7 +715,7 @@ class CqContactApiController extends AbstractController
      * The browser can't send Authorization headers in <img src>, so we proxy it.
      */
     #[Route('/{id}/profile-photo', name: 'app_api_cq_contact_profile_photo', methods: ['GET'])]
-    public function getContactProfilePhoto(string $id): Response
+    public function getContactProfilePhoto(string $id, Request $request): Response
     {
         try {
             $contact = $this->cqContactService->findById($id);
@@ -728,6 +728,10 @@ class CqContactApiController extends AbstractController
             }
 
             $photoUrl = rtrim($contact->getCqContactUrl(), '/') . '/photo';
+            // Forward ?full=1 for fullscreen modal
+            if ($request->query->get('full') === '1') {
+                $photoUrl .= '?full=1';
+            }
 
             $response = $this->httpClient->request('GET', $photoUrl, [
                 'headers' => [

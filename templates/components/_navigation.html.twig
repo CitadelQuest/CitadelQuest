@@ -28,13 +28,13 @@
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_contact_index') }}">
-                            <i class="mdi mdi-account-voice me-3{% if app.request.pathInfo == path('app_cq_contact_index') %} text-cyber{% else %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-account-voice me-3{% if app.request.pathInfo == path('app_cq_contact_index') %} text-cyber{% else %} text-cyber opacity-75{% endif %}"></i>
                             {{ 'cq_explorer.page_title'|trans }}
                         </a>
                     </li>
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
-                            <i class="mdi mdi-account-circle me-3{% if app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-cyber{% endif %}"></i>
+                            <i class="mdi mdi-account-circle me-3{% if app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-light opacity-75{% endif %}"></i>
                             {{ 'profile.settings.title'|trans|default('Profile') }}
                         </a>
                     </li>

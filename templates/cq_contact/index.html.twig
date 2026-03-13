@@ -66,7 +66,7 @@
 <div class="container-fluid mt-1 px-md-4">
     <div class="row">
         {# ===== Main Content — CQ Explorer ===== #}
-        <div class="col-md-9 col-12">
+        <div class="col-sm-9 col-12">
             <div class="pt-1">
                 {# Citadel Explorer — URL input #}
                 <div class="mb-4">
@@ -75,7 +75,7 @@
                         <input type="url" id="explorerUrlInput" class="form-control glass-input"
                                placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
                         <button class="btn btn-sm btn-cyber" id="explorerFetchBtn" type="button" disabled>
-                            <i class="mdi mdi-magnify me-2"></i><span class="d-none d-md-inline-block">{{ 'citadel_explorer.explore'|trans }}</span>
+                            <i class="mdi mdi-magnify"></i><span class="d-none d-md-inline-block ms-2">{{ 'citadel_explorer.explore'|trans }}</span>
                         </button>
                     </div>
                     <div class="small text-light opacity-50 ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
@@ -87,13 +87,13 @@
         </div>
 
         {# ===== Sidebar — Following / Followers / Contacts ===== #}
-        <div class="col-md-3 col-12">
+        <div class="col-sm-3 col-12">
             {# CQ Contacts #}
-            <div class="mb-3 glass-panel p-2">
+            <div class="mb-3 glass-panel p-0 p-md-2">
                 <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="contacts">
-                    <i class="mdi mdi-account-multiple me-2 text-success"></i>
-                    <span class="small fw-bold text-light opacity-75">{{ 'cq_contact.page_title'|trans }}</span>
-                    <span class="badge bg-success bg-opacity-25 text-success ms-auto" id="sidebarContactsCount">0</span>
+                    <i class="mdi mdi-account-multiple me-2 text-cyber"></i>
+                    <span class="small fw-bold text-light opacity-75 d-none d-md-inline-block">{{ 'cq_contact.page_title'|trans }}</span>
+                    <span class="badge bg-secondary bg-opacity-25 text-secondary ms-auto" id="sidebarContactsCount">0</span>
                     <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
                 </div>
                 <div id="sidebarContactsList" class="sidebarContactsList">
@@ -102,11 +102,11 @@
             </div>
 
             {# Following #}
-            <div class="mb-3 glass-panel p-2">
+            <div class="mb-3 glass-panel p-0 p-md-2">
                 <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="following">
                     <i class="mdi mdi-rss me-2 text-warning"></i>
-                    <span class="small fw-bold text-light opacity-75">{{ 'feed.following'|trans }}</span>
-                    <span class="badge bg-warning bg-opacity-25 text-warning ms-auto" id="sidebarFollowingCount">0</span>
+                    <span class="small fw-bold text-light opacity-75 d-none d-md-inline-block">{{ 'feed.following'|trans }}</span>
+                    <span class="badge bg-secondary bg-opacity-25 text-secondary ms-auto" id="sidebarFollowingCount">0</span>
                     <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
                 </div>
                 <div id="sidebarFollowingList" class="sidebarFollowingList">
@@ -115,11 +115,11 @@
             </div>
 
             {# Followers #}
-            <div class="mb-3 glass-panel p-2">
+            <div class="mb-3 glass-panel p-0 p-md-2">
                 <div class="d-flex align-items-center mb-2 px-1 cursor-pointer" data-sidebar-toggle="followers">
                     <i class="mdi mdi-account-group me-2 text-info"></i>
-                    <span class="small fw-bold text-light opacity-75">{{ 'feed.followers'|trans }}</span>
-                    <span class="badge bg-info bg-opacity-25 text-info ms-auto" id="sidebarFollowersCount">0</span>
+                    <span class="small fw-bold text-light opacity-75 d-none d-md-inline-block">{{ 'feed.followers'|trans }}</span>
+                    <span class="badge bg-secondary bg-opacity-25 text-secondary ms-auto" id="sidebarFollowersCount">0</span>
                     <i class="mdi mdi-chevron-down ms-2 text-muted small sidebar-chevron"></i>
                 </div>
                 <div id="sidebarFollowersList" class="sidebarFollowersList">
