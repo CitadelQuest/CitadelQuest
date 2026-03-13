@@ -139,8 +139,10 @@ export class FileBrowser {
         this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
         this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span><span class="text-muted ms-2" id="project-size-badge">...</span>`;
         this.breadcrumbsRootLabel.addEventListener('click', () => {
-            this.currentPath = '/';
-            this.fileTreeView.setInitialExpandPath('/');
+            // Refresh tree while preserving current expanded path
+            const savedPath = localStorage.getItem('fileBrowserPath:' + window.location.pathname) || '/';
+            this.currentPath = savedPath;
+            this.fileTreeView.setInitialExpandPath(savedPath);
             this.fileTreeView.refresh();
             this.updateBreadcrumbs();
         });
@@ -199,6 +201,12 @@ export class FileBrowser {
                 if (this.fileTreeView) {
                     this.fileTreeView.setInitialExpandPath(this.currentPath);
                     this.fileTreeView.refresh();
+                }
+            },
+            onAllComplete: () => {
+                // Auto-hide the uploader drop zone when all files uploaded successfully
+                if (this.uploaderContainer) {
+                    this.uploaderContainer.style.display = 'none';
                 }
             },
             translations: this.translations,
@@ -283,10 +291,17 @@ export class FileBrowser {
                     }
                     break;
                     
-                case 'download-zip':
-                    const zipFileId = actionButton.dataset.fileId;
-                    if (zipFileId) {
-                        this.downloadDirectoryAsZip(zipFileId);
+                case 'create-zip':
+                    const createZipFileId = actionButton.dataset.fileId;
+                    if (createZipFileId) {
+                        await this.createZipFromDirectory(createZipFileId);
+                    }
+                    break;
+                    
+                case 'extract-zip':
+                    const extractZipFileId = actionButton.dataset.fileId;
+                    if (extractZipFileId) {
+                        await this.extractZipFile(extractZipFileId);
                     }
                     break;
             }
@@ -511,11 +526,7 @@ export class FileBrowser {
         try {
             await this.apiService.updateFile(fileId, content);
             
-            // Close modal
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
-            
-            // Refresh file preview
+            // Refresh file preview (behind modal)
             await this.selectFile(fileId);
             
             // Refresh project size
@@ -683,15 +694,15 @@ export class FileBrowser {
                 <div class="file-preview-actions">
                     <button class="btn btn-sm btn-outline-primary me-2" data-action="show-gallery" data-directory-path="${directoryPath}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small">${this.translations.show_gallery || 'Image Gallery'}</span>
+                        <i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small ms-1">${this.translations.show_gallery || 'Image Gallery'}</span>
                     </button>
-                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="download-zip" data-file-id="${directory.id}" 
+                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="create-zip" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-folder-zip"></i> <span class="d-none d-md-inline small">${this.translations.download_zip || 'Download ZIP'}</span>
+                        <i class="mdi mdi-folder-zip"></i> <span class="d-none d-md-inline small ms-1">${this.translations.create_zip || 'Create ZIP'}</span>
                     </button>
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
+                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
                     </button>
                 </div>
             </div>
@@ -714,6 +725,47 @@ export class FileBrowser {
         // animate preview
         this.filePreviewElement.style.display = 'none';
         animation.fade(this.filePreviewElement, 'in', animation.DURATION.NORMAL);
+        
+        // Auto-show gallery if directory contains image files
+        if (this.directoryHasImages(directoryPath)) {
+            this.showImageGallery(directoryPath);
+        }
+    }
+    
+    /**
+     * Check if a directory has image files in the tree data
+     * @param {string} directoryPath - The directory path to check
+     * @returns {boolean} - True if directory has image files
+     */
+    directoryHasImages(directoryPath) {
+        if (!this.fileTreeView || !this.fileTreeView.treeData) return false;
+        
+        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'];
+        
+        // Find the directory node in the tree
+        const findNode = (nodes, path) => {
+            for (const node of nodes) {
+                if (node.type === 'directory') {
+                    const nodePath = (node.path === '/' ? '' : node.path) + '/' + node.name;
+                    if (nodePath === path) return node;
+                    if (node.children) {
+                        const found = findNode(node.children, path);
+                        if (found) return found;
+                    }
+                }
+            }
+            return null;
+        };
+        
+        const dirNode = findNode(this.fileTreeView.treeData.children || [], directoryPath);
+        if (!dirNode || !dirNode.children) return false;
+        
+        // Check if any direct children are image files
+        return dirNode.children.some(child => {
+            if (child.type === 'directory') return false;
+            const ext = child.name.split('.').pop().toLowerCase();
+            return imageExtensions.includes(ext);
+        });
     }
     
     /**
@@ -731,7 +783,7 @@ export class FileBrowser {
         if (galleryContainer.style.display !== 'none') {
             galleryContainer.style.display = 'none';
             directoryInfo.style.display = 'block';
-            galleryButton.innerHTML = `<i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small">${this.translations.show_gallery || 'Image Gallery'}</span>`;
+            galleryButton.innerHTML = `<i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small ms-1">${this.translations.show_gallery || 'Image Gallery'}</span>`;
             
             // Cleanup gallery
             if (this.imageGallery) {
@@ -744,7 +796,7 @@ export class FileBrowser {
         // Show gallery, hide directory info
         directoryInfo.style.display = 'none';
         galleryContainer.style.display = 'block';
-        galleryButton.innerHTML = `<i class="mdi mdi-folder"></i> <span class="d-none d-md-inline small">${this.translations.hide_gallery || 'Hide Gallery'}</span>`;
+        galleryButton.innerHTML = `<i class="mdi mdi-folder"></i> <span class="d-none d-md-inline small ms-1">${this.translations.hide_gallery || 'Hide Gallery'}</span>`;
         
         // Create and load gallery
         this.imageGallery = new ImageGallery({
@@ -753,15 +805,22 @@ export class FileBrowser {
             projectId: this.projectId,
             translations: this.translations,
             imageShowcase: this.imageShowcase,
-            onDelete: async (fileId, image) => {
-                this.isGalleryDeleteInProgress = true;
-                await this.confirmAndDeleteFile(fileId, () => {
-                    this.imageGallery?.removeImage(fileId);
-                    // Remove from tree DOM without full refresh
-                    this.fileTreeView?.removeFileFromTree(fileId);
-                    this.isGalleryDeleteInProgress = false;
-                }, true); // skipPreviewUpdate = true to keep gallery visible
-                this.isGalleryDeleteInProgress = false; // Also reset if user cancels
+            onSelect: (fileId, image) => {
+                // Select the file in the tree view and show its preview
+                if (this.fileTreeView) {
+                    const fileNode = this.fileTreeView.treeElement.querySelector(`.file-tree-node[data-id="${fileId}"]`);
+                    if (fileNode) {
+                        this.fileTreeView.selectNode(fileNode, false);
+                        fileNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+                // Update current path and show file preview
+                if (image) {
+                    this.currentPath = image.path || this.currentPath;
+                    this.updateBreadcrumbs();
+                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                }
+                this.selectFile(fileId);
             }
         });
         
@@ -769,21 +828,62 @@ export class FileBrowser {
     }
     
     /**
-     * Download directory as ZIP file
+     * Create ZIP archive from directory and save as project file
      * @param {string} fileId - The directory ID
      */
-    downloadDirectoryAsZip(fileId) {
-        // Show loading toast
-        window.toast.info(this.translations.preparing_zip || 'Preparing ZIP download...');
-        
-        // Trigger download via hidden link
-        const downloadUrl = `/api/project-file/${fileId}/download-zip`;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    async createZipFromDirectory(fileId) {
+        try {
+            window.toast.info(this.translations.creating_zip || 'Creating ZIP archive...');
+            
+            const result = await this.apiService.createZip(fileId);
+            
+            if (result.success) {
+                window.toast.success(this.translations.zip_created || 'ZIP archive created successfully');
+                
+                // Refresh tree view to show the new ZIP file
+                if (this.fileTreeView) {
+                    this.fileTreeView.setInitialExpandPath(this.currentPath);
+                    this.fileTreeView.refresh();
+                }
+                
+                // Refresh project size
+                await this.loadProjectSize();
+            }
+        } catch (error) {
+            console.error('Error creating ZIP:', error);
+            window.toast.error(error.message);
+        }
+    }
+    
+    /**
+     * Extract ZIP file into the same directory
+     * @param {string} fileId - The ZIP file ID
+     */
+    async extractZipFile(fileId) {
+        try {
+            window.toast.info(this.translations.extracting_zip || 'Extracting ZIP archive...');
+            
+            const result = await this.apiService.extractZip(fileId);
+            
+            if (result.success) {
+                const msg = (this.translations.zip_extracted || 'ZIP extracted to "{dir}" ({count} items)')
+                    .replace('{dir}', result.extractedTo)
+                    .replace('{count}', result.extractedCount);
+                window.toast.success(msg);
+                
+                // Refresh tree view to show extracted files
+                if (this.fileTreeView) {
+                    this.fileTreeView.setInitialExpandPath(this.currentPath);
+                    this.fileTreeView.refresh();
+                }
+                
+                // Refresh project size
+                await this.loadProjectSize();
+            }
+        } catch (error) {
+            console.error('Error extracting ZIP:', error);
+            window.toast.error(error.message);
+        }
     }
     
     /**
@@ -820,26 +920,31 @@ export class FileBrowser {
                 <div class="file-preview-actions">
                     <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small">${this.translations.download || 'Download'}</span>
+                        <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small ms-1">${this.translations.download || 'Download'}</span>
                     </button>
+                    ${!isRemote && extension === 'zip' ? `
+                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="extract-zip" data-file-id="${file.id}" 
+                        style="padding: 0px 16px !important;">
+                        <i class="mdi mdi-zip-box-outline"></i> <span class="d-none d-md-inline small ms-1">${this.translations.unzip || 'Unzip'}</span>
+                    </button>` : ''}
                     ${!isRemote && !isShared ? `
                     <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.share || 'Share'}</span>
+                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small ms-1">${this.translations.share || 'Share'}</span>
                     </button>` : ''}
                     ${!isRemote && isShared ? `
                     <button class="btn btn-sm btn-outline-success me-2" data-action="edit-share" data-file-id="${file.id}"
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small">${this.translations.shared_edit || 'Shared - edit'}</span>
+                        <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small ms-1">${this.translations.shared_edit || 'Shared - edit'}</span>
                     </button>` : ''}
                     ${!isRemote && this.isTextFile(extension) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small">${this.translations.edit || 'Edit'}</span>
+                        <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small ms-1">${this.translations.edit || 'Edit'}</span>
                     </button>` : ''}
                     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
-                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small">${this.translations.delete || 'Delete'}</span>
+                        <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
                     </button>
                 </div>
             </div>
@@ -1178,6 +1283,8 @@ export class FileBrowser {
                     if (cached) cached.isShared = true;
                     this.selectFile(this.selectedFile.id);
                 }
+                // Auto-open edit share modal for the newly created share
+                this.openEditShareModal(data.share);
             } else {
                 window.toast.error(data.message || 'Failed to create share');
             }
@@ -1532,6 +1639,7 @@ export class FileBrowser {
                 apiService: this.apiService,
                 projectId: this.projectId,
                 translations: this.translations,
+                initialExpandPath: (this.currentPath && this.currentPath !== '/') ? this.currentPath : null,
                 onInit: (currentDirectory) => {
                     // Deep-link: select a specific file after tree renders
                     if (this.pendingFileSelect) {

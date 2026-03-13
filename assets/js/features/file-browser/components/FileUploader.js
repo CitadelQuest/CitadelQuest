@@ -25,6 +25,8 @@ export class FileUploader {
         
         this.isUploading = false;
         this.uploadQueue = [];
+        this.hasErrors = false;
+        this.onAllComplete = options.onAllComplete || null;
         
         this.init();
     }
@@ -129,12 +131,16 @@ export class FileUploader {
      * @param {FileList} files - Files to upload
      */
     handleFiles(files) {
+        // Reset error tracking for new batch
+        this.hasErrors = false;
+        
         // Convert FileList to array and add to queue
         Array.from(files).forEach(file => {
             // Validate file size
             if (file.size > MAX_FILE_SIZE) {
                 // Create a progress item for the error
                 this.showFileError(file, `File is too large. Maximum size is ${this.formatFileSize(MAX_FILE_SIZE)}.`);
+                this.hasErrors = true;
             } else {
                 this.uploadQueue.push(file);
             }
@@ -213,6 +219,7 @@ export class FileUploader {
             this.onUpload(file);
         } catch (error) {
             // Error
+            this.hasErrors = true;
             progressItem.classList.add('error');
             
             // Add error icon with dismiss functionality
@@ -248,6 +255,19 @@ export class FileUploader {
         
         // Reset uploading flag
         this.isUploading = false;
+        
+        // If queue is empty, check if we should auto-hide
+        if (this.uploadQueue.length === 0 && !this.hasErrors && this.onAllComplete) {
+            // Small delay to let the user see the last success indicator
+            setTimeout(() => {
+                // Double-check no errors appeared in the meantime
+                const hasErrorItems = this.progressContainer && 
+                    Array.from(this.progressContainer.children).some(item => item.classList.contains('error'));
+                if (!hasErrorItems) {
+                    this.onAllComplete();
+                }
+            }, 2000);
+        }
         
         // Process next file in queue
         this.processUploadQueue();

@@ -32,6 +32,11 @@ export class FileTreeView {
         this.selectedNodes = new Set();
         this.onContextMenu = options.onContextMenu || (() => {});
         
+        // Set initial expand path before init if provided
+        if (options.initialExpandPath) {
+            this.initialExpandPath = options.initialExpandPath;
+        }
+        
         this.init();
     }
     
@@ -640,6 +645,11 @@ export class FileTreeView {
                 childrenElement.style.display = 'block';
                 if (toggleElement) {
                     toggleElement.innerHTML = '<i class="mdi mdi-chevron-down"></i>';
+                }
+                // Update folder icon to open state
+                const iconElement = currentElement.querySelector('.file-tree-icon');
+                if (iconElement) {
+                    iconElement.innerHTML = '<i class="mdi mdi-folder-open text-warning"></i>';
                 }
             }
             

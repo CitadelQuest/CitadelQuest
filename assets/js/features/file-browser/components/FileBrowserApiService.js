@@ -303,4 +303,40 @@ export class FileBrowserApiService {
         
         return await response.json();
     }
+
+    /**
+     * Create ZIP archive from directory and save as project file
+     * @param {string} fileId - The directory ID
+     * @returns {Promise<Object>} - JSON response with created ZIP file info
+     */
+    async createZip(fileId) {
+        const response = await fetch(`${this.baseUrl}/${fileId}/create-zip`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || this.translations.failed_create_zip || 'Failed to create ZIP archive');
+        }
+        
+        return await response.json();
+    }
+
+    /**
+     * Extract ZIP file into the same directory
+     * @param {string} fileId - The ZIP file ID
+     * @returns {Promise<Object>} - JSON response with extraction result
+     */
+    async extractZip(fileId) {
+        const response = await fetch(`${this.baseUrl}/${fileId}/extract-zip`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || this.translations.failed_extract_zip || 'Failed to extract ZIP archive');
+        }
+        
+        return await response.json();
+    }
 }

@@ -1909,14 +1909,14 @@ class ProjectFileService
     }
 
     /**
-     * Check if a file has an active CQ Share.
+     * Check if a file has any CQ Share (active or inactive).
      */
     public function isSharedFile(string $projectFileId): bool
     {
         try {
             $userDb = $this->getUserDb();
             $count = $userDb->executeQuery(
-                'SELECT COUNT(*) FROM cq_share WHERE source_id = ? AND is_active = 1',
+                'SELECT COUNT(*) FROM cq_share WHERE source_id = ?',
                 [$projectFileId]
             )->fetchOne();
             return $count > 0;

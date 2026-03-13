@@ -19,6 +19,7 @@ export class ImageGallery {
         this.translations = options.translations || {};
         this.imageShowcase = options.imageShowcase;
         this.onDelete = options.onDelete || null; // Callback for delete action
+        this.onSelect = options.onSelect || null; // Callback for selecting file in File Browser
         
         this.images = [];
         this.loadedThumbnails = new Set();
@@ -152,9 +153,6 @@ export class ImageGallery {
                     <div class="content-showcase-icon image-gallery-zoom position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer" title="${this.translations.fullscreen || 'Fullscreen'}">
                         <i class="mdi mdi-fullscreen"></i>
                     </div>
-                    <div class="image-gallery-delete badge bg-dark bg-opacity-75 text-danger cursor-pointer" title="${this.translations.delete || 'Delete'}">
-                        <i class="mdi mdi-delete"></i>
-                    </div>
                 `;
                 
                 // Add click handler for fullscreen (zoom button)
@@ -164,11 +162,12 @@ export class ImageGallery {
                     this.showFullImage(fileId, image);
                 });
                 
-                // Add click handler for delete
-                const deleteBtn = thumbContainer.querySelector('.image-gallery-delete');
-                deleteBtn.addEventListener('click', (e) => {
+                // Add click handler on thumbnail to select file in File Browser
+                thumbContainer.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.handleDelete(fileId, image);
+                    if (this.onSelect) {
+                        this.onSelect(fileId, image);
+                    }
                 });
                 
                 // Add loaded class for animation
@@ -226,19 +225,23 @@ export class ImageGallery {
      */
     async showFullImage(fileId, image) {
         try {
-            // Get full image content
-            const response = await this.apiService.getFileContent(fileId, false);
+            // Find the index of this image in the gallery
+            const currentIndex = this.images.findIndex(img => img.id === fileId);
             
-            if (response.success && response.content) {
-                // Create a temporary showcase element
-                const showcaseEl = document.createElement('div');
-                showcaseEl.className = 'content-showcase';
-                showcaseEl.innerHTML = `
-                    <img src="${response.content}" alt="${image?.name || ''}" class="img-fluid">
-                `;
-                
-                // Show in ImageShowcase
-                this.imageShowcase.show(showcaseEl);
+            if (currentIndex >= 0) {
+                // Use gallery navigation mode with prev/next support
+                await this.imageShowcase.showGalleryImage(this.images, currentIndex, this.apiService);
+            } else {
+                // Fallback: show single image without navigation
+                const response = await this.apiService.getFileContent(fileId, false);
+                if (response.success && response.content) {
+                    const showcaseEl = document.createElement('div');
+                    showcaseEl.className = 'content-showcase';
+                    showcaseEl.innerHTML = `
+                        <img src="${response.content}" alt="${image?.name || ''}" class="img-fluid">
+                    `;
+                    this.imageShowcase.show(showcaseEl);
+                }
             }
         } catch (error) {
             console.error('Error loading full image:', error);

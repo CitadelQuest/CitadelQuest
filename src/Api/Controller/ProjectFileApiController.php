@@ -604,10 +604,10 @@ class ProjectFileApiController extends AbstractController
     }
     
     /**
-     * Download directory as ZIP file
+     * Create ZIP archive from directory and save as project file
      */
-    #[Route('/{fileId}/download-zip', name: 'app_api_project_file_download_zip', methods: ['GET'])]
-    public function downloadZip(string $fileId, ParameterBagInterface $params): BinaryFileResponse
+    #[Route('/{fileId}/create-zip', name: 'app_api_project_file_create_zip', methods: ['POST'])]
+    public function createZip(string $fileId, ParameterBagInterface $params): JsonResponse
     {
         try {
             $file = $this->projectFileService->findById($fileId);
@@ -617,7 +617,7 @@ class ProjectFileApiController extends AbstractController
             }
             
             if (!$file->isDirectory()) {
-                throw new BadRequestHttpException('This endpoint is only for directories. Use /download for files.');
+                throw new BadRequestHttpException('This endpoint is only for directories.');
             }
             
             // Build directory path
@@ -633,16 +633,21 @@ class ProjectFileApiController extends AbstractController
                 throw new NotFoundHttpException('Directory not found on filesystem');
             }
             
-            // Create temporary ZIP file
-            $tempDir = $params->get('kernel.project_dir') . '/var/tmp';
-            if (!is_dir($tempDir)) {
-                mkdir($tempDir, 0755, true);
-            }
+            // Create ZIP file name with timestamp
             $zipFileName = $file->getName() . '_' . date('Y-m-d_His') . '.zip';
-            $zipPath = $tempDir . '/' . $zipFileName;
+            
+            // Determine the parent path where the ZIP will be saved (same level as the directory)
+            $zipSavePath = $file->getPath();
+            
+            // Build the absolute path for the ZIP file
+            $zipAbsolutePath = $basePath;
+            if ($zipSavePath !== '/') {
+                $zipAbsolutePath .= $zipSavePath;
+            }
+            $zipAbsolutePath .= '/' . $zipFileName;
             
             $zip = new \ZipArchive();
-            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            if ($zip->open($zipAbsolutePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \RuntimeException('Failed to create ZIP archive');
             }
             
@@ -650,19 +655,179 @@ class ProjectFileApiController extends AbstractController
             $this->addDirectoryToZip($zip, $dirPath, $file->getName());
             $zip->close();
             
-            // Return ZIP file as download
-            $response = new BinaryFileResponse($zipPath);
-            $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $zipFileName);
-            $response->deleteFileAfterSend(true);
+            // Register the ZIP file in the database
+            $zipFile = $this->projectFileService->registerExistingFile(
+                $file->getProjectId(),
+                $zipSavePath,
+                $zipFileName,
+                'application/zip'
+            );
             
-            return $response;
+            return $this->json([
+                'success' => true,
+                'file' => [
+                    'id' => $zipFile->getId(),
+                    'name' => $zipFile->getName(),
+                    'path' => $zipFile->getPath(),
+                    'size' => $zipFile->getSize(),
+                ]
+            ]);
         } catch (\Exception $e) {
-            $this->logger->error('downloadZip: Error creating ZIP', [
+            $this->logger->error('createZip: Error creating ZIP', [
                 'fileId' => $fileId,
                 'error' => $e->getMessage()
             ]);
-            throw $e;
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
         }
+    }
+    
+    /**
+     * Extract ZIP file into the same directory
+     */
+    #[Route('/{fileId}/extract-zip', name: 'app_api_project_file_extract_zip', methods: ['POST'])]
+    public function extractZip(string $fileId, ParameterBagInterface $params): JsonResponse
+    {
+        try {
+            $file = $this->projectFileService->findById($fileId);
+            
+            if (!$file) {
+                throw new NotFoundHttpException('File not found');
+            }
+            
+            if ($file->isDirectory()) {
+                throw new BadRequestHttpException('This endpoint is only for ZIP files.');
+            }
+            
+            // Verify it's a ZIP file
+            $extension = pathinfo($file->getName(), PATHINFO_EXTENSION);
+            if (strtolower($extension) !== 'zip') {
+                throw new BadRequestHttpException('This endpoint is only for ZIP files.');
+            }
+            
+            // Build absolute path to the ZIP file
+            $userId = $this->security->getUser()->getId();
+            $basePath = $params->get('kernel.project_dir') . '/var/user_data/' . $userId . '/p/' . $file->getProjectId();
+            $zipAbsolutePath = $basePath;
+            if ($file->getPath() !== '/') {
+                $zipAbsolutePath .= $file->getPath();
+            }
+            $zipAbsolutePath .= '/' . $file->getName();
+            
+            if (!file_exists($zipAbsolutePath)) {
+                throw new NotFoundHttpException('ZIP file not found on filesystem');
+            }
+            
+            // Extract to a directory named after the ZIP file (without extension)
+            $extractDirName = pathinfo($file->getName(), PATHINFO_FILENAME);
+            $extractPath = $file->getPath();
+            $extractAbsolutePath = $basePath;
+            if ($extractPath !== '/') {
+                $extractAbsolutePath .= $extractPath;
+            }
+            $extractAbsolutePath .= '/' . $extractDirName;
+            
+            // Create extraction directory if it doesn't exist
+            if (!is_dir($extractAbsolutePath)) {
+                mkdir($extractAbsolutePath, 0755, true);
+            }
+            
+            // Open and extract ZIP
+            $zip = new \ZipArchive();
+            if ($zip->open($zipAbsolutePath) !== true) {
+                throw new \RuntimeException('Failed to open ZIP archive');
+            }
+            
+            // Extract all files
+            $zip->extractTo($extractAbsolutePath);
+            $zip->close();
+            
+            // Register all extracted files and directories in the database
+            $extractedCount = $this->registerExtractedFiles(
+                $file->getProjectId(),
+                $extractAbsolutePath,
+                $extractPath,
+                $extractDirName
+            );
+            
+            return $this->json([
+                'success' => true,
+                'extractedTo' => $extractDirName,
+                'extractedCount' => $extractedCount,
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('extractZip: Error extracting ZIP', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+    
+    /**
+     * Register extracted files and directories in the database recursively
+     */
+    private function registerExtractedFiles(string $projectId, string $extractAbsolutePath, string $parentDbPath, string $dirName): int
+    {
+        $count = 0;
+        
+        // First, ensure the extraction directory itself is registered
+        $existing = $this->projectFileService->findByPathAndName($projectId, $parentDbPath, $dirName);
+        if (!$existing) {
+            try {
+                $this->projectFileService->createDirectory($projectId, $parentDbPath, $dirName);
+            } catch (\Exception $e) {
+                // Directory might already exist on filesystem but not in DB - that's ok, createDirectory handles it
+                $this->logger->warning('extractZip: createDirectory warning', ['error' => $e->getMessage()]);
+            }
+        }
+        $count++;
+        
+        // Build the database path for children of this directory
+        $currentDbPath = $parentDbPath === '/' ? '/' . $dirName : $parentDbPath . '/' . $dirName;
+        
+        // Iterate through the extracted contents
+        $iterator = new \DirectoryIterator($extractAbsolutePath);
+        foreach ($iterator as $item) {
+            if ($item->isDot()) continue;
+            
+            if ($item->isDir()) {
+                // Recursively register subdirectories
+                $count += $this->registerExtractedFiles(
+                    $projectId,
+                    $item->getPathname(),
+                    $currentDbPath,
+                    $item->getFilename()
+                );
+            } else {
+                // Skip thumbnail cache files
+                if (str_ends_with($item->getFilename(), '.thumb')) {
+                    continue;
+                }
+                
+                // Register file
+                try {
+                    $this->projectFileService->registerExistingFile(
+                        $projectId,
+                        $currentDbPath,
+                        $item->getFilename()
+                    );
+                    $count++;
+                } catch (\Exception $e) {
+                    $this->logger->warning('extractZip: Failed to register file', [
+                        'file' => $item->getFilename(),
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+        
+        return $count;
     }
     
     /**
