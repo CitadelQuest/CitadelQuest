@@ -234,8 +234,7 @@ export class CitadelExplorer {
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body text-center p-4">
-                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded-circle border border-2 border-success"
-                                     style="max-width: 90vw; max-height: 75vh; object-fit: contain;">
+                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded-circle border border-2 border-success img-fluid">
                             </div>
                         </div>
                     </div>
