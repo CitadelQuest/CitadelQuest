@@ -75,7 +75,7 @@
                         <input type="url" id="explorerUrlInput" class="form-control glass-input"
                                placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
                         <button class="btn btn-sm btn-cyber" id="explorerFetchBtn" type="button" disabled>
-                            <i class="mdi mdi-magnify"></i><span class="d-none d-md-inline-block ms-2">{{ 'citadel_explorer.explore'|trans }}</span>
+                            <i class="mdi mdi-magnify"></i><span class="d-none d-sm-inline-block ms-2">{{ 'citadel_explorer.explore'|trans }}</span>
                         </button>
                     </div>
                     <div class="small text-light opacity-50 ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
@@ -193,6 +193,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.explorerSidebar.loadContacts().then(() => {
                         window.explorerSidebar.renderContactsSidebar();
                     });
+                }
+                // Re-explore to refresh the main profile view (status badge etc.)
+                if (window.citadelExplorer) {
+                    window.citadelExplorer.explore();
                 }
                 document.querySelector('#deleteContactModal [data-bs-dismiss="modal"]').click();
             } else {

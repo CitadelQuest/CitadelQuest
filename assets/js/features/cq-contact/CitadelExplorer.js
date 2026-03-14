@@ -273,7 +273,8 @@ export class CitadelExplorer {
 
         // Build contact action button
         let contactActionHtml = '';
-        if (p.is_contact && p.cq_contact_id) {
+        const cStatus = p.contact_status;
+        if (p.is_contact && p.cq_contact_id && cStatus === 'ACCEPTED') {
             contactActionHtml = `
                 <a href="#" class="badge bg-success bg-opacity-25 px-2 py-1 text-decoration-none explorer-contact-status-toggle" 
                    data-contact-id="${p.cq_contact_id}" title="${this.t('delete_contact', 'Remove contact')}" style="cursor: pointer;">
@@ -283,6 +284,21 @@ export class CitadelExplorer {
                    data-delete-id="${p.cq_contact_id}" title="${this.t('delete_contact', 'Remove contact')}" style="padding: 4px;">
                     <i class="mdi mdi-account-minus" style="font-size: 1rem;"></i>
                 </a>`;
+        } else if (p.is_contact && cStatus === 'SENT') {
+            contactActionHtml = `
+                <span class="badge bg-warning bg-opacity-25 px-2 py-1" title="${this.t('friend_request_sent', 'Friend request sent')}">
+                    <i class="mdi mdi-account-clock text-warning"></i>
+                </span>`;
+        } else if (p.is_contact && cStatus === 'RECEIVED') {
+            contactActionHtml = `
+                <span class="badge bg-info bg-opacity-25 px-2 py-1" title="${this.t('friend_request_received', 'Friend request received')}">
+                    <i class="mdi mdi-account-arrow-left text-info"></i>
+                </span>`;
+        } else if (p.is_contact && cStatus === 'REJECTED') {
+            contactActionHtml = `
+                <span class="badge bg-danger bg-opacity-25 px-2 py-1" title="${this.t('contact_rejected', 'Contact removed')}">
+                    <i class="mdi mdi-account-off text-danger"></i>
+                </span>`;
         } else if (p.is_contact) {
             contactActionHtml = `
                 <span class="badge bg-success bg-opacity-25 px-2 py-1">
@@ -291,7 +307,7 @@ export class CitadelExplorer {
         } else {
             contactActionHtml = `
                 <button class="btn btn-sm btn-cyber" id="explorerAddContactBtn">
-                    <i class="mdi mdi-account-plus me-1"></i><span class="d-none d-md-inline-block">${this.t('add_contact', 'Add Contact')}</span>
+                    <i class="mdi mdi-account-plus me-1"></i><span class="d-none d-sm-inline-block">${this.t('add_contact', 'Add Contact')}</span>
                 </button>`;
         }
 
@@ -308,7 +324,7 @@ export class CitadelExplorer {
                     </a>
                     <button class="btn btn-sm btn-outline-danger d-none explorer-unfollow-btn"
                             data-cq-contact-id="${p.cq_contact_id}">
-                        <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>
+                        <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-sm-inline-block">${this.t('unfollow', 'Unfollow')}</span>
                     </button>`;
             } else {
                 followActionHtml = `
@@ -317,7 +333,7 @@ export class CitadelExplorer {
                             data-cq-contact-url="${p.profile_url || ''}"
                             data-cq-contact-domain="${p.domain || ''}"
                             data-cq-contact-username="${p.username || ''}">
-                        <i class="mdi mdi-rss me-1"></i><span class="d-none d-md-inline-block">${this.t('follow', 'Follow')}</span>
+                        <i class="mdi mdi-rss me-1"></i><span class="d-none d-sm-inline-block">${this.t('follow', 'Follow')}</span>
                     </button>`;
             }
         }
@@ -405,7 +421,8 @@ export class CitadelExplorer {
         // When is_contact, contact shares are a superset of public shares (scope 0+1)
         const hasPublicShares = (p.shares || []).length > 0;
         const hasShareGroups = (p.share_groups || []).length > 0;
-        const needsSharesSection = hasPublicShares || hasShareGroups || (p.is_contact && p.contact_id);
+        const isAcceptedContact = p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED';
+        const needsSharesSection = hasPublicShares || hasShareGroups || isAcceptedContact;
         if (needsSharesSection) {
             // Navigation panel for groups (matching public profile style)
             const navGroups = (p.share_groups || []).filter(g => g.show_in_nav && (g.items || []).length > 0);
@@ -652,7 +669,7 @@ export class CitadelExplorer {
             try {
                 const shareMetaUrl = `${profileLink}/share/${slug}`;
                 let metaResp;
-                if (p.is_contact && p.contact_id) {
+                if (p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED') {
                     metaResp = await fetch(`/api/cq-contact/${p.contact_id}/share-meta`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -683,7 +700,7 @@ export class CitadelExplorer {
         this.downloadStatus = {};
         try {
             let dlUrl, dlBody;
-            if (p.is_contact && p.contact_id) {
+            if (p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED') {
                 dlUrl = `/api/cq-contact/${p.contact_id}/check-downloads`;
                 dlBody = JSON.stringify({ shares: [share] });
             } else {
@@ -816,7 +833,7 @@ export class CitadelExplorer {
 
         let shareGroups = [];
 
-        if (p.is_contact && p.contact_id) {
+        if (p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED') {
             // Fetch from contact API — returns public + CQ Contact scoped shares
             try {
                 const response = await fetch(`/api/cq-contact/${p.contact_id}/shares`);
@@ -856,7 +873,7 @@ export class CitadelExplorer {
         this.downloadStatus = {};
         try {
             let dlUrl, dlBody;
-            if (p.is_contact && p.contact_id) {
+            if (p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED') {
                 dlUrl = `/api/cq-contact/${p.contact_id}/check-downloads`;
                 dlBody = JSON.stringify({ shares: allSharesForDl });
             } else {
@@ -1185,7 +1202,7 @@ export class CitadelExplorer {
             const p = this.profile;
             let response;
 
-            if (p.is_contact && p.contact_id) {
+            if (p.is_contact && p.contact_id && p.contact_status === 'ACCEPTED') {
                 // Authenticated contact download
                 response = await fetch(`/api/cq-contact/${p.contact_id}/download-share`, {
                     method: 'POST',
@@ -1395,16 +1412,14 @@ export class CitadelExplorer {
 
             if (frData.success) {
                 window.toast?.success(this.t('friend_request_sent', 'Friend request sent!'));
-                // Replace button with "View Contact" link
-                btn.outerHTML = `
-                    <span class="badge bg-success bg-opacity-25 px-2 py-1">
-                        <i class="mdi mdi-account-check"></i>
-                    </span>`;
 
                 // Reload contacts list
                 if (typeof window.loadContacts === 'function') {
                     window.loadContacts();
                 }
+
+                // Re-explore to refresh profile view with correct status badge
+                this.explore();
             } else {
                 throw new Error(frData.message || 'Friend request failed');
             }
@@ -1465,7 +1480,7 @@ export class CitadelExplorer {
                             data-cq-contact-url="${p?.profile_url || ''}"
                             data-cq-contact-domain="${p?.domain || ''}"
                             data-cq-contact-username="${p?.username || ''}">
-                            <i class="mdi mdi-rss me-1"></i><span class="d-none d-md-inline-block">${this.t('follow', 'Follow')}</span>
+                            <i class="mdi mdi-rss me-1"></i><span class="d-none d-sm-inline-block">${this.t('follow', 'Follow')}</span>
                         </button>`;
                         btn.outerHTML = followBtnHtml;
                         // Bind the new element
@@ -1482,7 +1497,7 @@ export class CitadelExplorer {
                 console.error('Unfollow error:', error);
                 window.toast?.error(error.message);
                 btn.disabled = false;
-                btn.innerHTML = `<i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>`;
+                btn.innerHTML = `<i class="mdi mdi-rss-off me-1"></i><span class="d-none d-sm-inline-block">${this.t('unfollow', 'Unfollow')}</span>`;
             }
         });
     }
@@ -1521,7 +1536,7 @@ export class CitadelExplorer {
                         </a>
                         <button class="btn btn-sm btn-outline-danger d-none explorer-unfollow-btn"
                                 data-cq-contact-id="${contactId}">
-                            <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-md-inline-block">${this.t('unfollow', 'Unfollow')}</span>
+                            <i class="mdi mdi-rss-off me-1"></i><span class="d-none d-sm-inline-block">${this.t('unfollow', 'Unfollow')}</span>
                         </button>`;
                     btn.outerHTML = toggleHtml;
                     // Re-bind the new toggle + unfollow handlers

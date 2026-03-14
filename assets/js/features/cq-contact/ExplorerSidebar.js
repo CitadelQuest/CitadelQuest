@@ -519,6 +519,10 @@ export class ExplorerSidebar {
                 window.toast && window.toast.success(this.t('friend_request_updated', 'Friend request updated'));
                 await this.loadContacts();
                 this.renderContactsSidebar();
+                // Re-explore to refresh the main profile view with new scope
+                if (window.citadelExplorer) {
+                    window.citadelExplorer.explore();
+                }
             } else {
                 window.toast && window.toast.error(data.message || data.error || 'Error');
             }

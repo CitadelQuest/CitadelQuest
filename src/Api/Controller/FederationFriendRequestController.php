@@ -68,7 +68,7 @@ class FederationFriendRequestController extends AbstractController
             }
 
             // Validate Friend Request Status
-            if (!in_array($friendRequestStatus, ['SENT', 'RECEIVED', 'ACCEPTED', 'REJECTED'])) {
+            if (!in_array($friendRequestStatus, ['SENT', 'RECEIVED', 'ACCEPTED', 'REJECTED', 'REMOVED'])) {
                 $this->logger->warning('FederationFriendRequestController::friendRequest - Invalid friend request status', [
                     'status' => $friendRequestStatus,
                     'valid_statuses' => ['SENT', 'RECEIVED', 'ACCEPTED', 'REJECTED']
@@ -95,7 +95,6 @@ class FederationFriendRequestController extends AbstractController
                 }
             }
 
-
             // Get system User by `username`
             $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
             if (!$user) {
@@ -109,6 +108,24 @@ class FederationFriendRequestController extends AbstractController
             }
             $this->cqContactService->setUser($user);
 
+            // Fraud prevention: validate origin matches claimed domain
+            $origin = $request->headers->get('Origin') ?? $request->headers->get('Referer') ?? '';
+            $claimedDomain = $data['cq_contact_domain'];
+            if ($origin && !str_contains($origin, $claimedDomain)) {
+                $this->logger->warning('FederationFriendRequestController: Origin mismatch', [
+                    'origin' => $origin,
+                    'claimed_domain' => $claimedDomain
+                ]);
+                // Log but don't block — server-to-server requests may not send Origin
+                // Send a `friend request warning` notification too
+                $this->notificationService->createNotification(
+                    $user,
+                    'Friend request Origin mismatch!',
+                    $origin . ' vs. ' . $claimedDomain,
+                    'warning'
+                );
+            }
+
             // Get CqContact
             $cqContact = $this->cqContactService->findByUrlAndApiKey($data['cq_contact_url'], $cqContactApiKey);
             
@@ -117,18 +134,37 @@ class FederationFriendRequestController extends AbstractController
                 // new friend request from another server
                 case 'SENT':
                     if (!$cqContact) {
-                        // create CqContact
-                        $cqContact = $this->cqContactService->createContact(
-                            $data['cq_contact_url'],
-                            $data['cq_contact_domain'],
-                            $data['cq_contact_username'],
-                            $data['cq_contact_id'],
-                            $cqContactApiKey,
-                            'RECEIVED',
-                            $data['description'] ?? null,
-                            null,
-                            false
-                        );
+                        // No match by URL+apiKey — check if contact exists by URL alone
+                        // (happens when contact was deleted on sender side and re-added with new API key)
+                        $existingByUrl = $this->cqContactService->findByUrl($data['cq_contact_url']);
+
+                        if ($existingByUrl) {
+                            // Update existing contact with new API key and reset status
+                            $existingByUrl->setCqContactApiKey($cqContactApiKey);
+                            $existingByUrl->setFriendRequestStatus('RECEIVED');
+                            $existingByUrl->setIsActive(false);
+                            $existingByUrl->setCqContactUsername($data['cq_contact_username']);
+                            $this->cqContactService->updateContact($existingByUrl);
+                            $cqContact = $existingByUrl;
+
+                            $this->logger->info('FederationFriendRequestController::friendRequest - Re-linked existing contact with new API key', [
+                                'contact_id' => $cqContact->getId(),
+                                'contact_url' => $data['cq_contact_url']
+                            ]);
+                        } else {
+                            // create CqContact
+                            $cqContact = $this->cqContactService->createContact(
+                                $data['cq_contact_url'],
+                                $data['cq_contact_domain'],
+                                $data['cq_contact_username'],
+                                $data['cq_contact_id'],
+                                $cqContactApiKey,
+                                'RECEIVED',
+                                $data['description'] ?? null,
+                                null,
+                                false
+                            );
+                        }
 
                         if ($cqContact) {
                             // Send a `new friend request` notification
@@ -209,6 +245,22 @@ class FederationFriendRequestController extends AbstractController
 
                     }
                     break;
+                // contact removed from another server
+                case 'REMOVED':
+                    if ($cqContact) {
+                        $cqContact->setFriendRequestStatus('REJECTED');
+                        $cqContact->setIsActive(false);
+                        $this->cqContactService->updateContact($cqContact);
+
+                        $this->notificationService->createNotification(
+                            $user,
+                            sprintf('%s removed you from contacts', $cqContact->getCqContactUsername()),
+                            sprintf('%s from %s has removed you from their contacts', $data['cq_contact_username'], $data['cq_contact_domain']),
+                            'warning'
+                        );
+                    }
+                    break;
+
                 // friend request rejected from another server
                 case 'REJECTED':
                     if ($cqContact) {

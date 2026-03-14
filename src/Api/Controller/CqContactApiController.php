@@ -197,6 +197,21 @@ class CqContactApiController extends AbstractController
     public function delete(string $id): JsonResponse
     {
         try {
+            // Fetch contact before deleting — notify remote Citadel if it was an active contact
+            $contact = $this->cqContactService->findById($id);
+            if ($contact && $contact->getCqContactApiKey() && $contact->getFriendRequestStatus() === 'ACCEPTED') {
+                $currentDomain = $_SERVER["SERVER_NAME"];
+                // Best-effort: notify remote Citadel, don't block delete on failure
+                try {
+                    $this->sendFriendRequestToContact($contact, 'REMOVED', $currentDomain);
+                } catch (\Exception $e) {
+                    $this->logger->warning('CqContactApiController::delete - Failed to notify remote Citadel about contact removal', [
+                        'contact_id' => $id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
             $success = $this->cqContactService->deleteContact($id);
             
             if (!$success) {
