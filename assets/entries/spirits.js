@@ -2,8 +2,8 @@ import { SpiritsManager } from '../js/features/spirit/components/SpiritsManager'
 
 // Initialize spirits manager when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize the spirits manager if the spirits container exists
-    if (document.querySelector('#spirits-container')) {
+    // Initialize if Create/Delete spirit modals exist (shared partial _spirit_list.html.twig)
+    if (document.getElementById('createSpiritModal') || document.getElementById('deleteSpiritModal')) {
         new SpiritsManager();
     }
 });

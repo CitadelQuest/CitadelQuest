@@ -1,0 +1,136 @@
+{# Shared Spirit List Component - used on /spirits and /spirit/{id} pages #}
+{# Requires: allSpirits (array of spirit data with id, name, isPrimary, progression, color) #}
+{# Optional: currentSpiritId (to highlight the current spirit) #}
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">
+                <a href="{{ path('spirits_index') }}" class="text-decoration-none">
+                    <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'spirits.title'|trans }}
+                </a>
+            </h4>
+            <a href="#" class="btn btn-sm btn-cyber" data-bs-toggle="modal" data-bs-target="#createSpiritModal" title="{{ 'spirits.create'|trans }}">
+                <i class="mdi mdi-plus"></i>
+            </a>
+        </div>
+        <div class="row">
+            {% if allSpirits is defined and allSpirits|length > 0 %}
+                {% for spirit in allSpirits %}
+                    {% set progression = spirit.progression %}
+                    {% set isPrimary = spirit.isPrimary %}
+                    {% set spiritColor = spirit.color|default('#95ec86') %}
+                    {% set isCurrentSpirit = currentSpiritId is defined and currentSpiritId == spirit.id %}
+                    
+                    <div class="col-sm-6 col-lg-4 mb-3">
+                        <div class="card h-100 spirit-card glass-panel {{ isPrimary ? 'glass-panel-glow' : '' }} {{ isCurrentSpirit ? 'border-cyber' : '' }}">
+                            <a href="{{ path('spirit_show', {id: spirit.id}) }}">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="spirit-list-icon me-2" style="background-color: {{ spiritColor }}21;">
+                                            <i class="mdi mdi-ghost" style="color: {{ spiritColor }};"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0">{{ spirit.name }}</h6>
+                                            {% if isPrimary %}
+                                                <small class="text-muted">{{ 'spirits.primary'|trans }}</small>
+                                                <span class="badge bg-dark bg-opacity-25 ms-2 text-warning">★</span>
+                                            {% else %}
+                                                <small class="text-muted">{{ 'spirits.spirit'|trans }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <small class="fw-bold">{{ 'spirits.level'|trans }} {{ progression.level|default(1) }}</small>
+                                            <small class="text-muted">{{ progression.experience|default(0) }} XP</small>
+                                        </div>
+                                        <div class="progress" style="height: 4px;">
+                                            <div class="progress-bar bg-cyber" role="progressbar" style="width: {{ progression.percentage|default(0) }}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                            {% if not isPrimary %}
+                                <div class="position-absolute end-0 top-0 p-3 text-en">
+                                    <button class="btn btn-sm btn-outline-danger border-0 spirit-delete-btn opacity-50" 
+                                            data-spirit-id="{{ spirit.id }}" data-spirit-name="{{ spirit.name }}"
+                                            title="{{ 'spirits.delete'|trans }}">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-center text-secondary small py-3">
+                    <i class="mdi mdi-ghost-outline"></i>
+                    <p class="mt-1 mb-0">{{ 'spirits.no_spirits'|trans|default('No spirits yet') }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# Create Spirit Modal #}
+<div class="modal fade" id="createSpiritModal" tabindex="-1" aria-labelledby="createSpiritModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header border-success">
+                <h5 class="modal-title" id="createSpiritModalLabel">
+                    <i class="mdi mdi-ghost me-2 text-cyber"></i>{{ 'spirits.create'|trans }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-spirit-form">
+                    <div class="mb-3">
+                        <label for="spirit-name" class="form-label">{{ 'spirits.name'|trans }}</label>
+                        <input type="text" class="form-control" id="spirit-name" required maxlength="100">
+                        <div class="text-muted small ms-2">{{ 'spirits.name_help'|trans }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="spirit-color" class="form-label">{{ 'spirits.color'|trans }}</label>
+                        <input type="color" class="form-control form-control-color" id="spirit-color" value="#95ec86" title="Choose your spirit color">
+                        <div class="text-muted small ms-2">{{ 'spirits.color_help'|trans }}</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'common.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="create-spirit-btn">
+                    <i class="mdi mdi-plus me-2"></i>{{ 'spirits.create'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Delete Spirit Modal #}
+<div class="modal fade" id="deleteSpiritModal" tabindex="-1" aria-labelledby="deleteSpiritModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-danger text-white">
+                <div class="modal-title" id="deleteSpiritModalLabel">{{ 'spirits.delete'|trans }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ 'spirits.delete_confirm'|trans }}</p>
+                <ul>
+                    <li>{{ 'spirits.delete_conversations'|trans }}</li>
+                    <li>{{ 'spirits.delete_interactions'|trans }}</li>
+                    <li>{{ 'spirits.delete_settings'|trans }}</li>
+                </ul>
+                <p class="text-danger fw-bold" id="delete-spirit-name"></p>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'common.cancel'|trans }}</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-spirit-btn">{{ 'spirits.delete'|trans }}</button>
+            </div>
+        </div>
+    </div>
+</div>
