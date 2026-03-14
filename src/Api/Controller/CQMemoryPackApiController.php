@@ -6,6 +6,7 @@ use App\Service\CQMemoryPackService;
 use App\Service\CQMemoryLibraryService;
 use App\Service\ProjectFileService;
 use App\Service\AIToolMemoryService;
+use App\Service\CQShareService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +29,8 @@ class CQMemoryPackApiController extends AbstractController
         private readonly CQMemoryPackService $packService,
         private readonly CQMemoryLibraryService $libraryService,
         private readonly ProjectFileService $projectFileService,
-        private readonly AIToolMemoryService $aiToolMemoryService
+        private readonly AIToolMemoryService $aiToolMemoryService,
+        private readonly CQShareService $shareService
     ) {}
 
     /**
@@ -139,6 +141,87 @@ class CQMemoryPackApiController extends AbstractController
         } catch (\Exception $e) {
             $this->packService->close();
             return new JsonResponse(['error' => 'Failed to create pack: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update pack metadata (name, description)
+     */
+    #[Route('/pack/update-metadata', name: 'api_memory_pack_update_metadata', methods: ['POST'])]
+    public function updatePackMetadata(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $projectId = $data['projectId'] ?? 'general';
+        $path = $data['path'] ?? null;
+        $name = $data['name'] ?? null;
+        $key = $data['key'] ?? null;
+        $value = $data['value'] ?? null;
+
+        if (!$path || !$name || !$key) {
+            return new JsonResponse(['error' => 'path, name and key are required'], 400);
+        }
+
+        // Only allow updating name and description
+        if (!in_array($key, ['name', 'description'])) {
+            return new JsonResponse(['error' => 'Only name and description can be updated'], 400);
+        }
+
+        try {
+            $this->packService->open($projectId, $path, $name);
+            
+            // Prevent editing synced packs
+            $sourceUrl = $this->packService->getMetadata('source_url');
+            if ($sourceUrl) {
+                $this->packService->close();
+                return new JsonResponse(['error' => 'Cannot edit metadata of synced packs'], 400);
+            }
+            
+            $this->packService->setMetadata($key, $value ?? '');
+            $this->packService->close();
+
+            $newFileName = null;
+
+            // When name changes, also rename the .cqmpack file (same slugger as create pack)
+            if ($key === 'name' && $value) {
+                $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '-', $value);
+                $newFileName = $safeName . '.' . CQMemoryPackService::FILE_EXTENSION;
+
+                $sourceFile = $this->projectFileService->findByPathAndName($projectId, $path, $name);
+                if ($sourceFile) {
+                    // Rename the file if the name actually changed
+                    if ($newFileName !== $name) {
+                        $this->projectFileService->moveFile($projectId, $sourceFile, [
+                            'path' => $path,
+                            'name' => $newFileName
+                        ]);
+                    }
+
+                    // Update related CQ Share record (title + share_url slug)
+                    $shares = $this->shareService->findBySourceId($sourceFile->getId());
+                    if (!empty($shares)) {
+                        $shareSlug = $newFileName
+                            ? preg_replace('/[^a-zA-Z0-9.-]/', '-', $newFileName)
+                            : $shares[0]['share_url'];
+                        $shareSlug = preg_replace('/-+/', '-', $shareSlug);
+                        $shareSlug = trim($shareSlug, '-');
+                        $this->shareService->update($shares[0]['id'], [
+                            'title' => $value,
+                            'share_url' => $shareSlug
+                        ]);
+                    }
+                }
+            }
+
+            return new JsonResponse([
+                'success' => true,
+                'key' => $key,
+                'value' => $value,
+                'newFileName' => $newFileName,
+            ]);
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            return new JsonResponse(['error' => 'Failed to update metadata: ' . $e->getMessage()], 500);
         }
     }
 

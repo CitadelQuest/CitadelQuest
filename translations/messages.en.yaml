@@ -1280,6 +1280,6 @@ feed:
     loading: 'Loading...'
     no_following: 'Not following anyone yet'
     no_followers: 'No followers yet'
-    new_content: 'New'
+    new_content: ''
     follow_success: 'Following!'
     unfollow_success: 'Unfollowed'

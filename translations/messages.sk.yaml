@@ -1271,6 +1271,6 @@ feed:
     loading: 'Načítavam...'
     no_following: 'Zatiaľ nikoho nesledujete'
     no_followers: 'Zatiaľ nemáte žiadnych sledovateľov'
-    new_content: 'Nové'
+    new_content: ''
     follow_success: 'Sledujete!'
     unfollow_success: 'Prestali ste sledovať'

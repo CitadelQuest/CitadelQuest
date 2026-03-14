@@ -2065,24 +2065,64 @@ class CQMemoryExplorer {
             }
 
             // Build source info section for synced packs
+            const isSynced = !!meta.source_url;
             let sourceHtml = '';
-            if (meta.source_url) {
+            if (isSynced) {
+                const syncedAtStr = meta.synced_at ? new Date(meta.synced_at).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague' }) : '';
                 sourceHtml = `
                     <div class="alert bg-secondary bg-opacity-10 border-primary text-cyber border-opacity-25 py-2 px-3 mb-3">
                         <i class="mdi mdi-cloud-sync-outline me-1"></i>
                         <strong>Synced Pack</strong>
                         <div class="small text-secondary mt-1"><i class="mdi mdi-link me-1"></i>${this.escapeHtml(meta.source_url)}</div>
-                        ${meta.synced_at ? `<div class="small text-secondary"><i class="mdi mdi-clock-sync-outline me-1"></i>Last synced: ${this.escapeHtml(new Date(meta.synced_at)?.toLocaleDateString())}</div>` : ''}
+                        ${syncedAtStr ? `<div class="small text-secondary"><i class="mdi mdi-clock-sync-outline me-1"></i>Last synced: ${this.escapeHtml(syncedAtStr)}</div>` : ''}
                     </div>
                 `;
+            }
+
+            // Format timestamps with date and time
+            const formatDateTime = (isoStr) => {
+                if (!isoStr) return '';
+                const d = new Date(isoStr);
+                return d.toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague' })
+                    + ' <span class="text-cyber opacity-75">/</span> '
+                    + d.toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague' });
+            };
+
+            // Name/Description: editable for local packs, read-only for synced
+            let nameHtml, descHtml;
+            if (isSynced) {
+                nameHtml = `<span class="ms-3">${this.escapeHtml(meta.name || packData.name)}</span>`;
+                descHtml = `<span class="ms-3">${this.escapeHtml(meta.description || '(none)')}</span>`;
+            } else {
+                nameHtml = `
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" class="form-control form-control-sm" id="packDetailName" 
+                            value="${this.escapeHtml(meta.name || packData.name)}" style="flex: 1;">
+                        <button class="btn btn-sm btn-outline-primary" id="btnSavePackName" style="padding: 2px 12px;">Save</button>
+                    </div>`;
+                descHtml = `
+                    <div class="d-flex align-items-start gap-2">
+                        <textarea class="form-control form-control-sm" id="packDetailDesc" 
+                            rows="2" style="flex: 1;">${this.escapeHtml(meta.description || '')}</textarea>
+                        <button class="btn btn-sm btn-outline-primary" id="btnSavePackDesc" style="padding: 2px 12px;">Save</button>
+                    </div>`;
+            }
+
+            // Timestamps
+            let timestampsHtml = '';
+            if (meta.created_at) {
+                timestampsHtml += `<span class="small text-secondary"><i class="mdi mdi-clock-outline me-1"></i>Created: ${formatDateTime(meta.created_at)}</span>`;
+            }
+            if (meta.updated_at) {
+                timestampsHtml += `<span class="small text-secondary ms-3"><i class="mdi mdi-clock-edit-outline me-1"></i>Updated: ${formatDateTime(meta.updated_at)}</span>`;
             }
 
             contentEl.innerHTML = `
                 <div class="mb-3">
                     <p><strong class="d-inline-block w-100"><i class="mdi mdi-label-outline me-2 text-cyber"></i>Name:</strong>
-                    <span class="ms-3">${this.escapeHtml(meta.name || packData.name)}</span></p>
-                    <p><strong class="d-inline-block w-100"><i class="mdi mdi-text me-2 text-cyber"></i>Description:</strong>
-                    <span class="ms-3">${this.escapeHtml(meta.description || '(none)')}</span></p>
+                    ${nameHtml}</p>
+                    <p class="mb-1"><strong class="d-inline-block w-100"><i class="mdi mdi-text me-2 text-cyber"></i>Description:</strong>
+                    ${descHtml}</p>
                     <p><strong class="d-inline-block w-100"><i class="mdi mdi-folder-outline me-2 text-cyber"></i>Path:</strong>
                     <span class="ms-3 text-secondary small">${this.escapeHtml(packData.path + '/' + packData.name)}</span></p>
                 </div>
@@ -2115,8 +2155,20 @@ class CQMemoryExplorer {
                     </div>
                 </div>
                 ${aiUsageHtml}
-                ${meta.created_at ? `<p class="small text-secondary mt-2"><i class="mdi mdi-clock-outline me-1"></i>Created: ${this.escapeHtml(new Date(meta.created_at)?.toLocaleDateString())}</p>` : ''}
+                ${timestampsHtml ? `<p class="mt-2 mb-0">${timestampsHtml}</p>` : ''}
             `;
+
+            // Bind save buttons for editable fields (local packs only)
+            if (!isSynced) {
+                const btnSaveName = contentEl.querySelector('#btnSavePackName');
+                const btnSaveDesc = contentEl.querySelector('#btnSavePackDesc');
+                if (btnSaveName) {
+                    btnSaveName.addEventListener('click', () => this.savePackMetadata(packData, 'name', contentEl.querySelector('#packDetailName').value));
+                }
+                if (btnSaveDesc) {
+                    btnSaveDesc.addEventListener('click', () => this.savePackMetadata(packData, 'description', contentEl.querySelector('#packDetailDesc').value));
+                }
+            }
         } catch (error) {
             console.error('Failed to load pack details:', error);
             contentEl.innerHTML = `<div class="alert alert-danger"><i class="mdi mdi-alert me-2"></i>Failed to load pack details: ${this.escapeHtml(error.message)}</div>`;
@@ -2124,7 +2176,51 @@ class CQMemoryExplorer {
     }
 
     /**
-     * Share the currently selected pack (same pattern as File Browser share)
+     * Save pack metadata (name or description)
+     */
+    async savePackMetadata(packData, key, value) {
+        try {
+            const response = await fetch('/api/memory/pack/update-metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packData.path,
+                    name: packData.name,
+                    key: key,
+                    value: value
+                })
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(result.error || `HTTP ${response.status}`);
+            }
+
+            window.toast?.success(`Pack ${key} updated`);
+
+            // Update the pack selector and current path if name was changed (file gets renamed)
+            if (key === 'name') {
+                const newFileName = result.newFileName;
+                if (newFileName && newFileName !== packData.name) {
+                    // Update currentPackPath with the new filename
+                    this.currentPackPath = JSON.stringify({ path: packData.path, name: newFileName });
+                    const storageKey = this.spiritId ? `cqMemoryPack_${this.spiritId}` : 'cqMemoryPack_global';
+                    localStorage.setItem(storageKey, this.currentPackPath);
+                }
+                // Reload from API to refresh availablePacks cache, then re-render selector
+                await this.loadLibraries();
+                await this.loadPacks();
+            }
+        } catch (error) {
+            console.error('Failed to save pack metadata:', error);
+            window.toast?.error('Failed to save: ' + error.message);
+        }
+    }
+
+    /**
+     * Share the currently selected pack — creates new share + opens edit modal
      */
     async sharePack() {
         if (!this.currentPackPath) {
@@ -2139,6 +2235,11 @@ class CQMemoryExplorer {
             if (!pack || !pack.fileId) {
                 window.toast?.error('Cannot share: pack file ID not found');
                 return;
+            }
+
+            // If already shared, open edit modal instead
+            if (pack.isShared) {
+                return this.handleEditShare(pack.fileId);
             }
 
             const title = pack.displayName || packData.name;
@@ -2169,12 +2270,197 @@ class CQMemoryExplorer {
                 } catch {
                     window.toast?.success(`Share created: ${shareLink}`);
                 }
+                // Update pack's isShared state and refresh share button
+                pack.isShared = true;
+                this.updateShareButtonState(pack);
+                // Auto-open edit share modal for the newly created share
+                this.openEditShareModal(data.share);
             } else {
                 window.toast?.error(data.message || 'Failed to create share');
             }
         } catch (error) {
             console.error('Failed to share pack:', error);
             window.toast?.error('Failed to share pack');
+        }
+    }
+
+    /**
+     * Handle edit share — opens Edit Share modal for an already shared pack
+     */
+    async handleEditShare(fileId) {
+        try {
+            const response = await fetch(`/api/share/by-source/${fileId}`);
+            const data = await response.json();
+
+            if (!data.success || !data.share) {
+                window.toast?.error('Share not found');
+                return;
+            }
+
+            this.openEditShareModal(data.share);
+        } catch (error) {
+            console.error('Error fetching share:', error);
+            window.toast?.error('Failed to load share data');
+        }
+    }
+
+    /**
+     * Create the Edit Share modal if it doesn't exist yet
+     */
+    ensureEditShareModal() {
+        if (document.getElementById('memEditShareModal')) return;
+
+        const t = window.memoryExplorerTranslations?.share || {};
+
+        const modalHtml = `
+        <div class="modal fade" id="memEditShareModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content glass-panel">
+                    <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                        <h5 class="modal-title"><i class="mdi mdi-pencil me-2"></i>${t.edit_share_title || 'Edit Share'}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="memEditShareForm">
+                        <input type="hidden" id="memEditShareId">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="memEditShareTitle" class="form-label">
+                                    <i class="mdi mdi-format-title me-2 text-cyber"></i>${t.field_title || 'Title'}
+                                </label>
+                                <input type="text" class="form-control glass-input" id="memEditShareTitle" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memEditShareUrlSlug" class="form-label">
+                                    <i class="mdi mdi-link me-2 text-cyber"></i>${t.field_url_slug || 'Share URL Slug'}
+                                </label>
+                                <input type="text" class="form-control glass-input" id="memEditShareUrlSlug" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memEditShareScope" class="form-label">
+                                    <i class="mdi mdi-eye me-2 text-cyber"></i>${t.field_scope || 'Scope'}
+                                </label>
+                                <select class="form-select glass-input" id="memEditShareScope">
+                                    <option value="1">${t.scope_contacts || 'CQ Contacts only'}</option>
+                                    <option value="0">${t.scope_public || 'Public (anyone with link)'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memEditShareDescription" class="form-label">
+                                    <i class="mdi mdi-text me-2 text-cyber"></i>${t.field_description || 'Description'}
+                                </label>
+                                <textarea class="form-control glass-input" id="memEditShareDescription" rows="3" placeholder="${t.field_description_placeholder || 'Optional description for this share...'}"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memEditShareDescDisplayStyle" class="form-label">
+                                    <i class="mdi mdi-page-layout-body me-2 text-cyber"></i>${t.field_desc_position || 'Description Position'}
+                                </label>
+                                <select class="form-select glass-input" id="memEditShareDescDisplayStyle">
+                                    <option value="0">${t.desc_above || 'Above content preview'}</option>
+                                    <option value="1">${t.desc_below || 'Below content preview'}</option>
+                                    <option value="2">${t.desc_left || 'Left of content preview'}</option>
+                                    <option value="3">${t.desc_right || 'Right of content preview'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="memEditShareDisplayStyle" class="form-label">
+                                    <i class="mdi mdi-eye-settings me-2 text-cyber"></i>${t.field_display_style || 'Display Style'}
+                                </label>
+                                <select class="form-select glass-input" id="memEditShareDisplayStyle">
+                                    <option value="0">${t.display_off || 'Off (download only)'}</option>
+                                    <option value="1">${t.display_preview || 'Content Preview'}</option>
+                                    <option value="2">${t.display_full || 'Full Content'}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="mdi mdi-toggle-switch me-2 text-cyber"></i>${t.field_status || 'Status'}
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="memEditShareActive" checked>
+                                    <label class="form-check-label" for="memEditShareActive">${t.status_active || 'Active'}</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer d-flex justify-content-between border-top-0">
+                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                                <i class="mdi mdi-cancel me-2"></i>${t.cancel || 'Cancel'}
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-cyber" id="memEditShareSubmit">
+                                <i class="mdi mdi-content-save me-2"></i>${t.save || 'SAVE'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Bind form submit
+        document.getElementById('memEditShareForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveEditShare();
+        });
+    }
+
+    /**
+     * Open the Edit Share modal and populate with share data
+     */
+    openEditShareModal(share) {
+        this.ensureEditShareModal();
+
+        document.getElementById('memEditShareId').value = share.id;
+        document.getElementById('memEditShareTitle').value = share.title;
+        document.getElementById('memEditShareUrlSlug').value = share.share_url;
+        document.getElementById('memEditShareScope').value = share.scope;
+        document.getElementById('memEditShareDisplayStyle').value = share.display_style ?? 1;
+        document.getElementById('memEditShareDescription').value = share.description || '';
+        document.getElementById('memEditShareDescDisplayStyle').value = share.description_display_style ?? 1;
+        document.getElementById('memEditShareActive').checked = share.is_active == 1;
+
+        const modal = new bootstrap.Modal(document.getElementById('memEditShareModal'));
+        modal.show();
+    }
+
+    /**
+     * Save edited share data via API
+     */
+    async saveEditShare() {
+        const id = document.getElementById('memEditShareId').value;
+        const btn = document.getElementById('memEditShareSubmit');
+        btn.disabled = true;
+
+        const t = window.memoryExplorerTranslations?.share || {};
+
+        try {
+            const response = await fetch(`/api/share/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: document.getElementById('memEditShareTitle').value,
+                    share_url: document.getElementById('memEditShareUrlSlug').value,
+                    scope: parseInt(document.getElementById('memEditShareScope').value),
+                    display_style: parseInt(document.getElementById('memEditShareDisplayStyle').value),
+                    description: document.getElementById('memEditShareDescription').value,
+                    description_display_style: parseInt(document.getElementById('memEditShareDescDisplayStyle').value),
+                    is_active: document.getElementById('memEditShareActive').checked ? 1 : 0
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                window.toast?.success(t.share_updated || 'Share updated successfully');
+                const modalEl = document.getElementById('memEditShareModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            } else {
+                window.toast?.error(data.message || 'Failed to update share');
+            }
+        } catch (error) {
+            console.error('Error updating share:', error);
+            window.toast?.error('Failed to update share');
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -2576,6 +2862,7 @@ class CQMemoryExplorer {
                             name: lastPackData.name
                         }, this.projectId);
                         this.extractPanel.setSyncedPack(!!matchingPack.sourceUrl);
+                        this.updateShareButtonState(matchingPack);
                         selectedPack = true;
                     }
                 } catch { /* ignore */ }
@@ -2594,6 +2881,7 @@ class CQMemoryExplorer {
                         name: rootPack.name
                     }, this.projectId);
                     this.extractPanel.setSyncedPack(!!rootPack.sourceUrl);
+                    this.updateShareButtonState(rootPack);
                     localStorage.setItem(storageKey, rootPackValue);
                     selectedPack = true;
                 }
@@ -2655,6 +2943,21 @@ class CQMemoryExplorer {
     }
 
     /**
+     * Update the Share button in pack dropdown based on pack's share status
+     */
+    updateShareButtonState(pack) {
+        const shareBtn = document.getElementById('btn-share-pack');
+        if (!shareBtn) return;
+        
+        const t = window.memoryExplorerTranslations?.share || {};
+        if (pack && pack.isShared) {
+            shareBtn.innerHTML = `<i class="mdi mdi-share-variant me-2 text-success"></i>${t.shared_edit || 'Shared - edit'}`;
+        } else {
+            shareBtn.innerHTML = `<i class="mdi mdi-share-variant me-2 text-success"></i>${t.share || 'Share'}`;
+        }
+    }
+
+    /**
      * Handle pack selection change
      */
     async onPackSelected(packPath) {
@@ -2680,6 +2983,9 @@ class CQMemoryExplorer {
             // Detect synced/shared pack and disable extraction
             const matchingPack = this.availablePacks.find(p => p.path === packData.path && p.name === packData.name);
             this.extractPanel.setSyncedPack(!!(matchingPack && matchingPack.sourceUrl));
+            
+            // Update Share button text based on share status
+            this.updateShareButtonState(matchingPack);
         } catch (e) {
             console.error('Failed to parse pack path:', e);
             this.extractPanel.setTargetPack(null, this.projectId);

@@ -910,7 +910,7 @@ export class CitadelExplorer {
                     <div class="mb-0">
                         <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-2" style="color: ${iconColor};"></i>
                         <span class="text-cyber">${group.title || ''}</span>
-                        ${groupHasNew ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring me-1"></i>New</span>' : ''}
+                        ${groupHasNew ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring"></i></span>' : ''}
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -1055,7 +1055,7 @@ export class CitadelExplorer {
                     <div>
                         <i class="mdi ${icon} ${iconColor} me-2"></i>
                         <span class="text-light fw-bold">${title}</span>
-                        ${isNewSinceVisit ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring me-1"></i>New</span>' : ''}
+                        ${isNewSinceVisit ? '<span class="badge bg-warning bg-opacity-25 text-warning ms-2 small"><i class="mdi mdi-bell-ring"></i></span>' : ''}
                         <span class="badge bg-secondary bg-opacity-25 ms-2 small">${typeLabel}</span>
                         <small class="text-light opacity-75"><i class="mdi mdi-eye me-1 ms-2"></i>${share.views || 0} ${this.t('views', 'views')}</small>
                         <button class="btn btn-sm btn-outline-primary border-0" title="${this.t('copy_link', 'Copy link')}"
