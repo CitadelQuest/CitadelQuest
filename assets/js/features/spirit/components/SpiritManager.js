@@ -291,6 +291,7 @@ export class SpiritManager {
         // Update basic info
         if (this.nameDisplay) {
             this.nameDisplay.textContent = this.spirit.name;
+            document.title = document.title + ": " + this.spirit.name;
         }
 
         if (this.levelDisplay) {

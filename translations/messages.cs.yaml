@@ -125,7 +125,7 @@ navigation:
         backup: 'Záloha'
 
 spirit:
-    title: 'Váš Spirit'
+    title: 'Spirit'
     level: 'Úroveň'
     experience: 'Zkušenosti'
     loading: 'Načítání...'
