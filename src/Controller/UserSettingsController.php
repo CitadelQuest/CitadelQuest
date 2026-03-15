@@ -82,13 +82,6 @@ class UserSettingsController extends AbstractController
 
         $user->setEmail($email);
         $entityManager->flush();
-        
-        $notificationService->createNotification(
-            $user,
-            $translator->trans('profile.email.updated.title'),
-            $translator->trans('profile.email.updated.message'),
-            'success'
-        );
 
         return new JsonResponse([
             'message' => $translator->trans('profile.email.updated.title')

@@ -9,13 +9,15 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/notifications')]
 #[IsGranted('ROLE_USER')]
 class NotificationController extends AbstractController
 {
     public function __construct(
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly TranslatorInterface $translator
     ) {
     }
 
@@ -33,8 +35,8 @@ class NotificationController extends AbstractController
         // Create a test notification
         $notification = $this->notificationService->createNotification(
             user: $user,
-            title: 'Test Notification',
-            message: 'This is a test notification sent at ' . date('H:i:s'),
+            title: $this->translator->trans('notifications.test.title'),
+            message: $this->translator->trans('notifications.test.message', ['%time%' => date('H:i:s')]),
             type: array_rand(array_flip(['info', 'success', 'warning', 'error']))
         );
 

@@ -21,24 +21,27 @@ class NotificationService
         UserInterface $user,
         string $title,
         string $message,
-        string $type = 'info'
+        string $type = 'info',
+        ?string $url = null
     ): Notification {
         $notification = new Notification();
         $notification
             ->setTitle($title)
             ->setMessage($message)
-            ->setType($type);
+            ->setType($type)
+            ->setUrl($url);
 
         // Store in user's database
         $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
         $userDb->executeStatement(
-            'INSERT INTO notifications (title, message, type, is_read) 
-             VALUES (?, ?, ?, ?)',
+            'INSERT INTO notifications (title, message, type, is_read, url) 
+             VALUES (?, ?, ?, ?, ?)',
             [
                 $notification->getTitle(),
                 $notification->getMessage(),
                 $notification->getType(),
-                0
+                0,
+                $notification->getUrl()
             ]
         );
         
@@ -113,6 +116,7 @@ class NotificationService
             ->setMessage($row['message'])
             ->setType($row['type'])
             ->setRead((bool) $row['is_read'])
+            ->setUrl($row['url'] ?? null)
             ->setCreatedAt(new \DateTimeImmutable($row['created_at']));
 
         return $notification;

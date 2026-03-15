@@ -84,6 +84,38 @@ notifications:
     test:
         title: Test Notification
         message: This is a test notification sent at %time%
+    friend_request:
+        origin_mismatch_title: 'Friend request Origin mismatch!'
+        new_title: 'New friend request from %username%!'
+        new_message: 'A new friend request from: %domain%'
+        accepted_title: 'Friend request accepted by %username%!'
+        accepted_message: 'Your friend request to %username% has been accepted'
+        removed_title: '%username% removed you from contacts'
+        removed_message: '%username% from %domain% has removed you from their contacts'
+        rejected_title: 'Friend request rejected by %username%!'
+        rejected_message: 'Your friend request to %username% has been rejected'
+    follow:
+        new_title: 'New Follower'
+        new_message: '%username% from %domain% started following you'
+        migrated_title: 'Follower Migrated'
+        migrated_message: '%username% has migrated to %domain%'
+    migration:
+        new_request_title: 'New Migration Request'
+        new_request_message: 'User %username% from %domain% wants to migrate to this server'
+        accepted_title: 'Migration Accepted!'
+        accepted_message: 'Your migration request has been accepted. The transfer will begin shortly.'
+        rejected_title: 'Migration Rejected'
+        rejected_message: 'Your migration request was rejected: %reason%'
+        contact_title: 'Contact Migrated'
+        contact_message: '%username% has migrated to %domain%'
+    spirit:
+        level_up_title: '%name% leveled up!'
+        level_up_message: 'Your spirit has reached level %level%.'
+    memory:
+        extraction_complete_title: '📚 Memory Extraction Complete'
+        extraction_complete_message: 'Extraction complete. Created %count% memory nodes.'
+        batch_extraction_title: '📚 Batch Conversation Extraction'
+        batch_extraction_message: 'Processed %total% conversations: %queued% queued, %skipped% skipped (already extracted), %errors% errors.'
 
 home:
     actions:
@@ -1074,7 +1106,11 @@ cq_contact:
     
     # Messages
     friend_request_sent: 'Friend request sent successfully'
+    friend_request_received: 'Friend request received'
     friend_request_updated: 'Friend request status updated'
+    accept_friend_request: 'Accept'
+    reject_friend_request: 'Reject'
+    contact_rejected: 'Contact removed'
     error_sending: 'Error sending friend request'
     error_updating: 'Error updating friend request'
     error_adding: 'Error adding contact'

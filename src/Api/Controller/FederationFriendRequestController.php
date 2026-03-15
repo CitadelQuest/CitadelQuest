@@ -6,12 +6,14 @@ use App\Entity\CqContact;
 use App\Entity\User;
 use App\Service\CqContactService;
 use App\Service\NotificationService;
+use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class FederationFriendRequestController extends AbstractController
 {
@@ -20,6 +22,8 @@ class FederationFriendRequestController extends AbstractController
         private EntityManagerInterface $entityManager,
         private NotificationService $notificationService,
         private LoggerInterface $logger,
+        private TranslatorInterface $translator,
+        private SettingsService $settingsService,
     ) {}
 
     #[Route('/{username}/api/federation/friend-request', name: 'api_federation_friend_request', methods: ['POST'])]
@@ -108,6 +112,13 @@ class FederationFriendRequestController extends AbstractController
             }
             $this->cqContactService->setUser($user);
 
+            // Set translator locale to user's preferred locale
+            $this->settingsService->setUser($user);
+            $userLocale = $this->settingsService->getSettingValue('_locale');
+            if ($userLocale) {
+                $this->translator->setLocale($userLocale);
+            }
+
             // Fraud prevention: validate origin matches claimed domain
             $origin = $request->headers->get('Origin') ?? $request->headers->get('Referer') ?? '';
             $claimedDomain = $data['cq_contact_domain'];
@@ -120,9 +131,10 @@ class FederationFriendRequestController extends AbstractController
                 // Send a `friend request warning` notification too
                 $this->notificationService->createNotification(
                     $user,
-                    'Friend request Origin mismatch!',
+                    $this->translator->trans('notifications.friend_request.origin_mismatch_title'),
                     $origin . ' vs. ' . $claimedDomain,
-                    'warning'
+                    'warning',
+                    '/cq-contacts' . (isset($data['cq_contact_url']) ? '?url='.urlencode($data['cq_contact_url']) : '')
                 );
             }
 
@@ -170,9 +182,10 @@ class FederationFriendRequestController extends AbstractController
                             // Send a `new friend request` notification
                             $this->notificationService->createNotification(
                                 $user,
-                                sprintf('New friend request from %s!', $cqContact->getCqContactUsername()),
-                                'A new friend request from: ' . $cqContact->getCqContactDomain(),
-                                'success'
+                                $this->translator->trans('notifications.friend_request.new_title', ['%username%' => $cqContact->getCqContactUsername()]),
+                                $this->translator->trans('notifications.friend_request.new_message', ['%domain%' => $cqContact->getCqContactDomain()]),
+                                'success',
+                                '/cq-contacts' . (isset($data['cq_contact_url']) ? '?url='.urlencode($data['cq_contact_url']) : '')
                             );
                         } else {
                             $this->logger->error('FederationFriendRequestController::friendRequest - Failed to create contact');
@@ -228,9 +241,10 @@ class FederationFriendRequestController extends AbstractController
                         // Send a `friend request accepted` notification
                         $this->notificationService->createNotification(
                             $user,
-                            sprintf('Friend request accepted from %s!', $cqContact->getCqContactUsername()),
-                            'Your friend request to ' . $cqContact->getCqContactUsername() . ' has been accepted',
-                            'success'
+                            $this->translator->trans('notifications.friend_request.accepted_title', ['%username%' => $cqContact->getCqContactUsername()]),
+                            $this->translator->trans('notifications.friend_request.accepted_message', ['%username%' => $cqContact->getCqContactUsername()]),
+                            'success',
+                            '/cq-contacts?url=' . urlencode($cqContact->getCqContactUrl())
                         );
 
                     } elseif ($cqContact && $cqContact->getFriendRequestStatus() === 'REJECTED') {
@@ -254,9 +268,10 @@ class FederationFriendRequestController extends AbstractController
 
                         $this->notificationService->createNotification(
                             $user,
-                            sprintf('%s removed you from contacts', $cqContact->getCqContactUsername()),
-                            sprintf('%s from %s has removed you from their contacts', $data['cq_contact_username'], $data['cq_contact_domain']),
-                            'warning'
+                            $this->translator->trans('notifications.friend_request.removed_title', ['%username%' => $cqContact->getCqContactUsername()]),
+                            $this->translator->trans('notifications.friend_request.removed_message', ['%username%' => $data['cq_contact_username'], '%domain%' => $data['cq_contact_domain']]),
+                            'warning',
+                            '/cq-contacts?url=' . urlencode($cqContact->getCqContactUrl())
                         );
                     }
                     break;
@@ -272,9 +287,10 @@ class FederationFriendRequestController extends AbstractController
                         // Send a `friend request rejected` notification
                         $this->notificationService->createNotification(
                             $user,
-                            sprintf('Friend request rejected from %s!', $cqContact->getCqContactUsername()),
-                            'Your friend request to ' . $cqContact->getCqContactUsername() . ' has been rejected',
-                            'error'
+                            $this->translator->trans('notifications.friend_request.rejected_title', ['%username%' => $cqContact->getCqContactUsername()]),
+                            $this->translator->trans('notifications.friend_request.rejected_message', ['%username%' => $cqContact->getCqContactUsername()]),
+                            'error',
+                            '/cq-contacts?url=' . urlencode($cqContact->getCqContactUrl())
                         );
                     }
                     break;

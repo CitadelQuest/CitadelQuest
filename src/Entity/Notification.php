@@ -9,6 +9,7 @@ class Notification
     private string $message;
     private string $type = 'info'; // info, success, warning, error
     private bool $read = false;
+    private ?string $url = null;
     private \DateTimeImmutable $createdAt;
 
     public function __construct()
@@ -84,6 +85,17 @@ class Notification
         return $this;
     }
 
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    public function setUrl(?string $url): self
+    {
+        $this->url = $url;
+        return $this;
+    }
+
     public function toArray(): array
     {
         return [
@@ -92,6 +104,7 @@ class Notification
             'message' => $this->message,
             'type' => $this->type,
             'read' => $this->read,
+            'url' => $this->url,
             'createdAt' => $this->createdAt->format('c'),
         ];
     }

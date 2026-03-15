@@ -14,6 +14,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SpiritService
 {
@@ -28,6 +29,7 @@ class SpiritService
         private ProjectFileService $projectFileService,
         private CQMemoryPackService $packService,
         private CQMemoryLibraryService $libraryService,
+        private TranslatorInterface $translator,
     ) {}
     
     /**
@@ -449,9 +451,10 @@ class SpiritService
             if ($spirit) {
                 $this->notificationService->createNotification(
                     $this->security->getUser(),
-                    sprintf('%s leveled up!', $spirit->getName()),
-                    sprintf('Your spirit has reached level %d.', $newLevel),
-                    'success'
+                    $this->translator->trans('notifications.spirit.level_up_title', ['%name%' => $spirit->getName()]),
+                    $this->translator->trans('notifications.spirit.level_up_message', ['%level%' => $newLevel]),
+                    'success',
+                    '/spirit/' . $spiritId
                 );
             }
         }

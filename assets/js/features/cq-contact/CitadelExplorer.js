@@ -290,8 +290,18 @@ export class CitadelExplorer {
                 </span>`;
         } else if (p.is_contact && cStatus === 'RECEIVED') {
             contactActionHtml = `
-                <span class="badge bg-info bg-opacity-25 px-2 py-1" title="${this.t('friend_request_received', 'Friend request received')}">
-                    <i class="mdi mdi-account-arrow-left text-info"></i>
+                <span class="d-flex align-items-center gap-1">
+                    <span class="badge bg-info bg-opacity-25 px-2 py-1" title="${this.t('friend_request_received')}">
+                        <i class="mdi mdi-account-arrow-left text-info"></i>
+                    </span>
+                    <button class="btn btn-sm btn-outline-success border-0 px-1 explorer-fr-accept-btn"
+                            data-contact-id="${p.cq_contact_id}" title="${this.t('accept_friend_request')}">
+                        <i class="mdi mdi-check"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger border-0 px-1 explorer-fr-reject-btn"
+                            data-contact-id="${p.cq_contact_id}" title="${this.t('reject_friend_request')}">
+                        <i class="mdi mdi-close"></i>
+                    </button>
                 </span>`;
         } else if (p.is_contact && cStatus === 'REJECTED') {
             contactActionHtml = `
@@ -611,6 +621,16 @@ export class CitadelExplorer {
                     bsModal.show();
                 }
             }
+        });
+
+        // Bind friend request accept/reject buttons on profile view
+        document.querySelector('.explorer-fr-accept-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleExplorerFriendRequest(e.currentTarget.dataset.contactId, 'ACCEPTED');
+        });
+        document.querySelector('.explorer-fr-reject-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleExplorerFriendRequest(e.currentTarget.dataset.contactId, 'REJECTED');
         });
 
         // Bind follow button (for non-following state)
@@ -1427,6 +1447,36 @@ export class CitadelExplorer {
             window.toast?.error(error.message);
             btn.innerHTML = origHtml;
             btn.disabled = false;
+        }
+    }
+
+    // ========================================
+    // Friend Request Accept / Reject (profile view)
+    // ========================================
+
+    async handleExplorerFriendRequest(contactId, status) {
+        try {
+            const resp = await fetch(`/api/cq-contact/${contactId}/friend-request`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friendRequestStatus: status }),
+            });
+            const data = await resp.json();
+            if (data.success) {
+                window.toast?.success(this.t('friend_request_updated'));
+                // Reload sidebar contacts
+                if (window.explorerSidebar) {
+                    await window.explorerSidebar.loadContacts();
+                    window.explorerSidebar.renderContactsSidebar();
+                }
+                // Re-explore to refresh profile with new status/scope
+                this.explore();
+            } else {
+                window.toast?.error(data.message || data.error || 'Error');
+            }
+        } catch (e) {
+            console.error('CitadelExplorer: Friend request error', e);
+            window.toast?.error(e.message || 'Error');
         }
     }
 

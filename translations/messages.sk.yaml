@@ -84,6 +84,38 @@ notifications:
     test:
         title: Testovacia notifikácia
         message: Toto je testovacia notifikácia vytvorená v %time%
+    friend_request:
+        origin_mismatch_title: 'Žiadosť o priateľstvo - nesúlad pôvodu!'
+        new_title: 'Nová žiadosť o priateľstvo od %username%!'
+        new_message: 'Nová žiadosť o priateľstvo z: %domain%'
+        accepted_title: '%username% prijal/a vašu žiadosť o priateľstvo!'
+        accepted_message: 'Vaša žiadosť o priateľstvo pre %username% bola prijatá'
+        removed_title: '%username% vás odstránil/a z kontaktov'
+        removed_message: '%username% z %domain% vás odstránil/a zo svojich kontaktov'
+        rejected_title: '%username% odmietol/a vašu žiadosť o priateľstvo!'
+        rejected_message: 'Vaša žiadosť o priateľstvo pre %username% bola odmietnutá'
+    follow:
+        new_title: 'Nový sledovateľ'
+        new_message: '%username% z %domain% vás začal/a sledovať'
+        migrated_title: 'Sledovateľ migrovaný'
+        migrated_message: '%username% migroval/a na %domain%'
+    migration:
+        new_request_title: 'Nová žiadosť o migráciu'
+        new_request_message: 'Používateľ %username% z %domain% chce migrovať na tento server'
+        accepted_title: 'Migrácia prijatá!'
+        accepted_message: 'Vaša žiadosť o migráciu bola prijatá. Prenos čoskoro začne.'
+        rejected_title: 'Migrácia odmietnutá'
+        rejected_message: 'Vaša žiadosť o migráciu bola odmietnutá: %reason%'
+        contact_title: 'Kontakt migrovaný'
+        contact_message: '%username% migroval/a na %domain%'
+    spirit:
+        level_up_title: '%name% dosiahol novú úroveň!'
+        level_up_message: 'Váš duch dosiahol úroveň %level%.'
+    memory:
+        extraction_complete_title: '📚 Extrakcia pamäte dokončená'
+        extraction_complete_message: 'Extrakcia dokončená. Vytvorených %count% uzlov pamäte.'
+        batch_extraction_title: '📚 Hromadná extrakcia konverzácií'
+        batch_extraction_message: 'Spracovaných %total% konverzácií: %queued% vo fronte, %skipped% preskočených (už extrahované), %errors% chýb.'
 
 home:
     actions:
@@ -1066,7 +1098,11 @@ cq_contact:
     
     # Messages
     friend_request_sent: 'Žiadosť o priateľstvo úspešne odoslaná'
+    friend_request_received: 'Žiadosť o priateľstvo prijatá'
     friend_request_updated: 'Stav žiadosti o priateľstvo aktualizovaný'
+    accept_friend_request: 'Prijať'
+    reject_friend_request: 'Odmietnuť'
+    contact_rejected: 'Kontakt odstránený'
     error_sending: 'Chyba pri odosielaní žiadosti o priateľstvo'
     error_updating: 'Chyba pri aktualizácii žiadosti o priateľstvo'
     error_adding: 'Chyba pri pridávaní kontaktu'

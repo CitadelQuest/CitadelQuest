@@ -6,6 +6,7 @@ use App\Entity\MemoryNode;
 use App\Entity\MemoryJob;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Service for AI Tool memory operations
@@ -44,7 +45,8 @@ class AIToolMemoryService
         private readonly NotificationService $notificationService,
         private readonly Security $security,
         private readonly CQMemoryPackService $packService,
-        private readonly CQMemoryLibraryService $libraryService
+        private readonly CQMemoryLibraryService $libraryService,
+        private readonly TranslatorInterface $translator
     ) {
         $this->user = $security->getUser();
     }
@@ -666,9 +668,10 @@ class AIToolMemoryService
                 $count = $result['storedCount'] ?? 0;
                 $this->notificationService->createNotification(
                     $this->user,
-                    '📚 Memory Extraction Complete<br/>' . $docName,
-                    'Extraction complete. Created ' . $count . ' memory nodes.',
-                    'success'
+                    $this->translator->trans('notifications.memory.extraction_complete_title') . '<br/>' . $docName,
+                    $this->translator->trans('notifications.memory.extraction_complete_message', ['%count%' => $count]),
+                    'success',
+                    '/memory'
                 );
             }
 
@@ -2205,9 +2208,10 @@ PROMPT;
             $total = count($conversations);
             $this->notificationService->createNotification(
                 $this->user,
-                '📚 Batch Conversation Extraction',
-                "Processed {$total} conversations: {$queued} queued, {$skipped} skipped (already extracted), {$errors} errors.",
-                $errors > 0 ? 'warning' : 'success'
+                $this->translator->trans('notifications.memory.batch_extraction_title'),
+                $this->translator->trans('notifications.memory.batch_extraction_message', ['%total%' => $total, '%queued%' => $queued, '%skipped%' => $skipped, '%errors%' => $errors]),
+                $errors > 0 ? 'warning' : 'success',
+                '/memory'
             );
         }
 

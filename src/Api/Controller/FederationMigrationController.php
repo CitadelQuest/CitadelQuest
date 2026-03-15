@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Service\MigrationService;
 use App\Service\CqContactService;
 use App\Service\NotificationService;
+use App\Service\SettingsService;
 use App\Service\BackupManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,6 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Federation Migration Controller
@@ -30,7 +32,21 @@ class FederationMigrationController extends AbstractController
         private EntityManagerInterface $entityManager,
         private LoggerInterface $logger,
         private BackupManager $backupManager,
+        private TranslatorInterface $translator,
+        private SettingsService $settingsService,
     ) {}
+
+    /**
+     * Set translator locale to user's preferred locale from their settings
+     */
+    private function setUserLocale(User $user): void
+    {
+        $this->settingsService->setUser($user);
+        $userLocale = $this->settingsService->getSettingValue('_locale');
+        if ($userLocale) {
+            $this->translator->setLocale($userLocale);
+        }
+    }
 
     /**
      * Receive migration request from another CitadelQuest instance
@@ -106,6 +122,9 @@ class FederationMigrationController extends AbstractController
                 ], Response::HTTP_UNAUTHORIZED);
             }
 
+            // Set translator locale to user's preferred locale
+            $this->setUserLocale($targetUser);
+
             // Process the migration request
             $result = $this->migrationService->processIncomingMigrationRequest($data, $targetUser);
 
@@ -113,9 +132,10 @@ class FederationMigrationController extends AbstractController
                 // Send notification to admin
                 $this->notificationService->createNotification(
                     $targetUser,
-                    'New Migration Request',
-                    sprintf('User %s from %s wants to migrate to this server', $data['username'], $data['source_domain']),
-                    'info'
+                    $this->translator->trans('notifications.migration.new_request_title'),
+                    $this->translator->trans('notifications.migration.new_request_message', ['%username%' => $data['username'], '%domain%' => $data['source_domain']]),
+                    'info',
+                    '/admin/migrations'
                 );
             }
 
@@ -204,12 +224,16 @@ class FederationMigrationController extends AbstractController
             $migrationRequest->setAcceptedAt(new \DateTime());
             $this->entityManager->flush();
 
+            // Set translator locale to user's preferred locale
+            $this->setUserLocale($user);
+
             // Notify user
             $this->notificationService->createNotification(
                 $user,
-                'Migration Accepted!',
-                'Your migration request has been accepted. The transfer will begin shortly.',
-                'success'
+                $this->translator->trans('notifications.migration.accepted_title'),
+                $this->translator->trans('notifications.migration.accepted_message'),
+                'success',
+                '/settings#migration'
             );
 
             $this->logger->error('FederationMigrationController::migrationAcceptIncoming - Migration accepted', [
@@ -269,12 +293,16 @@ class FederationMigrationController extends AbstractController
                 $migrationRequest->setErrorMessage($data['reason'] ?? 'Rejected by administrator');
                 $this->entityManager->flush();
 
+                // Set translator locale to user's preferred locale
+                $this->setUserLocale($user);
+
                 // Notify user
                 $this->notificationService->createNotification(
                     $user,
-                    'Migration Rejected',
-                    'Your migration request was rejected: ' . ($data['reason'] ?? 'No reason provided'),
-                    'error'
+                    $this->translator->trans('notifications.migration.rejected_title'),
+                    $this->translator->trans('notifications.migration.rejected_message', ['%reason%' => $data['reason'] ?? 'No reason provided']),
+                    'error',
+                    '/settings#migration'
                 );
             }
 
@@ -741,12 +769,16 @@ class FederationMigrationController extends AbstractController
             $contact->setCqContactUrl($newUrl);
             $this->cqContactService->updateContact($contact);
 
+            // Set translator locale to user's preferred locale
+            $this->setUserLocale($user);
+
             // Notify user about the contact's migration
             $this->notificationService->createNotification(
                 $user,
-                'Contact Migrated',
-                sprintf('%s has migrated to %s', $contact->getCqContactUsername(), $data['new_domain']),
-                'info'
+                $this->translator->trans('notifications.migration.contact_title'),
+                $this->translator->trans('notifications.migration.contact_message', ['%username%' => $contact->getCqContactUsername(), '%domain%' => $data['new_domain']]),
+                'info',
+                '/cq-contacts?url=' . urlencode($newUrl)
             );
 
             return $this->json([

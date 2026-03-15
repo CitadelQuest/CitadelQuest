@@ -77,11 +77,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const notificationItem = e.target.closest('.dropdown-item');
         if (!notificationItem?.dataset.notificationId) return;
 
+        const notificationUrl = notificationItem.dataset.url;
+
         fetch(`/notifications/${notificationItem.dataset.notificationId}/mark-read`, {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         }).then(response => {
-            if (response.ok) fetchAndUpdateNotifications();
+            if (response.ok) {
+                if (notificationUrl) {
+                    window.location.href = notificationUrl;
+                } else {
+                    fetchAndUpdateNotifications();
+                }
+            }
         });
     });
 

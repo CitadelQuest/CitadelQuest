@@ -46,7 +46,8 @@
             {% set unread_notifications = get_unread_notifications() %}
             {% for notification in unread_notifications %}
                 <div class="dropdown-item nav-link ps-3 unread type-{{ notification.type|default('info') }}"
-                     data-notification-id="{{ notification.id }}">
+                     data-notification-id="{{ notification.id }}"
+                     {% if notification.url %}data-url="{{ notification.url }}"{% endif %}>
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}
                         <div class="notification-icon me-3">
@@ -77,7 +78,8 @@
             {% set read_notifications = get_notifications()|slice(unread_notifications|length, 12) %}
             {% for notification in read_notifications %}
                 <div class="dropdown-item nav-link ps-3 type-{{ notification.type|default('info') }}"
-                     data-notification-id="{{ notification.id }}">
+                     data-notification-id="{{ notification.id }}"
+                     {% if notification.url %}data-url="{{ notification.url }}"{% endif %}>
                     <div class="d-flex align-items-center">
                         {# Icon based on type #}
                         <div class="notification-icon me-3">

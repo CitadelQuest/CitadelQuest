@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Service\CQFollowService;
 use App\Service\CQShareService;
 use App\Service\NotificationService;
+use App\Service\SettingsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +14,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Federation Follow Controller
@@ -31,6 +33,8 @@ class FederationFollowController extends AbstractController
         private readonly NotificationService $notificationService,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger,
+        private readonly TranslatorInterface $translator,
+        private readonly SettingsService $settingsService,
     ) {}
 
     /**
@@ -91,6 +95,13 @@ class FederationFollowController extends AbstractController
 
             $this->followService->setUser($user);
 
+            // Set translator locale to user's preferred locale
+            $this->settingsService->setUser($user);
+            $userLocale = $this->settingsService->getSettingValue('_locale');
+            if ($userLocale) {
+                $this->translator->setLocale($userLocale);
+            }
+
             switch ($action) {
                 case 'follow':
                     $this->followService->addFollower(
@@ -103,9 +114,10 @@ class FederationFollowController extends AbstractController
                     // Notify user about new follower
                     $this->notificationService->createNotification(
                         $user,
-                        'New Follower',
-                        sprintf('%s from %s started following you', $data['cq_contact_username'], $data['cq_contact_domain']),
-                        'info'
+                        $this->translator->trans('notifications.follow.new_title'),
+                        $this->translator->trans('notifications.follow.new_message', ['%username%' => $data['cq_contact_username'], '%domain%' => $data['cq_contact_domain']]),
+                        'info',
+                        '/cq-contacts?url=' . urlencode($data['cq_contact_url'])
                     );
 
                     return $this->json([
@@ -131,9 +143,10 @@ class FederationFollowController extends AbstractController
 
                     $this->notificationService->createNotification(
                         $user,
-                        'Follower Migrated',
-                        sprintf('%s has migrated to %s', $data['cq_contact_username'], $data['cq_contact_domain']),
-                        'info'
+                        $this->translator->trans('notifications.follow.migrated_title'),
+                        $this->translator->trans('notifications.follow.migrated_message', ['%username%' => $data['cq_contact_username'], '%domain%' => $data['cq_contact_domain']]),
+                        'info',
+                        '/cq-contacts?url=' . urlencode($data['cq_contact_url'])
                     );
 
                     return $this->json([
