@@ -13,11 +13,17 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-light"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-cyber active border-0">
-                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-account-circle me-2 text-cyber"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                    </a>
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 active border-0">
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>
                 </div>
             </div>
@@ -93,7 +99,7 @@
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
-                                <i class="mdi mdi-content-save me-2"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
+                                <i class="mdi mdi-content-save mx-2 text-cyber"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
                             </button>
                         </div>
                     </form>
@@ -156,7 +162,7 @@
                             <i class="mdi mdi-login me-2"></i> CQ AI Gateway - Dashboard
                         </button>
                         <button type="button" onclick="openGatewayLogin('add-credits')" class="btn btn-sm btn-cyber">
-                            <i class="mdi mdi-plus me-2"></i> {{ 'settings.ai.gateway.add_credits'|trans|default('Add Credits') }}
+                            <i class="mdi mdi-plus mx-2 text-cyber"></i> {{ 'settings.ai.gateway.add_credits'|trans|default('Add Credits') }}
                         </button>
                     </div>
                     {% endif %}

@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'share_groups.settings.page_title'|trans|default('Share Groups') }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ 'share_groups.settings.page_title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block body %}
 <div class="container mt-4">
@@ -8,84 +8,101 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-light"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent pb-2">
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
-                        <i class="mdi mdi-tune-variant me-2"></i> {{ 'settings.general.title'|trans|default('General Settings') }}
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
                     </a>
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
-                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                        <i class="mdi mdi-account-circle me-2 text-cyber"></i> {{ 'profile.settings.title'|trans }}
                     </a>
-                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action link-light bg-cyber border-0">
-                        <i class="mdi mdi-folder-multiple me-2"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0">
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans }}
                     </a>
                     <hr class="my-2 border-secondary">
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
-                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans }}
                     </a>
                 </div>
             </div>
         </div>
         
         <div class="col-md-9">
-            <div class="glass-panel">
-                <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0"><i class="mdi mdi-folder-multiple me-3"></i>{{ 'share_groups.settings.title'|trans|default('Share Groups') }}</h4>
-                    <button type="button" class="btn btn-sm btn-cyber" id="btn-create-group">
-                        <i class="mdi mdi-plus me-1"></i>{{ 'share_groups.create'|trans|default('New Group') }}
-                    </button>
+            <div class="" id="share-groups-wrapper"
+                 {% if profile_custom_bg %}data-bg-url="/{{ app.user.username }}/background"{% endif %}
+                 {% if not profile_bg_overlay %}data-bg-no-overlay="1"{% endif %}>
+                <div class="glass-panel p-4 border-1 border-primary border-opacity-25">
+                    <a href="/{{ app.user.username }}" target="_blank" class="btn btn-sm btn-cyber opacity-75 mb-2 float-end mx-2 ms-2">
+                        {{ 'ui.view'|trans }} <i class="mdi mdi-open-in-new ms-1"></i>
+                    </a>
+                    <h4 class="mb-2"><i class="mdi mdi-folder-multiple me-3 text-cyber"></i>{{ 'share_groups.settings.title'|trans }}</h4>            
+                    <div class="form-check form-switch mb-0 d-block">
+                        <input class="form-check-input" type="checkbox" id="toggle-content-preview" checked>
+                        <label class="form-check-label text-light small opacity-75" for="toggle-content-preview">{{ 'share_groups.show_preview'|trans }}</label>
+                    </div>
                 </div>
                 <div class="p-4" id="share-groups-settings"
                      data-api-url="/api/share-group"
                      data-shares-url="/api/share"
                      data-translations="{{ {
-                         'create_group': 'share_groups.create'|trans|default('New Group'),
-                         'edit_group': 'share_groups.edit'|trans|default('Edit Group'),
-                         'delete_group': 'share_groups.delete'|trans|default('Delete Group'),
-                         'delete_group_confirm': 'share_groups.delete_confirm'|trans|default('Delete this group? Items will be ungrouped.'),
-                         'add_share': 'share_groups.add_share'|trans|default('Add Share'),
-                         'remove_item': 'share_groups.remove_item'|trans|default('Remove'),
-                         'no_groups': 'share_groups.no_groups'|trans|default('No share groups yet. Create one to organize your shared items.'),
-                         'no_shares': 'share_groups.no_shares'|trans|default('No active shares available.'),
-                         'group_title': 'share_groups.group_title'|trans|default('Group Title'),
-                         'icon': 'share_groups.icon'|trans|default('Icon'),
-                         'icon_color': 'share_groups.icon_color'|trans|default('Icon Color'),
-                         'url_slug': 'share_groups.url_slug'|trans|default('URL Slug'),
-                         'scope': 'share_groups.scope'|trans|default('Visibility'),
-                         'scope_public': 'share_groups.scope_public'|trans|default('Public'),
-                         'scope_federation': 'share_groups.scope_federation'|trans|default('CQ Contacts'),
-                         'scope_contacts': 'share_groups.scope_contacts'|trans|default('Specific Contacts'),
-                         'show_in_nav': 'share_groups.show_in_nav'|trans|default('Show in navigation'),
-                         'active': 'share_groups.active'|trans|default('Active'),
-                         'show_header': 'share_groups.show_header'|trans|default('Show header'),
-                         'display_style': 'share_groups.display_style'|trans|default('Display'),
-                         'ds_hidden': 'share_groups.ds_hidden'|trans|default('Hidden'),
-                         'ds_preview': 'share_groups.ds_preview'|trans|default('Preview'),
-                         'ds_full': 'share_groups.ds_full'|trans|default('Full'),
-                         'ds_inherit': 'share_groups.ds_inherit'|trans|default('From share'),
-                         'desc_ds': 'share_groups.desc_ds'|trans|default('Description'),
-                         'desc_above': 'share_groups.desc_above'|trans|default('Above'),
-                         'desc_below': 'share_groups.desc_below'|trans|default('Below'),
-                         'desc_left': 'share_groups.desc_left'|trans|default('Left'),
-                         'desc_right': 'share_groups.desc_right'|trans|default('Right'),
-                         'saved': 'share_groups.saved'|trans|default('Group saved'),
-                         'deleted': 'share_groups.deleted'|trans|default('Group deleted'),
-                         'error': 'share_groups.error'|trans|default('An error occurred'),
-                         'item_added': 'share_groups.item_added'|trans|default('Share added to group'),
-                         'item_removed': 'share_groups.item_removed'|trans|default('Share removed from group'),
-                         'save': 'ui.save'|trans|default('Save'),
-                         'cancel': 'ui.cancel'|trans|default('Cancel'),
-                         'loading': 'ui.loading'|trans|default('Loading...'),
-                         'empty_group': 'share_groups.empty_group'|trans|default('No shares in this group yet.'),
-                         'select_share': 'share_groups.select_share'|trans|default('Select a share to add'),
-                         'items': 'share_groups.items'|trans|default('items')
-                     }|json_encode|e('html_attr') }}">
+                         'create_group': 'share_groups.create'|trans,
+                         'edit_group': 'share_groups.edit'|trans,
+                         'delete_group': 'share_groups.delete'|trans,
+                         'delete_group_confirm': 'share_groups.delete_confirm'|trans,
+                         'add_share': 'share_groups.add_share'|trans,
+                         'remove_item': 'share_groups.remove_item'|trans,
+                         'no_groups': 'share_groups.no_groups'|trans,
+                         'no_shares': 'share_groups.no_shares'|trans,
+                         'group_title': 'share_groups.group_title'|trans,
+                         'icon': 'share_groups.icon'|trans,
+                         'icon_color': 'share_groups.icon_color'|trans,
+                         'url_slug': 'share_groups.url_slug'|trans,
+                         'scope': 'share_groups.scope'|trans,
+                         'scope_public': 'share_groups.scope_public'|trans,
+                         'scope_federation': 'share_groups.scope_federation'|trans,
+                         'scope_contacts': 'share_groups.scope_contacts'|trans,
+                         'show_in_nav': 'share_groups.show_in_nav'|trans,
+                         'active': 'share_groups.active'|trans,
+                         'show_header': 'share_groups.show_header'|trans,
+                         'display_style': 'share_groups.display_style'|trans,
+                         'ds_hidden': 'share_groups.ds_hidden'|trans,
+                         'ds_preview': 'share_groups.ds_preview'|trans,
+                         'ds_full': 'share_groups.ds_full'|trans,
+                         'ds_inherit': 'share_groups.ds_inherit'|trans,
+                         'desc_ds': 'share_groups.desc_ds'|trans,
+                         'desc_above': 'share_groups.desc_above'|trans,
+                         'desc_below': 'share_groups.desc_below'|trans,
+                         'desc_left': 'share_groups.desc_left'|trans,
+                         'desc_right': 'share_groups.desc_right'|trans,
+                         'saved': 'share_groups.saved'|trans,
+                         'deleted': 'share_groups.deleted'|trans,
+                         'error': 'share_groups.error'|trans,
+                         'item_added': 'share_groups.item_added'|trans,
+                         'item_removed': 'share_groups.item_removed'|trans,
+                         'save': 'ui.save'|trans,
+                         'cancel': 'ui.cancel'|trans,
+                         'loading': 'ui.loading'|trans,
+                         'empty_group': 'share_groups.empty_group'|trans,
+                         'select_share': 'share_groups.select_share'|trans,
+                         'items': 'share_groups.items'|trans,
+                         'edit_share': 'cq_share.edit_title'|trans,
+                         'edit_file': 'ui.edit'|trans,
+                         'open_memory_explorer': 'share_groups.open_memory_explorer'|trans,
+                         'open_file_browser': 'share_groups.open_file_browser'|trans,
+                         'settings': 'navigation.user_menu.settings'|trans,
+                         'share_updated': 'cq_share.updated'|trans,
+                         'share_update_error': 'cq_share.update_error'|trans,
+                         'file_saved': 'file_browser.file_saved'|trans,
+                         'all': 'spirit.memory.extract_panel.select_all'|trans,
+                     }|json_encode|e('html_attr') }}"
+                     data-share-api-url="/api/share"
+                     data-file-api-url="/api/project-file">
 
                     {# Loading state #}
                     <div id="share-groups-loading" class="text-center py-5">
                         <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
-                        <span class="text-muted ms-2">{{ 'ui.loading'|trans|default('Loading...') }}</span>
+                        <span class="text-muted ms-2">{{ 'ui.loading'|trans }}</span>
                     </div>
 
                     {# Groups list container #}
@@ -94,7 +111,7 @@
                     {# Empty state #}
                     <div id="share-groups-empty" class="d-none text-center py-5">
                         <i class="mdi mdi-folder-open-outline text-muted" style="font-size: 48px; opacity: 0.3;"></i>
-                        <p class="text-muted mt-2">{{ 'share_groups.no_groups'|trans|default('No share groups yet. Create one to organize your shared items.') }}</p>
+                        <p class="text-muted mt-2">{{ 'share_groups.no_groups'|trans }}</p>
                     </div>
                 </div>
             </div>
@@ -108,7 +125,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="groupEditModalTitle">
-                    <i class="mdi mdi-folder-multiple me-2"></i>{{ 'share_groups.create'|trans|default('New Group') }}
+                    <i class="mdi mdi-folder-multiple me-2"></i>{{ 'share_groups.create'|trans }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
@@ -116,12 +133,12 @@
                 <input type="hidden" id="group-edit-id" value="">
                 
                 <div class="mb-3">
-                    <label class="form-label" for="group-edit-title"><i class="mdi mdi-label me-2 text-cyber"></i>{{ 'share_groups.group_title'|trans|default('Group Title') }}</label>
+                    <label class="form-label" for="group-edit-title"><i class="mdi mdi-label me-2 text-cyber"></i>{{ 'share_groups.group_title'|trans }}</label>
                     <input type="text" class="form-control glass-input" id="group-edit-title" maxlength="128" autofocus>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="group-edit-icon"><i class="mdi mdi-palette me-2 text-cyber"></i>{{ 'share_groups.icon'|trans|default('Icon') }}</label>
+                    <label class="form-label" for="group-edit-icon"><i class="mdi mdi-palette me-2 text-cyber"></i>{{ 'share_groups.icon'|trans }}</label>
                     <div class="d-flex align-items-center gap-2">
                         <div id="group-icon-preview" class="d-flex align-items-center justify-content-center rounded border border-secondary" 
                              style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); cursor: pointer;"
@@ -138,7 +155,7 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="group-edit-icon-color"><i class="mdi mdi-format-color-fill me-2 text-cyber"></i>{{ 'share_groups.icon_color'|trans|default('Icon Color') }}</label>
+                    <label class="form-label" for="group-edit-icon-color"><i class="mdi mdi-format-color-fill me-2 text-cyber"></i>{{ 'share_groups.icon_color'|trans }}</label>
                     <div class="d-flex align-items-center gap-2">
                         <input type="color" class="form-control form-control-color border-secondary" id="group-edit-icon-color" value="#95ec86" style="width: 40px; height: 40px;">
                         <input type="text" class="form-control form-control-sm glass-input" id="group-edit-icon-color-text" value="#95ec86" placeholder="#95ec86" style="max-width: 120px;">
@@ -149,36 +166,36 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="group-edit-slug"><i class="mdi mdi-link-variant me-2 text-cyber"></i>{{ 'share_groups.url_slug'|trans|default('URL Slug') }}</label>
+                    <label class="form-label" for="group-edit-slug"><i class="mdi mdi-link-variant me-2 text-cyber"></i>{{ 'share_groups.url_slug'|trans }}</label>
                     <input type="text" class="form-control form-control-sm glass-input" id="group-edit-slug" placeholder="my-content" maxlength="128">
-                    <div class="text-muted small mt-1">{{ 'share_groups.url_slug_hint'|trans|default('URL-friendly identifier, e.g.') }} <code>{{ app.request.schemeAndHttpHost }}/{{ app.user.username }}/<span id="slug-preview-val">my-content</span></code></div>
+                    <div class="text-muted small mt-1">{{ 'share_groups.url_slug_hint'|trans }} <code>{{ app.request.schemeAndHttpHost }}/{{ app.user.username }}/<span id="slug-preview-val">my-content</span></code></div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label" for="group-edit-scope"><i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'share_groups.scope'|trans|default('Visibility') }}</label>
+                    <label class="form-label" for="group-edit-scope"><i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'share_groups.scope'|trans }}</label>
                     <select class="form-select form-select-sm glass-input" id="group-edit-scope">
-                        <option value="0">{{ 'share_groups.scope_public'|trans|default('Public') }}</option>
-                        <option value="1">{{ 'share_groups.scope_federation'|trans|default('CQ Contacts') }}</option>
+                        <option value="0">{{ 'share_groups.scope_public'|trans }}</option>
+                        <option value="1">{{ 'share_groups.scope_federation'|trans }}</option>
                     </select>
                 </div>
 
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="group-edit-nav" checked>
-                    <label class="form-check-label text-light small" for="group-edit-nav">{{ 'share_groups.show_in_nav'|trans|default('Show in navigation') }}</label>
+                    <label class="form-check-label text-light small" for="group-edit-nav">{{ 'share_groups.show_in_nav'|trans }}</label>
                 </div>
 
                 <div class="form-check form-switch mb-2">
                     <input class="form-check-input" type="checkbox" id="group-edit-active" checked>
-                    <label class="form-check-label text-light small" for="group-edit-active">{{ 'share_groups.active'|trans|default('Active') }}</label>
+                    <label class="form-check-label text-light small" for="group-edit-active">{{ 'share_groups.active'|trans }}</label>
                 </div>
             </div>
             <div class="modal-footer justify-content-between">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans|default('Cancel') }}
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
                 </button>
                 <button type="button" class="btn btn-cyber" id="btn-save-group">
                     <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
-                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans|default('Save') }}
+                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans }}
                 </button>
             </div>
         </div>
@@ -191,7 +208,7 @@
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title">
-                    <i class="mdi mdi-plus-circle me-2"></i>{{ 'share_groups.add_share'|trans|default('Add Share') }}
+                    <i class="mdi mdi-plus-circle me-2"></i>{{ 'share_groups.add_share'|trans }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
@@ -209,7 +226,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
-                <h5 class="modal-title"><i class="mdi mdi-palette me-2"></i>{{ 'share_groups.icon'|trans|default('Icon') }}</h5>
+                <h5 class="modal-title"><i class="mdi mdi-palette me-2"></i>{{ 'share_groups.icon'|trans }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
             </div>
             <div class="modal-body">
@@ -217,6 +234,88 @@
                        id="icon-picker-search" placeholder="Search icons...">
                 <div id="icon-picker-grid" class="d-flex flex-wrap gap-1" style="max-height: 400px; overflow-y: auto;"></div>
             </div>
+        </div>
+    </div>
+</div>
+
+{# Edit Share Modal (reused from CQ Share index) #}
+<div class="modal fade" id="editShareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success border-1 border-bottom">
+                <h5 class="modal-title"><i class="mdi mdi-pencil me-2"></i>{{ 'cq_share.edit_title'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editShareForm">
+                <input type="hidden" id="editShareId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editShareTitle" class="form-label">
+                            <i class="mdi mdi-format-title me-2 text-cyber"></i>{{ 'cq_share.field_title'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="editShareTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareUrlSlug" class="form-label">
+                            <i class="mdi mdi-link me-2 text-cyber"></i>{{ 'cq_share.field_url_slug'|trans }}
+                        </label>
+                        <input type="text" class="form-control glass-input" id="editShareUrlSlug" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareScope" class="form-label">
+                            <i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'cq_share.field_scope'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareScope">
+                            <option value="1">{{ 'cq_share.scope_contacts_desc'|trans }}</option>
+                            <option value="0">{{ 'cq_share.scope_public_desc'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareDescription" class="form-label">
+                            <i class="mdi mdi-text me-2 text-cyber"></i>{{ 'cq_share.field_description'|trans }}
+                        </label>
+                        <textarea class="form-control glass-input" id="editShareDescription" rows="3" placeholder="{{ 'cq_share.field_description_placeholder'|trans }}"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareDescDisplayStyle" class="form-label">
+                            <i class="mdi mdi-page-layout-body me-2 text-cyber"></i>{{ 'cq_share.field_desc_display_style'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareDescDisplayStyle">
+                            <option value="0">{{ 'cq_share.desc_style_above'|trans }}</option>
+                            <option value="1">{{ 'cq_share.desc_style_below'|trans }}</option>
+                            <option value="2">{{ 'cq_share.desc_style_left'|trans }}</option>
+                            <option value="3">{{ 'cq_share.desc_style_right'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editShareDisplayStyle" class="form-label">
+                            <i class="mdi mdi-eye-settings me-2 text-cyber"></i>{{ 'cq_share.field_display_style'|trans }}
+                        </label>
+                        <select class="form-select glass-input" id="editShareDisplayStyle">
+                            <option value="0">{{ 'cq_share.display_style_off'|trans }}</option>
+                            <option value="1">{{ 'cq_share.display_style_preview'|trans }}</option>
+                            <option value="2">{{ 'cq_share.display_style_full'|trans }}</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="mdi mdi-toggle-switch me-2 text-cyber"></i>{{ 'cq_share.field_status'|trans }}
+                        </label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="editShareActive" checked>
+                            <label class="form-check-label" for="editShareActive">{{ 'cq_share.field_status_active'|trans }}</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between border-top-0">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                        <i class="mdi mdi-cancel me-2"></i>{{ 'ui.cancel'|trans }}
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-cyber" id="editShareSubmit">
+                        <i class="mdi mdi-content-save me-2"></i>{{ 'cq_share.save'|trans }}
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

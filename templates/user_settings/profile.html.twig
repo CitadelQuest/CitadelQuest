@@ -8,21 +8,21 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-light"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent pb-2">
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
-                        <i class="mdi mdi-tune-variant me-2"></i> {{ 'settings.general.title'|trans|default('General Settings') }}
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans|default('General Settings') }}
                     </a>
-                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-cyber border-0">
-                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0">
+                        <i class="mdi mdi-account-circle me-2 text-cyber"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
                     </a>
                     <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
-                        <i class="mdi mdi-folder-multiple me-2"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
                     </a>
                     <hr class="my-2 border-secondary">
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
-                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>
                 </div>
             </div>

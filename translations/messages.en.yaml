@@ -560,6 +560,9 @@ share_groups:
     empty_group: 'No shares in this group yet.'
     select_share: 'Select a share to add'
     items: 'items'
+    show_preview: 'Show preview'
+    open_memory_explorer: 'Open in Memory Explorer'
+    open_file_browser: 'Open in File Browser'
 
 dashboard:
     title: 'Dashboard'

@@ -73,10 +73,10 @@ export class SettingsGeneralManager {
 
         this.navItems.forEach(item => {
             if (item.dataset.section === sectionName) {
-                item.classList.add('active', 'bg-cyber');
+                item.classList.add('active', 'bg-primary', 'bg-opacity-25');
                 item.classList.remove('bg-transparent');
             } else {
-                item.classList.remove('active', 'bg-cyber');
+                item.classList.remove('active', 'bg-primary', 'bg-opacity-25');
                 item.classList.add('bg-transparent');
             }
         });

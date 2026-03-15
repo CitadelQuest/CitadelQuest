@@ -552,6 +552,9 @@ share_groups:
     empty_group: 'V tejto skupine zatiaľ nie sú žiadne zdieľania.'
     select_share: 'Vyberte zdieľanie na pridanie'
     items: 'položiek'
+    show_preview: 'Zobraziť náhľad'
+    open_memory_explorer: 'Otvoriť v Memory Exploreri'
+    open_file_browser: 'Otvoriť v prehliadači súborov'
 
 dashboard:
     title: 'Prehľad'

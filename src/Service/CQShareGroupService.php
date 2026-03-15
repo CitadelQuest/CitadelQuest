@@ -293,9 +293,12 @@ class CQShareGroupService
     {
         $db = $this->getUserDb();
         return $db->executeQuery(
-            'SELECT gi.*, s.title AS share_title, s.source_type, s.share_url, s.scope AS share_scope, s.is_active AS share_is_active
+            'SELECT gi.*, s.title AS share_title, s.source_type, s.source_id, s.share_url, s.scope AS share_scope, s.is_active AS share_is_active,
+                    s.display_style AS share_display_style, s.description, s.description_display_style AS share_description_display_style,
+                    s.views, pf.path AS source_file_path, pf.name AS source_file_name
              FROM cq_share_group_item gi
              JOIN cq_share s ON s.id = gi.share_id
+             LEFT JOIN project_file pf ON pf.id = s.source_id
              WHERE gi.group_id = ?
              ORDER BY gi."order" ASC',
             [$groupId]

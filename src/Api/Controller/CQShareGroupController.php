@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\CQShareGroupService;
+use App\Service\CQShareService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,7 @@ class CQShareGroupController extends AbstractController
 {
     public function __construct(
         private readonly CQShareGroupService $groupService,
+        private readonly CQShareService $shareService,
         private readonly LoggerInterface $logger
     ) {}
 
@@ -27,14 +29,29 @@ class CQShareGroupController extends AbstractController
     // ========================================
 
     #[Route('/api/share-group', name: 'api_share_group_list', methods: ['GET'])]
-    public function listGroups(): JsonResponse
+    public function listGroups(Request $request): JsonResponse
     {
         try {
             $groups = $this->groupService->listGroups();
+            $user = $this->getUser();
+            $username = $user?->getUsername() ?? '';
+            $withPreview = $request->query->getBoolean('preview', false);
 
             // Attach items to each group
             foreach ($groups as &$group) {
-                $group['items'] = $this->groupService->listItems($group['id']);
+                $items = $this->groupService->listItems($group['id']);
+
+                // Compute effective display styles (same as listActiveGroupsWithItems)
+                foreach ($items as &$item) {
+                    $item['effective_display_style'] = $item['display_style'] ?? $item['share_display_style'];
+                    $item['effective_description_display_style'] = $item['description_display_style'] ?? $item['share_description_display_style'];
+                }
+                unset($item);
+
+                if ($withPreview && $user) {
+                    $items = $this->shareService->enrichSharesWithPreview($user, $username, $items);
+                }
+                $group['items'] = $items;
             }
             unset($group);
 
@@ -109,7 +126,7 @@ class CQShareGroupController extends AbstractController
         }
     }
 
-    #[Route('/api/share-group/reorder', name: 'api_share_group_reorder', methods: ['PUT'])]
+    #[Route('/api/share-group/reorder', name: 'api_share_group_reorder', methods: ['PUT'], priority: 10)]
     public function reorderGroups(Request $request): JsonResponse
     {
         try {

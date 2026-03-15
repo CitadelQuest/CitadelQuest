@@ -861,6 +861,13 @@ class UserSettingsController extends AbstractController
     #[Route('/profile/share-groups', name: 'app_user_settings_share_groups', methods: ['GET'])]
     public function shareGroups(): Response
     {
-        return $this->render('user_settings/share_groups.html.twig');
+        $user = $this->getUser();
+        $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+        $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
+
+        return $this->render('user_settings/share_groups.html.twig', [
+            'profile_custom_bg' => !empty($customBgFileId),
+            'profile_bg_overlay' => $bgOverlay,
+        ]);
     }
 }

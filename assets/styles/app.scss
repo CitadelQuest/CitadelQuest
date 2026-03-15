@@ -19,11 +19,18 @@
 @use "./components/_ai-model-selector";
 @use "./notifications";
 
-.btn.btn-sm
- {
+.btn.btn-sm {
     padding: 0.2rem 0.6rem !important;
     font-size: 0.8rem !important;
     padding-top: 0.3rem !important;
+}
+
+.btn-info {
+    background-color: colors.$info;
+}
+.btn-outline-info {
+    color: colors.$info;
+    border-color: colors.$info;
 }
 
 // Glass panel hover effect

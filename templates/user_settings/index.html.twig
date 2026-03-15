@@ -18,27 +18,27 @@
         <div class="col-md-3">
             <div class="card glass-panel mb-4">
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
-                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-light"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
                 <div class="list-group list-group-flush bg-transparent pb-2">
-                    <a href="#credentials" class="list-group-item list-group-item-action link-light bg-cyber border-0 settings-nav-item active" data-section="credentials">
-                        <i class="mdi mdi-account-lock me-2"></i> {{ 'settings.general.login_info'|trans|default('Login information') }}
+                    <a href="#credentials" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0 settings-nav-item active" data-section="credentials">
+                        <i class="mdi mdi-account-lock mx-2 text-cyber"></i> {{ 'settings.general.login_info'|trans|default('Login information') }}
                     </a>
                     <a href="#theme" class="list-group-item list-group-item-action text-light bg-transparent border-0 settings-nav-item" data-section="theme">
-                        <i class="mdi mdi-palette me-2"></i> {{ 'settings.theme.title'|trans|default('Theme') }}
+                        <i class="mdi mdi-palette mx-2 text-cyber"></i> {{ 'settings.theme.title'|trans|default('Theme') }}
                     </a>
                     <a href="#database" class="list-group-item list-group-item-action text-light bg-transparent border-0 settings-nav-item" data-section="database">
-                        <i class="mdi mdi-database me-2"></i> {{ 'settings.database.title'|trans|default('Database') }}
+                        <i class="mdi mdi-database mx-2 text-cyber"></i> {{ 'settings.database.title'|trans|default('Database') }}
                     </a>
                     <a href="#migration" class="list-group-item list-group-item-action text-light bg-transparent border-0 settings-nav-item" data-section="migration">
-                        <i class="mdi mdi-account-arrow-right me-2"></i> {{ 'settings.migration.title'|trans|default('Account Migration') }}
+                        <i class="mdi mdi-account-arrow-right mx-2 text-cyber"></i> {{ 'settings.migration.title'|trans|default('Account Migration') }}
                     </a>
                     <hr class="my-2 border-secondary">
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
-                        <i class="mdi mdi-account-circle me-2"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
+                        <i class="mdi mdi-account-circle me-2 text-cyber"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
                     </a>
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
-                        <i class="mdi mdi-robot me-2"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>
                 </div>
             </div>

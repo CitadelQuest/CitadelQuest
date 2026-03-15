@@ -560,6 +560,9 @@ share_groups:
     empty_group: 'V této skupině zatím nejsou žádné sdílení.'
     select_share: 'Vyberte sdílení k přidání'
     items: 'položek'
+    show_preview: 'Zobrazit náhled'
+    open_memory_explorer: 'Otevřít v Memory Exploreru'
+    open_file_browser: 'Otevřít v prohlížeči souborů'
 
 dashboard:
     title: 'Nástěnka'

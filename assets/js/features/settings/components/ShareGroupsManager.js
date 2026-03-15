@@ -1,5 +1,6 @@
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
+import { MemoryGraphView } from '../../cq-memory/MemoryGraphView';
 /**
  * ShareGroupsManager
  * 
@@ -13,11 +14,17 @@ export class ShareGroupsManager {
 
         this.apiUrl = this.container.dataset.apiUrl;
         this.sharesUrl = this.container.dataset.sharesUrl;
+        this.shareApiUrl = this.container.dataset.shareApiUrl || '/api/share';
+        this.fileApiUrl = this.container.dataset.fileApiUrl || '/api/project-file';
         this.t = JSON.parse(this.container.dataset.translations || '{}');
 
         this.groups = [];
         this.allShares = [];
         this.dragSrcEl = null;
+        this.activeFilterGroupId = null; // null = show all
+        this.md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+        this.graphViews = [];
+        this.showContentPreview = localStorage.getItem('shareGroups_showPreview') !== '0';
 
         this.listEl = document.getElementById('share-groups-list');
         this.loadingEl = document.getElementById('share-groups-loading');
@@ -25,6 +32,7 @@ export class ShareGroupsManager {
 
         this.initModals();
         this.initEventListeners();
+        this.initPreviewToggle();
         this.loadGroups();
     }
 
@@ -56,6 +64,60 @@ export class ShareGroupsManager {
         this.iconPickerModal = new bootstrap.Modal(document.getElementById('iconPickerModal'));
         this.iconPickerSearch = document.getElementById('icon-picker-search');
         this.iconPickerGrid = document.getElementById('icon-picker-grid');
+
+        // Edit Share modal
+        const editShareModalEl = document.getElementById('editShareModal');
+        if (editShareModalEl) {
+            this.editShareModal = new bootstrap.Modal(editShareModalEl);
+            this.initEditShareForm();
+        }
+    }
+
+    initPreviewToggle() {
+        const toggle = document.getElementById('toggle-content-preview');
+        if (!toggle) return;
+        toggle.checked = this.showContentPreview;
+
+        // Profile bg image support
+        this.wrapper = document.getElementById('share-groups-wrapper');
+        this.bgUrl = this.wrapper?.dataset.bgUrl || null;
+        this.bgNoOverlay = this.wrapper?.dataset.bgNoOverlay === '1';
+
+        toggle.addEventListener('change', () => {
+            this.showContentPreview = toggle.checked;
+            localStorage.setItem('shareGroups_showPreview', toggle.checked ? '1' : '0');
+            this.toggleContentPreviews();
+        });
+
+        // Apply initial bg state
+        this.applyProfileBg();
+    }
+
+    toggleContentPreviews() {
+        const previews = this.listEl.querySelectorAll('.share-content-preview');
+        previews.forEach(el => {
+            el.classList.toggle('d-none', !this.showContentPreview);
+        });
+        // Destroy or init graphs based on toggle
+        if (this.showContentPreview) {
+            requestAnimationFrame(() => this.initVisibleGraphs());
+        } else {
+            this.graphViews.forEach(gv => { try { gv.dispose(); } catch(e) {} });
+            this.graphViews = [];
+        }
+        this.applyProfileBg();
+    }
+
+    applyProfileBg() {
+        if (!this.wrapper || !this.bgUrl) return;
+        if (this.showContentPreview) {
+            this.wrapper.classList.add('profile-header-bg');
+            if (this.bgNoOverlay) this.wrapper.classList.add('no-overlay');
+            this.wrapper.style.setProperty('--header-bg-image', `url('${this.bgUrl}')`);
+        } else {
+            this.wrapper.classList.remove('profile-header-bg', 'no-overlay');
+            this.wrapper.style.removeProperty('--header-bg-image');
+        }
     }
 
     initEventListeners() {
@@ -122,7 +184,7 @@ export class ShareGroupsManager {
     async loadGroups() {
         this.showLoading(true);
         try {
-            const resp = await fetch(this.apiUrl);
+            const resp = await fetch(`${this.apiUrl}?preview=1`);
             const data = await resp.json();
             this.groups = data.success ? (data.groups || []) : [];
         } catch (e) {
@@ -158,8 +220,9 @@ export class ShareGroupsManager {
         this.showLoading(false);
 
         if (this.groups.length === 0) {
-            this.listEl.classList.add('d-none');
             this.emptyEl.classList.remove('d-none');
+            this.listEl.classList.remove('d-none');
+            this.listEl.innerHTML = this.renderNavBar();
             return;
         }
 
@@ -167,24 +230,30 @@ export class ShareGroupsManager {
         this.listEl.classList.remove('d-none');
 
         let html = '';
+
+        // Navigation bar (groups with show_in_nav + All)
+        html += this.renderNavBar();
+
+        // Group cards
         this.groups.forEach((group, idx) => {
             const items = group.items || [];
             const isInactive = !group.is_active;
             const opacityClass = isInactive ? ' opacity-50' : '';
+            const isHidden = this.activeFilterGroupId !== null && this.activeFilterGroupId !== group.id;
 
             html += `
-            <div class="card glass-panel mb-3 share-group-card${opacityClass}" data-group-id="${group.id}" draggable="true">
-                <div class="card-header bg-transparent border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
+            <div class="card glass-panel mb-3 share-group-card bg-transparent${opacityClass}${isHidden ? ' d-none' : ''}" data-group-id="${group.id}" draggable="true">
+                <div class="card-header bg-dark bg-opacity-50 border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2 flex-wrap" style="min-width: 0;">
                         <i class="mdi mdi-drag-vertical text-muted" style="cursor: grab;" title="Drag to reorder"></i>
                         <i class="mdi ${group.mdi_icon || 'mdi-folder'}" style="font-size: 20px; color: ${group.icon_color || '#95ec86'}; opacity: 0.75;"></i>
                         <span class="text-light fw-bold">${this.esc(group.title)}</span>
-                        <span class="badge bg-dark border border-secondary border-opacity-25 small text-muted">
+                        <span class="badge bg-secondary bg-opacity-25 small text-light opacity-50">
                             ${items.length} ${this.tl('items')}
                         </span>
                         ${group.show_in_nav ? '<i class="mdi mdi-navigation-variant-outline text-cyber opacity-50 ms-1" title="' + this.tl('show_in_nav') + '"></i>' : ''}
                         ${isInactive ? '<span class="badge bg-secondary small ms-1">inactive</span>' : ''}
-                        <span class="badge bg-${group.scope === 0 ? 'success' : 'info'} bg-opacity-25 small">
+                        <span class="badge opacity-50 bg-${group.scope === 0 ? 'success' : 'info'} bg-opacity-25 small">
                             ${group.scope === 0 ? this.tl('scope_public') : this.tl('scope_federation')}
                         </span>
                     </div>
@@ -204,32 +273,7 @@ export class ShareGroupsManager {
             if (items.length > 0) {
                 html += `<div class="card-body p-0"><div class="list-group list-group-flush bg-transparent" data-group-id="${group.id}">`;
                 items.forEach(item => {
-                    const isCqmpack = item.source_type === 'cqmpack';
-                    const icon = isCqmpack ? 'mdi-graph' : 'mdi-file';
-                    const iconColor = isCqmpack ? 'text-info' : 'text-warning';
-                    const dsLabel = this.dsLabel(item.display_style);
-                    const ddsLabel = this.ddsLabel(item.description_display_style);
-
-                    html += `
-                    <div class="list-group-item bg-transparent border-secondary border-opacity-10 px-3 py-2 d-flex justify-content-between align-items-center share-group-item" 
-                         data-item-id="${item.id}" data-group-id="${group.id}" draggable="true">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="mdi mdi-drag-horizontal text-muted" style="cursor: grab; font-size: 14px;"></i>
-                            <i class="mdi ${icon} ${iconColor}" style="font-size: 14px;"></i>
-                            <span class="text-light small">${this.esc(item.share_title || item.title || '—')}</span>
-                            ${!item.show_header ? '<i class="mdi mdi-eye-off-outline text-muted small ms-1" title="Header hidden"></i>' : ''}
-                            ${dsLabel ? `<span class="badge bg-dark text-muted small border border-secondary border-opacity-25">${dsLabel}</span>` : ''}
-                            ${ddsLabel ? `<span class="badge bg-dark text-muted small border border-secondary border-opacity-25">${ddsLabel}</span>` : ''}
-                        </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <button class="btn btn-sm btn-outline-secondary border-0 py-0" onclick="shareGroupsMgr.openItemConfig('${group.id}', '${item.id}')" title="Configure">
-                                <i class="mdi mdi-cog small"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger border-0 py-0" onclick="shareGroupsMgr.removeItem('${group.id}', '${item.id}')" title="${this.tl('remove_item')}">
-                                <i class="mdi mdi-close small"></i>
-                            </button>
-                        </div>
-                    </div>`;
+                    html += this.renderItem(item, group);
                 });
                 html += `</div></div>`;
             } else {
@@ -241,6 +285,285 @@ export class ShareGroupsManager {
 
         this.listEl.innerHTML = html;
         this.initDragAndDrop();
+        this.initNavDragAndDrop();
+        // Delay graph init to ensure DOM layout is complete
+        requestAnimationFrame(() => this.initGraphPreviews());
+    }
+
+    renderNavBar() {
+        const navGroups = this.groups.filter(g => g.show_in_nav && (g.items || []).length > 0);
+
+        const isAll = this.activeFilterGroupId === null;
+
+        let html = `<div class="mb-3 px-1" id="share-groups-nav">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <a href="#" class="text-decoration-none mb-2 share-group-nav-item" data-filter-group="all" onclick="shareGroupsMgr.filterByGroup(null); return false;">
+                    <span class="glass-panel ${isAll ? 'bg-success bg-opacity-25' : ''} py-2 px-3" style="font-size: 0.85rem;">
+                        <i class="mdi mdi-view-dashboard me-1 text-cyber"></i>
+                        <span class="${isAll ? 'text-cyber' : 'text-light opacity-75'}">${this.tl('all')}</span>
+                    </span>
+                </a>`;
+
+        navGroups.forEach(group => {
+            const isActive = this.activeFilterGroupId === group.id;
+            html += `
+                <a href="#" class="text-decoration-none mb-2 share-group-nav-item" data-filter-group="${group.id}" data-group-id="${group.id}"
+                   draggable="true" onclick="shareGroupsMgr.filterByGroup('${group.id}'); return false;">
+                    <span class="glass-panel ${isActive ? 'bg-success bg-opacity-25' : ''} py-2 px-3" style="font-size: 0.85rem;">
+                        <i class="mdi ${group.mdi_icon || 'mdi-folder'} me-1" style="color: ${group.icon_color || '#95ec86'};"></i>
+                        <span class="${isActive ? 'text-cyber' : 'text-light opacity-75'}">${this.esc(group.title)}</span>
+                    </span>
+                </a>`;
+        });
+
+        // + New Group button as last nav item
+        html += `
+                <a href="#" class="text-decoration-none mb-2" onclick="shareGroupsMgr.openGroupModal(); return false;">
+                    <span class="glass-panel active text-cyber border-1 border-primary border-opacity-75 py-2 px-3" style="font-size: 0.85rem;">
+                        <i class="mdi mdi-plus me-1"></i>
+                        <span class="text-cyber">${this.tl('create_group')}</span>
+                    </span>
+                </a>`;
+
+        html += `</div></div>`;
+        return html;
+    }
+
+    renderItem(item, group) {
+        const isCqmpack = item.source_type === 'cqmpack';
+        const icon = isCqmpack ? 'mdi-graph' : 'mdi-file';
+        const iconColor = isCqmpack ? 'text-info' : 'text-warning';
+        const dsLabel = this.dsLabel(item.display_style);
+        const ddsLabel = this.ddsLabel(item.description_display_style);
+        const isTextFile = !isCqmpack && item.source_file_name && this.isTextFile(item.source_file_name);
+
+        // Build action buttons based on source type
+        let actionBtns = '';
+        if (isCqmpack) {
+            if (item.source_file_name) {
+                actionBtns += `<button class="btn btn-sm btn-outline-info border-0 py-0" onclick="shareGroupsMgr.openMemoryExplorer('${this.escAttr(item.source_file_path || '')}', '${this.escAttr(item.source_file_name)}')" title="${this.tl('open_memory_explorer')}">
+                    <i class="mdi mdi-graph small"></i>
+                </button>`;
+            }
+            actionBtns += `<button class="btn btn-sm btn-outline-secondary border-0 py-0" onclick="shareGroupsMgr.openEditShareModal('${item.share_id}')" title="${this.tl('edit_share')}">
+                <i class="mdi mdi-pencil small"></i>
+            </button>`;
+        } else {
+            if (isTextFile && item.source_id) {
+                actionBtns += `<button class="btn btn-sm btn-outline-warning border-0 py-0" onclick="shareGroupsMgr.openEditFileModal('${item.source_id}')" title="${this.tl('edit_file')}">
+                    <i class="mdi mdi-file-edit small"></i>
+                </button>`;
+            }
+            if (item.source_file_name) {
+                actionBtns += `<button class="btn btn-sm btn-outline-warning border-0 py-0" onclick="shareGroupsMgr.openFileBrowser('${this.escAttr(item.source_file_path || '')}', '${this.escAttr(item.source_file_name)}')" title="${this.tl('open_file_browser')}">
+                    <i class="mdi mdi-folder-file small"></i>
+                </button>`;
+            }
+            actionBtns += `<button class="btn btn-sm btn-outline-secondary border-0 py-0" onclick="shareGroupsMgr.openEditShareModal('${item.share_id}')" title="${this.tl('edit_share')}">
+                <i class="mdi mdi-pencil small"></i>
+            </button>`;
+        }
+
+        let html = `
+        <div class="list-group-item bg-dark bg-opacity-25 border-secondary border-opacity-10 px-3 py-2 d-flex justify-content-between align-items-center flex-wrap gap-1 share-group-item" 
+             data-item-id="${item.id}" data-group-id="${group.id}" draggable="true">
+            <div class="d-flex align-items-center gap-2 flex-wrap" style="min-width: 0;">
+                <i class="mdi mdi-drag-horizontal text-muted" style="cursor: grab; font-size: 14px;"></i>
+                <i class="mdi ${icon} ${iconColor}" style="font-size: 14px;"></i>
+                <span class="text-light small text-break">${this.esc(item.share_title || item.title || '—')}</span>
+                ${!item.show_header ? '<i class="mdi mdi-eye-off-outline text-muted small ms-1" title="Header hidden"></i>' : ''}
+                ${dsLabel ? `<span class="badge bg-dark bg-opacity-25 text-muted small">${dsLabel}</span>` : ''}
+                ${ddsLabel ? `<span class="badge bg-dark bg-opacity-25s text-muted small">${ddsLabel}</span>` : ''}
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                ${actionBtns}
+                <button class="btn btn-sm btn-outline-secondary border-0 py-0" onclick="shareGroupsMgr.openItemConfig('${group.id}', '${item.id}')" title="${this.tl('settings')}">
+                    <i class="mdi mdi-cog small"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger border-0 py-0" onclick="shareGroupsMgr.removeItem('${group.id}', '${item.id}')" title="${this.tl('remove_item')}">
+                    <i class="mdi mdi-close small"></i>
+                </button>
+            </div>
+        </div>`;
+
+        // Content preview
+        html += this.renderContentPreview(item);
+
+        return html;
+    }
+
+    renderContentPreview(item) {
+        const ds = parseInt(item.effective_display_style ?? item.share_display_style ?? 1);
+        const previewType = item.preview_type || '';
+        const desc = item.description || '';
+        const dds = parseInt(item.effective_description_display_style ?? item.share_description_display_style ?? 1);
+        const hasPreview = !!previewType && ds > 0;
+        const hasDesc = desc.trim().length > 0 && ds > 0;
+        const showHeader = item.show_header !== undefined ? !!parseInt(item.show_header) : true;
+
+        if (!hasDesc && !hasPreview && !showHeader) return '';
+
+        const hiddenClass = this.showContentPreview ? '' : ' d-none';
+        const isColumn = dds === 2 || dds === 3;
+        let html = `<div class="list-group-item bg-transparent border-0 px-4 py-3 share-content-preview${hiddenClass}">`;
+
+        // Show header (matching public CQ Profile style)
+        if (showHeader) {
+            const isCqmpack = item.source_type === 'cqmpack';
+            const headerIcon = isCqmpack ? 'mdi-graph' : 'mdi-file';
+            const headerIconColor = isCqmpack ? 'text-info' : 'text-warning';
+            const typeBadge = isCqmpack
+                ? `<span class="badge bg-info bg-opacity-25 text-info ms-2">Memory Pack</span>`
+                : `<span class="badge bg-warning bg-opacity-25 text-warning ms-2">File</span>`;
+
+            html += `<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div>
+                    <i class="mdi ${headerIcon} me-2 ${headerIconColor}"></i>
+                    <span class="text-light fw-bold">${this.esc(item.share_title || item.title || '')}</span>
+                    ${typeBadge}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <small class="text-light opacity-50"><i class="mdi mdi-eye me-1"></i>${item.views || 0}</small>
+                </div>
+            </div>`;
+        }
+
+        if (hasDesc || hasPreview) {
+            html += `<div class="${(isColumn && hasDesc && hasPreview) ? 'd-flex flex-column flex-md-row gap-3' : ''}">`;
+
+            // Description above/left (dds 0 or 2)
+            if (hasDesc && (dds === 0 || dds === 2)) {
+                html += this.renderDescription(desc, isColumn && hasPreview);
+            }
+
+            // Content preview
+            if (hasPreview) {
+                html += `<div class="${(isColumn && hasDesc) ? 'flex-grow-1 min-width-0' : ''}">`;
+                html += this.renderPreviewByType(item, ds);
+                html += `</div>`;
+            }
+
+            // Description below/right (dds 1 or 3)
+            if (hasDesc && (dds === 1 || dds === 3)) {
+                html += this.renderDescription(desc, isColumn && hasPreview);
+            }
+
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+        return html;
+    }
+
+    renderDescription(desc, isColumnWithPreview) {
+        const rendered = this.md.render(desc);
+        return `<div class="${isColumnWithPreview ? 'flex-shrink-0' : ''} text-light small mb-0"
+                     ${isColumnWithPreview ? 'style="width: 40%; min-width: 120px;"' : ''}>
+            <div class="p-3 rounded" style="background: rgba(0,0,0,0.15); word-break: break-word; overflow-wrap: break-word;">${rendered}</div>
+        </div>`;
+    }
+
+    renderPreviewByType(item, ds) {
+        const type = item.preview_type;
+        const shareUrl = item.share_url || '';
+
+        if (type === 'graph') {
+            const graphUrl = item.preview_graph_url || '';
+            return `<div>
+                <div class="share-graph-preview memory-graph-preview rounded"
+                     data-graph-url="${this.escAttr(graphUrl)}"
+                     style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
+                    <div class="graph-loading position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
+                        <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                    </div>
+                    <canvas class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                </div>
+                <div class="d-flex justify-content-center align-items-center mt-2 share-graph-stats">
+                    <small class="text-secondary">
+                        <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
+                        <span class="stat-nodes">0</span>x nodes &nbsp; · &nbsp;
+                        <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
+                        <span class="stat-edges">0</span>x relationships
+                    </small>
+                </div>
+            </div>`;
+        }
+
+        if (type === 'image') {
+            const url = item.preview_url || '';
+            return `<div><img src="${this.escAttr(url)}" alt="${this.esc(item.share_title || '')}"
+                         class="rounded w-100" style="${ds === 1 ? 'max-height: 500px; object-fit: contain; ' : ''}background: rgba(0,0,0,0.2);"></div>`;
+        }
+
+        if (type === 'pdf') {
+            const url = item.preview_url || '';
+            return `<div class="rounded" style="background: rgba(0,0,0,0.2);">
+                <iframe src="${this.escAttr(url)}" class="w-100 rounded border-0"
+                        style="${ds === 1 ? 'height: 500px;' : 'height: 90vh;'}"></iframe>
+            </div>`;
+        }
+
+        if (type === 'html') {
+            const content = item.preview_content || '';
+            if (ds === 1) {
+                return `<div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
+                    <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${this.esc(content)}</pre>
+                </div>`;
+            }
+            return `<div class="rounded" style="background: rgba(0,0,0,0.1);">${content}</div>`;
+        }
+
+        if (type === 'text') {
+            const content = item.preview_content || '';
+            const ext = item.preview_ext || '';
+            const isMarkdown = ['md', 'markdown'].includes(ext);
+            if (isMarkdown) {
+                const rendered = this.md.render(content);
+                return `<div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);${ds === 1 ? ' max-height: 300px; overflow-y: auto;' : ''}">
+                    <div class="text-light small">${rendered}</div>
+                </div>`;
+            }
+            return `<div class="p-3 rounded share-preview-scroll" style="background: rgba(0,0,0,0.2);${ds === 1 ? ' max-height: 300px; overflow-y: auto;' : ''}">
+                <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${this.esc(content)}</pre>
+            </div>`;
+        }
+
+        return '';
+    }
+
+    filterByGroup(groupId) {
+        this.activeFilterGroupId = groupId;
+
+        // Toggle visibility without full re-render to preserve existing graphs
+        const cards = this.listEl.querySelectorAll('.share-group-card');
+        cards.forEach(card => {
+            const cardGroupId = card.dataset.groupId;
+            if (groupId === null || cardGroupId === groupId) {
+                card.classList.remove('d-none');
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+
+        // Update nav bar active state
+        const navItems = this.listEl.parentElement.querySelectorAll('.share-group-nav-item');
+        navItems.forEach(navItem => {
+            const filterGroup = navItem.dataset.filterGroup;
+            const span = navItem.querySelector('.glass-panel');
+            const label = navItem.querySelector('.glass-panel > span:last-child');
+            if ((groupId === null && filterGroup === 'all') || filterGroup === groupId) {
+                span?.classList.add('bg-success', 'bg-opacity-25');
+                label?.classList.add('text-cyber');
+                label?.classList.remove('text-light', 'opacity-75');
+            } else {
+                span?.classList.remove('bg-success', 'bg-opacity-25');
+                label?.classList.remove('text-cyber');
+                label?.classList.add('text-light', 'opacity-75');
+            }
+        });
+
+        // Init any newly visible graphs
+        requestAnimationFrame(() => this.initVisibleGraphs());
     }
 
     dsLabel(val) {
@@ -540,6 +863,65 @@ export class ShareGroupsManager {
     // Drag and Drop — Group Reordering
     // ========================================
 
+    initNavDragAndDrop() {
+        const navContainer = this.listEl.querySelector('#share-groups-nav .d-flex');
+        if (!navContainer) return;
+
+        const navItems = navContainer.querySelectorAll('.share-group-nav-item[draggable]');
+        navItems.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                this.dragSrcEl = item;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', item.dataset.groupId);
+                item.classList.add('opacity-50');
+            });
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            item.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                const targetItem = e.target.closest('.share-group-nav-item[draggable]');
+                if (!targetItem || !this.dragSrcEl || targetItem === this.dragSrcEl) return;
+
+                // Reorder in DOM
+                const items = [...navContainer.querySelectorAll('.share-group-nav-item[draggable]')];
+                const srcIdx = items.indexOf(this.dragSrcEl);
+                const tgtIdx = items.indexOf(targetItem);
+
+                if (srcIdx < tgtIdx) {
+                    targetItem.after(this.dragSrcEl);
+                } else {
+                    targetItem.before(this.dragSrcEl);
+                }
+
+                // Also reorder the group cards in main list to match
+                const navOrderedIds = [...navContainer.querySelectorAll('.share-group-nav-item[draggable]')].map(n => n.dataset.groupId);
+                const allCards = [...this.listEl.querySelectorAll('.share-group-card')];
+                const nonNavCards = allCards.filter(c => !navOrderedIds.includes(c.dataset.groupId));
+
+                // Reorder nav group cards
+                const cardsParent = allCards[0]?.parentElement;
+                if (cardsParent) {
+                    navOrderedIds.forEach(id => {
+                        const card = this.listEl.querySelector(`.share-group-card[data-group-id="${id}"]`);
+                        if (card) cardsParent.appendChild(card);
+                    });
+                    // Append non-nav cards after
+                    nonNavCards.forEach(card => cardsParent.appendChild(card));
+                }
+
+                // Save full order
+                const orderedIds = [...this.listEl.querySelectorAll('.share-group-card')].map(c => c.dataset.groupId);
+                await this.reorderGroups(orderedIds);
+            });
+            item.addEventListener('dragend', () => {
+                this.dragSrcEl?.classList.remove('opacity-50');
+                this.dragSrcEl = null;
+            });
+        });
+    }
+
     initDragAndDrop() {
         // Group card drag
         this.listEl.querySelectorAll('.share-group-card').forEach(card => {
@@ -758,6 +1140,308 @@ export class ShareGroupsManager {
     }
 
     // ========================================
+    // Navigation Actions
+    // ========================================
+
+    openMemoryExplorer(filePath, fileName) {
+        localStorage.setItem('cqMemoryPack_global', JSON.stringify({ path: filePath, name: fileName }));
+        localStorage.removeItem('cqMemoryLib_global');
+        window.location.href = '/memory';
+    }
+
+    openFileBrowser(filePath, fileName) {
+        localStorage.setItem('fileBrowserSelectFile', JSON.stringify({ path: filePath, name: fileName }));
+        window.location.href = '/file-browser';
+    }
+
+    // ========================================
+    // Edit Share Modal
+    // ========================================
+
+    initEditShareForm() {
+        const form = document.getElementById('editShareForm');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editShareId').value;
+            const btn = document.getElementById('editShareSubmit');
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(`${this.shareApiUrl}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('editShareTitle').value,
+                        share_url: document.getElementById('editShareUrlSlug').value,
+                        scope: parseInt(document.getElementById('editShareScope').value),
+                        display_style: parseInt(document.getElementById('editShareDisplayStyle').value),
+                        description: document.getElementById('editShareDescription').value,
+                        description_display_style: parseInt(document.getElementById('editShareDescDisplayStyle').value),
+                        is_active: document.getElementById('editShareActive').checked ? 1 : 0
+                    })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    window.toast?.success(this.tl('share_updated'));
+                    this.editShareModal.hide();
+                    this.loadGroups();
+                } else {
+                    window.toast?.error(data.message || this.tl('share_update_error'));
+                }
+            } catch (err) {
+                console.error('Error updating share:', err);
+                window.toast?.error(this.tl('share_update_error'));
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    openEditShareModal(shareId) {
+        // Find share data from loaded groups
+        let share = null;
+        for (const group of this.groups) {
+            const item = (group.items || []).find(i => i.share_id === shareId);
+            if (item) {
+                share = {
+                    id: item.share_id,
+                    title: item.share_title,
+                    share_url: item.share_url,
+                    scope: item.share_scope,
+                    display_style: item.share_display_style,
+                    description: item.description,
+                    description_display_style: item.share_description_display_style,
+                    is_active: item.share_is_active
+                };
+                break;
+            }
+        }
+        if (!share) {
+            window.toast?.error(this.tl('error'));
+            return;
+        }
+        this.populateEditShareModal(share);
+        this.editShareModal.show();
+    }
+
+    populateEditShareModal(share) {
+        document.getElementById('editShareId').value = share.id;
+        document.getElementById('editShareTitle').value = share.title || '';
+        document.getElementById('editShareUrlSlug').value = share.share_url || '';
+        document.getElementById('editShareScope').value = share.scope ?? 0;
+        document.getElementById('editShareDisplayStyle').value = share.display_style ?? 1;
+        document.getElementById('editShareDescription').value = share.description || '';
+        document.getElementById('editShareDescDisplayStyle').value = share.description_display_style ?? 1;
+        document.getElementById('editShareActive').checked = share.is_active == 1;
+    }
+
+    // ========================================
+    // Edit File Modal
+    // ========================================
+
+    async openEditFileModal(fileId) {
+        try {
+            // Fetch file metadata and content
+            const [metaResp, contentResp] = await Promise.all([
+                fetch(`${this.fileApiUrl}/${fileId}`),
+                fetch(`${this.fileApiUrl}/${fileId}/content`)
+            ]);
+            const metaData = await metaResp.json();
+            const contentData = await contentResp.json();
+
+            if (!metaData.file) {
+                window.toast?.error('File not found');
+                return;
+            }
+
+            const file = metaData.file;
+            const content = contentData.content || '';
+
+            // Create or get edit modal (same pattern as FileBrowser)
+            let modal = document.getElementById('fileEditModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'fileEditModal';
+                modal.className = 'modal fade';
+                modal.tabIndex = -1;
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-fullscreen">
+                        <div class="modal-content bg-dark text-light">
+                            <div class="modal-header border-secondary">
+                                <h5 class="modal-title">
+                                    <i class="mdi mdi-pencil me-2"></i>
+                                    <span id="fileEditModalTitle"></span>
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body p-0">
+                                <textarea id="fileEditTextarea" class="form-control bg-dark text-light border-0 h-100 rounded-0" 
+                                    style="resize: none; font-family: monospace; font-size: 14px;"></textarea>
+                            </div>
+                            <div class="modal-footer border-secondary justify-content-between">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="mdi mdi-close me-1"></i>${this.tl('cancel')}
+                                </button>
+                                <button type="button" class="btn btn-cyber" id="fileEditSaveBtn">
+                                    <i class="mdi mdi-content-save me-1"></i>${this.tl('save')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            // Set modal content
+            modal.querySelector('#fileEditModalTitle').textContent = file.name;
+            modal.querySelector('#fileEditTextarea').value = content;
+            modal.dataset.fileId = fileId;
+
+            // Setup save button handler (clone to remove old listeners)
+            const saveBtn = modal.querySelector('#fileEditSaveBtn');
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+            newSaveBtn.addEventListener('click', async () => {
+                await this.saveEditedFile(modal);
+            });
+
+            // Show modal
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+
+            modal.addEventListener('shown.bs.modal', () => {
+                modal.querySelector('#fileEditTextarea').focus();
+            }, { once: true });
+
+        } catch (error) {
+            console.error('Error opening edit file modal:', error);
+            window.toast?.error(error.message || this.tl('error'));
+        }
+    }
+
+    async saveEditedFile(modal) {
+        const fileId = modal.dataset.fileId;
+        const content = modal.querySelector('#fileEditTextarea').value;
+
+        try {
+            const resp = await fetch(`${this.fileApiUrl}/${fileId}/content`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await resp.json();
+            if (data.success !== false) {
+                window.toast?.success(this.tl('file_saved'));
+                // Close modal and refresh content previews
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) bsModal.hide();
+                this.loadGroups();
+            } else {
+                window.toast?.error(data.message || this.tl('error'));
+            }
+        } catch (error) {
+            console.error('Error saving file:', error);
+            window.toast?.error(error.message || this.tl('error'));
+        }
+    }
+
+    // ========================================
+    // Graph Preview Initialization
+    // ========================================
+
+    initGraphPreviews() {
+        // Destroy previous graph views
+        this.graphViews.forEach(gv => { try { gv.dispose(); } catch(e) {} });
+        this.graphViews = [];
+
+        this.initVisibleGraphs();
+    }
+
+    initVisibleGraphs() {
+        const containers = this.listEl.querySelectorAll('.share-graph-preview');
+        containers.forEach(container => {
+            if (container.dataset.graphInitialized) return;
+            const graphUrl = container.dataset.graphUrl;
+            if (!graphUrl) return;
+            // Skip containers inside hidden (d-none) parents
+            if (container.closest('.d-none')) return;
+            container.dataset.graphInitialized = '1';
+            this.initSingleGraph(container, graphUrl);
+        });
+    }
+
+    async initSingleGraph(container, graphUrl) {
+        const canvas = container.querySelector('canvas');
+        if (!canvas) return;
+
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+
+        const graphView = new MemoryGraphView(container, {
+            backgroundColor: 0x0a0a0f,
+            compact: true
+        });
+        graphView.setOnNodeSelect(null);
+        this.graphViews.push(graphView);
+
+        try {
+            const response = await fetch(graphUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            const graphData = {
+                nodes: data.nodes || [],
+                edges: data.edges || [],
+                stats: data.stats || {},
+                packs: {}
+            };
+
+            const statsEl = container.parentElement?.querySelector('.share-graph-stats');
+            if (statsEl) {
+                const nodesEl = statsEl.querySelector('.stat-nodes');
+                const edgesEl = statsEl.querySelector('.stat-edges');
+                if (nodesEl) nodesEl.textContent = graphData.nodes.length;
+                if (edgesEl) edgesEl.textContent = graphData.edges.length;
+            }
+
+            graphView.loadGraph(graphData);
+            graphView.resetView();
+
+            const loadingEl = container.querySelector('.graph-loading');
+            if (loadingEl) loadingEl.classList.add('d-none');
+
+            if (graphView.controls) {
+                graphView.controls.autoRotate = true;
+                graphView.controls.autoRotateSpeed = 0.5;
+            }
+        } catch (error) {
+            console.warn('Failed to load share graph:', error);
+            const loadingEl = container.querySelector('.graph-loading');
+            if (loadingEl) {
+                loadingEl.innerHTML = `<div class="text-secondary small">
+                    <i class="mdi mdi-alert-circle-outline"></i>
+                    <p class="mt-1 mb-0">Could not load graph</p>
+                </div>`;
+            }
+        }
+    }
+
+    // ========================================
+    // Text File Detection
+    // ========================================
+
+    isTextFile(fileName) {
+        const ext = (fileName || '').split('.').pop().toLowerCase();
+        const textExtensions = ['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql', 'sh', 'yml', 'yaml', 'ini', 'conf', 'env', 'htaccess', 'gitignore'];
+        return textExtensions.includes(ext);
+    }
+
+    // ========================================
     // Helpers
     // ========================================
 
@@ -769,6 +1453,10 @@ export class ShareGroupsManager {
         const div = document.createElement('div');
         div.textContent = str || '';
         return div.innerHTML;
+    }
+
+    escAttr(str) {
+        return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 }
 
