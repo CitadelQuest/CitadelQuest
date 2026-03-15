@@ -1,4 +1,5 @@
 import * as bootstrap from 'bootstrap';
+import { updatesService } from '../../services/UpdatesService.js';
 
 /**
  * ExplorerSidebar
@@ -15,6 +16,7 @@ export class ExplorerSidebar {
         this.followers = [];
         this.contacts = [];
         this.feedItems = [];
+        this.contactsWithUnread = new Set();
 
         // Sidebar DOM containers
         this.followingListEl = document.getElementById('sidebarFollowingList');
@@ -27,6 +29,7 @@ export class ExplorerSidebar {
         if (this.followingListEl || this.followersListEl || this.contactsListEl) {
             this.initCollapse();
             this.init();
+            this.initUpdatesListener();
         }
     }
 
@@ -407,7 +410,7 @@ export class ExplorerSidebar {
                 this.avatarHtml(photoUrl, 28, 'border-success') +
                 '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(c.cqContactUsername) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(c.cqContactDomain) + '</div></div>' +
                 '</a>' +
-                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-1">' + statusIcon + actions + '</div>' +
+                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-0">' + actions + statusIcon + '</div>' +
                 '</div>';
         });
         this.contactsListEl.innerHTML = html;
@@ -458,6 +461,15 @@ export class ExplorerSidebar {
                 this.handleFriendRequest(btn.dataset.rejectId, 'REJECTED');
             });
         });
+        // Bind chat buttons
+        this.contactsListEl.querySelectorAll('.sidebar-chat-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.openChatWithContact(btn.dataset.chatContactId);
+            });
+        });
+
         this.contactsListEl.querySelectorAll('[data-delete-id]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -500,11 +512,15 @@ export class ExplorerSidebar {
     }
 
     getContactActions(contact) {
+        let html = '';
+        if (contact.friendRequestStatus === 'ACCEPTED' && contact.isActive) {
+            html += '<button class="btn btn-sm p-0 px-1 btn-outline-secondary border-0 sidebar-chat-btn" data-chat-contact-id="' + contact.id + '" title="' + this.t('open_chat') + '"><i class="mdi mdi-forum" style="font-size: 0.75rem;"></i></button>';
+        }
         if (contact.friendRequestStatus === 'RECEIVED') {
-            return '<button class="btn btn-sm p-0 px-1 btn-outline-success border-0" data-accept-id="' + contact.id + '" title="Accept"><i class="mdi mdi-check" style="font-size: 0.75rem;"></i></button>' +
+            html += '<button class="btn btn-sm p-0 px-1 btn-outline-success border-0" data-accept-id="' + contact.id + '" title="Accept"><i class="mdi mdi-check" style="font-size: 0.75rem;"></i></button>' +
                 '<button class="btn btn-sm p-0 px-1 btn-outline-danger border-0" data-reject-id="' + contact.id + '" title="Reject"><i class="mdi mdi-close" style="font-size: 0.75rem;"></i></button>';
         }
-        return '';
+        return html;
     }
 
     async handleFriendRequest(contactId, status) {
@@ -528,6 +544,55 @@ export class ExplorerSidebar {
             }
         } catch (e) {
             console.error('ExplorerSidebar: Friend request error', e);
+            window.toast && window.toast.error(e.message || 'Error');
+        }
+    }
+
+    // ========================================
+    // CQ Chat integration
+    // ========================================
+
+    initUpdatesListener() {
+        updatesService.addListener('explorerSidebar', (updates) => {
+            if (updates.contactsWithUnread) {
+                this.contactsWithUnread = new Set(updates.contactsWithUnread);
+                this.updateChatButtonHighlights();
+            }
+        });
+    }
+
+    updateChatButtonHighlights() {
+        if (!this.contactsListEl) return;
+        this.contactsListEl.querySelectorAll('.sidebar-chat-btn').forEach(btn => {
+            const contactId = btn.dataset.chatContactId;
+            if (this.contactsWithUnread.has(contactId)) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-outline-primary');
+            } else {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-outline-secondary');
+            }
+        });
+    }
+
+    async openChatWithContact(contactId) {
+        try {
+            const resp = await fetch('/api/cq-chat/find-or-create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_id: contactId }),
+            });
+            const data = await resp.json();
+            if (data.success && data.chat) {
+                // Open the chat modal via the global CqChatModalManager
+                if (window.cqChatModalManager) {
+                    window.cqChatModalManager.openChat(data.chat.id);
+                }
+            } else {
+                window.toast && window.toast.error(data.error || 'Error');
+            }
+        } catch (e) {
+            console.error('ExplorerSidebar: openChatWithContact error', e);
             window.toast && window.toast.error(e.message || 'Error');
         }
     }

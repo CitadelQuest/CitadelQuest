@@ -86,13 +86,17 @@ class UpdatesService
         // 5. Process pending memory extraction jobs (one step per poll)
         $memoryJobs = $this->processMemoryJobs($since);
 
+        // 6. Get contact IDs that have unread chat messages (for sidebar highlighting)
+        $contactsWithUnread = $this->getContactsWithUnread();
+
         return [
             'timestamp' => $currentTime->format('c'), // ISO 8601
             'unreadCount' => $unreadCount,
             'chats' => $chats,
             'messages' => $messages,
             'statusUpdates' => $statusUpdates,
-            'memoryJobs' => $memoryJobs
+            'memoryJobs' => $memoryJobs,
+            'contactsWithUnread' => $contactsWithUnread
         ];
     }
 
@@ -111,6 +115,38 @@ class UpdatesService
         )->fetchAssociative();
 
         return (int) ($result['count'] ?? 0);
+    }
+
+    /**
+     * Get contact IDs that have unread messages in any chat
+     * Covers: direct chats, group chats (user as host with members), group chats (contact as host)
+     */
+    private function getContactsWithUnread(): array
+    {
+        $userDb = $this->getUserDb();
+
+        $rows = $userDb->executeQuery(
+            'SELECT DISTINCT contact_id FROM (
+                -- Direct chats: cq_contact_id on the chat
+                SELECT c.cq_contact_id as contact_id FROM cq_chat c
+                WHERE c.is_active = 1 AND c.cq_contact_id IS NOT NULL
+                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+                UNION
+                -- Group chats (user is host): member contact IDs
+                SELECT m.cq_contact_id as contact_id FROM cq_chat c
+                JOIN cq_chat_group_members m ON m.cq_chat_id = c.id
+                WHERE c.is_group_chat = 1 AND c.is_active = 1
+                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+                UNION
+                -- Group chats (contact is host)
+                SELECT c.group_host_contact_id as contact_id FROM cq_chat c
+                WHERE c.is_group_chat = 1 AND c.is_active = 1 AND c.group_host_contact_id IS NOT NULL
+                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+            ) WHERE contact_id IS NOT NULL',
+            ['SEEN', 'SEEN', 'SEEN']
+        )->fetchAllAssociative();
+
+        return array_map(fn($row) => $row['contact_id'], $rows);
     }
 
     /**

@@ -441,6 +441,43 @@ class CqChatApiController extends AbstractController
     }
 
     /**
+     * Find or create a 1-to-1 group chat with a specific contact
+     */
+    #[Route('/find-or-create', name: 'app_api_cq_chat_find_or_create', methods: ['POST'])]
+    public function findOrCreate(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $contactId = $data['contact_id'] ?? null;
+
+            if (!$contactId) {
+                return $this->json(['error' => 'contact_id is required'], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Build chat title: "{username} - {contactUsername}"
+            $contact = $this->cqContactService->findById($contactId);
+            if (!$contact) {
+                return $this->json(['error' => 'Contact not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $username = $this->getUser()->getUsername();
+            $chatTitle = $username . ' - ' . $contact->getCqContactUsername();
+
+            $result = $this->groupChatService->findOrCreateDirectGroupChat($contactId, $chatTitle);
+
+            return $this->json([
+                'success' => true,
+                'chat' => $result['chat'],
+                'created' => $result['created'],
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'error' => $e->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
      * Create a new group chat
      */
     #[Route('/group', name: 'app_api_cq_chat_group_create', methods: ['POST'])]

@@ -254,6 +254,53 @@ class GroupChatService
     }
 
     /**
+     * Find an existing 1-to-1 group chat with a specific contact, or create one.
+     * 
+     * A 1-to-1 group chat is:
+     * - Case 1: User is host (group_host_contact_id IS NULL), contact is the ONLY member (member count = 1)
+     * - Case 2: Contact is host (group_host_contact_id = contactId), no other members (member count = 0)
+     * 
+     * @param string $contactId The CQ Contact ID
+     * @param string $chatTitle Title for the new chat if created
+     * @return array{chat: CqChat, created: bool}
+     */
+    public function findOrCreateDirectGroupChat(string $contactId, string $chatTitle): array
+    {
+        $userDb = $this->getUserDb();
+
+        // Find the newest 1-to-1 group chat with this contact across both cases:
+        // Case 1: User is host (group_host_contact_id IS NULL), contact is the ONLY member
+        // Case 2: Contact is host (group_host_contact_id = contactId), no other members
+        $chatRow = $userDb->executeQuery(
+            'SELECT * FROM (
+                SELECT c.* FROM cq_chat c
+                JOIN cq_chat_group_members m ON m.cq_chat_id = c.id
+                WHERE c.is_group_chat = 1
+                  AND c.group_host_contact_id IS NULL
+                  AND c.is_active = 1
+                  AND m.cq_contact_id = ?
+                  AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) = 1
+                UNION ALL
+                SELECT c.* FROM cq_chat c
+                WHERE c.is_group_chat = 1
+                  AND c.group_host_contact_id = ?
+                  AND c.is_active = 1
+                  AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) = 0
+             ) ORDER BY updated_at DESC LIMIT 1',
+            [$contactId, $contactId]
+        )->fetchAssociative();
+
+        if ($chatRow) {
+            return ['chat' => CqChat::fromArray($chatRow), 'created' => false];
+        }
+
+        // No existing 1-to-1 chat found — create a new one
+        $chat = $this->createGroupChat($chatTitle, [$contactId]);
+
+        return ['chat' => $chat, 'created' => true];
+    }
+
+    /**
      * Get the host contact ID of a group chat
      * Returns NULL if local user is the host
      * 
