@@ -1061,6 +1061,7 @@ file_browser:
     preparing_zip: 'Připravuji ZIP ke stažení...'
     shared_edit: 'Sdílené - upravit'
     share_updated: 'Sdílení bylo úspěšně aktualizováno'
+    file_saved: 'Soubor byl úspěšně uložen'
 
 cq_explorer:
     page_title: 'CQ Průzkumník'

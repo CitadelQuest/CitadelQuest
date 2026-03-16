@@ -1061,6 +1061,7 @@ file_browser:
     preparing_zip: 'Preparing ZIP download...'
     shared_edit: 'Shared - edit'
     share_updated: 'Share updated successfully'
+    file_saved: 'File saved successfully'
 
 cq_explorer:
     page_title: 'CQ Explorer'

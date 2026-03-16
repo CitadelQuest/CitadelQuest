@@ -1053,6 +1053,7 @@ file_browser:
     preparing_zip: 'Pripravujem ZIP na stiahnutie...'
     shared_edit: 'Zdieľané - upraviť'
     share_updated: 'Zdieľanie bolo úspešne aktualizované'
+    file_saved: 'Súbor bol úspešne uložený'
 
 cq_explorer:
     page_title: 'CQ Prieskumník'

@@ -4,6 +4,7 @@ namespace App\Api\Controller;
 
 use App\Entity\User;
 use App\Service\CQFollowService;
+use App\Service\CQShareGroupService;
 use App\Service\CQShareService;
 use App\Service\NotificationService;
 use App\Service\SettingsService;
@@ -30,6 +31,7 @@ class FederationFollowController extends AbstractController
     public function __construct(
         private readonly CQFollowService $followService,
         private readonly CQShareService $shareService,
+        private readonly CQShareGroupService $shareGroupService,
         private readonly NotificationService $notificationService,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger,
@@ -186,8 +188,30 @@ class FederationFollowController extends AbstractController
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            $this->settingsService->setUser($user);
             $this->shareService->setUser($user);
-            $lastUpdated = $this->shareService->getLastPublicShareUpdatedAt();
+            $this->shareGroupService->setUser($user);
+
+            // Only report timestamps for content types that are actually visible
+            $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
+            $showProfileContent = $this->settingsService->getSettingValue('profile.public_page_show_profile_content', '1') === '1';
+
+            $timestamps = [];
+
+            if ($showShares) {
+                $shareTs = $this->shareService->getLastPublicShareUpdatedAt();
+                if ($shareTs) $timestamps[] = $shareTs;
+            }
+
+            if ($showProfileContent) {
+                $groupTs = $this->shareGroupService->getLastPublicGroupUpdatedAt();
+                if ($groupTs) $timestamps[] = $groupTs;
+
+                $groupShareTs = $this->shareGroupService->getLastPublicGroupShareUpdatedAt();
+                if ($groupShareTs) $timestamps[] = $groupShareTs;
+            }
+
+            $lastUpdated = !empty($timestamps) ? max($timestamps) : null;
 
             return $this->json([
                 'success' => true,

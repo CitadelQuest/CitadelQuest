@@ -86,6 +86,19 @@ export class CitadelExplorer {
             }
         });
 
+        // Auto-hide URL help text after 5 seconds on page load
+        if (this.urlHelp && this.urlHelp.style.display !== 'none') {
+            setTimeout(() => {
+                if (this.urlHelp && this.urlHelp.style.display !== 'none') {
+                    this.urlHelp.style.transition = 'opacity 0.5s ease';
+                    this.urlHelp.style.opacity = '0';
+                    setTimeout(() => {
+                        if (this.urlHelp) this.urlHelp.style.display = 'none';
+                    }, 500);
+                }
+            }, 5000);
+        }
+
         // Expose global handlers for onclick in rendered HTML
         window.explorerDownload = (shareUrl, sourceType, title) => this.downloadShare(shareUrl, sourceType, title);
         window.explorerAddToLibrary = (packPath, packName) => this.showAddToLibraryModal(packPath, packName);
@@ -447,7 +460,8 @@ export class CitadelExplorer {
                     const isActive = this.activeGroupSlug && slug === this.activeGroupSlug;
                     const iconColor = group.icon_color || '#95ec86';
                     const groupItems = group.items || [];
-                    const navHasNew = this.sinceTimestamp && groupItems.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp);
+                    const groupIsNew = this.sinceTimestamp && (group.updated_at && group.updated_at > this.sinceTimestamp);
+                    const navHasNew = groupIsNew || (this.sinceTimestamp && groupItems.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp));
                     const navNewClass = navHasNew ? 'border-start border-end border-3 border-top-0 border-bottom-0 border-warning' : '';
                     badgesHtml += `
                         <a href="#" class="text-decoration-none explorer-group-nav mb-2" data-group-slug="${slug}">
@@ -938,7 +952,8 @@ export class CitadelExplorer {
             const items = group.items || [];
             if (items.length === 0) return;
 
-            const groupHasNew = this.sinceTimestamp && items.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp);
+            const groupIsNew = this.sinceTimestamp && (group.updated_at && group.updated_at > this.sinceTimestamp);
+            const groupHasNew = groupIsNew || (this.sinceTimestamp && items.some(i => (i.updated_at || i.share_updated_at) && (i.updated_at || i.share_updated_at) > this.sinceTimestamp));
             const iconColor = group.icon_color || '#95ec86';
             html += `
             <div class="card glass-panel mb-3" id="share-group-${group.id}">

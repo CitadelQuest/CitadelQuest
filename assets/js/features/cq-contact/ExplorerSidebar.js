@@ -130,6 +130,25 @@ export class ExplorerSidebar {
                 }
             }
         }
+
+        // Start background polling for feed updates (every 60 seconds)
+        this.startFeedPolling();
+    }
+
+    /**
+     * Background polling: periodically check for feed updates and re-render sidebar highlights.
+     */
+    startFeedPolling() {
+        this._feedPollInterval = setInterval(async () => {
+            await this.loadFeedUpdates();
+            this.renderFollowingSidebar();
+
+            // Re-highlight the currently active profile
+            const explorer = window.citadelExplorer;
+            if (explorer && explorer.profileUrl) {
+                this.highlightActiveItem(explorer.profileUrl);
+            }
+        }, 60000);
     }
 
     // ========================================
@@ -268,13 +287,16 @@ export class ExplorerSidebar {
             const newClass = hasNew ? ' bg-warning bg-opacity-10' : '';
             const dotHidden = hasNew ? '' : ' d-none';
 
+            const bellIcon = hasNew ? '<i class="mdi mdi-bell-ring text-warning ms-1" style="font-size: 0.6rem;"></i>' : '';
+
             html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item' + newClass + '">' +
                 '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(f.cq_contact_url) + '" data-since="' + this.escHtml(sinceValue) + '" data-cq-contact-id="' + f.cq_contact_id + '">' +
                 this.avatarHtml(photoUrl, 28, 'border-success') +
                 '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
                 '</a>' +
-                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-1">' +
+                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-2">' +
                 '<span class="feed-new-dot' + dotHidden + '" data-dot-id="' + f.cq_contact_id + '"><span class="badge bg-warning bg-opacity-75 rounded-pill" style="width: 8px; height: 8px; padding: 0;"></span></span>' +
+                bellIcon + 
                 '<a href="#" class="follow-status-toggle d-inline-flex align-items-center text-warning opacity-50" data-cq-contact-id="' + f.cq_contact_id + '" title="' + this.t('unfollow', 'Unfollow') + '" style="padding: 4px;">' +
                 '<i class="mdi mdi-rss" style="font-size: 0.75rem;"></i></a>' +
                 '<a href="#" class="follow-unfollow-btn d-none align-items-center text-danger" data-cq-contact-id="' + f.cq_contact_id + '" title="' + this.t('unfollow', 'Unfollow') + '" style="padding: 4px;">' +
@@ -410,7 +432,7 @@ export class ExplorerSidebar {
                 this.avatarHtml(photoUrl, 28, 'border-success') +
                 '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(c.cqContactUsername) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(c.cqContactDomain) + '</div></div>' +
                 '</a>' +
-                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-0">' + actions + statusIcon + '</div>' +
+                '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-0">' + statusIcon + actions + '</div>' +
                 '</div>';
         });
         this.contactsListEl.innerHTML = html;

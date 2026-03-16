@@ -273,6 +273,12 @@ class CQShareGroupService
             ]
         );
 
+        // Bump group updated_at so federation feed polling detects the change
+        $db->executeStatement(
+            'UPDATE cq_share_group SET updated_at = ? WHERE id = ?',
+            [date('Y-m-d H:i:s'), $groupId]
+        );
+
         return $this->findItemById($id);
     }
 
@@ -365,6 +371,42 @@ class CQShareGroupService
                 [$index, $id]
             );
         }
+    }
+
+    /**
+     * Get the most recent updated_at from active public share groups.
+     * Tracks group-level changes (new group created, group metadata updated, item added/removed).
+     * Used by federation last-updated endpoint for feed polling.
+     */
+    public function getLastPublicGroupUpdatedAt(): ?string
+    {
+        $db = $this->getUserDb();
+        $result = $db->executeQuery(
+            'SELECT MAX(updated_at) FROM cq_share_group WHERE is_active = 1 AND scope = ?',
+            [self::SCOPE_PUBLIC]
+        )->fetchOne();
+
+        return $result ?: null;
+    }
+
+    /**
+     * Get the most recent updated_at from shares that belong to active public groups.
+     * Tracks actual content changes (share file updated) within grouped items.
+     * Used by federation last-updated endpoint for feed polling.
+     */
+    public function getLastPublicGroupShareUpdatedAt(): ?string
+    {
+        $db = $this->getUserDb();
+        $result = $db->executeQuery(
+            'SELECT MAX(s.updated_at)
+             FROM cq_share_group_item gi
+             JOIN cq_share_group g ON g.id = gi.group_id
+             JOIN cq_share s ON s.id = gi.share_id
+             WHERE g.is_active = 1 AND g.scope = ? AND s.is_active = 1',
+            [self::SCOPE_PUBLIC]
+        )->fetchOne();
+
+        return $result ?: null;
     }
 
     // ========================================
