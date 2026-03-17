@@ -6,7 +6,7 @@
 .navbar {
     @include mix.glass-panel;
     background: rgba(colors.$body-bg, 0.6);
-    padding: vars.$spacing-unit * 0.5;
+    padding: 0.2rem;
     position: fixed;
     top: 0;
     left: 0;
@@ -122,4 +122,9 @@
     .dropdown-header {
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
+}
+
+#userDropdown span {
+    font-size: 14px !important;
+    font-weight: 600 !important;
 }

@@ -44,7 +44,9 @@ class CqChatMsgService
         ?string $content = null,
         ?string $attachments = null,
         ?string $status = null,
-        ?string $id = null
+        ?string $id = null,
+        ?string $senderUsername = null,
+        ?string $senderDomain = null
     ): CqChatMsg {
         $message = new CqChatMsg(
             $cqChatId,
@@ -54,14 +56,19 @@ class CqChatMsgService
             $status,
             $id
         );
+        
+        if ($senderUsername) {
+            $message->setSenderUsername($senderUsername);
+            $message->setSenderDomain($senderDomain);
+        }
 
         // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO cq_chat_msg (
                 id, cq_chat_id, cq_contact_id, content, attachments, status,
-                created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                sender_username, sender_domain, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $message->getId(),
                 $message->getCqChatId(),
@@ -69,6 +76,8 @@ class CqChatMsgService
                 $message->getContent(),
                 $message->getAttachments(),
                 $message->getStatus(),
+                $message->getSenderUsername(),
+                $message->getSenderDomain(),
                 $message->getCreatedAt()->format('Y-m-d H:i:s'),
                 $message->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -425,7 +434,9 @@ class CqChatMsgService
         ?string $senderContactId,
         ?string $content,
         string $messageId,
-        ?string $attachments = null
+        ?string $attachments = null,
+        ?string $senderUsername = null,
+        ?string $senderDomain = null
     ): CqChatMsg {
         return $this->createMessage(
             $chatId,
@@ -433,7 +444,9 @@ class CqChatMsgService
             $content,
             $attachments,
             'RECEIVED',
-            $messageId
+            $messageId,
+            $senderUsername,
+            $senderDomain
         );
     }
 

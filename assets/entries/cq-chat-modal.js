@@ -26,4 +26,52 @@ document.addEventListener('DOMContentLoaded', () => {
             indicator.classList.add('d-none');
         }
     });
+
+    // ========================================
+    // Global CQ Explorer feed-updates polling (separate from /api/updates, 60s interval)
+    // Updates nav badge + dashboard badge + notifies ExplorerSidebar
+    // ========================================
+    async function checkFeedUpdates() {
+        try {
+            const resp = await fetch('/api/follow/feed-updates');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.success) return;
+
+            const items = data.items || [];
+            const newCount = items.filter(item => item.has_new).length;
+
+            // Update nav badge
+            const navBadge = document.getElementById('cqExplorerNewBadge');
+            if (navBadge) {
+                if (newCount > 0) {
+                    navBadge.textContent = newCount;
+                    navBadge.classList.remove('d-none');
+                } else {
+                    navBadge.textContent = '';
+                    navBadge.classList.add('d-none');
+                }
+            }
+
+            // Update dashboard badge if present
+            const dashBadge = document.getElementById('feed-new-badge');
+            if (dashBadge) {
+                if (newCount > 0) {
+                    dashBadge.textContent = newCount;
+                    dashBadge.classList.remove('d-none');
+                } else {
+                    dashBadge.classList.add('d-none');
+                }
+            }
+
+            // Dispatch event for ExplorerSidebar and other listeners
+            window.dispatchEvent(new CustomEvent('cq-feed-updates', { detail: { items, newCount } }));
+        } catch (e) {
+            // Silently fail — feed check is non-critical
+        }
+    }
+
+    // Run immediately + every 60s
+    checkFeedUpdates();
+    setInterval(checkFeedUpdates, 60000);
 });

@@ -12,6 +12,8 @@ class CqChatMsg implements JsonSerializable
     private ?string $content;
     private ?string $attachments;
     private ?string $status;
+    private ?string $senderUsername;
+    private ?string $senderDomain;
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $updatedAt;
     
@@ -29,6 +31,8 @@ class CqChatMsg implements JsonSerializable
         $this->content = $content;
         $this->attachments = $attachments;
         $this->status = $status;
+        $this->senderUsername = null;
+        $this->senderDomain = null;
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
     }
@@ -104,6 +108,28 @@ class CqChatMsg implements JsonSerializable
         return $this;
     }
     
+    public function getSenderUsername(): ?string
+    {
+        return $this->senderUsername;
+    }
+    
+    public function setSenderUsername(?string $senderUsername): self
+    {
+        $this->senderUsername = $senderUsername;
+        return $this;
+    }
+    
+    public function getSenderDomain(): ?string
+    {
+        return $this->senderDomain;
+    }
+    
+    public function setSenderDomain(?string $senderDomain): self
+    {
+        $this->senderDomain = $senderDomain;
+        return $this;
+    }
+    
     public function getCreatedAt(): \DateTimeInterface
     {
         return $this->createdAt;
@@ -134,7 +160,7 @@ class CqChatMsg implements JsonSerializable
     
     public function jsonSerialize(): array
     {
-        return [
+        $data = [
             'id' => $this->id,
             'cqChatId' => $this->cqChatId,
             'cqContactId' => $this->cqContactId,
@@ -144,6 +170,13 @@ class CqChatMsg implements JsonSerializable
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => $this->updatedAt->format(\DateTimeInterface::ATOM)
         ];
+        
+        if ($this->senderUsername) {
+            $data['senderUsername'] = $this->senderUsername;
+            $data['senderDomain'] = $this->senderDomain;
+        }
+        
+        return $data;
     }
     
     public static function fromArray(array $data): self
@@ -156,6 +189,13 @@ class CqChatMsg implements JsonSerializable
             $data['status'] ?? null,
             $data['id'] ?? null
         );
+        
+        if (isset($data['sender_username'])) {
+            $message->setSenderUsername($data['sender_username']);
+        }
+        if (isset($data['sender_domain'])) {
+            $message->setSenderDomain($data['sender_domain']);
+        }
         
         if (isset($data['created_at'])) {
             $message->setCreatedAt(new \DateTime($data['created_at']));

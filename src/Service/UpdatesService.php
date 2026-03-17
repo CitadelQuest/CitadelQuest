@@ -118,8 +118,8 @@ class UpdatesService
     }
 
     /**
-     * Get contact IDs that have unread messages in any chat
-     * Covers: direct chats, group chats (user as host with members), group chats (contact as host)
+     * Get contact IDs that have unread messages in pair (1-to-1) chats only.
+     * Multi-member group chats should NOT highlight individual contact sidebar items.
      */
     private function getContactsWithUnread(): array
     {
@@ -127,21 +127,24 @@ class UpdatesService
 
         $rows = $userDb->executeQuery(
             'SELECT DISTINCT contact_id FROM (
-                -- Direct chats: cq_contact_id on the chat
+                -- Legacy direct chats (non-group)
                 SELECT c.cq_contact_id as contact_id FROM cq_chat c
                 WHERE c.is_active = 1 AND c.cq_contact_id IS NOT NULL
-                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+                AND (c.is_group_chat = 0 OR c.is_group_chat IS NULL)
+                AND EXISTS (SELECT 1 FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?)
                 UNION
-                -- Group chats (user is host): member contact IDs
+                -- Pair group chats (user is host, exactly 1 member = the contact)
                 SELECT m.cq_contact_id as contact_id FROM cq_chat c
                 JOIN cq_chat_group_members m ON m.cq_chat_id = c.id
-                WHERE c.is_group_chat = 1 AND c.is_active = 1
-                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+                WHERE c.is_group_chat = 1 AND c.is_active = 1 AND c.group_host_contact_id IS NULL
+                AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) = 1
+                AND EXISTS (SELECT 1 FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?)
                 UNION
-                -- Group chats (contact is host)
+                -- Pair group chats (contact is host, user is the only member)
                 SELECT c.group_host_contact_id as contact_id FROM cq_chat c
                 WHERE c.is_group_chat = 1 AND c.is_active = 1 AND c.group_host_contact_id IS NOT NULL
-                AND (SELECT COUNT(*) FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?) > 0
+                AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) <= 1
+                AND EXISTS (SELECT 1 FROM cq_chat_msg WHERE cq_chat_id = c.id AND cq_contact_id IS NOT NULL AND status != ?)
             ) WHERE contact_id IS NOT NULL',
             ['SEEN', 'SEEN', 'SEEN']
         )->fetchAllAssociative();
@@ -151,22 +154,36 @@ class UpdatesService
 
     /**
      * Check if there are any updates since timestamp
+     * Checks both messages and chats for changes
      */
     private function hasUpdates(string $since): bool
     {
         $userDb = $this->getUserDb();
         
-        $result = $userDb->executeQuery(
+        // Check for new/updated messages
+        $msgResult = $userDb->executeQuery(
             'SELECT COUNT(*) as count FROM cq_chat_msg 
              WHERE created_at > ? OR updated_at > ?',
             [$since, $since]
         )->fetchAssociative();
         
-        return ($result['count'] ?? 0) > 0;
+        if (($msgResult['count'] ?? 0) > 0) {
+            return true;
+        }
+        
+        // Check for new/updated chats (e.g. newly created chats without messages)
+        $chatResult = $userDb->executeQuery(
+            'SELECT COUNT(*) as count FROM cq_chat 
+             WHERE created_at > ? OR updated_at > ?',
+            [$since, $since]
+        )->fetchAssociative();
+        
+        return ($chatResult['count'] ?? 0) > 0;
     }
     
     /**
      * Get ALL chats with their current state
+     * Returns same data shape as the /api/cq-chat/dropdown endpoint
      */
     private function getAllChats(): array
     {
@@ -181,6 +198,7 @@ class UpdatesService
                 c.is_pin,
                 c.is_mute,
                 c.is_group_chat,
+                c.group_host_contact_id,
                 c.updated_at,
                 (SELECT COUNT(*) FROM cq_chat_msg 
                  WHERE cq_chat_id = c.id 
@@ -191,18 +209,20 @@ class UpdatesService
                  ORDER BY created_at DESC LIMIT 1) as last_message_content,
                 (SELECT created_at FROM cq_chat_msg 
                  WHERE cq_chat_id = c.id 
-                 ORDER BY created_at DESC LIMIT 1) as last_message_at
+                 ORDER BY created_at DESC LIMIT 1) as last_message_at,
+                (SELECT COUNT(*) FROM cq_chat_group_members 
+                 WHERE cq_chat_id = c.id) as member_count
              FROM cq_chat c
              WHERE c.is_active = 1
              ORDER BY 
                 CASE WHEN last_message_at IS NULL THEN 0 ELSE 1 END DESC,
-                last_message_at DESC',
+                last_message_at DESC
+             LIMIT 10',
             ['SEEN']
         )->fetchAllAssociative();
 
         // Enrich with contact information and format for frontend
         return array_map(function($chat) {
-            // Convert snake_case to camelCase for frontend
             $formatted = [
                 'id' => $chat['id'],
                 'cqContactId' => $chat['cq_contact_id'],
@@ -213,10 +233,11 @@ class UpdatesService
                 'isGroupChat' => (bool) $chat['is_group_chat'],
                 'updatedAt' => $chat['updated_at'],
                 'unreadCount' => (int) $chat['unread_count'],
+                'memberCount' => (int) $chat['member_count'],
                 'lastMessage' => [
-                    'content' => $chat['last_message_content'] ?? ''
+                    'content' => $chat['last_message_content'] ?? '',
+                    'createdAt' => $chat['last_message_at'] ?? null
                 ],
-                'lastMessageAt' => $chat['last_message_at']
             ];
             
             // Add contact information
@@ -310,7 +331,15 @@ class UpdatesService
                     if ($contact) {
                         $message['contactUsername'] = $contact->getCqContactUsername();
                         $message['contactDomain'] = $contact->getCqContactDomain();
+                    } elseif (!empty($message['sender_username'] ?? null)) {
+                        // Non-friend sender: use stored sender info as fallback
+                        $message['contactUsername'] = $message['sender_username'];
+                        $message['contactDomain'] = $message['sender_domain'] ?? '';
                     }
+                } elseif (!empty($message['sender_username'] ?? null)) {
+                    // No contact ID but has sender info (non-friend)
+                    $message['contactUsername'] = $message['sender_username'];
+                    $message['contactDomain'] = $message['sender_domain'] ?? '';
                 }
                 return $message;
             }, $results);

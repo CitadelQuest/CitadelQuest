@@ -131,16 +131,20 @@ export class ExplorerSidebar {
             }
         }
 
-        // Start background polling for feed updates (every 60 seconds)
-        this.startFeedPolling();
+        // Listen for global feed-updates event (polled centrally from cq-chat-modal.js)
+        this.initFeedUpdatesListener();
     }
 
     /**
-     * Background polling: periodically check for feed updates and re-render sidebar highlights.
+     * Listen for global feed-updates events and re-render sidebar highlights.
      */
-    startFeedPolling() {
-        this._feedPollInterval = setInterval(async () => {
-            await this.loadFeedUpdates();
+    initFeedUpdatesListener() {
+        window.addEventListener('cq-feed-updates', (e) => {
+            const { items } = e.detail;
+            this.feedItems = (items || []).map(item => ({
+                follow: item,
+                hasNew: item.has_new || false,
+            }));
             this.renderFollowingSidebar();
 
             // Re-highlight the currently active profile
@@ -148,7 +152,7 @@ export class ExplorerSidebar {
             if (explorer && explorer.profileUrl) {
                 this.highlightActiveItem(explorer.profileUrl);
             }
-        }, 60000);
+        });
     }
 
     // ========================================
@@ -273,6 +277,9 @@ export class ExplorerSidebar {
     renderFollowingSidebar() {
         if (!this.followingListEl) return;
 
+        // Sort A-Z by username
+        this.follows.sort((a, b) => (a.cq_contact_username || '').localeCompare(b.cq_contact_username || ''));
+
         if (this.follows.length === 0) {
             this.followingListEl.innerHTML = '<div class="text-center py-2"><small class="text-muted"><i class="mdi mdi-rss-off me-1"></i>' + this.t('no_following', 'Not following anyone yet') + '</small></div>';
             return;
@@ -385,6 +392,9 @@ export class ExplorerSidebar {
     renderFollowersSidebar() {
         if (!this.followersListEl) return;
 
+        // Sort A-Z by username
+        this.followers.sort((a, b) => (a.cq_contact_username || '').localeCompare(b.cq_contact_username || ''));
+
         if (this.followers.length === 0) {
             this.followersListEl.innerHTML = '<div class="text-center py-2"><small class="text-muted"><i class="mdi mdi-account-group-outline me-1"></i>' + this.t('no_followers', 'No followers yet') + '</small></div>';
             return;
@@ -415,6 +425,9 @@ export class ExplorerSidebar {
 
     renderContactsSidebar() {
         if (!this.contactsListEl) return;
+
+        // Sort A-Z by username
+        this.contacts.sort((a, b) => (a.cqContactUsername || '').localeCompare(b.cqContactUsername || ''));
 
         if (this.contacts.length === 0) {
             this.contactsListEl.innerHTML = '<div class="text-center py-2"><small class="text-muted"><i class="mdi mdi-account-off me-1"></i>' + this.t('no_contacts', 'No contacts yet') + '</small></div>';
@@ -626,7 +639,7 @@ export class ExplorerSidebar {
     avatarHtml(photoUrl, size, borderClass) {
         return '<div class="rounded-circle border border-1 ' + borderClass + ' me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: ' + size + 'px; height: ' + size + 'px; background: rgba(149,236,134,0.05);">' +
             '<img src="' + photoUrl + '" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';">' +
-            '<i class="mdi mdi-account text-cyber" style="font-size: ' + Math.round(size * 0.55) + 'px; display: none;"></i></div>';
+            '<i class="mdi mdi-account text-cyber" style="display: none;"></i></div>';
     }
 
     escHtml(str) {

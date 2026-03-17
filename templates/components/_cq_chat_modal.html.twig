@@ -1,7 +1,7 @@
 {% if app.user %}
 <div class="modal fade" id="cqChatModal" tabindex="-1" aria-labelledby="cqChatModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen">
-        <div class="modal-content glass-panel_" style="background-color: var(--bs-gray-800) !important;">
+        <div class="modal-content glass-panel" _style="background-color: var(--bs-gray-800) !important;">
             <div class="modal-header bg-cyber-g border-0 py-2 flex-column align-items-stretch">
                 <div class="d-flex align-items-center w-100">
                     <i class="mdi mdi-forum text-cyber fs-5 me-2"></i>
@@ -23,7 +23,7 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer border-secondary border-opacity-50 flex-column p-2 position-relative">
+            <div class="modal-footer border-secondary border-opacity-50 flex-column p-2 pb-4 position-relative">
                 {# Sending overlay #}
                 <div id="cqChatSendingOverlay" class="d-none position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50" style="z-index: 10; border-radius: inherit;">
                     <div class="spinner-border text-cyber" role="status">

@@ -23,11 +23,7 @@ class DashboardBadgeManager {
             this.checkUpdateAvailable();
         }
 
-        // Load feed badge
-        if (this.feedNewBadge) {
-            this.checkFeedUpdates();
-            setInterval(() => this.checkFeedUpdates(), 60000);
-        }
+        // Feed badge is now handled globally by cq-chat-modal.js polling
     }
 
     async loadContactBadges() {
@@ -58,26 +54,6 @@ class DashboardBadgeManager {
             }
         } catch (error) {
             // Silently fail — update check is non-critical
-        }
-    }
-
-    async checkFeedUpdates() {
-        try {
-            const response = await fetch('/api/follow/feed-updates');
-            if (!response.ok) return;
-
-            const data = await response.json();
-            if (!data.success) return;
-
-            const newCount = (data.items || []).filter(item => item.has_new).length;
-            if (newCount > 0) {
-                this.feedNewBadge.textContent = newCount;
-                this.feedNewBadge.classList.remove('d-none');
-            } else {
-                this.feedNewBadge.classList.add('d-none');
-            }
-        } catch (error) {
-            // Silently fail — feed check is non-critical
         }
     }
 

@@ -49,6 +49,12 @@ class CqChatApiController extends AbstractController
                 $chatData['unseenCount'] = $unseenCount;
                 $chatData['unreadCount'] = $unseenCount; // Alias for compatibility
                 
+                // Add member count so frontend can distinguish pair vs multi-member group chats
+                if ($chat->isGroupChat()) {
+                    $members = $this->groupChatService->getGroupMembers($chatData['id']);
+                    $chatData['memberCount'] = count($members);
+                }
+                
                 // Load contact data
                 if ($chat->getCqContactId()) {
                     $contact = $this->cqContactService->findById($chat->getCqContactId());
@@ -90,6 +96,12 @@ class CqChatApiController extends AbstractController
                 $chatData['hasNewMsgs'] = $unseenCount > 0;
                 $chatData['unseenCount'] = $unseenCount;
                 $chatData['unreadCount'] = $unseenCount;
+                
+                // Add member count so frontend can distinguish pair vs multi-member group chats
+                if ($chat->isGroupChat()) {
+                    $members = $this->groupChatService->getGroupMembers($chatData['id']);
+                    $chatData['memberCount'] = count($members);
+                }
                 
                 // Load contact data
                 if ($chat->getCqContactId()) {
@@ -177,11 +189,19 @@ class CqChatApiController extends AbstractController
             // Load members for group chats
             if ($chat->isGroupChat()) {
                 $members = $this->groupChatService->getGroupMembers($id);
+                $chatData['memberCount'] = count($members);
                 $chatData['members'] = array_map(function($member) {
                     $memberData = $member->jsonSerialize();
                     $contact = $this->cqContactService->findById($member->getCqContactId());
                     if ($contact) {
                         $memberData['contact'] = $contact->jsonSerialize();
+                    } elseif ($member->getMemberUsername()) {
+                        // Non-friend member: use stored username/domain as fallback
+                        $memberData['contact'] = [
+                            'id' => null,
+                            'cqContactUsername' => $member->getMemberUsername(),
+                            'cqContactDomain' => $member->getMemberDomain(),
+                        ];
                     }
                     return $memberData;
                 }, $members);
@@ -337,7 +357,15 @@ class CqChatApiController extends AbstractController
                         if ($contact) {
                             $message['contactUsername'] = $contact->getCqContactUsername();
                             $message['contactDomain'] = $contact->getCqContactDomain();
+                        } elseif (!empty($message['senderUsername'] ?? $message['sender_username'] ?? null)) {
+                            // Non-friend sender: use stored sender info as fallback
+                            $message['contactUsername'] = $message['senderUsername'] ?? $message['sender_username'];
+                            $message['contactDomain'] = $message['senderDomain'] ?? $message['sender_domain'] ?? '';
                         }
+                    } elseif (!empty($message['senderUsername'] ?? $message['sender_username'] ?? null)) {
+                        // No contact ID but has sender info (non-friend)
+                        $message['contactUsername'] = $message['senderUsername'] ?? $message['sender_username'];
+                        $message['contactDomain'] = $message['senderDomain'] ?? $message['sender_domain'] ?? '';
                     }
                     return $message;
                 }, $messagesArray);
@@ -522,6 +550,13 @@ class CqChatApiController extends AbstractController
                 $contact = $this->cqContactService->findById($member->getCqContactId());
                 if ($contact) {
                     $memberData['contact'] = $contact->jsonSerialize();
+                } elseif ($member->getMemberUsername()) {
+                    // Non-friend member: use stored username/domain as fallback
+                    $memberData['contact'] = [
+                        'id' => null,
+                        'cqContactUsername' => $member->getMemberUsername(),
+                        'cqContactDomain' => $member->getMemberDomain(),
+                    ];
                 }
                 return $memberData;
             }, $members);
@@ -647,6 +682,7 @@ class CqChatApiController extends AbstractController
         $groupName = $chat ? $chat->getTitle() : 'Group Chat';
         
         // Build member list to send to all members (so they can display the full list)
+        // Note: host is NOT included here - handled separately via groupHostContactId
         $memberList = [];
         foreach ($members as $member) {
             $contact = $this->cqContactService->findById($member->getCqContactId());

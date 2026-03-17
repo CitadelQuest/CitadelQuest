@@ -186,9 +186,10 @@ export class CqChatModalManager {
             item.dataset.chatId = chat.id;
             
             const isGroup = chat.isGroupChat || false;
+            const isMultiGroup = isGroup && (chat.memberCount || 0) > 1;
             const contactName = isGroup ? chat.title : (chat.contact?.cqContactUsername || chat.contact?.name || chat.contact?.citadelAddress || 'Unknown');
             const contactDomain = isGroup ? '' : `@${chat.contact?.cqContactDomain || ''}`;
-            const groupIcon = isGroup ? '<i class="mdi mdi-account-multiple text-light me-2 opacity-75"></i>' : '';
+            const groupIcon = isMultiGroup ? '<i class="mdi mdi-account-multiple text-cyber me-2 opacity-50"></i>' : '';
             const lastMessage = chat.lastMessage?.content || '';
             const hasUnread = chat.unreadCount > 0;
             
@@ -241,6 +242,11 @@ export class CqChatModalManager {
         this.hasMoreMessages = false;
         this.totalMessages = 0;
         
+        // Clear previous chat content before showing
+        this.modalTitle.innerHTML = '<span class="opacity-50"><i class="mdi mdi-loading mdi-spin me-2"></i></span>';
+        this.messagesContainer.innerHTML = '';
+        this.hideMembersContainer();
+        
         // Show modal
         const modalInstance = new bootstrap.Modal(this.modal);
         modalInstance.show();
@@ -259,8 +265,9 @@ export class CqChatModalManager {
             
             // Update modal title - handle both direct and group chats
             const isGroup = chat.isGroupChat || false;
+            const isMultiGroup = isGroup && (chat.memberCount || 0) > 1;
             if (isGroup) {
-                const groupIcon = '<i class="mdi mdi-account-multiple text-light me-2"></i>';
+                const groupIcon = isMultiGroup ? '<i class="mdi mdi-account-multiple text-light me-2"></i>' : '';
                 this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
                 
                 // Render members list (include host contact for non-host users)
@@ -667,9 +674,13 @@ export class CqChatModalManager {
         let contactDomain = '';
         let contactId = message.cqContactId || message.cq_contact_id || null;
         if (message.contactUsername) {
-            // Group chat - use contact info from message
+            // Group chat - use contact info from message (enriched by backend)
             contactName = message.contactUsername;
-            contactDomain = message.contactDomain;
+            contactDomain = message.contactDomain || '';
+        } else if (message.senderUsername || message.sender_username) {
+            // Fallback: use stored sender info (non-friend group member)
+            contactName = message.senderUsername || message.sender_username;
+            contactDomain = message.senderDomain || message.sender_domain || '';
         } else if (this.currentChat?.contact?.cqContactUsername) {
             // Direct chat - use chat's contact
             contactName = this.currentChat.contact.cqContactUsername;
@@ -681,7 +692,7 @@ export class CqChatModalManager {
         
         // Profile photo for message
         const photoSize = 24;
-        const photoFallback = `onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');"`;
+        const photoFallback = `onload="this.style.display='';this.nextElementSibling.classList.add('d-none');" onerror="this.style.display='none';this.nextElementSibling.classList.remove('d-none');"`;
         const fallbackIcon = `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
         
         let nameDisplay;
@@ -689,11 +700,17 @@ export class CqChatModalManager {
             const userPhotoUrl = `/${userName}/photo`;
             nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-1"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
         } else {
-            const contactPhotoUrl = contactId ? `/api/cq-contact/${contactId}/profile-photo` : '';
+            // For real contacts use API endpoint, for non-friend placeholders use public photo URL
+            const isRealContact = contactId && !contactId.startsWith('nf_');
+            const contactPhotoUrl = isRealContact 
+                ? `/api/cq-contact/${contactId}/profile-photo` 
+                : (contactDomain && contactName ? `https://${contactDomain}/${contactName}/photo` : '');
             const photoImg = contactPhotoUrl 
                 ? `<img src="${contactPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
                 : `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
-            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2">${photoImg}<small class="text-cyber">${contactName}</small><small class="opacity-25">${contactDomain}</small></div>`;
+            const contactUrl = contactDomain && contactName ? `https://${contactDomain}/${contactName}` : '';
+            const copyLinkIcon = contactUrl ? `<a href="#" class="text-decoration-none opacity-25" style="font-size:10px;" title="${contactUrl}" onclick="event.preventDefault();navigator.clipboard.writeText('${contactUrl}');window.toast&&window.toast.success('URL copied');"><i class="mdi mdi-link-variant"></i></a>` : '';
+            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2">${photoImg}<small class="text-cyber">${contactName}</small><small class="opacity-25">${contactDomain}</small>${copyLinkIcon}</div>`;
         }
         
         // Render attachments (images)
@@ -857,12 +874,12 @@ export class CqChatModalManager {
         if (!contactId) return;
         
         try {
-            // Close new chat modal
+            // Reload chats first (this triggers find-or-create on backend)
+            await this.loadChatsForDropdown();
+            
+            // Close new chat modal AFTER API response
             const modalInstance = bootstrap.Modal.getInstance(this.newChatModal);
             modalInstance?.hide();
-            
-            // Reload chats
-            await this.loadChatsForDropdown();
             
             // Find and open the new chat
             const chat = this.chats.find(c => c.contact?.id === contactId);
@@ -943,7 +960,7 @@ export class CqChatModalManager {
         // Get current username
         const currentUsername = document.querySelector('.js-user')?.dataset?.username;
         const ps = 18; // photo size in badges
-        const pFallback = `onerror="this.style.display='none'; this.nextElementSibling.classList.remove('d-none');"`;
+        const pFallback = `onload="this.style.display='';this.nextElementSibling.classList.add('d-none');" onerror="this.style.display='none';this.nextElementSibling.classList.remove('d-none');"`;
         const pIcon = `<i class="mdi mdi-account d-none me-1" style="font-size:${ps/2}px;"></i>`;
         
         // Build members HTML - current user first (as "You"), then others
@@ -964,8 +981,16 @@ export class CqChatModalManager {
             if (contact) {
                 const username = contact.cqContactUsername || 'Unknown';
                 const domain = contact.cqContactDomain || '';
+                // Skip current user (already shown as first badge) to avoid duplicates
+                if (username === currentUsername) return;
+                // Skip if same as host (already shown above)
+                if (hostContact && username === hostContact.cqContactUsername && domain === hostContact.cqContactDomain) return;
                 const cId = contact.id || '';
-                const cPhoto = cId ? `<img src="/api/cq-contact/${cId}/profile-photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+                // For real contacts use API endpoint, for non-friend placeholders use public photo URL
+                const isRealContact = cId && !cId.startsWith('nf_');
+                const publicPhotoUrl = domain && username ? `https://${domain}/${username}/photo` : '';
+                const photoUrl = isRealContact ? `/api/cq-contact/${cId}/profile-photo` : publicPhotoUrl;
+                const cPhoto = photoUrl ? `<img src="${photoUrl}" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
                 html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${domain}/${username}">${cPhoto}${username}</span>`;
             }
         });
@@ -1136,7 +1161,7 @@ export class CqChatModalManager {
             // Open the new group chat
             this.openChat(data.chat.id);
             
-            window.toast?.success('Group chat created successfully!');
+            // No success toast needed - chat modal opening is obvious feedback
             
         } catch (error) {
             console.error('Error creating group:', error);

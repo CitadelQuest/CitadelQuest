@@ -236,20 +236,26 @@ class FederationGroupChatController extends AbstractController
             
             // Find the original sender contact by parsing username@domain
             $senderContactId = null;
+            $senderUsername = null;
+            $senderDomain = null;
             if (str_contains($originalSender, '@')) {
-                [$username, $domain] = explode('@', $originalSender, 2);
-                $senderUrl = 'https://' . $domain . '/' . $username;
+                [$senderUsername, $senderDomain] = explode('@', $originalSender, 2);
+                $senderUrl = 'https://' . $senderDomain . '/' . $senderUsername;
                 $senderContact = $this->cqContactService->findByUrl($senderUrl);
-                $senderContactId = $senderContact ? $senderContact->getId() : null;
+                // Use real contact ID if found, otherwise use placeholder
+                // Placeholder ensures cq_contact_id is non-null so frontend treats it as incoming
+                $senderContactId = $senderContact ? $senderContact->getId() : 'nf_' . $senderUsername . '_' . $senderDomain;
             }
             
-            // Store the message
+            // Store the message (always include sender username/domain for non-friend rendering)
             $message = $this->cqChatMsgService->storeForwardedGroupMessage(
                 $groupChatId,
                 $senderContactId,
                 $content,
                 $messageId,
-                $attachments
+                $attachments,
+                $senderUsername,
+                $senderDomain
             );
             
             // Send delivery status back to host
@@ -360,6 +366,24 @@ class FederationGroupChatController extends AbstractController
     ): void {
         $senderAddress = $senderContact->getCqContactUsername() . '@' . $senderContact->getCqContactDomain();
         
+        // Build member list so recipients can sync non-friend members
+        $members = $this->groupChatService->getGroupMembers($groupChatId);
+        $memberList = [];
+        foreach ($members as $member) {
+            $contact = $this->cqContactService->findById($member->getCqContactId());
+            if ($contact) {
+                $memberList[] = [
+                    'username' => $contact->getCqContactUsername(),
+                    'domain' => $contact->getCqContactDomain(),
+                    'role' => $member->getRole()
+                ];
+            }
+        }
+        
+        // Get group name for chat creation on recipient side
+        $chat = $this->cqChatService->findById($groupChatId);
+        $groupName = $chat ? $chat->getTitle() : 'Group Chat';
+        
         foreach ($recipientContactIds as $contactId) {
             try {
                 $recipientContact = $this->cqContactService->findById($contactId);
@@ -381,6 +405,8 @@ class FederationGroupChatController extends AbstractController
                         'message_id' => $messageId,
                         'content' => $content,
                         'attachments' => $attachments,
+                        'members' => $memberList,
+                        'group_name' => $groupName,
                         'timestamp' => date('c')
                     ]
                 ]);
@@ -436,23 +462,22 @@ class FederationGroupChatController extends AbstractController
                     continue;
                 }
                 
-                // Find or skip if contact doesn't exist locally
+                // Try to find local contact
                 $contactUrl = 'https://' . $domain . '/' . $username;
                 $contact = $this->cqContactService->findByUrl($contactUrl);
                 
-                if (!$contact) {
-                    // Contact doesn't exist in local database, skip
-                    // (they would need to be added as a contact first)
-                    continue;
-                }
+                // Use contact ID if found, otherwise use a deterministic placeholder
+                // Placeholder format: "nf_{username}_{domain}" to identify non-friend members
+                $contactId = $contact ? $contact->getId() : 'nf_' . $username . '_' . $domain;
                 
                 // Check if member already exists
-                if ($this->groupChatService->isMember($groupChatId, $contact->getId())) {
+                if ($this->groupChatService->isMember($groupChatId, $contactId)) {
                     continue;
                 }
                 
                 // Add member to local database (bypassing host check since this is federation sync)
-                $this->addMemberWithoutHostCheck($groupChatId, $contact->getId(), $role);
+                // Always store username/domain for rendering regardless of friend status
+                $this->addMemberWithoutHostCheck($groupChatId, $contactId, $role, $username, $domain);
                 
             } catch (\Exception $e) {
                 // Log error but continue with other members
@@ -464,21 +489,27 @@ class FederationGroupChatController extends AbstractController
     /**
      * Add a member to a group chat without host check (for federation sync)
      */
-    private function addMemberWithoutHostCheck(string $chatId, string $contactId, string $role = 'member'): void
+    private function addMemberWithoutHostCheck(string $chatId, string $contactId, string $role = 'member', ?string $username = null, ?string $domain = null): void
     {
         $userDb = $this->groupChatService->getUserDb();
         
         $member = new \App\Entity\CqChatGroupMember($chatId, $contactId, $role);
+        if ($username) {
+            $member->setMemberUsername($username);
+            $member->setMemberDomain($domain);
+        }
         
         $userDb->executeStatement(
             'INSERT INTO cq_chat_group_members (
-                id, cq_chat_id, cq_contact_id, role, joined_at, created_at
-             ) VALUES (?, ?, ?, ?, ?, ?)',
+                id, cq_chat_id, cq_contact_id, role, member_username, member_domain, joined_at, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $member->getId(),
                 $member->getCqChatId(),
                 $member->getCqContactId(),
                 $member->getRole(),
+                $member->getMemberUsername(),
+                $member->getMemberDomain(),
                 $member->getJoinedAt()->format('Y-m-d H:i:s'),
                 $member->getCreatedAt()->format('Y-m-d H:i:s')
             ]

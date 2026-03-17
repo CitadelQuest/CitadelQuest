@@ -270,7 +270,7 @@ class GroupChatService
 
         // Find the newest 1-to-1 group chat with this contact across both cases:
         // Case 1: User is host (group_host_contact_id IS NULL), contact is the ONLY member
-        // Case 2: Contact is host (group_host_contact_id = contactId), no other members
+        // Case 2: Contact is host (group_host_contact_id = contactId), at most 1 member (self synced via federation)
         $chatRow = $userDb->executeQuery(
             'SELECT * FROM (
                 SELECT c.* FROM cq_chat c
@@ -285,7 +285,7 @@ class GroupChatService
                 WHERE c.is_group_chat = 1
                   AND c.group_host_contact_id = ?
                   AND c.is_active = 1
-                  AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) = 0
+                  AND (SELECT COUNT(*) FROM cq_chat_group_members WHERE cq_chat_id = c.id) <= 1
              ) ORDER BY updated_at DESC LIMIT 1',
             [$contactId, $contactId]
         )->fetchAssociative();

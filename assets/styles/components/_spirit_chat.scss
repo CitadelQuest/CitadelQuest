@@ -18,12 +18,13 @@
         color: colors.$secondary;
         transition: all vars.$transition-quick ease-in-out;
         animation: spirit-fading 3s ease-in-out infinite;
+        font-size: 0.9rem;
     }
 }
 
 .spirit-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background-color: #89898921 !important;
     display: flex;

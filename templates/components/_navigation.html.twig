@@ -21,9 +21,10 @@
 
             <!-- User Menu -->
             <li class="nav-item dropdown">
-                <a class="nav-link" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="mdi mdi-account{% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}-cowboy-hat{% endif %}"></i>
-                    <span class="d-none d-sm-inline ms-1">{{ app.user.userIdentifier }}</span>
+                <a class="nav-link d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <img src="/{{ app.user.userIdentifier }}/photo" class="rounded-circle border border-light border-opacity-50" style="width:28px;height:28px;object-fit:cover;" onload="this.style.display='';this.nextElementSibling.style.display='none';" onerror="this.style.display='none';this.nextElementSibling.style.display='';" alt="">
+                    <i class="mdi mdi-account{% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}-cowboy-hat{% endif %}" style="display:none;"></i>
+                    <span class="d-none d-sm-inline ms-2">{{ app.user.userIdentifier }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="userDropdown">
                     {# <li>
@@ -88,10 +89,11 @@
                 </ul>
             </li>
 
-            <li class="nav-item mx-3" style="font-size: 1rem;">
+            <li class="nav-item ms-2 me-3 py-2 position-relative" style="font-size: 1rem;">
                 <a class="" href="{{ path('app_cq_contact_index') }}" title="{{ 'cq_explorer.page_title'|trans }}">
-                    <i class="mdi mdi-account-voice {% if app.request.pathInfo == path('app_cq_contact_index') %} text-light{% else %} text-light opacity-75{% endif %}"></i>                    
+                    <i class="mdi mdi-account-voice {% if app.request.pathInfo == path('app_cq_contact_index') %} text-light{% else %} text-light{% endif %}"></i>                    
                 </a>
+                <span class="position-absolute top-0 start-50 badge rounded-pill text-warning d-none" id="cqExplorerNewBadge" style="font-size: 12px;"></span>
             </li>            
             
             <!-- CQ Chat Dropdown -->
