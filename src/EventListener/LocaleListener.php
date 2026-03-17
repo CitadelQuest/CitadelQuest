@@ -8,7 +8,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 class LocaleListener implements EventSubscriberInterface
 {
-    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk'];
+    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'];
     private string $defaultLocale;
 
     public function __construct(string $defaultLocale = 'en')

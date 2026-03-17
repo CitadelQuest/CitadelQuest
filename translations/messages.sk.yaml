@@ -148,7 +148,12 @@ navigation:
     language:
         title: 'Jazyk'
         en: 'English'
+        es: 'Español'
         cs: 'Čeština'
+        it: 'Italiano'
+        hu: 'Magyar'
+        no: 'Norsk'
+        pl: 'Polski'
         sk: 'Slovenčina'
     menu:
         login: 'Prihlásiť'

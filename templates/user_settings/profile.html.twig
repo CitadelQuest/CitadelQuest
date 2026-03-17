@@ -206,13 +206,28 @@
                                     <select class="form-select form-select-sm bg-dark text-light border-secondary" id="profile-public-locale"
                                             style="max-width: 250px;">
                                         <option value="en" {% if settings['profile.public_page_locale']|default('en') == 'en' %}selected{% endif %}>
-                                            {{ 'navigation.language.en'|trans|default('English') }}
+                                            {{ 'navigation.language.en'|trans }}
                                         </option>
                                         <option value="cs" {% if settings['profile.public_page_locale']|default('en') == 'cs' %}selected{% endif %}>
-                                            {{ 'navigation.language.cs'|trans|default('Čeština') }}
+                                            {{ 'navigation.language.cs'|trans }}
                                         </option>
                                         <option value="sk" {% if settings['profile.public_page_locale']|default('en') == 'sk' %}selected{% endif %}>
-                                            {{ 'navigation.language.sk'|trans|default('Slovenčina') }}
+                                            {{ 'navigation.language.sk'|trans }}
+                                        </option>
+                                        <option value="es" {% if settings['profile.public_page_locale']|default('en') == 'es' %}selected{% endif %}>
+                                            {{ 'navigation.language.es'|trans }}
+                                        </option>
+                                        <option value="hu" {% if settings['profile.public_page_locale']|default('en') == 'hu' %}selected{% endif %}>
+                                            {{ 'navigation.language.hu'|trans }}
+                                        </option>
+                                        <option value="pl" {% if settings['profile.public_page_locale']|default('en') == 'pl' %}selected{% endif %}>
+                                            {{ 'navigation.language.pl'|trans }}
+                                        </option>
+                                        <option value="no" {% if settings['profile.public_page_locale']|default('en') == 'no' %}selected{% endif %}>
+                                            {{ 'navigation.language.no'|trans }}
+                                        </option>
+                                        <option value="it" {% if settings['profile.public_page_locale']|default('en') == 'it' %}selected{% endif %}>
+                                            {{ 'navigation.language.it'|trans }}
                                         </option>
                                     </select>
                                 </div>

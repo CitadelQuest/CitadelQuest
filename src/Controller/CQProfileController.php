@@ -104,7 +104,7 @@ class CQProfileController extends AbstractController
 
         // Apply locale setting for this public profile page
         $locale = $this->settingsService->getSettingValue('profile.public_page_locale', 'en');
-        if (in_array($locale, ['en', 'cs', 'sk'])) {
+        if (in_array($locale, ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'])) {
             $request->setLocale($locale);
             $this->translator->setLocale($locale);
         }

@@ -164,10 +164,27 @@ class SettingsService
             case 'sk':
                 $r['lang'] = 'Slovenčina';
                 break;
-            case 'cz':
+            case 'cs':
                 $r['lang'] = 'Čeština';
                 break;
             case 'en':
+                $r['lang'] = 'English';
+                break;
+            case 'es':
+                $r['lang'] = 'Español';
+                break;
+            case 'hu':
+                $r['lang'] = 'Magyar';
+                break;
+            case 'pl':
+                $r['lang'] = 'Polski';
+                break;
+            case 'no':
+                $r['lang'] = 'Norsk';
+                break;
+            case 'it':
+                $r['lang'] = 'Italiano';
+                break;
             default:
                 $r['lang'] = 'English';
         }

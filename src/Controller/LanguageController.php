@@ -12,7 +12,7 @@ use App\Service\SettingsService;
 
 class LanguageController extends AbstractController
 {
-    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk'];
+    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'];
 
     #[Route('/language/{locale}', name: 'app_language_switch')]
     public function switch(Request $request, string $locale, SettingsService $settingsService): Response

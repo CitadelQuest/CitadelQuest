@@ -13,7 +13,7 @@ use Psr\Log\LoggerInterface;
 
 class AuthenticationSuccessListener implements EventSubscriberInterface
 {
-    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk'];
+    private const SUPPORTED_LOCALES = ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'];
     
     public function __construct(
         private readonly SettingsService $settingsService,
