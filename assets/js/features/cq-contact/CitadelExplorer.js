@@ -243,7 +243,7 @@ export class CitadelExplorer {
                     <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content glass-panel border-0" style="background: transparent;">
                             <div class="modal-header border-0 pb-0">
-                                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-circle me-2"></i>${p.username || ''}</h5>
+                                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-box me-2"></i>${p.username || ''}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body text-center p-4">

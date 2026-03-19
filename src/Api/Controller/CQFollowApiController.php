@@ -72,11 +72,15 @@ class CQFollowApiController extends AbstractController
             // Auto-subscribe to all feeds from the followed profile
             try {
                 $this->federationFeedService->setUser($user);
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($data['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
                 $this->federationFeedService->subscribeAllFeeds(
                     $data['cq_contact_id'],
                     $data['cq_contact_url'],
                     $data['cq_contact_domain'],
-                    $data['cq_contact_username']
+                    $data['cq_contact_username'],
+                    $apiKey
                 );
             } catch (\Exception $e) {
                 $this->logger->warning('CQFollowApiController::follow - Auto-subscribe feeds failed', ['error' => $e->getMessage()]);

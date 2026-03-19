@@ -52,7 +52,8 @@ class CQFederationFeedService
         string $cqContactUsername,
         string $feedUrlSlug,
         string $title,
-        ?string $description = null
+        ?string $description = null,
+        ?string $apiKey = null
     ): array {
         $db = $this->getUserDb();
 
@@ -64,12 +65,24 @@ class CQFederationFeedService
 
         $id = Uuid::v4()->toRfc4122();
         $now = date('Y-m-d H:i:s');
+        // Set last_visited_at to epoch so initial fetch grabs existing posts
+        $epoch = '2000-01-01 00:00:00';
 
         $db->executeStatement(
             'INSERT INTO cq_federation_feed (id, cq_contact_id, cq_contact_url, cq_contact_domain, cq_contact_username, feed_url_slug, title, description, is_active, created_at, updated_at, last_visited_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
-            [$id, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $feedUrlSlug, $title, $description, $now, $now, $now]
+            [$id, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $feedUrlSlug, $title, $description, $now, $now, $epoch]
         );
+
+        // Fetch existing posts (last 100) immediately after subscribing
+        try {
+            $this->fetchRemotePosts($id, $apiKey, 100);
+        } catch (\Exception $e) {
+            $this->logger->warning('CQFederationFeedService::subscribeFeed initial fetch failed', [
+                'feed_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $this->findById($id);
     }
@@ -279,7 +292,7 @@ class CQFederationFeedService
      * Fetch latest posts from a remote feed (incremental sync).
      * Returns the number of new/updated posts.
      */
-    public function fetchRemotePosts(string $feedId, ?string $apiKey = null): int
+    public function fetchRemotePosts(string $feedId, ?string $apiKey = null, int $limit = 50): int
     {
         $feed = $this->findById($feedId);
         if (!$feed) {
@@ -302,7 +315,7 @@ class CQFederationFeedService
                 'headers' => $headers,
                 'query' => [
                     'since' => $feed['last_visited_at'],
-                    'limit' => 50,
+                    'limit' => $limit,
                 ],
                 'timeout' => 15,
                 'verify_peer' => false,
@@ -395,7 +408,8 @@ class CQFederationFeedService
                     $cqContactUsername,
                     $feed['feed_url_slug'] ?? '',
                     $feed['title'] ?? 'Untitled',
-                    $feed['description'] ?? null
+                    $feed['description'] ?? null,
+                    $apiKey
                 );
                 $count++;
             }

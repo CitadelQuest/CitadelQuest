@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Service\CQFeedService;
 use App\Service\CQFederationFeedService;
 use App\Service\CQFollowService;
+use App\Service\CqContactService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ class CQFeedApiController extends AbstractController
         private readonly CQFeedService $feedService,
         private readonly CQFederationFeedService $federationFeedService,
         private readonly CQFollowService $followService,
+        private readonly CqContactService $contactService,
         private readonly LoggerInterface $logger
     ) {}
 
@@ -254,14 +256,21 @@ class CQFeedApiController extends AbstractController
             $this->followService->setUser($user);
             $follows = $this->followService->listFollows();
 
+            $this->contactService->setUser($user);
+
             $newSubs = 0;
             foreach ($follows as $follow) {
                 try {
+                    // Look up contact API key for authenticated feed access
+                    $contact = $this->contactService->findById($follow['cq_contact_id']);
+                    $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
                     $count = $this->federationFeedService->subscribeAllFeeds(
                         $follow['cq_contact_id'],
                         $follow['cq_contact_url'],
                         $follow['cq_contact_domain'],
-                        $follow['cq_contact_username']
+                        $follow['cq_contact_username'],
+                        $apiKey
                     );
                     $newSubs += $count;
                 } catch (\Exception $e) {

@@ -182,9 +182,9 @@ export class CQFeedTimeline {
             photoHtml = `<img src="${this.userPhotoUrl}" alt="${this._escapeHtml(this.username)}" class="rounded me-2 border_border-light_border-opacity-25" style="width: 32px; height: 32px; object-fit: cover;">`;
         } else if (!isOwn && post.cq_contact_domain && post.cq_contact_username) {
             const remotePhotoUrl = `https://${post.cq_contact_domain}/${post.cq_contact_username}/photo`;
-            photoHtml = `<img src="${remotePhotoUrl}" alt="${this._escapeHtml(authorName)}" class="rounded me-2 border_border-light_border-opacity-25" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.outerHTML='<i class=\'mdi mdi-account-circle text-info me-2\' style=\'font-size:1.8rem\'></i>'">`;
+            photoHtml = `<img src="${remotePhotoUrl}" alt="${this._escapeHtml(authorName)}" class="rounded me-2 border_border-light_border-opacity-25" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.outerHTML='<i class=\'mdi mdi-account-box text-info me-2\' style=\'font-size:1.8rem\'></i>'">`;
         } else {
-            photoHtml = `<i class="mdi mdi-account-circle ${isOwn ? 'text-cyber' : 'text-info'} me-2" style="font-size: 1.8rem;"></i>`;
+            photoHtml = `<i class="mdi mdi-account-box ${isOwn ? 'text-cyber' : 'text-info'} me-2" style="font-size: 1.8rem;"></i>`;
         }
 
         const authorDisplay = isOwn

@@ -35,7 +35,7 @@
                     </li> #}
                     <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_user_settings_profile') }}">
-                            <i class="mdi mdi-account-circle me-3{% if app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-light opacity-75{% endif %}"></i>
+                            <i class="mdi mdi-account-box me-3{% if app.request.pathInfo starts with '/settings/profile' %} text-cyber{% else %} text-light opacity-75{% endif %}"></i>
                             {{ 'profile.settings.title'|trans|default('Profile') }}
                         </a>
                     </li>
