@@ -6,6 +6,7 @@ import MarkdownIt from 'markdown-it';
 import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
 import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
+import { formatDate, formatShortDate, formatTime, getCitadelLocale } from '../../shared/date-utils';
 
 /**
  * Spirit Chat Manager
@@ -170,7 +171,7 @@ export class SpiritChatManager {
      * Show credit indicator based current real data from CQ AI Gateway
      */
     showCreditIndicator(creditBalance) {
-        let creditBalanceText = creditBalance.toLocaleString('sk-SK');
+        let creditBalanceText = creditBalance.toLocaleString(getCitadelLocale());
         this.creditIndicator.innerHTML = `
             <i class="d-none ms-1 mdi mdi-gauge${creditBalance < 0 ? '-empty text-danger' : creditBalance < 30 ? '-low text-danger' : creditBalance < 60 ? ' text-warning' : creditBalance > 500 ? '-full text-success' : ' text-cyber'}" 
                 title="${creditBalanceText} Credits"></i>
@@ -673,8 +674,8 @@ export class SpiritChatManager {
                 
                 // Format date and time
                 const date = new Date(conversation.lastInteraction);
-                const formattedDate = date.toLocaleDateString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-                const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+                const formattedDate = formatDate(date);
+                const formattedTime = formatTime(date);
                 
                 item.innerHTML = `
                     <div class="cursor-pointer w-100">
@@ -1221,8 +1222,8 @@ export class SpiritChatManager {
         let timestampHtml = '';
         if (message.timestamp) {
             const date = new Date(message.timestamp);
-            const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-            const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+            const formattedDate = formatShortDate(date);
+            const formattedTime = formatTime(date);
             timestampHtml = `<div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>`;
         }
         
@@ -2560,7 +2561,7 @@ export class SpiritChatManager {
         if (!this.chatInfoPrimaryAiModel) return;
         this.chatInfoPrimaryAiModel.innerHTML = 
             '<span class="me-1 fw-bold">' + data.modelName + '</span> ' +
-            '<span class="d-md-inline d-none">[context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString('sk-SK') + '</span>]</span>';
+            '<span class="d-md-inline d-none">[context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString(getCitadelLocale()) + '</span>]</span>';
         // Store context window for usage calculation
         this.primaryModelContextWindow = data.contextWindow || null;
     }
@@ -2596,8 +2597,8 @@ export class SpiritChatManager {
         }
         
         // Update tooltip with translation
-        const usedFormatted = Number(this.currentContextUsage).toLocaleString('sk-SK');
-        const totalFormatted = Number(this.primaryModelContextWindow).toLocaleString('sk-SK');
+        const usedFormatted = Number(this.currentContextUsage).toLocaleString(getCitadelLocale());
+        const totalFormatted = Number(this.primaryModelContextWindow).toLocaleString(getCitadelLocale());
         this.contextWindowUsage.title = `${contextWindowLabel}: ${usedFormatted} / ${totalFormatted} (${percentage.toFixed(1)}%)`;
     }
     
@@ -2633,7 +2634,7 @@ export class SpiritChatManager {
             if (modelData.model) {
                 this.chatInfoSecondaryAiModel.innerHTML = 
                     '<span class="me-1 fw-bold">' + modelData.model.modelName + '</span> ' +
-                    '[<span class="d-md-inline d-none">context window: </span><span class="fw-bold_">' + Number(modelData.model.contextWindow).toLocaleString('sk-SK') + '</span>]';
+                    '[<span class="d-md-inline d-none">context window: </span><span class="fw-bold_">' + Number(modelData.model.contextWindow).toLocaleString(getCitadelLocale()) + '</span>]';
             }
         } catch (error) {
             console.error('Error fetching secondary model:', error);
@@ -2674,8 +2675,8 @@ export class SpiritChatManager {
         messageEl.className = 'chat-message chat-message-user';
         
         const date = new Date(userMessage.timestamp);
-        const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-        const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+        const formattedDate = formatShortDate(date);
+        const formattedTime = formatTime(date);
 
         // format message content
         let formattedContent = '';
@@ -2751,8 +2752,8 @@ export class SpiritChatManager {
         messageEl.className = 'chat-message chat-message-assistant';
         
         const date = new Date(message.timestamp || message.createdAt);
-        const formattedDate = date.toLocaleDateString('sk-SK', { month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-        const formattedTime = date.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague'});
+        const formattedDate = formatShortDate(date);
+        const formattedTime = formatTime(date);
 
         // Format content - handle different message types
         let formattedContent = '';

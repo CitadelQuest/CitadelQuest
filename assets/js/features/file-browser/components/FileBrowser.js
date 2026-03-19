@@ -8,6 +8,7 @@ import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 import { ImageShowcase } from '../../../shared/image-showcase';
+import { formatDate, formatTime } from '../../../shared/date-utils';
 
 /**
  * File Browser component for CitadelQuest
@@ -686,9 +687,9 @@ export class FileBrowser {
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.translations.directory || 'Directory'}</span>
                     <span>
-                        ${new Date(directory.updatedAt).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'})}
+                        ${formatDate(directory.updatedAt)}
                         <span class="text-cyber opacity-75">/</span>
-                        ${new Date(directory.updatedAt).toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague'})}
+                        ${formatTime(directory.updatedAt)}
                     </span>
                 </div>
                 <div class="file-preview-actions">
@@ -912,9 +913,9 @@ export class FileBrowser {
                 <div class="file-info mb-2 d-none d-md-flex">
                     <span>${this.formatFileSize(file.size)}</span>
                     <span>
-                        ${new Date(file.updatedAt).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'})}
+                        ${formatDate(file.updatedAt)}
                         <span class="text-cyber opacity-75">/</span>
-                        ${new Date(file.updatedAt).toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague'})}
+                        ${formatTime(file.updatedAt)}
                     </span>
                 </div>
                 <div class="file-preview-actions">

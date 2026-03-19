@@ -1,6 +1,7 @@
 import { MemoryGraphView } from './MemoryGraphView';
 import { MemoryExtractPanel } from './MemoryExtractPanel';
 import { updatesService } from '../../services/UpdatesService';
+import { formatDateTimeSplit, getCitadelLocale } from '../../shared/date-utils';
 import MarkdownIt from 'markdown-it';
 import * as bootstrap from 'bootstrap';
 
@@ -667,7 +668,7 @@ class CQMemoryExplorer {
                     ${showSourceBtn}
                 </div>
                 <div class="compilation-content small">${this.md.render(content)}</div>
-                <div class="char-count text-secondary text-end mt-1 me-1">${charCount.toLocaleString()} chars</div>
+                <div class="char-count text-secondary text-end mt-1 me-1">${charCount.toLocaleString(getCitadelLocale())} chars</div>
             `;
         }
 
@@ -702,7 +703,7 @@ class CQMemoryExplorer {
             }
         }
         if (countEl) {
-            countEl.innerHTML = `<i class="mdi mdi-sigma"></i> ${count.toLocaleString()} chars`;
+            countEl.innerHTML = `<i class="mdi mdi-sigma"></i> ${count.toLocaleString(getCitadelLocale())} chars`;
         }
     }
 
@@ -1022,7 +1023,7 @@ class CQMemoryExplorer {
                         </div>
                         <div class="compilation-content small">${needsTruncate ? this.truncateText(fullContent, 150) : this.md.render(fullContent || '(no content)')}</div>
                         ${needsTruncate ? '<div class="expand-indicator text-cyber mt-1 d-inline-block float-start"><i class="mdi mdi-chevron-down"></i></div>' : ''}
-                        <div class="char-count text-secondary d-inline-block float-end mt-1 me-1">${charCount.toLocaleString()} chars</div>
+                        <div class="char-count text-secondary d-inline-block float-end mt-1 me-1">${charCount.toLocaleString(getCitadelLocale())} chars</div>
                         <div style="clear: both;"></div>
                     </div>
                 </div>
@@ -2015,7 +2016,7 @@ class CQMemoryExplorer {
             let aiUsageHtml = '';
             if (aiUsage.total_calls > 0) {
                 const totalCredits = aiUsage.total_cost_credits ? parseFloat(aiUsage.total_cost_credits).toFixed(0) : '0';
-                const totalTokens = aiUsage.total_tokens ? parseInt(aiUsage.total_tokens).toLocaleString() : '0';
+                const totalTokens = aiUsage.total_tokens ? parseInt(aiUsage.total_tokens).toLocaleString(getCitadelLocale()) : '0';
                 
                 let purposeRows = '';
                 if (aiUsage.by_purpose && aiUsage.by_purpose.length > 0) {
@@ -2023,7 +2024,7 @@ class CQMemoryExplorer {
                         <tr>
                             <td class="small">${this.escapeHtml(p.purpose)}</td>
                             <td class="text-center small">${p.calls}</td>
-                            <td class="text-center small">${p.tokens ? parseInt(p.tokens).toLocaleString() : '0'}</td>
+                            <td class="text-center small">${p.tokens ? parseInt(p.tokens).toLocaleString(getCitadelLocale()) : '0'}</td>
                             <td class="text-end small text-warning">${p.cost_credits ? parseFloat(p.cost_credits).toFixed(2) : '0'}</td>
                         </tr>
                     `).join('');
@@ -2068,7 +2069,7 @@ class CQMemoryExplorer {
             const isSynced = !!meta.source_url;
             let sourceHtml = '';
             if (isSynced) {
-                const syncedAtStr = meta.synced_at ? new Date(meta.synced_at).toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague' }) : '';
+                const syncedAtStr = meta.synced_at ? formatDateTimeSplit(meta.synced_at, ' / ').replace(/<[^>]*>/g, '') : '';
                 sourceHtml = `
                     <div class="alert bg-secondary bg-opacity-10 border-primary text-cyber border-opacity-25 py-2 px-3 mb-3">
                         <i class="mdi mdi-cloud-sync-outline me-1"></i>
@@ -2082,10 +2083,7 @@ class CQMemoryExplorer {
             // Format timestamps with date and time
             const formatDateTime = (isoStr) => {
                 if (!isoStr) return '';
-                const d = new Date(isoStr);
-                return d.toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague' })
-                    + ' <span class="text-cyber opacity-75">/</span> '
-                    + d.toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Prague' });
+                return formatDateTimeSplit(isoStr);
             };
 
             // Name/Description: editable for local packs, read-only for synced

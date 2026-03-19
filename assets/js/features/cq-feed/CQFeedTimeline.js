@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import { getCitadelLocale } from '../../shared/date-utils';
 
 /**
  * CQ Feed Timeline
@@ -271,7 +272,7 @@ export class CQFeedTimeline {
         if (diff < 86400) return Math.floor(diff / 3600) + 'h';
         if (diff < 604800) return Math.floor(diff / 86400) + 'd';
 
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return date.toLocaleDateString(getCitadelLocale(), { month: 'short', day: 'numeric' });
     }
 
     _escapeHtml(str) {

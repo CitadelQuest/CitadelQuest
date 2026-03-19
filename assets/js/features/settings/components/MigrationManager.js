@@ -1,3 +1,4 @@
+import { formatDate } from '../../../shared/date-utils';
 /**
  * MigrationManager
  * 
@@ -52,7 +53,7 @@ export class MigrationManager {
                 // Account already migrated
                 document.getElementById('migrated-to-domain').textContent = data.migrated_to;
                 document.getElementById('migrated-at-date').textContent = 
-                    new Date(data.migrated_at).toLocaleDateString();
+                    formatDate(data.migrated_at);
                 this.migratedEl.classList.remove('d-none');
                 
             } else if (data.status && ['pending', 'accepted', 'transferring'].includes(data.status)) {

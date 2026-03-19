@@ -4,6 +4,7 @@
  */
 import * as bootstrap from 'bootstrap';
 import { marked } from 'marked';
+import { getCitadelLocale } from '../../shared/date-utils';
 
 export class AiModelSelectorManager {
     constructor() {
@@ -292,7 +293,7 @@ export class AiModelSelectorManager {
                 <td class="text-center">
                     <div class="mb-1">
                         <small class="text-secondary">Context:</small>
-                        <small class="text-info">${model.contextWindow.toLocaleString()}</small>
+                        <small class="text-info">${model.contextWindow.toLocaleString(getCitadelLocale())}</small>
                     </div>
                     <div class="progress mb-2_" style="height: 6px;">
                         <div class="progress-bar bg-info" role="progressbar" 
@@ -302,7 +303,7 @@ export class AiModelSelectorManager {
                     </div>
                     <div class="mb-1_">
                         <small class="text-secondary">Output:</small>
-                        <small class="text-light">${model.maxOutput ? model.maxOutput.toLocaleString() : 'N/A'}</small>
+                        <small class="text-light">${model.maxOutput ? model.maxOutput.toLocaleString(getCitadelLocale()) : 'N/A'}</small>
                     </div>
                     <div class="progress d-none" style="height: 6px;">
                         <div class="progress-bar bg-warning" role="progressbar" 

@@ -43,7 +43,7 @@ class LanguageController extends AbstractController
             '/',                 // path
             null,                // domain
             true,                // secure
-            true,                // httpOnly
+            false,               // httpOnly — JS needs access for date/time/number formatting
             true,                // raw
             Cookie::SAMESITE_LAX // sameSite
         ));

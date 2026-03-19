@@ -1,4 +1,5 @@
 import * as bootstrap from 'bootstrap';
+import { getCitadelLocale } from '../../../shared/date-utils';
 /**
  * SpiritPromptBuilder - Manages the Spirit System Prompt Builder modal
  * Provides transparency and control over Spirit's system prompt structure
@@ -382,7 +383,7 @@ export class SpiritPromptBuilder {
         }
         
         if (tokenCountEl) {
-            tokenCountEl.textContent = this.promptData.estimatedTokens.toLocaleString();
+            tokenCountEl.textContent = this.promptData.estimatedTokens.toLocaleString(getCitadelLocale());
         }
     }
     

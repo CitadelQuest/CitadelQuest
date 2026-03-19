@@ -1,6 +1,7 @@
 import { CqChatApiService } from './CqChatApiService.js';
 import { updatesService } from '../../services/UpdatesService.js';
 import { ImageShowcase } from '../../shared/image-showcase.js';
+import { formatDate as cqFormatDate, formatTime as cqFormatTime } from '../../shared/date-utils.js';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 
@@ -197,9 +198,7 @@ export class CqChatModalManager {
             let lastMessageTime = '';
             if (chat.lastMessage?.createdAt) {
                 const date = new Date(chat.lastMessage.createdAt);
-                const datePart = date.toLocaleString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague' });
-                const timePart = date.toLocaleString('sk-SK', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague' });
-                lastMessageTime = `${datePart} <span class="text-cyber opacity-75">/</span> ${timePart}`;
+                lastMessageTime = `${cqFormatDate(date)} <span class="text-cyber opacity-75">/</span> ${cqFormatTime(date)}`;
             }
             
             item.innerHTML = `
@@ -664,12 +663,8 @@ export class CqChatModalManager {
             createdAt = createdAt.replace(' ', 'T') + 'Z';
         }
         const date_createdAt = new Date(createdAt);
-        const formattedDate = date_createdAt.toLocaleDateString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
-        const messageTime = date_createdAt.toLocaleTimeString('sk-SK', { 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            timeZone: 'Europe/Prague' 
-        });
+        const formattedDate = cqFormatDate(date_createdAt);
+        const messageTime = cqFormatTime(date_createdAt);
         
         // Get contact name and ID - for group chats, use message's contact info
         let contactName = 'Contact';
@@ -1032,7 +1027,7 @@ export class CqChatModalManager {
      */
     formatDate(dateString) {
         const date = new Date(dateString);
-        return date.toLocaleString();
+        return cqFormatDate(date) + ' ' + cqFormatTime(date);
     }
     
     /**
