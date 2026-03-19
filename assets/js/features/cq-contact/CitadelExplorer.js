@@ -230,10 +230,10 @@ export class CitadelExplorer {
             photoHtml = `
                 <a href="#" class="explorer-photo-trigger" style="cursor: pointer;">
                 <img src="${proxyPhotoUrl}" alt="${p.username}"
-                     class="rounded-circle border border-2 border-success"
+                     class="rounded border border-0 border-success"
                      style="width: 96px; height: 96px; object-fit: cover;"
                      onerror="this.style.display='none'; this.nextElementSibling?.classList.remove('d-none');">
-                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
+                <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>
@@ -247,14 +247,14 @@ export class CitadelExplorer {
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body text-center p-4">
-                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded-circle border border-2 border-success img-fluid">
+                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded border border-2 border-primary img-fluid">
                             </div>
                         </div>
                     </div>
                 </div>`;
         } else {
             photoHtml = `
-                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>`;
@@ -760,7 +760,7 @@ export class CitadelExplorer {
                 ? p.photo_url
                 : `/api/citadel-explorer/photo?url=${encodeURIComponent(p.photo_url)}`;
             photoHtml = `<img src="${proxyPhotoUrl}" alt="${p.username}"
-                class="rounded-circle border border-2 border-success me-2"
+                class="rounded border_ border-0 _border-success me-2"
                 style="width: 36px; height: 36px; object-fit: cover;"
                 onerror="this.style.display='none'">`;
         }

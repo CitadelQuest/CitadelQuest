@@ -663,7 +663,9 @@ export class CqChatModalManager {
         if (createdAt && !createdAt.includes('T') && !createdAt.includes('Z') && !createdAt.includes('+')) {
             createdAt = createdAt.replace(' ', 'T') + 'Z';
         }
-        const messageTime = new Date(createdAt).toLocaleTimeString('sk-SK', { 
+        const date_createdAt = new Date(createdAt);
+        const formattedDate = date_createdAt.toLocaleDateString('sk-SK', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Prague'});
+        const messageTime = date_createdAt.toLocaleTimeString('sk-SK', { 
             hour: '2-digit', 
             minute: '2-digit', 
             timeZone: 'Europe/Prague' 
@@ -693,12 +695,12 @@ export class CqChatModalManager {
         // Profile photo for message
         const photoSize = 24;
         const photoFallback = `onload="this.style.display='';this.nextElementSibling.classList.add('d-none');" onerror="this.style.display='none';this.nextElementSibling.classList.remove('d-none');"`;
-        const fallbackIcon = `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
+        const fallbackIcon = `<div class="rounded border border-secondary d-flex align-items-center justify-content-center d-none" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
         
         let nameDisplay;
         if (isOutgoing) {
             const userPhotoUrl = `/${userName}/photo`;
-            nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-1"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
+            nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-2 pb-1 mb-2 border-0 border-bottom border-1 border-secondary border-opacity-50"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
         } else {
             // For real contacts use API endpoint, for non-friend placeholders use public photo URL
             const isRealContact = contactId && !contactId.startsWith('nf_');
@@ -706,11 +708,11 @@ export class CqChatModalManager {
                 ? `/api/cq-contact/${contactId}/profile-photo` 
                 : (contactDomain && contactName ? `https://${contactDomain}/${contactName}/photo` : '');
             const photoImg = contactPhotoUrl 
-                ? `<img src="${contactPhotoUrl}" class="rounded-circle" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
-                : `<div class="rounded-circle border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
+                ? `<img src="${contactPhotoUrl}" class="rounded me-1 border-1 border-light border-opacity-25" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
+                : `<div class="rounded border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
             const contactUrl = contactDomain && contactName ? `https://${contactDomain}/${contactName}` : '';
-            const copyLinkIcon = contactUrl ? `<a href="#" class="text-decoration-none opacity-25" style="font-size:10px;" title="${contactUrl}" onclick="event.preventDefault();navigator.clipboard.writeText('${contactUrl}');window.toast&&window.toast.success('URL copied');"><i class="mdi mdi-link-variant"></i></a>` : '';
-            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2">${photoImg}<small class="text-cyber">${contactName}</small><small class="opacity-25">${contactDomain}</small>${copyLinkIcon}</div>`;
+            const copyLinkIcon = contactUrl ? `<a href="#" class="text-decoration-none opacity-25 ps-2" style="font-size:10px;" title="${contactUrl}" onclick="event.preventDefault();navigator.clipboard.writeText('${contactUrl}');window.toast&&window.toast.success('URL copied');"><i class="mdi mdi-link-variant"></i></a>` : '';
+            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2 pb-1 border-0 border-bottom border-1 border-secondary border-opacity-10">${photoImg}<span class="d-flex flex-column" style="line-height:0.9rem;"><small class="text-cyber">${contactName}</small><small class="opacity-25" style="font-size:0.65rem;">${contactDomain}</small></span>${copyLinkIcon}</div>`;
         }
         
         // Render attachments (images)
@@ -726,7 +728,7 @@ export class CqChatModalManager {
                 ${nameDisplay}
                 ${attachmentsHtml}
                 ${contentHtml}
-                <div class="chat-timestamp">${messageTime}${statusIcon}</div>
+                <div class="chat-timestamp opacity-25">${formattedDate}<i class="mdi mdi-circle-small opacity-75"></i>${messageTime}${statusIcon}</div>
             </div>
         `;
         
@@ -964,7 +966,7 @@ export class CqChatModalManager {
         const pIcon = `<i class="mdi mdi-account d-none me-1" style="font-size:${ps/2}px;"></i>`;
         
         // Build members HTML - current user first (as "You"), then others
-        const userPhoto = `<img src="/${currentUsername}/photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}`;
+        const userPhoto = `<img src="/${currentUsername}/photo" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}`;
         let html = `<span class="badge bg-cyber text-dark d-inline-flex align-items-center">${userPhoto}${currentUsername || 'You'}</span>`;
         
         // If we have a host contact (meaning current user is NOT the host), show the host first
@@ -972,7 +974,7 @@ export class CqChatModalManager {
             const hostUsername = hostContact.cqContactUsername || 'Host';
             const hostDomain = hostContact.cqContactDomain || '';
             const hostId = hostContact.id || '';
-            const hostPhoto = hostId ? `<img src="/api/cq-contact/${hostId}/profile-photo" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+            const hostPhoto = hostId ? `<img src="/api/cq-contact/${hostId}/profile-photo" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
             html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${hostDomain}/${hostUsername}">${hostPhoto}${hostUsername}</span>`;
         }
         
@@ -990,7 +992,7 @@ export class CqChatModalManager {
                 const isRealContact = cId && !cId.startsWith('nf_');
                 const publicPhotoUrl = domain && username ? `https://${domain}/${username}/photo` : '';
                 const photoUrl = isRealContact ? `/api/cq-contact/${cId}/profile-photo` : publicPhotoUrl;
-                const cPhoto = photoUrl ? `<img src="${photoUrl}" class="rounded-circle me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+                const cPhoto = photoUrl ? `<img src="${photoUrl}" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
                 html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${domain}/${username}">${cPhoto}${username}</span>`;
             }
         });
@@ -1272,7 +1274,7 @@ export class CqChatModalManager {
         
         previewItem.innerHTML = `
             <img src="${dataUrl}" alt="${this.escapeHtml(filename)}" title="${this.escapeHtml(filename)}">
-            <span class="remove-btn badge bg-danger rounded-circle">
+            <span class="remove-btn badge bg-danger rounded">
                 <i class="mdi mdi-close"></i>
             </span>
         `;

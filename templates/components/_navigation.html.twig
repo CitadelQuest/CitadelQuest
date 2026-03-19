@@ -22,7 +22,7 @@
             <!-- User Menu -->
             <li class="nav-item dropdown">
                 <a class="nav-link d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="/{{ app.user.userIdentifier }}/photo" class="rounded-circle border border-light border-opacity-50" style="width:28px;height:28px;object-fit:cover;" onload="this.style.display='';this.nextElementSibling.style.display='none';" onerror="this.style.display='none';this.nextElementSibling.style.display='';" alt="">
+                    <img src="/{{ app.user.userIdentifier }}/photo" class="rounded -circle_border_border-light_border-opacity-50" style="width:28px;height:28px;object-fit:cover;" onload="this.style.display='';this.nextElementSibling.style.display='none';" onerror="this.style.display='none';this.nextElementSibling.style.display='';" alt="">
                     <i class="mdi mdi-account{% if app.user.roles|filter(role => role == 'ROLE_ADMIN')|length > 0 %}-cowboy-hat{% endif %}" style="display:none;"></i>
                     <span class="d-none d-sm-inline ms-2">{{ app.user.userIdentifier }}</span>
                 </a>

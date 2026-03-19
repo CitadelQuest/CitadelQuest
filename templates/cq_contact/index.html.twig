@@ -53,6 +53,25 @@
                 contact_rejected: '{{ "cq_contact.contact_rejected"|trans }}',
             }
         };
+        window.cqFeedConfig = {
+            userPhotoUrl: '{{ user_photo_url|default('')|e('js') }}',
+            username: '{{ app.user.username|e('js') }}',
+            translations: {
+                feed_post_placeholder: '{{ "feed.post_placeholder"|trans }}',
+                feed_markdown_hint: '{{ "feed.markdown_hint"|trans }}',
+                feed_post_btn: '{{ "feed.post_btn"|trans }}',
+                feed_posting: '{{ "feed.posting"|trans }}',
+                feed_post_success: '{{ "feed.post_success"|trans }}',
+                feed_post_error: '{{ "feed.post_error"|trans }}',
+                feed_no_posts: '{{ "feed.no_posts"|trans }}',
+                feed_load_more: '{{ "feed.load_more"|trans }}',
+                feed_just_now: '{{ "feed.just_now"|trans }}',
+                feed_delete_post: '{{ "ui.delete"|trans }}',
+                feed_delete_confirm: '{{ "feed.delete_confirm"|trans }}',
+                feed_post_deleted: '{{ "feed.post_deleted"|trans }}',
+                feed_delete_error: '{{ "feed.delete_error"|trans }}',
+            }
+        };
         window.explorerSidebarConfig = {
             translations: {
                 following: '{{ "feed.following"|trans }}',
@@ -72,24 +91,50 @@
 {% block body %}
 <div class="container-fluid mt-1 px-md-4">
     <div class="row">
-        {# ===== Main Content — CQ Explorer ===== #}
+        {# ===== Main Content — CQ Explorer / CQ Feed ===== #}
         <div class="col-sm-9 col-12">
-            <div class="pt-1">
-                {# Citadel Explorer — URL input #}
-                <div class="mb-4">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text glass-panel"><i class="mdi mdi-earth text-cyber"></i></span>
-                        <input type="url" id="explorerUrlInput" class="form-control glass-input"
-                               placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
-                        <button class="btn btn-sm btn-cyber" id="explorerFetchBtn" type="button" disabled>
-                            <i class="mdi mdi-magnify"></i><span class="d-none d-sm-inline-block ms-2">{{ 'citadel_explorer.explore'|trans }}</span>
-                        </button>
-                    </div>
-                    <div class="small text-light opacity-50 ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
-                </div>
+            {# Tab navigation #}
+            <ul class="nav nav-tabs cq-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active px-3 py-1" id="cqExplorerTab" type="button" role="tab">
+                        <i class="mdi mdi-earth me-1"></i>{{ 'cq_explorer.page_title'|trans }}
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link px-3 py-1" id="cqFeedTab" type="button" role="tab">
+                        <i class="mdi mdi-newspaper-variant-outline me-1"></i>{{ 'feed.page_title'|trans }}
+                    </button>
+                </li>
+            </ul>
 
-                {# Citadel Explorer — profile preview container #}
-                <div id="explorerPreview" class="d-none mb-5"></div>
+            {# CQ Explorer Pane #}
+            <div id="cqExplorerPane">
+                <div class="pt-1">
+                    {# Citadel Explorer — URL input #}
+                    <div class="mb-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text glass-panel"><i class="mdi mdi-earth text-cyber"></i></span>
+                            <input type="url" id="explorerUrlInput" class="form-control glass-input"
+                                   placeholder="{{ 'citadel_explorer.url_placeholder'|trans }}" value="">
+                            <button class="btn btn-sm btn-cyber" id="explorerFetchBtn" type="button" disabled>
+                                <i class="mdi mdi-magnify"></i><span class="d-none d-sm-inline-block ms-2">{{ 'citadel_explorer.explore'|trans }}</span>
+                            </button>
+                        </div>
+                        <div class="small text-light opacity-50 ms-2 mt-1" id="explorerUrlHelp">{{ 'citadel_explorer.url_help'|trans }}</div>
+                    </div>
+
+                    {# Citadel Explorer — profile preview container #}
+                    <div id="explorerPreview" class="d-none mb-5"></div>
+                </div>
+            </div>
+
+            {# CQ Feed Pane (hidden by default, lazy loaded) #}
+            <div id="cqFeedPane" class="d-none">
+                {# New Post Composer #}
+                <div id="cqFeedComposer"></div>
+
+                {# Feed Timeline #}
+                <div id="cqFeedTimeline"></div>
             </div>
         </div>
 

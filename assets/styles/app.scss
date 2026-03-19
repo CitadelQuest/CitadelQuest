@@ -677,7 +677,7 @@ div[data-type="tool_calls_frontend_data"] pre
     border-bottom: 1px solid rgba(colors.$cyber, 0.2);
 
     .nav-link {
-        color: rgba(colors.$secondary, 0.7);
+        color: colors.$text-light;
         background: transparent !important;
         border: none !important;
         font-size: 0.85rem;
@@ -708,4 +708,12 @@ div[data-type="tool_calls_frontend_data"] pre
     max-height: 15vh;
     overflow-y: auto;
     @include mix.cyber-scrollbar;
+}
+
+.cq-feed-post-content p {
+    padding-bottom: 0px;
+}
+
+.cq-feed-post-new {
+    border-left: 3px solid rgba(colors.$warning, 0.7) !important;
 }

@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Service\CqContactService;
+use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -12,15 +13,21 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class CqContactController extends AbstractController
 {
     public function __construct(
-        private readonly CqContactService $cqContactService
+        private readonly CqContactService $cqContactService,
+        private readonly SettingsService $settingsService
     ) {
     }
 
     #[Route('/cq-contacts', name: 'app_cq_contact_index')]
     public function index(): Response
     {
+        $user = $this->getUser();
+        $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+        $userPhotoUrl = $photoFileId ? '/' . $user->getUsername() . '/photo' : null;
+
         return $this->render('cq_contact/index.html.twig', [
-            'page_title' => 'CitadelQuest Contacts'
+            'page_title' => 'CitadelQuest Contacts',
+            'user_photo_url' => $userPhotoUrl,
         ]);
     }
 

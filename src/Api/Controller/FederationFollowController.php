@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\User;
+use App\Service\CQFeedService;
 use App\Service\CQFollowService;
 use App\Service\CQShareGroupService;
 use App\Service\CQShareService;
@@ -29,6 +30,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 class FederationFollowController extends AbstractController
 {
     public function __construct(
+        private readonly CQFeedService $feedService,
         private readonly CQFollowService $followService,
         private readonly CQShareService $shareService,
         private readonly CQShareGroupService $shareGroupService,
@@ -211,11 +213,17 @@ class FederationFollowController extends AbstractController
                 if ($groupShareTs) $timestamps[] = $groupShareTs;
             }
 
+            // Include CQ Feed timestamps
+            $this->feedService->setUser($user);
+            $feedTs = $this->feedService->getLastFeedUpdatedAt();
+            if ($feedTs) $timestamps[] = $feedTs;
+
             $lastUpdated = !empty($timestamps) ? max($timestamps) : null;
 
             return $this->json([
                 'success' => true,
-                'last_updated_at' => $lastUpdated
+                'last_updated_at' => $lastUpdated,
+                'last_feed_updated_at' => $feedTs,
             ]);
 
         } catch (\Exception $e) {

@@ -39,7 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!data.success) return;
 
             const items = data.items || [];
-            const newCount = items.filter(item => item.has_new).length;
+            const feedLastViewed = localStorage.getItem('cqFeedLastViewedAt');
+            let newCount = 0;
+            items.forEach(item => {
+                if (item.has_new_content) {
+                    newCount++;
+                } else if (item.has_new && item.has_new_feed) {
+                    // Feed-only update — only count if not yet viewed
+                    const feedTs = item.last_feed_updated_at;
+                    if (!feedLastViewed || (feedTs && feedTs > feedLastViewed)) newCount++;
+                }
+            });
 
             // Update nav badge
             const navBadge = document.getElementById('cqExplorerNewBadge');

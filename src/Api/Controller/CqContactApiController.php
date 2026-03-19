@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\CqContact;
+use App\Service\CQFederationFeedService;
 use App\Service\CqContactService;
 use App\Service\ProjectFileService;
 use App\Service\CQMemoryLibraryService;
@@ -27,6 +28,7 @@ class CqContactApiController extends AbstractController
 {
     public function __construct(
         private readonly CqContactService $cqContactService,
+        private readonly CQFederationFeedService $federationFeedService,
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
         private readonly ProjectFileService $projectFileService,
@@ -850,6 +852,22 @@ class CqContactApiController extends AbstractController
             
             if ($friendRequestStatus === 'ACCEPTED') {
                 $contact->setIsActive(true);
+
+                // Auto-subscribe to all feeds from the accepted contact
+                try {
+                    $user = $this->getUser();
+                    $this->federationFeedService->setUser($user);
+                    $this->federationFeedService->subscribeAllFeeds(
+                        $contact->getCqContactId(),
+                        $contact->getCqContactUrl(),
+                        $contact->getCqContactDomain(),
+                        $contact->getCqContactUsername(),
+                        $contact->getCqContactApiKey()
+                    );
+                } catch (\Exception $e) {
+                    // Don't fail the accept on feed subscribe failure
+                    $this->logger->warning('CqContactApiController::sendFriendRequestToContact - Auto-subscribe feeds failed', ['error' => $e->getMessage()]);
+                }
             } elseif ($friendRequestStatus === 'REJECTED') {
                 $contact->setIsActive(false);
             }

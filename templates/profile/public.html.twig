@@ -102,11 +102,11 @@
                                 <a href="#" data-bs-toggle="modal" data-bs-target="#profilePhotoModal" style="cursor: pointer;">
                                 <img src="{{ path('cq_profile_photo', {username: profile_username}) }}" 
                                      alt="{{ profile_username }}" 
-                                     class="rounded-circle border border-2 border-success"
+                                     class="rounded border_ border-0 border-primary_border-opacity-50"
                                      style="width: 96px; height: 96px; object-fit: cover;">
                                 </a>
                             {% else %}
-                                <div class="rounded-circle border border-2 border-secondary d-flex align-items-center justify-content-center"
+                                <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
                                      style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
                                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 48px;"></i>
                                 </div>
@@ -396,7 +396,7 @@
             </div>
             <div class="modal-body text-center p-4">
                 <img src="{{ path('cq_profile_photo', {username: profile_username}) }}?full=1" alt="{{ profile_username }}" 
-                     class="rounded-circle border border-2 border-success img-fluid">
+                     class="rounded border border-2 border-primary img-fluid">
             </div>
         </div>
     </div>

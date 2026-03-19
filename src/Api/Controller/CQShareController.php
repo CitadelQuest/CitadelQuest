@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -377,6 +378,7 @@ class CQShareController extends AbstractController
     // ========================================
 
     #[Route('/api/share', name: 'api_share_list', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
     public function listShares(): JsonResponse
     {
         try {
@@ -389,6 +391,7 @@ class CQShareController extends AbstractController
     }
 
     #[Route('/api/share', name: 'api_share_create', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
     public function createShare(Request $request): JsonResponse
     {
         try {
@@ -420,6 +423,7 @@ class CQShareController extends AbstractController
     }
 
     #[Route('/api/share/by-source/{sourceId}', name: 'api_share_by_source', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
     public function getShareBySource(string $sourceId): JsonResponse
     {
         try {
@@ -443,6 +447,7 @@ class CQShareController extends AbstractController
     }
 
     #[Route('/api/share/{id}', name: 'api_share_update', methods: ['PUT'])]
+    #[IsGranted('ROLE_USER')]
     public function updateShare(Request $request, string $id): JsonResponse
     {
         try {
@@ -465,6 +470,7 @@ class CQShareController extends AbstractController
     }
 
     #[Route('/api/share/{id}', name: 'api_share_delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_USER')]
     public function deleteShare(string $id): JsonResponse
     {
         try {

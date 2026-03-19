@@ -47,6 +47,8 @@ security:
         - { path: ^/.*/api/federation/contact-update, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/follow, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/last-updated, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/feeds$, roles: PUBLIC_ACCESS, requires_channel: https }
+        - { path: ^/.*/feed/, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/shares$, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/share/, roles: PUBLIC_ACCESS, requires_channel: https }
         - { path: ^/.*/api/federation/user-profile, roles: PUBLIC_ACCESS, requires_channel: https }

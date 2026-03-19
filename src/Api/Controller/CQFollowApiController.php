@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\User;
+use App\Service\CQFederationFeedService;
 use App\Service\CQFollowService;
 use App\Service\CqContactService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +28,7 @@ class CQFollowApiController extends AbstractController
 {
     public function __construct(
         private readonly CQFollowService $followService,
+        private readonly CQFederationFeedService $federationFeedService,
         private readonly CqContactService $contactService,
         private readonly EntityManagerInterface $entityManager,
         private readonly HttpClientInterface $httpClient,
@@ -67,6 +69,19 @@ class CQFollowApiController extends AbstractController
             // Send follow notification to the remote Citadel
             $this->sendFollowNotification($user, $data, 'follow');
 
+            // Auto-subscribe to all feeds from the followed profile
+            try {
+                $this->federationFeedService->setUser($user);
+                $this->federationFeedService->subscribeAllFeeds(
+                    $data['cq_contact_id'],
+                    $data['cq_contact_url'],
+                    $data['cq_contact_domain'],
+                    $data['cq_contact_username']
+                );
+            } catch (\Exception $e) {
+                $this->logger->warning('CQFollowApiController::follow - Auto-subscribe feeds failed', ['error' => $e->getMessage()]);
+            }
+
             return $this->json([
                 'success' => true,
                 'follow' => $follow
@@ -103,6 +118,14 @@ class CQFollowApiController extends AbstractController
             }
 
             $this->followService->unfollow($data['cq_contact_id']);
+
+            // Unsubscribe from all feeds of the unfollowed profile
+            try {
+                $this->federationFeedService->setUser($user);
+                $this->federationFeedService->unsubscribeAllFeeds($data['cq_contact_id']);
+            } catch (\Exception $e) {
+                $this->logger->warning('CQFollowApiController::unfollow - Unsubscribe feeds failed', ['error' => $e->getMessage()]);
+            }
 
             // Send unfollow notification to the remote Citadel
             $this->sendFollowNotification($user, [
@@ -230,6 +253,7 @@ class CQFollowApiController extends AbstractController
             foreach ($follows as $follow) {
                 $lastUpdated = null;
                 $error = false;
+                $lastFeedUpdated = null;
                 try {
                     $url = 'https://' . $follow['cq_contact_domain'] . '/' . $follow['cq_contact_username'] . '/api/federation/last-updated';
                     $resp = $this->httpClient->request('GET', $url, [
@@ -238,11 +262,16 @@ class CQFollowApiController extends AbstractController
                     ]);
                     $data = $resp->toArray(false);
                     $lastUpdated = $data['last_updated_at'] ?? null;
+                    $lastFeedUpdated = $data['last_feed_updated_at'] ?? null;
                 } catch (\Exception $e) {
                     $error = true;
                 }
 
-                $hasNew = $lastUpdated && $follow['last_visited_at'] && $lastUpdated > $follow['last_visited_at'];
+                $visited = $follow['last_visited_at'];
+                $hasNew = $lastUpdated && $visited && $lastUpdated > $visited;
+                $hasNewFeed = $lastFeedUpdated && $visited && $lastFeedUpdated > $visited;
+                // Content-only: new content exists but not solely from feed
+                $hasNewContent = $hasNew && (!$hasNewFeed || ($lastUpdated !== $lastFeedUpdated));
 
                 $results[] = [
                     'cq_contact_id' => $follow['cq_contact_id'],
@@ -251,7 +280,10 @@ class CQFollowApiController extends AbstractController
                     'cq_contact_username' => $follow['cq_contact_username'],
                     'last_visited_at' => $follow['last_visited_at'],
                     'last_updated_at' => $lastUpdated,
+                    'last_feed_updated_at' => $lastFeedUpdated,
                     'has_new' => $hasNew,
+                    'has_new_content' => $hasNewContent,
+                    'has_new_feed' => $hasNewFeed,
                     'error' => $error,
                     'created_at' => $follow['created_at'],
                 ];

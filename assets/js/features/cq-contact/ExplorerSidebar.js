@@ -141,16 +141,36 @@ export class ExplorerSidebar {
     initFeedUpdatesListener() {
         window.addEventListener('cq-feed-updates', (e) => {
             const { items } = e.detail;
-            this.feedItems = (items || []).map(item => ({
-                follow: item,
-                hasNew: item.has_new || false,
-            }));
+            const lastViewed = localStorage.getItem('cqFeedLastViewedAt');
+            let hasAnyNewFeed = false;
+            this.feedItems = (items || []).map(item => {
+                if (item.has_new_feed) {
+                    const feedTs = item.last_feed_updated_at;
+                    const feedIsUnviewed = !lastViewed || (feedTs && feedTs > lastViewed);
+                    if (feedIsUnviewed) hasAnyNewFeed = true;
+                }
+                return {
+                    follow: item,
+                    hasNew: item.has_new || false,
+                    hasNewContent: item.has_new_content || false,
+                    hasNewFeed: item.has_new_feed || false,
+                };
+            });
+            this.updateFeedTabNotification(hasAnyNewFeed);
+            this._updateBadgeCount();
             this.renderFollowingSidebar();
 
             // Re-highlight the currently active profile
             const explorer = window.citadelExplorer;
             if (explorer && explorer.profileUrl) {
                 this.highlightActiveItem(explorer.profileUrl);
+            }
+
+            // If CQ Feed tab is active and there are new feed posts, auto-refresh content
+            // but do NOT markFeedViewed — let the bell stay as visual cue
+            const feedTab = document.getElementById('cqFeedTab');
+            if (hasAnyNewFeed && feedTab && feedTab.classList.contains('active') && window.cqFeedManager) {
+                window.cqFeedManager.refresh();
             }
         });
     }
@@ -162,6 +182,19 @@ export class ExplorerSidebar {
     exploreProfile(profileUrl, sinceValue) {
         const explorer = window.citadelExplorer;
         if (!explorer) return;
+
+        // Switch to CQ Explorer tab if CQ Feed is currently active
+        const explorerTab = document.getElementById('cqExplorerTab');
+        const feedTab = document.getElementById('cqFeedTab');
+        const explorerPane = document.getElementById('cqExplorerPane');
+        const feedPane = document.getElementById('cqFeedPane');
+        if (explorerTab && feedTab && explorerPane && feedPane && feedTab.classList.contains('active')) {
+            explorerTab.classList.add('active');
+            feedTab.classList.remove('active');
+            explorerPane.classList.remove('d-none');
+            feedPane.classList.add('d-none');
+            localStorage.setItem('cqExplorerActiveTab', 'explorer');
+        }
 
         explorer.urlInput.value = profileUrl;
         explorer.fetchBtn.disabled = false;
@@ -247,12 +280,28 @@ export class ExplorerSidebar {
             this.feedItems = (data.items || []).map(item => ({
                 follow: item,
                 hasNew: item.has_new || false,
+                hasNewContent: item.has_new_content || false,
+                hasNewFeed: item.has_new_feed || false,
             }));
 
             // Count new items for dashboard badge
+            const lastViewed = localStorage.getItem('cqFeedLastViewedAt');
             let newCount = 0;
+            let hasAnyNewFeed = false;
             this.feedItems.forEach(item => {
-                if (item.hasNew) newCount++;
+                if (item.hasNewFeed) {
+                    const feedTs = item.follow.last_feed_updated_at;
+                    const feedIsUnviewed = !lastViewed || (feedTs && feedTs > lastViewed);
+                    if (feedIsUnviewed) hasAnyNewFeed = true;
+                }
+                // Badge: count items with content updates, or unviewed feed updates
+                if (item.hasNewContent) {
+                    newCount++;
+                } else if (item.hasNew && item.hasNewFeed) {
+                    // Feed-only update — only count if not yet viewed
+                    const feedTs = item.follow.last_feed_updated_at;
+                    if (!lastViewed || (feedTs && feedTs > lastViewed)) newCount++;
+                }
             });
 
             // Update dashboard badge if present
@@ -265,8 +314,104 @@ export class ExplorerSidebar {
                     badge.classList.add('d-none');
                 }
             }
+
+            // Notify CQ Feed tab about new feed posts
+            this.updateFeedTabNotification(hasAnyNewFeed);
         } catch (e) {
             console.error('ExplorerSidebar: Failed to load feed updates', e);
+        }
+    }
+
+    /**
+     * Mark CQ Feed as viewed — store latest feed timestamp so bell clears.
+     */
+    markFeedViewed() {
+        // Store the max last_feed_updated_at from current feedItems
+        let maxTs = null;
+        this.feedItems.forEach(item => {
+            const ts = item.follow.last_feed_updated_at;
+            if (ts && (!maxTs || ts > maxTs)) maxTs = ts;
+        });
+        // Fallback: use current UTC time if feedItems not loaded yet
+        if (!maxTs) {
+            maxTs = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        }
+        localStorage.setItem('cqFeedLastViewedAt', maxTs);
+        // Immediately clear the notification
+        this.updateFeedTabNotification(false);
+        // Also update badge count to exclude now-viewed feed items
+        this._updateBadgeCount();
+    }
+
+    _updateBadgeCount() {
+        const lastViewed = localStorage.getItem('cqFeedLastViewedAt');
+        let newCount = 0;
+        this.feedItems.forEach(item => {
+            if (item.hasNewContent) {
+                newCount++;
+            } else if (item.hasNew && item.hasNewFeed) {
+                const feedTs = item.follow.last_feed_updated_at;
+                if (!lastViewed || (feedTs && feedTs > lastViewed)) newCount++;
+            }
+        });
+        // Update dashboard badge
+        const badge = document.getElementById('feed-new-badge');
+        if (badge) {
+            if (newCount > 0) {
+                badge.textContent = newCount;
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+        }
+        // Update main nav CQ Explorer badge
+        const navBadge = document.getElementById('cqExplorerNewBadge');
+        if (navBadge) {
+            if (newCount > 0) {
+                navBadge.textContent = newCount;
+                navBadge.classList.remove('d-none');
+            } else {
+                navBadge.textContent = '';
+                navBadge.classList.add('d-none');
+            }
+        }
+    }
+
+    updateFeedTabNotification(hasNewFeed) {
+        const feedTab = document.getElementById('cqFeedTab');
+        if (!feedTab) return;
+
+        // If hasNewFeed from backend, double-check against local viewed timestamp
+        if (hasNewFeed) {
+            const lastViewed = localStorage.getItem('cqFeedLastViewedAt');
+            if (lastViewed) {
+                // Only show bell if any feed has updates newer than what we last viewed
+                const hasUnviewed = this.feedItems.some(item => {
+                    const ts = item.follow.last_feed_updated_at;
+                    return ts && ts > lastViewed;
+                });
+                if (!hasUnviewed) hasNewFeed = false;
+            }
+        }
+
+        const existingBell = feedTab.querySelector('.feed-tab-bell');
+        if (hasNewFeed) {
+            if (!existingBell) {
+                const bell = document.createElement('i');
+                bell.className = 'mdi mdi-bell-ring text-warning ms-1 feed-tab-bell';
+                bell.style.fontSize = '0.7rem';
+                feedTab.appendChild(bell);
+            }
+            feedTab.style.borderColor = 'rgba(255, 193, 7, 0.5)';
+            feedTab.style.borderWidth = '1px';
+            feedTab.style.borderStyle = 'solid';
+            feedTab.style.borderRadius = '4px';
+        } else {
+            if (existingBell) existingBell.remove();
+            feedTab.style.borderColor = '';
+            feedTab.style.borderWidth = '';
+            feedTab.style.borderStyle = '';
+            feedTab.style.borderRadius = '';
         }
     }
 
@@ -289,17 +434,18 @@ export class ExplorerSidebar {
         this.follows.forEach(f => {
             const photoUrl = f.cq_contact_url + '/photo';
             const feedItem = this.feedItems.find(fi => fi.follow.cq_contact_id === f.cq_contact_id);
+            const hasNewContent = feedItem && feedItem.hasNewContent;
             const hasNew = feedItem && feedItem.hasNew;
             const sinceValue = hasNew && f.last_visited_at ? f.last_visited_at : '';
-            const newClass = hasNew ? ' bg-warning bg-opacity-10' : '';
-            const dotHidden = hasNew ? '' : ' d-none';
+            const newClass = hasNewContent ? ' bg-warning bg-opacity-10' : '';
+            const dotHidden = hasNewContent ? '' : ' d-none';
 
-            const bellIcon = hasNew ? '<i class="mdi mdi-bell-ring text-warning ms-1" style="font-size: 0.6rem;"></i>' : '';
+            const bellIcon = hasNewContent ? '<i class="mdi mdi-bell-ring text-warning ms-1" style="font-size: 0.6rem;"></i>' : '';
 
             html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item' + newClass + '">' +
                 '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(f.cq_contact_url) + '" data-since="' + this.escHtml(sinceValue) + '" data-cq-contact-id="' + f.cq_contact_id + '">' +
                 this.avatarHtml(photoUrl, 28, 'border-success') +
-                '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
+                '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
                 '</a>' +
                 '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-2">' +
                 '<span class="feed-new-dot' + dotHidden + '" data-dot-id="' + f.cq_contact_id + '"><span class="badge bg-warning bg-opacity-75 rounded-pill" style="width: 8px; height: 8px; padding: 0;"></span></span>' +
@@ -405,7 +551,7 @@ export class ExplorerSidebar {
             const photoUrl = f.cq_contact_url + '/photo';
             html += '<a href="#" class="d-flex align-items-center text-decoration-none text-light px-2 py-1 rounded sidebar-hover-item" data-profile-url="' + this.escHtml(f.cq_contact_url) + '">' +
                 this.avatarHtml(photoUrl, 28, 'border-secondary') +
-                '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
+                '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
                 '</a>';
         });
         this.followersListEl.innerHTML = html;
@@ -443,7 +589,7 @@ export class ExplorerSidebar {
             html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item">' +
                 '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(c.cqContactUrl) + '">' +
                 this.avatarHtml(photoUrl, 28, 'border-success') +
-                '<div class="text-truncate" style="min-width: 0;"><div class="small fw-bold text-truncate">' + this.escHtml(c.cqContactUsername) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(c.cqContactDomain) + '</div></div>' +
+                '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(c.cqContactUsername) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(c.cqContactDomain) + '</div></div>' +
                 '</a>' +
                 '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-0">' + statusIcon + actions + '</div>' +
                 '</div>';
@@ -637,7 +783,7 @@ export class ExplorerSidebar {
     // ========================================
 
     avatarHtml(photoUrl, size, borderClass) {
-        return '<div class="rounded-circle border border-1 ' + borderClass + ' me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: ' + size + 'px; height: ' + size + 'px; background: rgba(149,236,134,0.05);">' +
+        return '<div class="rounded border_border-1_' + borderClass + ' me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: ' + size + 'px; height: ' + size + 'px; background: rgba(149,236,134,0.05);">' +
             '<img src="' + photoUrl + '" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';">' +
             '<i class="mdi mdi-account text-cyber" style="display: none;"></i></div>';
     }
