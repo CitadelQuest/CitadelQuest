@@ -64,10 +64,10 @@ class CQProfileController extends AbstractController
     }
 
     /**
-     * Public feed page: GET /{username}/feed/{feedSlug}
+     * Public feed page: GET /{username}/view-feed/{feedSlug}
      * Shows posts from a specific public feed.
      */
-    #[Route('/{username}/feed/{feedSlug}', name: 'cq_profile_public_feed', methods: ['GET'], priority: -10)]
+    #[Route('/{username}/view-feed/{feedSlug}', name: 'cq_profile_public_feed', methods: ['GET'], priority: -10)]
     public function publicFeed(Request $request, string $username, string $feedSlug): Response
     {
         $user = $this->resolveUser($username);
