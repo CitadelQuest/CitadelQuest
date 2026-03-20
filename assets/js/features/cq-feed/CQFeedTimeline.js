@@ -258,12 +258,12 @@ export class CQFeedTimeline {
         const timeAgo = this._timeAgo(post.created_at);
         const contentHtml = this.md.render(post.content || '');
 
-        // Profile photo — use local proxy for federation posts (handles API key auth server-side)
+        // Profile photo — use public URL for federation posts (matches sidebar pattern)
         let photoHtml;
         if (isOwn && this.userPhotoUrl) {
             photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
-        } else if (!isOwn && post.cq_contact_id) {
-            const photoUrl = `/api/cq-contact/${post.cq_contact_id}/profile-photo`;
+        } else if (!isOwn && post.cq_contact_domain && post.cq_contact_username) {
+            const photoUrl = `https://${post.cq_contact_domain}/${post.cq_contact_username}/photo`;
             photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
         } else {
             photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber"></i></div>`;

@@ -115,7 +115,7 @@
 
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
-                            <h2 class="h2 mb-1 text-cyber fw-bold">{{ profile_username }}</h2>
+                            <h2 class="h2 mb-1 mt-2 text-cyber fw-bold">{{ profile_username }}</h2>
                             <small class="text-light d-inline-flex align-items-center">
                                 <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
                                 <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
@@ -129,9 +129,23 @@
 
                         {# Spirit Showcase — all screen sizes, right side #}
                         <div class="ms-auto ms-md-3 flex-shrink-0">
+
+                            {# Public Feed Badges — right side, below spirits #}
+                            {% if profile_feeds|default([])|length > 0 %}
+                            <div class="d-flex flex-column align-items-end gap-1 ms-auto mb-2">
+                                <i class="mdi mdi-rss text-primary opacity-75" style="font-size: 1.2rem;"></i>
+                                {% for feed in profile_feeds %}
+                                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug}) }}"
+                                    class="badge bg-primary bg-opacity-10 text-light opacity-75 text-decoration-none px-2 py-1" style="font-size: 0.75rem;">
+                                    <i class="mdi mdi-rss me-1 text-primary opacity-75"></i>{{ feed.title }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         {% if profile_spirits|length > 0 %}
+                        <hr class="border-0 border-bottom border-1 border-secondary border-opacity-50"/>
                             {% for spirit in profile_spirits %}
-                            <div class="d-flex align-items-center mb-1" style="white-space: nowrap;">
+                            <div class="d-flex align-items-center mb-1 mt-2" style="white-space: nowrap;">
                                 <div class="rounded-circle d-flex align-items-center justify-content-center me-2"
                                      style="width: 28px; height: 28px; background: {{ spirit.color }}21;">
                                     <i class="mdi mdi-ghost" style="color: {{ spirit.color }}; font-size: 14px;"></i>
@@ -146,19 +160,6 @@
                             </div>
                             {% endfor %}
                         {% endif %}
-
-                            {# Public Feed Badges — right side, below spirits #}
-                            {% if profile_feeds|default([])|length > 0 %}
-                            <div class="d-flex flex-column align-items-end gap-1 ms-auto mt-3">
-                                <i class="mdi mdi-rss text-primary opacity-75" style="font-size: 1.2rem;"></i>
-                                {% for feed in profile_feeds %}
-                                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug}) }}"
-                                    class="badge bg-primary bg-opacity-10 text-light opacity-75 text-decoration-none px-2 py-1" style="font-size: 0.75rem;">
-                                    <i class="mdi mdi-rss me-1 text-primary opacity-75"></i>{{ feed.title }}
-                                </a>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
 
