@@ -7,6 +7,7 @@ use App\Service\CQFeedService;
 use App\Service\CQFederationFeedService;
 use App\Service\CQFollowService;
 use App\Service\CqContactService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +29,7 @@ class CQFeedApiController extends AbstractController
         private readonly CQFederationFeedService $federationFeedService,
         private readonly CQFollowService $followService,
         private readonly CqContactService $contactService,
+        private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger
     ) {}
 
@@ -381,6 +383,132 @@ class CQFeedApiController extends AbstractController
             return $this->json(['success' => true, 'feed' => $feed]);
         } catch (\Exception $e) {
             $this->logger->error('CQFeedApiController::toggleSubscribed error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get fresh stats for a timeline post from its source Citadel.
+     * Returns 404 if the post was deleted on the source (also removes local cache).
+     */
+    #[Route('/timeline/{postId}/stats', name: 'api_feed_timeline_post_stats', methods: ['GET'])]
+    public function timelinePostStats(string $postId): JsonResponse
+    {
+        try {
+            /** @var User $user */
+            $user = $this->getUser();
+            $this->contactService->setUser($user);
+
+            $cachedPost = $this->federationFeedService->findCachedPostById($postId);
+            if (!$cachedPost) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Get API key for authenticated feeds
+            $contact = $this->contactService->findById($cachedPost['cq_contact_id']);
+            $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+            $result = $this->federationFeedService->proxyStats($postId, $apiKey);
+
+            if ($result === null) {
+                // Post deleted on source — already removed from local cache
+                return $this->json(['success' => false, 'deleted' => true, 'message' => 'Post deleted'], Response::HTTP_NOT_FOUND);
+            }
+
+            return $this->json([
+                'success' => true,
+                'stats' => $result['stats'],
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelinePostStats error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * React to a timeline post (like/dislike).
+     * Handles both local (own Citadel) and remote (federation) posts.
+     */
+    #[Route('/timeline/react', name: 'api_feed_timeline_react', methods: ['POST'])]
+    public function timelineReact(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $postId = $data['post_id'] ?? null;
+            $reaction = $data['reaction'] ?? null;
+
+            if (!$postId || $reaction === null) {
+                return $this->json(['success' => false, 'message' => 'Missing post_id or reaction'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if (!in_array((int) $reaction, [CQFeedService::REACTION_LIKE, CQFeedService::REACTION_DISLIKE], true)) {
+                return $this->json(['success' => false, 'message' => 'Invalid reaction value'], Response::HTTP_BAD_REQUEST);
+            }
+
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+            $userContactId = $user->getId()->toRfc4122();
+            $userContactUrl = 'https://' . $domain . '/' . $user->getUsername();
+
+            // Look up the cached post
+            $cachedPost = $this->federationFeedService->findCachedPostById($postId);
+            if (!$cachedPost) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Determine if this is a local post (same domain) or remote
+            $isLocal = ($cachedPost['feed_domain'] === $domain);
+
+            if ($isLocal) {
+                // React directly on the local cq_user_feed_post
+                $postOwner = $this->entityManager->getRepository(User::class)
+                    ->findOneBy(['username' => $cachedPost['feed_username']]);
+                $this->feedService->setUser($postOwner ?? $user);
+                $localPost = $this->feedService->findPostByFeedSlugAndPostSlug(
+                    $cachedPost['feed_slug'],
+                    $cachedPost['post_url_slug']
+                );
+
+                if (!$localPost) {
+                    return $this->json(['success' => false, 'message' => 'Local post not found'], Response::HTTP_NOT_FOUND);
+                }
+
+                $result = $this->feedService->reactToPost($localPost['id'], $userContactId, $userContactUrl, (int) $reaction);
+
+                // Cache stats locally on the federation post too
+                $this->feedService->setUser($user);
+                $this->federationFeedService->updateCachedPostStats($postId, $result['stats'], $result['my_reaction']);
+
+                return $this->json([
+                    'success' => true,
+                    'stats' => $result['stats'],
+                    'my_reaction' => $result['my_reaction'],
+                ]);
+            } else {
+                // Proxy to remote Citadel
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($cachedPost['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+                $result = $this->federationFeedService->proxyReaction(
+                    $postId,
+                    (int) $reaction,
+                    $userContactId,
+                    $userContactUrl,
+                    $apiKey
+                );
+
+                return $this->json([
+                    'success' => true,
+                    'stats' => $result['stats'],
+                    'my_reaction' => $result['my_reaction'],
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineReact error', ['error' => $e->getMessage()]);
             return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

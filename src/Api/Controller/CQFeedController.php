@@ -147,10 +147,13 @@ class CQFeedController extends AbstractController
             ];
 
             $result = array_map(function ($post) use ($author) {
+                $stats = json_decode($post['stats'] ?? '{}', true) ?: ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+                unset($stats['my_reaction']);
                 return [
                     'id' => $post['id'],
                     'post_url_slug' => $post['post_url_slug'],
                     'content' => $post['content'],
+                    'stats' => $stats,
                     'author' => $author,
                     'created_at' => $post['created_at'],
                     'updated_at' => $post['updated_at'],
@@ -282,6 +285,128 @@ class CQFeedController extends AbstractController
                 'error' => $e->getMessage(),
                 'username' => $username,
                 'feedUrlSlug' => $feedUrlSlug,
+            ]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * React to a specific post in a feed (federation endpoint).
+     * 
+     * POST /{username}/feed/{feedUrlSlug}/post/{postSlug}/react
+     * Body: {"reaction": 0, "cq_contact_id": "...", "cq_contact_url": "..."}
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/react', name: 'cq_feed_federation_react', methods: ['POST'], priority: -10)]
+    public function feedPostReact(Request $request, string $username, string $feedUrlSlug, string $postSlug): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            // Find feed and check scope access
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Find the post
+            $post = $this->feedService->findPostByFeedSlugAndPostSlug($feedUrlSlug, $postSlug);
+            if (!$post) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Parse body
+            $data = json_decode($request->getContent(), true);
+            $reaction = $data['reaction'] ?? null;
+            $cqContactId = $data['cq_contact_id'] ?? null;
+            $cqContactUrl = $data['cq_contact_url'] ?? null;
+
+            if ($reaction === null || !$cqContactId || !$cqContactUrl) {
+                return $this->json(['success' => false, 'message' => 'Missing fields: reaction, cq_contact_id, cq_contact_url'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if (!in_array((int) $reaction, [CQFeedService::REACTION_LIKE, CQFeedService::REACTION_DISLIKE], true)) {
+                return $this->json(['success' => false, 'message' => 'Invalid reaction value'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $result = $this->feedService->reactToPost($post['id'], $cqContactId, $cqContactUrl, (int) $reaction);
+
+            return $this->json([
+                'success' => true,
+                'stats' => $result['stats'],
+                'my_reaction' => $result['my_reaction'],
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostReact error', [
+                'error' => $e->getMessage(),
+                'username' => $username,
+                'feedUrlSlug' => $feedUrlSlug,
+                'postSlug' => $postSlug,
+            ]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get stats for a specific post (federation endpoint).
+     * Returns 404 if post or feed no longer exists (enables stale cache cleanup).
+     * 
+     * GET /{username}/feed/{feedUrlSlug}/post/{postSlug}/stats
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/stats', name: 'cq_feed_federation_post_stats', methods: ['GET'], priority: -10)]
+    public function feedPostStats(Request $request, string $username, string $feedUrlSlug, string $postSlug): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $post = $this->feedService->findPostByFeedSlugAndPostSlug($feedUrlSlug, $postSlug);
+            if (!$post) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $stats = json_decode($post['stats'] ?? '{}', true) ?: ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+            unset($stats['my_reaction']);
+
+            return $this->json([
+                'success' => true,
+                'stats' => $stats,
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostStats error', [
+                'error' => $e->getMessage(),
+                'username' => $username,
+                'feedUrlSlug' => $feedUrlSlug,
+                'postSlug' => $postSlug,
             ]);
             return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }

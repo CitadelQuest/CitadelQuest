@@ -171,6 +171,12 @@ export class CQFeedTimeline {
 
         // Bind timeline feed badge toggle → show pause/unsub actions
         this._bindTimelineFeedBadgeHandlers();
+
+        // Bind reaction buttons (like/dislike)
+        this._bindReactionHandlers();
+
+        // Lazy refresh stats from source Citadels (non-own posts only)
+        this._refreshStats();
     }
 
     _bindTimelineFeedBadgeHandlers() {
@@ -307,8 +313,30 @@ export class CQFeedTimeline {
             ? ` data-profile-url="${this._escapeHtml(profileUrl)}" style="cursor:pointer;" title="${this._escapeHtml(authorName)}"`
             : '';
 
+        // Reaction stats
+        const stats = this._parseStats(post.stats);
+        const myReaction = stats.my_reaction ?? null;
+        const likesCount = stats.likes || 0;
+        const dislikesCount = stats.dislikes || 0;
+
+        const likeActive = myReaction === 0 ? ' active' : '';
+        const dislikeActive = myReaction === 1 ? ' active' : '';
+
+        // Reaction buttons — show on all posts, interactive on non-own
+        const reactionsHtml = `
+            <div class="d-flex align-items-center gap-3 pt-1 border-0 border-top border-1 border-secondary border-opacity-10 cq-feed-reactions" data-post-id="${post.id}">
+                <button class="btn btn-sm p-0 border-0 d-flex align-items-center gap-1 cq-reaction-btn cq-reaction-like${likeActive}" data-reaction="0" ${isOwn ? 'disabled' : ''} style="background:none;">
+                    <i class="mdi ${myReaction === 0 ? 'mdi-heart' : 'mdi-heart'} ${myReaction === 0 ? 'text-danger' : 'text-secondary'}" style="font-size:1rem;"></i>
+                    <span class="small ${likesCount > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count">${likesCount > 0 ? likesCount : ''}</span>
+                </button>
+                <button class="btn btn-sm p-0 border-0 d-flex align-items-center gap-1 cq-reaction-btn cq-reaction-dislike${dislikeActive}" data-reaction="1" ${isOwn ? 'disabled' : ''} style="background:none;">
+                    <i class="mdi ${myReaction === 1 ? 'mdi-thumb-down' : 'mdi-thumb-down'} ${myReaction === 1 ? 'text-light opacity-75' : 'text-secondary'}" style="font-size:0.9rem;"></i>
+                    <span class="small ${dislikesCount > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count">${dislikesCount > 0 ? dislikesCount : ''}</span>
+                </button>
+            </div>`;
+
         return `
-            <div class="glass-panel p-3 mb-2 cq-feed-post${newClass}" data-post-id="${post.id}">
+            <div class="glass-panel p-3 pb-2 mb-2 cq-feed-post${newClass}" data-post-id="${post.id}">
                 <div class="d-flex align-items-center mb-2 pb-2 border-0 border-bottom border-1 border-secondary border-opacity-10">
                     <div class="d-flex align-items-center flex-grow-1"${headerClickAttr}>
                         ${photoHtml}
@@ -319,6 +347,7 @@ export class CQFeedTimeline {
                     <span class="text-muted small ms-2">${timeAgo}</span>
                 </div>
                 <div class="cq-feed-post-content markdown-body overflow-auto">${contentHtml}</div>
+                ${reactionsHtml}
             </div>
         `;
     }
@@ -374,5 +403,148 @@ export class CQFeedTimeline {
         const div = document.createElement('div');
         div.textContent = str || '';
         return div.innerHTML;
+    }
+
+    _parseStats(stats) {
+        if (!stats) return { likes: 0, dislikes: 0, comments: 0, my_reaction: null };
+        if (typeof stats === 'string') {
+            try { return JSON.parse(stats); } catch { return { likes: 0, dislikes: 0, comments: 0, my_reaction: null }; }
+        }
+        return stats;
+    }
+
+    _refreshStats() {
+        // Collect non-own post IDs currently rendered
+        const postEls = this.container.querySelectorAll('.cq-feed-post');
+        const nonOwnIds = [];
+        for (const el of postEls) {
+            const postId = el.dataset.postId;
+            const post = this.timelinePosts.find(p => p.id === postId);
+            if (post) nonOwnIds.push(postId);
+        }
+
+        // Fire parallel stats requests
+        for (const postId of nonOwnIds) {
+            this.api.getPostStats(postId).then(data => {
+                const postEl = this.container.querySelector(`.cq-feed-post[data-post-id="${postId}"]`);
+                if (!postEl) return;
+
+                if (!data.success && data.deleted) {
+                    // Post deleted on source — remove from timeline
+                    this.timelinePosts = this.timelinePosts.filter(p => p.id !== postId);
+                    postEl.remove();
+                    return;
+                }
+
+                if (data.success && data.stats) {
+                    const stats = data.stats;
+                    const reactionsEl = postEl.querySelector('.cq-feed-reactions');
+                    if (!reactionsEl) return;
+
+                    // Preserve my_reaction from local data
+                    const postData = this.timelinePosts.find(p => p.id === postId);
+                    const existingStats = this._parseStats(postData?.stats);
+                    const myReaction = existingStats.my_reaction ?? null;
+
+                    // Update like count
+                    const likeBtn = reactionsEl.querySelector('.cq-reaction-like');
+                    const likeCount = likeBtn?.querySelector('.cq-reaction-count');
+                    if (likeCount) {
+                        likeCount.textContent = (stats.likes || 0) > 0 ? stats.likes : '';
+                        likeCount.className = `small ${(stats.likes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                    }
+
+                    // Update dislike count
+                    const dislikeBtn = reactionsEl.querySelector('.cq-reaction-dislike');
+                    const dislikeCount = dislikeBtn?.querySelector('.cq-reaction-count');
+                    if (dislikeCount) {
+                        dislikeCount.textContent = (stats.dislikes || 0) > 0 ? stats.dislikes : '';
+                        dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                    }
+
+                    // Update in-memory data
+                    if (postData) {
+                        postData.stats = JSON.stringify({ ...stats, my_reaction: myReaction });
+                    }
+                }
+            }).catch(e => {
+                // Silently ignore — stats refresh is best-effort
+            });
+        }
+    }
+
+    _bindReactionHandlers() {
+        this.container.querySelectorAll('.cq-reaction-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const postEl = btn.closest('.cq-feed-post');
+                const postId = postEl?.dataset.postId;
+                const reaction = parseInt(btn.dataset.reaction);
+                if (postId && !isNaN(reaction)) {
+                    this._handleReaction(postId, reaction, btn);
+                }
+            });
+        });
+    }
+
+    async _handleReaction(postId, reaction, btn) {
+        const postEl = this.container.querySelector(`.cq-feed-post[data-post-id="${postId}"]`);
+        const reactionsEl = postEl?.querySelector('.cq-feed-reactions');
+        if (!reactionsEl) return;
+
+        // Disable buttons during request
+        reactionsEl.querySelectorAll('.cq-reaction-btn').forEach(b => b.disabled = true);
+
+        // Optimistic UI update
+        const likeBtn = reactionsEl.querySelector('.cq-reaction-like');
+        const dislikeBtn = reactionsEl.querySelector('.cq-reaction-dislike');
+        const likeIcon = likeBtn?.querySelector('i');
+        const dislikeIcon = dislikeBtn?.querySelector('i');
+
+        try {
+            const data = await this.api.reactToPost(postId, reaction);
+            if (data.success) {
+                const stats = data.stats || {};
+                const myReaction = data.my_reaction;
+
+                // Update like button
+                if (likeIcon) {
+                    likeIcon.className = `mdi ${myReaction === 0 ? 'mdi-heart text-danger' : 'mdi-heart text-secondary'}`;
+                    likeIcon.style.fontSize = '1rem';
+                }
+                const likeCount = likeBtn?.querySelector('.cq-reaction-count');
+                if (likeCount) {
+                    likeCount.textContent = (stats.likes || 0) > 0 ? stats.likes : '';
+                    likeCount.className = `small ${(stats.likes || 0) > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count`;
+                }
+
+                // Update dislike button
+                if (dislikeIcon) {
+                    dislikeIcon.className = `mdi ${myReaction === 1 ? 'mdi-thumb-down text-light opacity-75' : 'mdi-thumb-down text-secondary'}`;
+                    dislikeIcon.style.fontSize = '0.9rem';
+                }
+                const dislikeCount = dislikeBtn?.querySelector('.cq-reaction-count');
+                if (dislikeCount) {
+                    dislikeCount.textContent = (stats.dislikes || 0) > 0 ? stats.dislikes : '';
+                    dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                }
+
+                // Update the post data in memory for re-renders
+                const allPosts = [...this.ownPosts, ...this.timelinePosts];
+                const postData = allPosts.find(p => p.id === postId);
+                if (postData) {
+                    postData.stats = JSON.stringify({ ...stats, my_reaction: myReaction });
+                }
+            } else {
+                window.toast?.error(data.message || 'Reaction failed');
+            }
+        } catch (e) {
+            console.error('CQFeedTimeline::_handleReaction error', e);
+            window.toast?.error('Reaction failed');
+        } finally {
+            // Re-enable buttons (only non-own posts reach here)
+            reactionsEl.querySelectorAll('.cq-reaction-btn').forEach(b => b.disabled = false);
+        }
     }
 }

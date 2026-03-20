@@ -17,6 +17,9 @@ class CQFeedService
     public const SCOPE_PUBLIC = 0;
     public const SCOPE_CQ_CONTACT = 1;
 
+    public const REACTION_LIKE = 0;
+    public const REACTION_DISLIKE = 1;
+
     private ?User $user;
 
     public function __construct(
@@ -378,5 +381,107 @@ class CQFeedService
 
         // Add short random suffix for uniqueness
         return $base . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+    }
+
+    // ========================================
+    // Reactions
+    // ========================================
+
+    /**
+     * React to a post (upsert). Same reaction again = remove (toggle).
+     * Returns the new stats and the user's current reaction (null if removed).
+     */
+    public function reactToPost(string $postId, string $cqContactId, string $cqContactUrl, int $reaction): array
+    {
+        $db = $this->getUserDb();
+
+        $existing = $this->getReaction($postId, $cqContactId);
+
+        if ($existing) {
+            if ((int) $existing['reaction'] === $reaction) {
+                // Same reaction → remove (toggle off)
+                $db->executeStatement(
+                    'DELETE FROM cq_user_feed_post_reaction WHERE id = ?',
+                    [$existing['id']]
+                );
+                $stats = $this->recalculatePostStats($postId);
+                return ['stats' => $stats, 'my_reaction' => null];
+            } else {
+                // Different reaction → update
+                $db->executeStatement(
+                    'UPDATE cq_user_feed_post_reaction SET reaction = ?, created_at = ? WHERE id = ?',
+                    [$reaction, date('Y-m-d H:i:s'), $existing['id']]
+                );
+                $stats = $this->recalculatePostStats($postId);
+                return ['stats' => $stats, 'my_reaction' => $reaction];
+            }
+        }
+
+        // New reaction
+        $id = Uuid::v4()->toRfc4122();
+        $db->executeStatement(
+            'INSERT INTO cq_user_feed_post_reaction (id, cq_user_feed_post_id, cq_contact_id, cq_contact_url, reaction, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)',
+            [$id, $postId, $cqContactId, $cqContactUrl, $reaction, date('Y-m-d H:i:s')]
+        );
+
+        $stats = $this->recalculatePostStats($postId);
+        return ['stats' => $stats, 'my_reaction' => $reaction];
+    }
+
+    /**
+     * Get a specific contact's reaction on a post.
+     */
+    public function getReaction(string $postId, string $cqContactId): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT * FROM cq_user_feed_post_reaction WHERE cq_user_feed_post_id = ? AND cq_contact_id = ?',
+            [$postId, $cqContactId]
+        )->fetchAssociative();
+        return $row ?: null;
+    }
+
+    /**
+     * Recalculate and store stats JSON for a post.
+     */
+    public function recalculatePostStats(string $postId): array
+    {
+        $db = $this->getUserDb();
+
+        $likes = (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM cq_user_feed_post_reaction WHERE cq_user_feed_post_id = ? AND reaction = ?',
+            [$postId, self::REACTION_LIKE]
+        )->fetchOne();
+
+        $dislikes = (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM cq_user_feed_post_reaction WHERE cq_user_feed_post_id = ? AND reaction = ?',
+            [$postId, self::REACTION_DISLIKE]
+        )->fetchOne();
+
+        $stats = ['likes' => $likes, 'dislikes' => $dislikes, 'comments' => 0];
+        $statsJson = json_encode($stats);
+
+        $db->executeStatement(
+            'UPDATE cq_user_feed_post SET stats = ? WHERE id = ?',
+            [$statsJson, $postId]
+        );
+
+        return $stats;
+    }
+
+    /**
+     * Find a post by feed slug and post slug (for federation endpoint).
+     */
+    public function findPostByFeedSlugAndPostSlug(string $feedSlug, string $postSlug): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT p.* FROM cq_user_feed_post p
+             JOIN cq_user_feed f ON p.cq_user_feed_id = f.id
+             WHERE f.feed_url_slug = ? AND p.post_url_slug = ? AND f.is_active = 1 AND p.is_active = 1',
+            [$feedSlug, $postSlug]
+        )->fetchAssociative();
+        return $row ?: null;
     }
 }

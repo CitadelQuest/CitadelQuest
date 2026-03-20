@@ -116,4 +116,22 @@ export class CQFeedApiService {
         const resp = await fetch(`/api/feed/timeline?page=${page}&limit=${limit}`);
         return resp.json();
     }
+
+    // ========================================
+    // Reactions
+    // ========================================
+
+    async getPostStats(postId) {
+        const resp = await fetch(`/api/feed/timeline/${postId}/stats`);
+        return resp.json();
+    }
+
+    async reactToPost(postId, reaction) {
+        const resp = await fetch('/api/feed/timeline/react', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId, reaction }),
+        });
+        return resp.json();
+    }
 }

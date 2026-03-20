@@ -447,4 +447,177 @@ class CQFederationFeedService
         }
         return $count;
     }
+
+    // ========================================
+    // Reactions
+    // ========================================
+
+    /**
+     * Find a cached federation post by ID
+     */
+    public function findCachedPostById(string $id): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT p.*, f.feed_url_slug AS feed_slug, f.cq_contact_domain AS feed_domain, f.cq_contact_username AS feed_username
+             FROM cq_federation_feed_post p
+             JOIN cq_federation_feed f ON f.id = p.cq_feed_id
+             WHERE p.id = ?',
+            [$id]
+        )->fetchAssociative();
+        return $row ?: null;
+    }
+
+    /**
+     * Update cached stats (and my_reaction) on a federation feed post.
+     */
+    public function updateCachedPostStats(string $postId, array $stats, ?int $myReaction): void
+    {
+        $db = $this->getUserDb();
+        $statsWithReaction = $stats;
+        $statsWithReaction['my_reaction'] = $myReaction;
+        $db->executeStatement(
+            'UPDATE cq_federation_feed_post SET stats = ? WHERE id = ?',
+            [json_encode($statsWithReaction), $postId]
+        );
+    }
+
+    /**
+     * Fetch fresh stats for a cached post from its source Citadel.
+     * Returns ['stats' => [...]] or null if post was deleted (404).
+     * On 404: removes cached post from local DB.
+     */
+    public function proxyStats(string $cachedPostId, ?string $apiKey = null): ?array
+    {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            return null;
+        }
+
+        $url = 'https://' . $post['feed_domain'] . '/' . $post['feed_username']
+            . '/feed/' . $post['feed_slug'] . '/post/' . $post['post_url_slug'] . '/stats';
+
+        $headers = [
+            'Accept' => 'application/json',
+            'User-Agent' => 'CitadelQuest HTTP Client',
+        ];
+        if ($apiKey) {
+            $headers['Authorization'] = 'Bearer ' . $apiKey;
+        }
+
+        try {
+            $response = $this->httpClient->request('GET', $url, [
+                'headers' => $headers,
+                'timeout' => 10,
+                'verify_peer' => false,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+
+            if ($statusCode === 404) {
+                // Post deleted on source — remove from local cache
+                $this->deleteCachedPost($cachedPostId);
+                return null;
+            }
+
+            $data = $response->toArray(false);
+            if (!($data['success'] ?? false)) {
+                return ['stats' => $this->_parseCachedStats($post)];
+            }
+
+            $stats = $data['stats'] ?? ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+
+            // Preserve local my_reaction when updating stats
+            $existingStats = $this->_parseCachedStats($post);
+            $myReaction = $existingStats['my_reaction'] ?? null;
+            $this->updateCachedPostStats($cachedPostId, $stats, $myReaction);
+
+            return ['stats' => $stats];
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFederationFeedService::proxyStats error', [
+                'post_id' => $cachedPostId,
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            // Return cached stats on error
+            return ['stats' => $this->_parseCachedStats($post)];
+        }
+    }
+
+    /**
+     * Delete a cached federation post.
+     */
+    public function deleteCachedPost(string $postId): void
+    {
+        $db = $this->getUserDb();
+        $db->executeStatement('DELETE FROM cq_federation_feed_post WHERE id = ?', [$postId]);
+    }
+
+    /**
+     * Parse stats from a cached post row.
+     */
+    private function _parseCachedStats(array $post): array
+    {
+        $stats = json_decode($post['stats'] ?? '{}', true) ?: [];
+        return [
+            'likes' => $stats['likes'] ?? 0,
+            'dislikes' => $stats['dislikes'] ?? 0,
+            'comments' => $stats['comments'] ?? 0,
+            'my_reaction' => $stats['my_reaction'] ?? null,
+        ];
+    }
+
+    /**
+     * Proxy a reaction to a remote Citadel and cache the result locally.
+     * Returns ['stats' => [...], 'my_reaction' => int|null]
+     */
+    public function proxyReaction(
+        string $cachedPostId,
+        int $reaction,
+        string $userContactId,
+        string $userContactUrl,
+        ?string $apiKey = null
+    ): array {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            throw new \RuntimeException('Cached post not found');
+        }
+
+        $url = 'https://' . $post['feed_domain'] . '/' . $post['feed_username']
+            . '/feed/' . $post['feed_slug'] . '/post/' . $post['post_url_slug'] . '/react';
+
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'User-Agent' => 'CitadelQuest HTTP Client',
+        ];
+        if ($apiKey) {
+            $headers['Authorization'] = 'Bearer ' . $apiKey;
+        }
+
+        $response = $this->httpClient->request('POST', $url, [
+            'headers' => $headers,
+            'json' => [
+                'reaction' => $reaction,
+                'cq_contact_id' => $userContactId,
+                'cq_contact_url' => $userContactUrl,
+            ],
+            'timeout' => 15,
+            'verify_peer' => false,
+        ]);
+
+        $data = $response->toArray(false);
+        if (!($data['success'] ?? false)) {
+            throw new \RuntimeException('Remote reaction failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        $stats = $data['stats'] ?? ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+        $myReaction = $data['my_reaction'] ?? null;
+
+        // Cache stats locally
+        $this->updateCachedPostStats($cachedPostId, $stats, $myReaction);
+
+        return ['stats' => $stats, 'my_reaction' => $myReaction];
+    }
 }
