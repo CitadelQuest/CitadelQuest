@@ -717,3 +717,12 @@ div[data-type="tool_calls_frontend_data"] pre
 .cq-feed-post-new {
     border-left: 3px solid rgba(colors.$warning, 0.7) !important;
 }
+
+.cq-feed-post-highlight {
+    animation: cq-feed-post-pulse 2s ease-in-out 2;
+}
+
+@keyframes cq-feed-post-pulse {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 12px 2px rgba(colors.$cyber, 0.4); }
+}

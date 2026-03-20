@@ -7,6 +7,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * CQ Feed — manage user's own feeds and posts.
@@ -26,7 +27,9 @@ class CQFeedService
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
         private readonly SluggerInterface $slugger,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly NotificationService $notificationService,
+        private readonly TranslatorInterface $translator
     ) {
         $this->user = $security->getUser();
     }
@@ -459,7 +462,12 @@ class CQFeedService
             [$postId, self::REACTION_DISLIKE]
         )->fetchOne();
 
-        $stats = ['likes' => $likes, 'dislikes' => $dislikes, 'comments' => 0];
+        $comments = (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM cq_user_feed_post_comment WHERE cq_user_feed_post_id = ? AND is_active = 1',
+            [$postId]
+        )->fetchOne();
+
+        $stats = ['likes' => $likes, 'dislikes' => $dislikes, 'comments' => $comments];
         $statsJson = json_encode($stats);
 
         $db->executeStatement(
@@ -481,6 +489,200 @@ class CQFeedService
              JOIN cq_user_feed f ON p.cq_user_feed_id = f.id
              WHERE f.feed_url_slug = ? AND p.post_url_slug = ? AND f.is_active = 1 AND p.is_active = 1',
             [$feedSlug, $postSlug]
+        )->fetchAssociative();
+        return $row ?: null;
+    }
+
+    // ========================================
+    // Comments
+    // ========================================
+
+    public const COMMENT_MAX_LENGTH = 2000;
+    public const COMMENT_MAX_NESTING = 2; // comment + reply (no deeper)
+
+    /**
+     * Add a comment to a post. Returns the new comment row + updated stats.
+     */
+    public function addComment(string $postId, string $cqContactId, string $cqContactUrl, string $content, ?string $parentId = null): array
+    {
+        $db = $this->getUserDb();
+
+        $content = mb_substr(trim($content), 0, self::COMMENT_MAX_LENGTH);
+        if (empty($content)) {
+            throw new \InvalidArgumentException('Comment content cannot be empty');
+        }
+
+        // Enforce max nesting: if parent has a parent, reject
+        if ($parentId) {
+            $parent = $this->findCommentById($parentId);
+            if (!$parent) {
+                throw new \InvalidArgumentException('Parent comment not found');
+            }
+            if ($parent['parent_id']) {
+                throw new \InvalidArgumentException('Cannot reply to a reply (max 2 nesting levels)');
+            }
+        }
+
+        $id = Uuid::v4()->toRfc4122();
+        $now = date('Y-m-d H:i:s');
+
+        $db->executeStatement(
+            'INSERT INTO cq_user_feed_post_comment (id, cq_user_feed_post_id, parent_id, cq_contact_id, cq_contact_url, content, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)',
+            [$id, $postId, $parentId, $cqContactId, $cqContactUrl, $content, $now, $now]
+        );
+
+        $stats = $this->recalculatePostStats($postId);
+
+        // Notify the post owner about the new comment (skip if commenter is the post owner)
+        try {
+            if ($this->user && $cqContactId !== $this->user->getId()->toRfc4122()) {
+                $commenterName = basename(rtrim($cqContactUrl, '/'));
+                $preview = mb_substr($content, 0, 80) . (mb_strlen($content) > 80 ? '…' : '');
+                $this->notificationService->createNotification(
+                    $this->user,
+                    $this->translator->trans('feed.comment_new_title', ['%name%' => $commenterName]),
+                    $preview,
+                    'info',
+                    '/cq-contacts?feed-post=' . urlencode($postId)
+                );
+            }
+        } catch (\Exception $e) {
+            $this->logger->warning('CQFeedService::addComment notification error', ['error' => $e->getMessage()]);
+        }
+
+        $comment = $this->findCommentById($id);
+        return ['comment' => $comment, 'stats' => $stats];
+    }
+
+    /**
+     * Update a comment's content (only by the original commenter).
+     */
+    public function updateComment(string $commentId, string $cqContactId, string $newContent): array
+    {
+        $db = $this->getUserDb();
+
+        $comment = $this->findCommentById($commentId);
+        if (!$comment) {
+            throw new \InvalidArgumentException('Comment not found');
+        }
+        if ($comment['cq_contact_id'] !== $cqContactId) {
+            throw new \InvalidArgumentException('Not authorized to edit this comment');
+        }
+
+        $newContent = mb_substr(trim($newContent), 0, self::COMMENT_MAX_LENGTH);
+        if (empty($newContent)) {
+            throw new \InvalidArgumentException('Comment content cannot be empty');
+        }
+
+        $db->executeStatement(
+            'UPDATE cq_user_feed_post_comment SET content = ?, updated_at = ? WHERE id = ?',
+            [$newContent, date('Y-m-d H:i:s'), $commentId]
+        );
+
+        return $this->findCommentById($commentId);
+    }
+
+    /**
+     * Delete a comment (only by original commenter). Also deletes child replies.
+     */
+    public function deleteComment(string $commentId, string $cqContactId): array
+    {
+        $db = $this->getUserDb();
+
+        $comment = $this->findCommentById($commentId);
+        if (!$comment) {
+            throw new \InvalidArgumentException('Comment not found');
+        }
+        if ($comment['cq_contact_id'] !== $cqContactId) {
+            throw new \InvalidArgumentException('Not authorized to delete this comment');
+        }
+
+        $postId = $comment['cq_user_feed_post_id'];
+
+        // Delete child replies first
+        $db->executeStatement(
+            'DELETE FROM cq_user_feed_post_comment WHERE parent_id = ?',
+            [$commentId]
+        );
+        $db->executeStatement(
+            'DELETE FROM cq_user_feed_post_comment WHERE id = ?',
+            [$commentId]
+        );
+
+        $stats = $this->recalculatePostStats($postId);
+        return ['stats' => $stats];
+    }
+
+    /**
+     * Toggle comment visibility (post owner moderation).
+     */
+    public function toggleCommentVisibility(string $commentId): array
+    {
+        $db = $this->getUserDb();
+
+        $comment = $this->findCommentById($commentId);
+        if (!$comment) {
+            throw new \InvalidArgumentException('Comment not found');
+        }
+
+        $newActive = ((int) $comment['is_active'] === 1) ? 0 : 1;
+        $db->executeStatement(
+            'UPDATE cq_user_feed_post_comment SET is_active = ? WHERE id = ?',
+            [$newActive, $commentId]
+        );
+
+        $stats = $this->recalculatePostStats($comment['cq_user_feed_post_id']);
+        return ['is_active' => $newActive, 'stats' => $stats];
+    }
+
+    /**
+     * List comments for a post (active only, with nested replies).
+     */
+    public function listComments(string $postId, int $page = 1, int $limit = 50): array
+    {
+        $db = $this->getUserDb();
+        $offset = ($page - 1) * $limit;
+
+        // Top-level comments (no parent)
+        $topLevel = $db->executeQuery(
+            'SELECT * FROM cq_user_feed_post_comment
+             WHERE cq_user_feed_post_id = ? AND parent_id IS NULL AND is_active = 1
+             ORDER BY created_at ASC LIMIT ? OFFSET ?',
+            [$postId, $limit, $offset]
+        )->fetchAllAssociative();
+
+        $total = (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM cq_user_feed_post_comment
+             WHERE cq_user_feed_post_id = ? AND parent_id IS NULL AND is_active = 1',
+            [$postId]
+        )->fetchOne();
+
+        // Fetch replies for each top-level comment
+        $result = [];
+        foreach ($topLevel as $comment) {
+            $replies = $db->executeQuery(
+                'SELECT * FROM cq_user_feed_post_comment
+                 WHERE parent_id = ? AND is_active = 1
+                 ORDER BY created_at ASC',
+                [$comment['id']]
+            )->fetchAllAssociative();
+            $comment['replies'] = $replies;
+            $result[] = $comment;
+        }
+
+        return ['comments' => $result, 'total' => $total];
+    }
+
+    /**
+     * Find a comment by ID (regardless of is_active).
+     */
+    public function findCommentById(string $id): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT * FROM cq_user_feed_post_comment WHERE id = ?',
+            [$id]
         )->fetchAssociative();
         return $row ?: null;
     }

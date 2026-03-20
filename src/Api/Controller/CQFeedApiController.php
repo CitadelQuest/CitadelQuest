@@ -513,6 +513,305 @@ class CQFeedApiController extends AbstractController
         }
     }
 
+    // ========================================
+    // Comments
+    // ========================================
+
+    /**
+     * Resolve a post from federation cache or own posts table.
+     * Returns ['type' => 'own'|'local'|'remote', 'post' => [...], 'cachedPost' => [...] | null]
+     */
+    private function resolvePostForComment(string $postId, User $user, string $domain): ?array
+    {
+        // 1. Try federation cache first
+        $cachedPost = $this->federationFeedService->findCachedPostById($postId);
+        if ($cachedPost) {
+            $isLocal = ($cachedPost['feed_domain'] === $domain);
+            if ($isLocal) {
+                $postOwner = $this->entityManager->getRepository(User::class)
+                    ->findOneBy(['username' => $cachedPost['feed_username']]);
+                $this->feedService->setUser($postOwner ?? $user);
+                $localPost = $this->feedService->findPostByFeedSlugAndPostSlug(
+                    $cachedPost['feed_slug'], $cachedPost['post_url_slug']
+                );
+                return $localPost
+                    ? ['type' => 'local', 'post' => $localPost, 'cachedPost' => $cachedPost, 'postOwner' => $postOwner ?? $user]
+                    : null;
+            }
+            return ['type' => 'remote', 'post' => null, 'cachedPost' => $cachedPost, 'postOwner' => null];
+        }
+
+        // 2. Try own posts (not in federation cache)
+        $ownPost = $this->feedService->findPostById($postId);
+        if ($ownPost) {
+            return ['type' => 'own', 'post' => $ownPost, 'cachedPost' => null, 'postOwner' => $user];
+        }
+
+        return null;
+    }
+
+    /**
+     * Add a comment to a timeline post.
+     * Handles own posts, local (other user on same Citadel), and remote (federation proxy) posts.
+     */
+    #[Route('/timeline/comment', name: 'api_feed_timeline_comment_add', methods: ['POST'])]
+    public function timelineCommentAdd(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $postId = $data['post_id'] ?? null;
+            $content = $data['content'] ?? '';
+            $parentId = $data['parent_id'] ?? null;
+
+            if (!$postId || empty(trim($content))) {
+                return $this->json(['success' => false, 'message' => 'Missing post_id or content'], Response::HTTP_BAD_REQUEST);
+            }
+
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+            $userContactId = $user->getId()->toRfc4122();
+            $userContactUrl = 'https://' . $domain . '/' . $user->getUsername();
+
+            $resolved = $this->resolvePostForComment($postId, $user, $domain);
+            if (!$resolved) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($resolved['type'] === 'own' || $resolved['type'] === 'local') {
+                $this->feedService->setUser($resolved['postOwner']);
+                $result = $this->feedService->addComment($resolved['post']['id'], $userContactId, $userContactUrl, $content, $parentId);
+
+                // Update cached stats on federation post if it exists in cache
+                if ($resolved['cachedPost']) {
+                    $this->feedService->setUser($user);
+                    $existingStats = json_decode($resolved['cachedPost']['stats'] ?? '{}', true) ?: [];
+                    $this->federationFeedService->updateCachedPostStats($postId, $result['stats'], $existingStats['my_reaction'] ?? null);
+                }
+
+                return $this->json([
+                    'success' => true,
+                    'comment' => $result['comment'],
+                    'stats' => $result['stats'],
+                ]);
+            } else {
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($resolved['cachedPost']['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+                $result = $this->federationFeedService->proxyAddComment(
+                    $postId, $content, $userContactId, $userContactUrl, $parentId, $apiKey
+                );
+
+                return $this->json($result);
+            }
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineCommentAdd error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * List comments for a timeline post (lazy-loaded from source).
+     */
+    #[Route('/timeline/{postId}/comments', name: 'api_feed_timeline_comments_list', methods: ['GET'])]
+    public function timelineCommentsList(Request $request, string $postId): JsonResponse
+    {
+        try {
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+
+            $resolved = $this->resolvePostForComment($postId, $user, $domain);
+            if (!$resolved) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $page = max(1, (int) $request->query->get('page', 1));
+            $limit = min(100, max(1, (int) $request->query->get('limit', 50)));
+
+            if ($resolved['type'] === 'own' || $resolved['type'] === 'local') {
+                $this->feedService->setUser($resolved['postOwner']);
+                $result = $this->feedService->listComments($resolved['post']['id'], $page, $limit);
+                return $this->json([
+                    'success' => true,
+                    'comments' => $result['comments'],
+                    'total' => $result['total'],
+                ]);
+            } else {
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($resolved['cachedPost']['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+                $result = $this->federationFeedService->proxyListComments($postId, $page, $limit, $apiKey);
+                return $this->json($result);
+            }
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineCommentsList error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Update own comment on a timeline post.
+     */
+    #[Route('/timeline/comment/{commentId}', name: 'api_feed_timeline_comment_update', methods: ['PUT'])]
+    public function timelineCommentUpdate(Request $request, string $commentId): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $postId = $data['post_id'] ?? null;
+            $content = $data['content'] ?? '';
+
+            if (!$postId || empty(trim($content))) {
+                return $this->json(['success' => false, 'message' => 'Missing post_id or content'], Response::HTTP_BAD_REQUEST);
+            }
+
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+            $userContactId = $user->getId()->toRfc4122();
+
+            $resolved = $this->resolvePostForComment($postId, $user, $domain);
+            if (!$resolved) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($resolved['type'] === 'own' || $resolved['type'] === 'local') {
+                $this->feedService->setUser($resolved['postOwner']);
+                $comment = $this->feedService->updateComment($commentId, $userContactId, $content);
+                return $this->json(['success' => true, 'comment' => $comment]);
+            } else {
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($resolved['cachedPost']['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+                $result = $this->federationFeedService->proxyUpdateComment($postId, $commentId, $content, $userContactId, $apiKey);
+                return $this->json($result);
+            }
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineCommentUpdate error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete own comment on a timeline post.
+     */
+    #[Route('/timeline/comment/{commentId}', name: 'api_feed_timeline_comment_delete', methods: ['DELETE'])]
+    public function timelineCommentDelete(Request $request, string $commentId): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $postId = $data['post_id'] ?? null;
+
+            if (!$postId) {
+                return $this->json(['success' => false, 'message' => 'Missing post_id'], Response::HTTP_BAD_REQUEST);
+            }
+
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+            $userContactId = $user->getId()->toRfc4122();
+
+            $resolved = $this->resolvePostForComment($postId, $user, $domain);
+            if (!$resolved) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($resolved['type'] === 'own' || $resolved['type'] === 'local') {
+                $this->feedService->setUser($resolved['postOwner']);
+                $result = $this->feedService->deleteComment($commentId, $userContactId);
+
+                // Update cached stats if in federation cache
+                if ($resolved['cachedPost']) {
+                    $existingStats = json_decode($resolved['cachedPost']['stats'] ?? '{}', true) ?: [];
+                    $this->federationFeedService->updateCachedPostStats($postId, $result['stats'], $existingStats['my_reaction'] ?? null);
+                }
+
+                return $this->json(['success' => true, 'stats' => $result['stats']]);
+            } else {
+                $this->contactService->setUser($user);
+                $contact = $this->contactService->findById($resolved['cachedPost']['cq_contact_id']);
+                $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+                $result = $this->federationFeedService->proxyDeleteComment($postId, $commentId, $userContactId, $apiKey);
+                return $this->json($result);
+            }
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineCommentDelete error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Toggle comment visibility (post owner moderation — only for own posts).
+     */
+    #[Route('/timeline/comment/{commentId}/toggle', name: 'api_feed_timeline_comment_toggle', methods: ['PATCH'])]
+    public function timelineCommentToggle(Request $request, string $commentId): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $postId = $data['post_id'] ?? null;
+
+            if (!$postId) {
+                return $this->json(['success' => false, 'message' => 'Missing post_id'], Response::HTTP_BAD_REQUEST);
+            }
+
+            /** @var User $user */
+            $user = $this->getUser();
+            $domain = $request->getHost();
+
+            $resolved = $this->resolvePostForComment($postId, $user, $domain);
+            if (!$resolved) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Toggle visibility only allowed for own posts or local posts owned by this user
+            if ($resolved['type'] === 'remote') {
+                return $this->json(['success' => false, 'message' => 'Only the post owner can toggle comment visibility'], Response::HTTP_FORBIDDEN);
+            }
+            if ($resolved['type'] === 'local' && $resolved['cachedPost']['feed_username'] !== $user->getUsername()) {
+                return $this->json(['success' => false, 'message' => 'Only the post owner can toggle comment visibility'], Response::HTTP_FORBIDDEN);
+            }
+
+            $this->feedService->setUser($user);
+            $result = $this->feedService->toggleCommentVisibility($commentId);
+
+            // Update cached stats if in federation cache
+            if ($resolved['cachedPost']) {
+                $existingStats = json_decode($resolved['cachedPost']['stats'] ?? '{}', true) ?: [];
+                $this->federationFeedService->updateCachedPostStats($postId, $result['stats'], $existingStats['my_reaction'] ?? null);
+            }
+
+            return $this->json([
+                'success' => true,
+                'is_active' => $result['is_active'],
+                'stats' => $result['stats'],
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::timelineCommentToggle error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // ========================================
+    // Timeline
+    // ========================================
+
     /**
      * Aggregated timeline from all active subscribed feeds (paginated)
      */

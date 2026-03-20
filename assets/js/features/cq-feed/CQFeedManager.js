@@ -55,11 +55,24 @@ export class CQFeedManager {
                 userPhotoUrl: this.config.userPhotoUrl || '',
                 username: this.config.username || '',
             });
-            await this.timeline.init();
-        }
 
-        // Fetch latest from subscribed feeds in background
-        this._fetchSubscribedFeeds();
+            // If navigating to a specific post (from notification), await feed fetch
+            // so all re-renders finish before we scroll/highlight/open comments
+            if (this.pendingScrollToPostId) {
+                this._initializing = true;
+                await this.timeline.init();
+                await this._fetchSubscribedFeeds();
+                this._initializing = false;
+                this.timeline._handlePendingScrollToPost();
+            } else {
+                await this.timeline.init();
+                // Fetch latest from subscribed feeds in background
+                this._fetchSubscribedFeeds();
+            }
+        } else {
+            // No timeline container — still fetch in background
+            this._fetchSubscribedFeeds();
+        }
     }
 
     /**

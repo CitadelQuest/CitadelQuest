@@ -126,6 +126,51 @@ export class CQFeedApiService {
         return resp.json();
     }
 
+    // ========================================
+    // Comments
+    // ========================================
+
+    async addComment(postId, content, parentId = null) {
+        const resp = await fetch('/api/feed/timeline/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId, content, parent_id: parentId }),
+        });
+        return resp.json();
+    }
+
+    async listComments(postId, page = 1, limit = 50) {
+        const resp = await fetch(`/api/feed/timeline/${postId}/comments?page=${page}&limit=${limit}`);
+        return resp.json();
+    }
+
+    async updateComment(commentId, postId, content) {
+        const resp = await fetch(`/api/feed/timeline/comment/${commentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId, content }),
+        });
+        return resp.json();
+    }
+
+    async deleteComment(commentId, postId) {
+        const resp = await fetch(`/api/feed/timeline/comment/${commentId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId }),
+        });
+        return resp.json();
+    }
+
+    async toggleComment(commentId, postId) {
+        const resp = await fetch(`/api/feed/timeline/comment/${commentId}/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId }),
+        });
+        return resp.json();
+    }
+
     async reactToPost(postId, reaction) {
         const resp = await fetch('/api/feed/timeline/react', {
             method: 'POST',

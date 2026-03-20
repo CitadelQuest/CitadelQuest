@@ -413,6 +413,223 @@ class CQFeedController extends AbstractController
     }
 
     // ========================================
+    // Comments (federation endpoints)
+    // ========================================
+
+    /**
+     * Add a comment to a post (federation endpoint).
+     * 
+     * POST /{username}/feed/{feedUrlSlug}/post/{postSlug}/comment
+     * Body: {"content": "...", "cq_contact_id": "...", "cq_contact_url": "...", "parent_id": null}
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/comment', name: 'cq_feed_federation_comment_add', methods: ['POST'], priority: -10)]
+    public function feedPostCommentAdd(Request $request, string $username, string $feedUrlSlug, string $postSlug): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $post = $this->feedService->findPostByFeedSlugAndPostSlug($feedUrlSlug, $postSlug);
+            if (!$post) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            $content = $data['content'] ?? '';
+            $cqContactId = $data['cq_contact_id'] ?? null;
+            $cqContactUrl = $data['cq_contact_url'] ?? null;
+            $parentId = $data['parent_id'] ?? null;
+
+            if (!$cqContactId || !$cqContactUrl || empty(trim($content))) {
+                return $this->json(['success' => false, 'message' => 'Missing fields: content, cq_contact_id, cq_contact_url'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $result = $this->feedService->addComment($post['id'], $cqContactId, $cqContactUrl, $content, $parentId);
+
+            return $this->json([
+                'success' => true,
+                'comment' => $result['comment'],
+                'stats' => $result['stats'],
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostCommentAdd error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * List comments for a post (federation endpoint).
+     * 
+     * GET /{username}/feed/{feedUrlSlug}/post/{postSlug}/comments
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/comments', name: 'cq_feed_federation_comments_list', methods: ['GET'], priority: -10)]
+    public function feedPostCommentsList(Request $request, string $username, string $feedUrlSlug, string $postSlug): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $post = $this->feedService->findPostByFeedSlugAndPostSlug($feedUrlSlug, $postSlug);
+            if (!$post) {
+                return $this->json(['success' => false, 'message' => 'Post not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $page = max(1, (int) $request->query->get('page', 1));
+            $limit = min(100, max(1, (int) $request->query->get('limit', 50)));
+
+            $result = $this->feedService->listComments($post['id'], $page, $limit);
+
+            return $this->json([
+                'success' => true,
+                'comments' => $result['comments'],
+                'total' => $result['total'],
+            ]);
+
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostCommentsList error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Update a comment (federation endpoint — only by original commenter).
+     * 
+     * PUT /{username}/feed/{feedUrlSlug}/post/{postSlug}/comment/{commentId}
+     * Body: {"content": "...", "cq_contact_id": "..."}
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/comment/{commentId}', name: 'cq_feed_federation_comment_update', methods: ['PUT'], priority: -10)]
+    public function feedPostCommentUpdate(Request $request, string $username, string $feedUrlSlug, string $postSlug, string $commentId): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            $content = $data['content'] ?? '';
+            $cqContactId = $data['cq_contact_id'] ?? null;
+
+            if (!$cqContactId || empty(trim($content))) {
+                return $this->json(['success' => false, 'message' => 'Missing fields: content, cq_contact_id'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $comment = $this->feedService->updateComment($commentId, $cqContactId, $content);
+
+            return $this->json([
+                'success' => true,
+                'comment' => $comment,
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostCommentUpdate error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a comment (federation endpoint — only by original commenter).
+     * 
+     * DELETE /{username}/feed/{feedUrlSlug}/post/{postSlug}/comment/{commentId}
+     * Body: {"cq_contact_id": "..."}
+     */
+    #[Route('/{username}/feed/{feedUrlSlug}/post/{postSlug}/comment/{commentId}', name: 'cq_feed_federation_comment_delete', methods: ['DELETE'], priority: -10)]
+    public function feedPostCommentDelete(Request $request, string $username, string $feedUrlSlug, string $postSlug, string $commentId): JsonResponse
+    {
+        try {
+            $user = $this->resolveUser($username);
+            if (!$user) {
+                return $this->json(['success' => false, 'message' => 'Not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->feedService->setUser($user);
+            $this->cqContactService->setUser($user);
+
+            $feed = $this->feedService->findFeedBySlug($feedUrlSlug);
+            if (!$feed) {
+                return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isAuthenticated = $this->checkFederationAuth($request);
+            $scope = (int) $feed['scope'];
+            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+                return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            $cqContactId = $data['cq_contact_id'] ?? null;
+
+            if (!$cqContactId) {
+                return $this->json(['success' => false, 'message' => 'Missing field: cq_contact_id'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $result = $this->feedService->deleteComment($commentId, $cqContactId);
+
+            return $this->json([
+                'success' => true,
+                'stats' => $result['stats'],
+            ]);
+
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedController::feedPostCommentDelete error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => 'Internal error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // ========================================
     // Helpers
     // ========================================
 

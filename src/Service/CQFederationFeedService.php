@@ -568,6 +568,170 @@ class CQFederationFeedService
         ];
     }
 
+    // ========================================
+    // Comment proxies
+    // ========================================
+
+    /**
+     * Build base URL for a cached post's federation endpoint.
+     */
+    private function _buildPostBaseUrl(array $post): string
+    {
+        return 'https://' . $post['feed_domain'] . '/' . $post['feed_username']
+            . '/feed/' . $post['feed_slug'] . '/post/' . $post['post_url_slug'];
+    }
+
+    /**
+     * Build common headers for federation requests.
+     */
+    private function _buildFederationHeaders(?string $apiKey = null, bool $json = true): array
+    {
+        $headers = [
+            'Accept' => 'application/json',
+            'User-Agent' => 'CitadelQuest HTTP Client',
+        ];
+        if ($json) {
+            $headers['Content-Type'] = 'application/json';
+        }
+        if ($apiKey) {
+            $headers['Authorization'] = 'Bearer ' . $apiKey;
+        }
+        return $headers;
+    }
+
+    /**
+     * Proxy add comment to remote Citadel.
+     */
+    public function proxyAddComment(string $cachedPostId, string $content, string $userContactId, string $userContactUrl, ?string $parentId = null, ?string $apiKey = null): array
+    {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            throw new \RuntimeException('Cached post not found');
+        }
+
+        $url = $this->_buildPostBaseUrl($post) . '/comment';
+
+        $response = $this->httpClient->request('POST', $url, [
+            'headers' => $this->_buildFederationHeaders($apiKey),
+            'json' => [
+                'content' => $content,
+                'cq_contact_id' => $userContactId,
+                'cq_contact_url' => $userContactUrl,
+                'parent_id' => $parentId,
+            ],
+            'timeout' => 15,
+            'verify_peer' => false,
+        ]);
+
+        $data = $response->toArray(false);
+        if (!($data['success'] ?? false)) {
+            throw new \RuntimeException('Remote comment failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        // Update cached stats
+        if (isset($data['stats'])) {
+            $existingStats = $this->_parseCachedStats($post);
+            $this->updateCachedPostStats($cachedPostId, $data['stats'], $existingStats['my_reaction'] ?? null);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Proxy list comments from remote Citadel.
+     */
+    public function proxyListComments(string $cachedPostId, int $page = 1, int $limit = 50, ?string $apiKey = null): array
+    {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            throw new \RuntimeException('Cached post not found');
+        }
+
+        $url = $this->_buildPostBaseUrl($post) . '/comments?page=' . $page . '&limit=' . $limit;
+
+        $response = $this->httpClient->request('GET', $url, [
+            'headers' => $this->_buildFederationHeaders($apiKey, false),
+            'timeout' => 15,
+            'verify_peer' => false,
+        ]);
+
+        $data = $response->toArray(false);
+        if (!($data['success'] ?? false)) {
+            throw new \RuntimeException('Remote comments fetch failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        return $data;
+    }
+
+    /**
+     * Proxy update comment on remote Citadel.
+     */
+    public function proxyUpdateComment(string $cachedPostId, string $commentId, string $content, string $userContactId, ?string $apiKey = null): array
+    {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            throw new \RuntimeException('Cached post not found');
+        }
+
+        $url = $this->_buildPostBaseUrl($post) . '/comment/' . $commentId;
+
+        $response = $this->httpClient->request('PUT', $url, [
+            'headers' => $this->_buildFederationHeaders($apiKey),
+            'json' => [
+                'content' => $content,
+                'cq_contact_id' => $userContactId,
+            ],
+            'timeout' => 15,
+            'verify_peer' => false,
+        ]);
+
+        $data = $response->toArray(false);
+        if (!($data['success'] ?? false)) {
+            throw new \RuntimeException('Remote comment update failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        return $data;
+    }
+
+    /**
+     * Proxy delete comment on remote Citadel.
+     */
+    public function proxyDeleteComment(string $cachedPostId, string $commentId, string $userContactId, ?string $apiKey = null): array
+    {
+        $post = $this->findCachedPostById($cachedPostId);
+        if (!$post) {
+            throw new \RuntimeException('Cached post not found');
+        }
+
+        $url = $this->_buildPostBaseUrl($post) . '/comment/' . $commentId;
+
+        $response = $this->httpClient->request('DELETE', $url, [
+            'headers' => $this->_buildFederationHeaders($apiKey),
+            'json' => [
+                'cq_contact_id' => $userContactId,
+            ],
+            'timeout' => 15,
+            'verify_peer' => false,
+        ]);
+
+        $data = $response->toArray(false);
+        if (!($data['success'] ?? false)) {
+            throw new \RuntimeException('Remote comment delete failed: ' . ($data['message'] ?? 'Unknown error'));
+        }
+
+        // Update cached stats
+        if (isset($data['stats'])) {
+            $existingStats = $this->_parseCachedStats($post);
+            $this->updateCachedPostStats($cachedPostId, $data['stats'], $existingStats['my_reaction'] ?? null);
+        }
+
+        return $data;
+    }
+
+    // ========================================
+    // Reaction proxies
+    // ========================================
+
     /**
      * Proxy a reaction to a remote Citadel and cache the result locally.
      * Returns ['stats' => [...], 'my_reaction' => int|null]
