@@ -27,6 +27,7 @@ The page displays:
 - **Profile Content** — tabbed content groups with your shared items organized by topic (see [CQ Share — Share Groups](08-cq-share.md))
 - **Shared items list** — optional flat list of all public CQ Share items
 - **Background theme** — a customizable visual theme or custom background image
+- **Feed badges** — badges linking to your public CQ Feed pages (see [CQ Feed](14-cq-feed.md))
 - **Footer** — "Powered by CitadelQuest" with version info
 
 The page is clean, calm, and ad-free — just your identity, your way.

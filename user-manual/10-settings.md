@@ -96,10 +96,41 @@ Organize your shared items into content groups that appear as tabbed navigation 
 
 ---
 
+## My Feeds
+
+**Route**: `/settings/cq-feed/my-feeds`
+
+Manage your CQ Feed channels — the feeds where you publish posts. See [CQ Feed](14-cq-feed.md) for the full guide.
+
+- **Create feeds** with title, URL slug, scope (Public or CQ Contacts), description, and optional cover image
+- **Edit** existing feeds — change title, description, scope, or cover image
+- **Toggle active/inactive** — temporarily disable a feed without deleting it
+- **Delete feeds** — removes the feed and all its posts
+
+> A default "General" feed is auto-created for every new user.
+
+---
+
+## Subscribed Feeds
+
+**Route**: `/settings/cq-feed/subscribed`
+
+Manage feeds you're subscribed to from other Citadels, grouped by contact:
+
+- **Pause/Resume** — temporarily stop receiving posts from a specific feed
+- **Unsubscribe** — permanently remove a feed subscription
+- **Sync Subscriptions** — discover and subscribe to new feeds from contacts added after your initial subscription
+
+Subscriptions are created automatically when you accept a friend request or follow a profile.
+
+---
+
 ## Settings Navigation
 
 The settings sidebar provides quick access to:
 - **General Settings** — login, theme, database, migration
 - **CQ Profile** — public profile page, contact visibility
 - **Profile Content** — share groups for profile page
+- **My Feeds** — manage your CQ Feed channels
+- **Subscribed Feeds** — manage feed subscriptions from other Citadels
 - **AI Services** — models, gateway, credits

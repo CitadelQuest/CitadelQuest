@@ -322,7 +322,7 @@ export class CQFeedTimeline {
         }
 
         const deleteBtn = isOwn
-            ? `<button class="btn btn-sm btn-link text-danger p-0 ms-2 opacity-50" data-feed-delete-post="${post.id}" title="${this.t('feed_delete_post', 'Delete')}"><i class="mdi mdi-delete-outline small"></i></button>`
+            ? `<button class="btn btn-sm btn-link text-secondary p-0 ms-2" data-feed-delete-post="${post.id}" title="${this.t('feed_delete_post', 'Delete')}"><i class="mdi mdi-delete-outline small"></i></button>`
             : '';
 
         // Determine if this is a "new" post (arrived after last feed view)
@@ -353,15 +353,15 @@ export class CQFeedTimeline {
             <div class="d-flex align-items-center gap-3 pt-1 border-0 border-top border-1 border-secondary border-opacity-10 cq-feed-reactions" data-post-id="${post.id}">
                 <button class="btn btn-sm p-0 border-0 d-flex align-items-center gap-1 cq-reaction-btn cq-reaction-like${likeActive}" data-reaction="0" ${isOwn ? 'disabled' : ''} style="background:none;">
                     <i class="mdi ${myReaction === 0 ? 'mdi-heart' : 'mdi-heart'} ${myReaction === 0 ? 'text-danger' : 'text-secondary'}" style="font-size:1rem;"></i>
-                    <span class="small ${likesCount > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count">${likesCount > 0 ? likesCount : ''}</span>
+                    <span class="small ${likesCount > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count">${likesCount > 0 ? likesCount : ''}</span>
                 </button>
                 <button class="btn btn-sm p-0 border-0 d-flex align-items-center gap-1 cq-reaction-btn cq-reaction-dislike${dislikeActive}" data-reaction="1" ${isOwn ? 'disabled' : ''} style="background:none;">
                     <i class="mdi ${myReaction === 1 ? 'mdi-thumb-down' : 'mdi-thumb-down'} ${myReaction === 1 ? 'text-light opacity-75' : 'text-secondary'}" style="font-size:0.9rem;"></i>
-                    <span class="small ${dislikesCount > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count">${dislikesCount > 0 ? dislikesCount : ''}</span>
+                    <span class="small ${dislikesCount > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count">${dislikesCount > 0 ? dislikesCount : ''}</span>
                 </button>
                 <button class="btn btn-sm p-0 border-0 d-flex align-items-center gap-1 cq-comment-toggle-btn" style="background:none; margin-left:auto;">
                     <i class="mdi mdi-chat-outline text-secondary" style="font-size:0.95rem;"></i>
-                    <span class="small ${commentsCount > 0 ? 'text-light' : 'text-secondary'} cq-comment-count">${commentsCount > 0 ? commentsCount : ''}</span>
+                    <span class="small ${commentsCount > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-comment-count">${commentsCount > 0 ? commentsCount : ''}</span>
                 </button>
             </div>`;
 
@@ -494,7 +494,7 @@ export class CQFeedTimeline {
                     const likeCount = likeBtn?.querySelector('.cq-reaction-count');
                     if (likeCount) {
                         likeCount.textContent = (stats.likes || 0) > 0 ? stats.likes : '';
-                        likeCount.className = `small ${(stats.likes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                        likeCount.className = `small ${(stats.likes || 0) > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count`;
                     }
 
                     // Update dislike count
@@ -502,7 +502,7 @@ export class CQFeedTimeline {
                     const dislikeCount = dislikeBtn?.querySelector('.cq-reaction-count');
                     if (dislikeCount) {
                         dislikeCount.textContent = (stats.dislikes || 0) > 0 ? stats.dislikes : '';
-                        dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                        dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count`;
                     }
 
                     // Update in-memory data
@@ -623,6 +623,13 @@ export class CQFeedTimeline {
                     input.placeholder = this.t('feed_comment_reply', 'Write a reply...');
                     input.focus();
                 }
+
+                listEl.querySelectorAll('.cq-comment-reply-btn').forEach(btn => {
+                    btn.classList.add('text-light');
+                    btn.classList.remove('text-cyber');
+                });
+                btn.classList.remove('text-light');
+                btn.classList.add('text-cyber');
             });
         });
 
@@ -760,7 +767,7 @@ export class CQFeedTimeline {
         }
 
         const replyBtn = !isReply
-            ? `<button class="btn btn-sm p-0 border-0 text-secondary cq-comment-reply-btn" data-comment-id="${comment.id}" style="background:none; font-size:0.7rem;" title="${this.t('feed_comment_reply_btn', 'Reply')}"><i class="mdi mdi-reply"></i></button>`
+            ? `<button class="btn btn-sm p-0 border-0 text-light opacity-75 cq-comment-reply-btn" data-comment-id="${comment.id}" style="background:none; font-size:0.7rem;" title="${this.t('feed_comment_reply_btn', 'Reply')}"><i class="mdi mdi-reply"></i></button>`
             : '';
 
         return `
@@ -829,7 +836,7 @@ export class CQFeedTimeline {
         if (countEl) {
             const count = stats.comments || 0;
             countEl.textContent = count > 0 ? count : '';
-            countEl.className = `small ${count > 0 ? 'text-light' : 'text-secondary'} cq-comment-count`;
+            countEl.className = `small ${count > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-comment-count`;
         }
 
         // Update like/dislike counts too
@@ -908,7 +915,7 @@ export class CQFeedTimeline {
                 const dislikeCount = dislikeBtn?.querySelector('.cq-reaction-count');
                 if (dislikeCount) {
                     dislikeCount.textContent = (stats.dislikes || 0) > 0 ? stats.dislikes : '';
-                    dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light' : 'text-secondary'} cq-reaction-count`;
+                    dislikeCount.className = `small ${(stats.dislikes || 0) > 0 ? 'text-light opacity-75' : 'text-secondary'} cq-reaction-count`;
                 }
 
                 // Update the post data in memory for re-renders

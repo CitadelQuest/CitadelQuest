@@ -1,6 +1,6 @@
 # CQ Explorer — Profiles, Contacts & Following
 
-CQ Explorer is the unified hub for exploring CQ Profiles, managing your CQ Contacts, and following users across Citadels. It combines profile browsing, contact management, and content discovery in a single two-column layout.
+CQ Explorer is the unified hub for exploring CQ Profiles, managing your CQ Contacts, following users across Citadels, and browsing your social feed. It combines profile browsing, contact management, content discovery, and social interaction in a single two-column layout.
 
 **Route**: `/cq-contacts`
 
@@ -8,13 +8,16 @@ CQ Explorer is the unified hub for exploring CQ Profiles, managing your CQ Conta
 
 ## Layout
 
-CQ Explorer uses a two-column layout:
+CQ Explorer uses a two-column layout with tab navigation:
 
 | Main Panel (75%) | Sidebar (25%) |
 |-------------------|---------------|
-| URL input + **Explore** button | **CQ Contacts** list |
-| Profile preview with content | **Following** list |
-| | **Followers** list |
+| **[CQ Explorer]** / **[CQ Feed]** tabs | **CQ Contacts** list |
+| URL input + **Explore** button (Explorer tab) | **Following** list |
+| Profile preview with content | **Followers** list |
+| Social timeline + post composer (Feed tab) | |
+
+The two tabs switch between **profile browsing** (CQ Explorer) and **social feed** (CQ Feed). Your active tab is remembered between visits.
 
 ---
 
@@ -78,6 +81,7 @@ Users who follow you. Shows:
 - **Collapsible sections** — click any section header to collapse/expand. State is saved to localStorage.
 - **Active item highlighting** — the currently explored profile is highlighted with a cyber-colored left border accent
 - **SPA-like navigation** — clicking any sidebar item loads the profile instantly without page reload
+- **Feed update indicators** — Following items show when there are new feed posts (separate from share/profile updates)
 
 ---
 
@@ -105,6 +109,7 @@ When profiles you follow publish new content:
 - **Explorer content**: New shares/groups are highlighted with yellow borders
 - **Dashboard**: The CQ Explorer tile shows a yellow badge with the count of profiles that have new content
 - **Automatic detection**: When you open CQ Explorer, it checks all followed profiles for updates
+- **Feed tab badge**: A bell icon with highlight appears on the CQ Feed tab when new feed posts are available
 
 ### How It Works
 
@@ -112,6 +117,7 @@ When profiles you follow publish new content:
 - Both sides are aware: the followed user's Citadel receives a notification and records you as a follower
 - Your **follower count** is visible on your public profile page
 - Following uses the federation protocol for cross-Citadel communication
+- When you follow a profile, you also automatically **subscribe to their feeds** (see [CQ Feed](14-cq-feed.md))
 
 ---
 
@@ -148,6 +154,7 @@ When a friend request is accepted:
 - A secure HTTPS communication channel is established
 - You can now send messages via CQ Chat
 - The contact appears in both users' sidebar contact lists
+- You automatically **subscribe to their feeds** — their posts appear in your CQ Feed timeline (see [CQ Feed](14-cq-feed.md))
 
 ### Contact Detail Page
 
@@ -180,6 +187,7 @@ CQ Explorer relies on CitadelQuest's decentralized federation protocol:
 4. **Privacy** — no third party can see your contacts or messages
 5. **Rich profiles** — contacts exchange profile data (photo, bio, Spirits) based on individual visibility settings
 6. **Content sharing** — share files and Memory Packs with contacts via [CQ Share](08-cq-share.md)
-7. **Follow notifications** — follow/unfollow actions are communicated via federation with fraud prevention (origin/host validation)
+7. **Social feed** — publish and subscribe to feeds with posts, reactions, and comments via [CQ Feed](14-cq-feed.md)
+8. **Follow notifications** — follow/unfollow actions are communicated via federation with fraud prevention (origin/host validation)
 
 > **Account Migration**: If you move your account to a different Citadel, your contacts and followers are automatically notified and updated with your new address.

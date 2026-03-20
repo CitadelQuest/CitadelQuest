@@ -22,7 +22,7 @@ Nine cards providing fast access to the main features:
 If you have **Admin** privileges, a 9th card appears:
 - **Admin Panel** — access the administration panel (`/administration`)
 
-> **Tip**: The CQ Explorer card shows a **red badge** when you have pending friend requests, and a **yellow badge** when followed profiles have new content.
+> **Tip**: The CQ Explorer card shows a **red badge** when you have pending friend requests, a **yellow badge** when followed profiles have new content, and a **feed badge** when there are new posts in your CQ Feed timeline.
 
 ---
 

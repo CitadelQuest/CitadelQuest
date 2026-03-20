@@ -29,6 +29,7 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | **CQ Chat** | Private messaging across CitadelQuest instances |
 | **CQ Explorer** | Explore profiles, manage contacts, follow users across Citadels |
 | **CQ Follow** | One-way subscription to any public CQ Profile for content updates |
+| **CQ Feed** | Decentralized social feed — publish posts, react, comment across Citadels |
 | **CQ Share** | Share files and Memory Packs with contacts or publicly |
 | **CQ Profile** | Public profile page with Spirit showcase, content groups, and themes |
 | **Backup** | Full backup and restore of your data |
@@ -74,6 +75,7 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | [11 — Backup](11-backup.md) | Backup and restore your data |
 | [12 — Administration](12-administration.md) | Admin panel for Citadel managers |
 | [13 — Installation](13-installation.md) | Self-hosting your own CitadelQuest |
+| [14 — CQ Feed](14-cq-feed.md) | Social feed — posts, reactions, comments |
 
 ---
 
