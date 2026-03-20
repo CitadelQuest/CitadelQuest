@@ -1,0 +1,139 @@
+{% extends 'base-public.html.twig' %}
+
+{% block html_attributes %} lang="{{ profile_locale|default('en') }}"{% if profile_theme is defined and profile_theme %} data-theme="{{ profile_theme }}"{% endif %}{% endblock %}
+
+{% block title %}{{ feed.title }} — {{ profile_username }} @ {{ profile_domain }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% if profile_custom_bg is defined and profile_custom_bg %}
+    <style>
+        .citadel-background::before {
+            background-image: url('{{ path('cq_profile_background', {username: profile_username}) }}') !important;
+        }
+    </style>
+    {% endif %}
+    {% if profile_bg_overlay is defined and not profile_bg_overlay %}
+    <style>
+        .citadel-background::after {
+            background-color: transparent !important;
+        }
+    </style>
+    {% endif %}
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4 mb-5" style="max-width: 800px;">
+
+    {# Back to profile link #}
+    <div class="mb-3">
+        <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="text-decoration-none text-light opacity-75">
+            <i class="mdi mdi-arrow-left me-1"></i>{{ profile_username }}
+        </a>
+    </div>
+
+    {# Feed header card #}
+    <div class="card glass-panel mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center">
+                {% if profile_has_photo %}
+                <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="me-3 flex-shrink-0">
+                    <img src="{{ path('cq_profile_photo', {username: profile_username}) }}"
+                         alt="{{ profile_username }}"
+                         class="rounded"
+                         style="width: 72px; height: 72px; object-fit: cover;">
+                </a>
+                {% endif %}
+                <div class="flex-grow-1">
+                    <i class="mdi mdi-rss me-2 opacity-75"></i>
+                    <h1 class="h4 mb-0 text-cyber">
+                        {{ feed.title }}
+                    </h1>
+                    <small class="text-light opacity-50">
+                        {{ profile_username }} · {{ profile_domain }}
+                        {% if feed.description %}
+                            · {{ feed.description }}
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="flex-shrink-0 ms-3 text-end">
+                    <span class="badge bg-secondary bg-opacity-25 text-light">
+                        {{ total }} {{ total == 1 ? 'post' : 'posts' }}
+                    </span>
+                </div>
+            </div>
+
+            {# Other public feeds nav #}
+            {% if profile_feeds|default([])|length > 1 %}
+            <div class="d-flex align-items-center flex-wrap gap-2 mt-3 pt-3 border-top border-secondary border-opacity-25">
+                {% for f in profile_feeds %}
+                {% set isActive = f.id == feed.id %}
+                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: f.feed_url_slug}) }}"
+                   class="badge {{ isActive ? 'bg-success bg-opacity-25 text-cyber' : 'bg-secondary bg-opacity-10 text-secondary' }} text-decoration-none px-2 py-1" style="font-size: 0.75rem;">
+                    <i class="mdi mdi-rss me-1"></i>{{ f.title }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Posts list #}
+    {% if posts|length == 0 %}
+        <div class="text-center py-5 text-light opacity-50">
+            <i class="mdi mdi-newspaper-variant-outline" style="font-size: 3rem;"></i>
+            <p class="mt-2">{{ 'feed.no_posts'|trans }}</p>
+        </div>
+    {% else %}
+        <div class="d-flex flex-column gap-3">
+            {% for post in posts %}
+            <div class="card glass-panel">
+                <div class="card-body p-4">
+                    <div class="mb-3" style="word-break: break-word; overflow-wrap: break-word;">
+                        {{ post.content|markdown_to_html }}
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <small class="text-light opacity-50">
+                            <i class="mdi mdi-clock-outline me-1"></i>{{ post.created_at|date('j M Y, H:i') }}
+                        </small>
+                        {% if post.updated_at != post.created_at %}
+                        <small class="text-light opacity-25">
+                            <i class="mdi mdi-pencil-outline me-1"></i>{{ post.updated_at|date('j M Y, H:i') }}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Pagination #}
+        {% if has_more or page > 1 %}
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            {% if page > 1 %}
+                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug, page: page - 1}) }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    <i class="mdi mdi-chevron-left me-1"></i>{{ 'ui.previous'|trans({}, 'messages', profile_locale|default('en')) }}
+                </a>
+            {% else %}
+                <div></div>
+            {% endif %}
+
+            <small class="text-light opacity-50">
+                {{ 'ui.page'|trans({}, 'messages', profile_locale|default('en')) }} {{ page }}
+            </small>
+
+            {% if has_more %}
+                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug, page: page + 1}) }}"
+                   class="btn btn-sm btn-outline-secondary">
+                    {{ 'ui.next'|trans({}, 'messages', profile_locale|default('en')) }}<i class="mdi mdi-chevron-right ms-1"></i>
+                </a>
+            {% else %}
+                <div></div>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -863,4 +863,20 @@ class UserSettingsController extends AbstractController
             'profile_bg_overlay' => $bgOverlay,
         ]);
     }
+
+    // ========================================
+    // CQ Feed Settings
+    // ========================================
+
+    #[Route('/cq-feed/my-feeds', name: 'app_user_settings_cq_feed_my_feeds', methods: ['GET'])]
+    public function cqFeedMyFeeds(): Response
+    {
+        return $this->render('user_settings/cq_feed_my_feeds.html.twig');
+    }
+
+    #[Route('/cq-feed/subscribed', name: 'app_user_settings_cq_feed_subscribed', methods: ['GET'])]
+    public function cqFeedSubscribed(): Response
+    {
+        return $this->render('user_settings/cq_feed_subscribed.html.twig');
+    }
 }

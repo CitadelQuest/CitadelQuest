@@ -301,6 +301,21 @@ class CQFeedApiController extends AbstractController
     }
 
     /**
+     * List subscribed feeds for a specific contact
+     */
+    #[Route('/subscribed/by-contact/{contactId}', name: 'api_feed_subscribed_by_contact', methods: ['GET'])]
+    public function listSubscribedByContact(string $contactId): JsonResponse
+    {
+        try {
+            $feeds = $this->federationFeedService->listFeedsByContact($contactId);
+            return $this->json(['success' => true, 'feeds' => $feeds]);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::listSubscribedByContact error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Fetch latest posts from a subscribed federation feed (incremental sync)
      */
     #[Route('/subscribed/{id}/fetch', name: 'api_feed_subscribed_fetch', methods: ['POST'])]
@@ -312,7 +327,14 @@ class CQFeedApiController extends AbstractController
                 return $this->json(['success' => false, 'message' => 'Feed not found'], Response::HTTP_NOT_FOUND);
             }
 
-            $count = $this->federationFeedService->fetchRemotePosts($id);
+            // Look up contact API key for authenticated feed access (required for CQ_CONTACT scope)
+            /** @var User $user */
+            $user = $this->getUser();
+            $this->contactService->setUser($user);
+            $contact = $this->contactService->findById($feed['cq_contact_id']);
+            $apiKey = $contact ? $contact->getCqContactApiKey() : null;
+
+            $count = $this->federationFeedService->fetchRemotePosts($id, $apiKey);
 
             return $this->json([
                 'success' => true,

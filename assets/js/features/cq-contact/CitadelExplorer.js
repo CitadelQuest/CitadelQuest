@@ -231,10 +231,10 @@ export class CitadelExplorer {
                 <a href="#" class="explorer-photo-trigger" style="cursor: pointer;">
                 <img src="${proxyPhotoUrl}" alt="${p.username}"
                      class="rounded border border-0 border-success"
-                     style="width: 96px; height: 96px; object-fit: cover;"
+                     style="width: 125px; height: 125px; object-fit: cover;"
                      onerror="this.style.display='none'; this.nextElementSibling?.classList.remove('d-none');">
                 <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center d-none"
-                     style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                     style="width: 125px; height: 125px; background: rgba(255,255,255,0.05);">
                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>
                 </a>`;
@@ -255,7 +255,7 @@ export class CitadelExplorer {
         } else {
             photoHtml = `
                 <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
-                     style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                     style="width: 125px; height: 125px; background: rgba(255,255,255,0.05);">
                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 40px;"></i>
                 </div>`;
         }
@@ -405,7 +405,7 @@ export class CitadelExplorer {
                 </div>
 
                 <div class="d-flex align-items-start">
-                    <div class="me-3 flex-shrink-0">${photoHtml}</div>
+                    <div class="me-4 flex-shrink-0">${photoHtml}</div>
                     <div class="flex-grow-1 d-none d-md-block">
                         <h3 class="h4 mb-1 text-cyber">${p.username || ''}</h3>
                         <small class="text-light opacity-75">
@@ -414,15 +414,16 @@ export class CitadelExplorer {
                                 ${p.domain || ''}
                             </a>
                         </small>
-                        ${bioHtml}
-                    </div>
-                    <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
-                        ${spiritsHtml ? `<div class="d-flex gap-2 flex-sm-column flex-row">${spiritsHtml}</div>` : ''}
+                        ${spiritsHtml ? `<div class="d-flex gap-2 flex-sm-column flex-row pt-2">${spiritsHtml}</div>` : ''}
+                        </div>
+                        <div class="d-flex flex-column align-items-end gap-2 ms-auto flex-shrink-0 mt-3">
                         ${contactActionHtml}
-                        ${followActionHtml}
                         ${followerCountHtml}
+                        ${followActionHtml}
+                        <div id="explorerFeedBadges" class="d-flex flex-column align-items-end gap-1"></div>
                     </div>
                 </div>
+                        
                 <div class="d-md-none mt-3">
                     <h3 class="h4 mb-1 text-cyber">${p.username || ''}</h3>
                     <small class="text-light opacity-75">
@@ -431,8 +432,9 @@ export class CitadelExplorer {
                             ${p.domain || ''}
                         </a>
                     </small>
-                    ${bioHtml}
-                </div>`;
+                    ${spiritsHtml ? `<div class="d-flex gap-2 flex-sm-column flex-row pt-2">${spiritsHtml}</div>` : ''}
+                </div>
+                ${bioHtml}`;
 
         // Close header wrapper when background is present
         if (bgClass) {
@@ -652,6 +654,11 @@ export class CitadelExplorer {
 
         // Bind unfollow toggle + confirm (for already-following state)
         this.bindExplorerUnfollowHandlers();
+
+        // Load feed badges for followed profiles
+        if (p.is_following && p.cq_contact_id) {
+            this.loadFeedBadges(p.cq_contact_id);
+        }
 
         // Bind add to library confirm
         document.getElementById('explorer-confirm-add-lib')?.addEventListener('click', () => this.confirmAddToLibrary());
@@ -1611,6 +1618,10 @@ export class CitadelExplorer {
                     await window.explorerSidebar.loadFollowingList();
                     window.explorerSidebar.renderFollowingSidebar();
                 }
+                // Load feed badges for newly followed profile
+                if (contactId) {
+                    this.loadFeedBadges(contactId);
+                }
             } else {
                 throw new Error(data.error || 'Failed');
             }
@@ -1620,5 +1631,134 @@ export class CitadelExplorer {
             btn.innerHTML = origHtml;
             btn.disabled = false;
         }
+    }
+
+    // ========================================
+    // Feed Badges (on profile + timeline)
+    // ========================================
+
+    async loadFeedBadges(contactId) {
+        const container = document.getElementById('explorerFeedBadges');
+        if (!container) return;
+
+        try {
+            const resp = await fetch(`/api/feed/subscribed/by-contact/${contactId}`);
+            const data = await resp.json();
+            if (!data.success || !data.feeds?.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            for (const feed of data.feeds) {
+                const isActive = feed.is_active == 1;
+                const statusClass = isActive ? 'bg-success bg-opacity-25' : 'bg-secondary bg-opacity-25';
+                const statusIcon = isActive ? 'mdi-rss text-success' : 'mdi-pause text-secondary';
+                const titleText = feed.title || feed.feed_url_slug;
+
+                html += `
+                    <div class="d-flex align-items-center gap-1 explorer-feed-badge-group" data-feed-id="${feed.id}">
+                        <a href="#" class="badge ${statusClass} px-2 py-1 text-decoration-none explorer-feed-badge-toggle"
+                           style="cursor: pointer;" title="${this._escapeAttr(titleText)}">
+                            <i class="mdi ${statusIcon}" style="font-size: 0.75rem;"></i>
+                            <span class="small text-light opacity-75">${this._escapeAttr(titleText)}</span>
+                        </a>
+                        <div class="d-none explorer-feed-badge-actions d-flex align-items-center gap-1">
+                            <button class="btn btn-sm px-1 py-0 ${isActive ? 'btn-outline-warning' : 'btn-outline-success'} explorer-feed-pause-btn"
+                                    data-feed-id="${feed.id}" title="${isActive ? this.t('feed_pause', 'Pause') : this.t('feed_resume', 'Resume')}">
+                                <i class="mdi ${isActive ? 'mdi-pause' : 'mdi-play'}" style="font-size: 0.8rem;"></i>
+                            </button>
+                            <button class="btn btn-sm px-1 py-0 btn-outline-danger explorer-feed-unsub-btn"
+                                    data-feed-id="${feed.id}" title="${this.t('feed_unsubscribe', 'Unsubscribe')}">
+                                <i class="mdi mdi-rss-off" style="font-size: 0.8rem;"></i>
+                            </button>
+                        </div>
+                    </div>`;
+            }
+
+            container.innerHTML = html;
+            this.bindFeedBadgeHandlers(container, contactId);
+        } catch (e) {
+            console.error('CitadelExplorer::loadFeedBadges error', e);
+        }
+    }
+
+    bindFeedBadgeHandlers(container, contactId) {
+        // Toggle: click badge → show pause/unsub buttons (auto-hide 3s)
+        container.querySelectorAll('.explorer-feed-badge-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                const group = toggle.closest('.explorer-feed-badge-group');
+                const actions = group?.querySelector('.explorer-feed-badge-actions');
+                if (!actions) return;
+
+                toggle.classList.add('d-none');
+                actions.classList.remove('d-none');
+                actions.classList.add('d-flex');
+
+                if (this._feedBadgeTimer) clearTimeout(this._feedBadgeTimer);
+                this._feedBadgeTimer = setTimeout(() => {
+                    actions.classList.add('d-none');
+                    actions.classList.remove('d-flex');
+                    toggle.classList.remove('d-none');
+                }, 3000);
+            });
+        });
+
+        // Pause/Resume
+        container.querySelectorAll('.explorer-feed-pause-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const feedId = btn.dataset.feedId;
+                btn.disabled = true;
+                btn.innerHTML = `<i class="mdi mdi-loading mdi-spin" style="font-size: 0.8rem;"></i>`;
+                try {
+                    const resp = await fetch(`/api/feed/subscribed/${feedId}/toggle`, { method: 'POST' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.toast?.success(data.feed?.is_active == 1
+                            ? this.t('feed_resumed', 'Feed resumed')
+                            : this.t('feed_paused', 'Feed paused'));
+                        this.loadFeedBadges(contactId);
+                    } else {
+                        throw new Error(data.message || 'Failed');
+                    }
+                } catch (error) {
+                    console.error('Feed pause error:', error);
+                    window.toast?.error(error.message);
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        // Unsubscribe
+        container.querySelectorAll('.explorer-feed-unsub-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const feedId = btn.dataset.feedId;
+                btn.disabled = true;
+                btn.innerHTML = `<i class="mdi mdi-loading mdi-spin" style="font-size: 0.8rem;"></i>`;
+                try {
+                    const resp = await fetch(`/api/feed/subscribed/${feedId}`, { method: 'DELETE' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.toast?.success(this.t('feed_unsubscribed', 'Unsubscribed'));
+                        this.loadFeedBadges(contactId);
+                    } else {
+                        throw new Error(data.message || 'Failed');
+                    }
+                } catch (error) {
+                    console.error('Feed unsub error:', error);
+                    window.toast?.error(error.message);
+                    btn.disabled = false;
+                }
+            });
+        });
+    }
+
+    _escapeAttr(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 }

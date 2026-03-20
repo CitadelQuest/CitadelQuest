@@ -48,6 +48,9 @@ export class CQFeedPostComposer {
                 </div>
                 <div class="d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center gap-2">
+                        <a href="/settings/cq-feed/my-feeds" class="text-cyber opacity-75" title="${this.t('feed_settings', 'Feed Settings')}" style="font-size: 1.1rem; line-height: 1;">
+                            <i class="mdi mdi-rss"></i>
+                        </a>
                         <select id="cqFeedSelect" class="form-select form-select-sm glass-input" style="width: auto; min-width: 140px;">
                             ${this.feeds.map(f => `<option value="${f.id}" ${f.id === this.selectedFeedId ? 'selected' : ''}>${this._escapeHtml(f.title)}</option>`).join('')}
                         </select>

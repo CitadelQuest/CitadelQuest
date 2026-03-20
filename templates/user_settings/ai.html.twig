@@ -22,6 +22,16 @@
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-account-box me-2 text-cyber"></i> {{ 'profile.settings.title'|trans|default('Profile') }}
                     </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans|default('Share Groups') }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_my_feeds') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-rss mx-2 text-cyber"></i> {{ 'feed.settings.my_feeds_title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_subscribed') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-rss-box mx-2 text-cyber"></i> {{ 'feed.settings.subscribed_title'|trans }}
+                    </a>
+                    <hr class="my-2 border-secondary">
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 active border-0">
                         <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans|default('AI Services') }}
                     </a>

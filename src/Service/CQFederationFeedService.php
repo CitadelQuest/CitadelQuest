@@ -53,14 +53,19 @@ class CQFederationFeedService
         string $feedUrlSlug,
         string $title,
         ?string $description = null,
-        ?string $apiKey = null
+        ?string $apiKey = null,
+        int $scope = 0
     ): array {
         $db = $this->getUserDb();
 
         // Check if already subscribed
         $existing = $this->findByContactAndSlug($cqContactId, $feedUrlSlug);
         if ($existing) {
-            return $existing;
+            // Update scope if it changed
+            if ((int) ($existing['scope'] ?? 0) !== $scope) {
+                $db->executeStatement('UPDATE cq_federation_feed SET scope = ? WHERE id = ?', [$scope, $existing['id']]);
+            }
+            return $this->findById($existing['id']);
         }
 
         $id = Uuid::v4()->toRfc4122();
@@ -69,9 +74,9 @@ class CQFederationFeedService
         $epoch = '2000-01-01 00:00:00';
 
         $db->executeStatement(
-            'INSERT INTO cq_federation_feed (id, cq_contact_id, cq_contact_url, cq_contact_domain, cq_contact_username, feed_url_slug, title, description, is_active, created_at, updated_at, last_visited_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
-            [$id, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $feedUrlSlug, $title, $description, $now, $now, $epoch]
+            'INSERT INTO cq_federation_feed (id, cq_contact_id, cq_contact_url, cq_contact_domain, cq_contact_username, feed_url_slug, title, description, scope, is_active, created_at, updated_at, last_visited_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
+            [$id, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $feedUrlSlug, $title, $description, $scope, $now, $now, $epoch]
         );
 
         // Fetch existing posts (last 100) immediately after subscribing
@@ -261,7 +266,7 @@ class CQFederationFeedService
         $offset = ($page - 1) * $limit;
 
         return $db->executeQuery(
-            'SELECT p.*, f.title AS feed_title, f.feed_url_slug AS feed_slug
+            'SELECT p.*, f.title AS feed_title, f.feed_url_slug AS feed_slug, f.scope AS feed_scope
              FROM cq_federation_feed_post p
              JOIN cq_federation_feed f ON f.id = p.cq_feed_id
              WHERE p.is_active = 1 AND f.is_active = 1
@@ -409,7 +414,8 @@ class CQFederationFeedService
                     $feed['feed_url_slug'] ?? '',
                     $feed['title'] ?? 'Untitled',
                     $feed['description'] ?? null,
-                    $apiKey
+                    $apiKey,
+                    (int) ($feed['scope'] ?? 0)
                 );
                 $count++;
             }

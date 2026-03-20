@@ -7,6 +7,7 @@ use App\Service\CqContactService;
 use App\Service\CQFollowService;
 use App\Service\CQShareGroupService;
 use App\Service\CQShareService;
+use App\Service\CQFeedService;
 use App\Service\ProjectFileService;
 use App\Service\SettingsService;
 use App\Service\UserDatabaseManager;
@@ -38,6 +39,7 @@ class CQProfileController extends AbstractController
         private readonly CQFollowService $followService,
         private readonly CQShareService $shareService,
         private readonly CQShareGroupService $shareGroupService,
+        private readonly CQFeedService $feedService,
         private readonly ProjectFileService $projectFileService,
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly EntityManagerInterface $entityManager,
@@ -59,6 +61,74 @@ class CQProfileController extends AbstractController
         }
 
         return $this->renderProfilePage($request, $user, $username, null);
+    }
+
+    /**
+     * Public feed page: GET /{username}/feed/{feedSlug}
+     * Shows posts from a specific public feed.
+     */
+    #[Route('/{username}/feed/{feedSlug}', name: 'cq_profile_public_feed', methods: ['GET'], priority: -10)]
+    public function publicFeed(Request $request, string $username, string $feedSlug): Response
+    {
+        $user = $this->resolveUser($username);
+        if (!$user) {
+            throw $this->createNotFoundException();
+        }
+
+        $this->settingsService->setUser($user);
+
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0');
+        if ($publicEnabled !== '1') {
+            throw $this->createNotFoundException();
+        }
+
+        // Apply locale
+        $locale = $this->settingsService->getSettingValue('profile.public_page_locale', 'en');
+        if (in_array($locale, ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'])) {
+            $request->setLocale($locale);
+            $this->translator->setLocale($locale);
+        }
+
+        $this->feedService->setUser($user);
+        $feed = $this->feedService->findFeedBySlug($feedSlug);
+
+        if (!$feed || (int) $feed['scope'] !== CQFeedService::SCOPE_PUBLIC) {
+            throw $this->createNotFoundException();
+        }
+
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = 20;
+        $posts = $this->feedService->listPosts($feed['id'], $page, $limit);
+        $total = $this->feedService->countPosts($feed['id']);
+        $hasMore = ($page * $limit) < $total;
+
+        // Profile data for layout
+        $bio = $this->settingsService->getSettingValue('profile.bio');
+        $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+        $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
+        $pageTheme = $this->settingsService->getSettingValue('profile.public_page_theme', '');
+        $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+        $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
+
+        // All public feeds for nav
+        $publicFeeds = $this->feedService->listActiveFeedsByScope([CQFeedService::SCOPE_PUBLIC]);
+
+        return $this->render('profile/feed.html.twig', [
+            'profile_username' => $username,
+            'profile_domain' => $request->getHost(),
+            'profile_bio' => $bio,
+            'profile_has_photo' => $showPhoto && !empty($photoFileId),
+            'profile_theme' => $pageTheme,
+            'profile_custom_bg' => !empty($customBgFileId),
+            'profile_bg_overlay' => $bgOverlay,
+            'profile_locale' => $locale,
+            'profile_feeds' => $publicFeeds,
+            'feed' => $feed,
+            'posts' => $posts,
+            'page' => $page,
+            'total' => $total,
+            'has_more' => $hasMore,
+        ]);
     }
 
     /**
@@ -208,6 +278,18 @@ class CQProfileController extends AbstractController
             }
         }
 
+        // Load public feeds
+        $publicFeeds = [];
+        try {
+            $this->feedService->setUser($user);
+            $publicFeeds = $this->feedService->listActiveFeedsByScope([CQFeedService::SCOPE_PUBLIC]);
+        } catch (\Exception $e) {
+            $this->logger->warning('CQProfileController: Failed to load public feeds', [
+                'username' => $username,
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return $this->render('profile/public.html.twig', [
             'profile_username' => $username,
             'profile_domain' => $request->getHost(),
@@ -225,6 +307,7 @@ class CQProfileController extends AbstractController
             'profile_custom_bg' => !empty($customBgFileId),
             'profile_bg_overlay' => $bgOverlay,
             'profile_locale' => $locale,
+            'profile_feeds' => $publicFeeds,
         ]);
     }
 

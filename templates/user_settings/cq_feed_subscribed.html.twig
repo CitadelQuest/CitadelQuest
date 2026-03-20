@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'feed.settings.subscribed_title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent pb-2">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-account-box me-2 text-cyber"></i> {{ 'profile.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_my_feeds') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-rss mx-2 text-cyber"></i> {{ 'feed.settings.my_feeds_title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_subscribed') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0">
+                        <i class="mdi mdi-rss-box mx-2 text-cyber"></i> {{ 'feed.settings.subscribed_title'|trans }}
+                    </a>
+                    <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel p-4 border-1 border-primary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="mdi mdi-rss-box me-3 text-cyber"></i>{{ 'feed.settings.subscribed_title'|trans }}</h4>
+                    <button class="btn btn-sm btn-outline-cyber" id="btn-sync-subscriptions">
+                        <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                        <i class="mdi mdi-sync me-1"></i> {{ 'feed.settings.sync'|trans }}
+                    </button>
+                </div>
+                <p class="text-muted small mb-3">{{ 'feed.settings.subscribed_desc'|trans }}</p>
+            </div>
+
+            <div class="p-4" id="cq-feed-subscribed-settings"
+                 data-api-url="/api/feed/subscribed"
+                 data-sync-url="/api/feed/sync-subscriptions"
+                 data-translations="{{ {
+                     'unsubscribe': 'feed.settings.unsubscribe'|trans,
+                     'unsubscribe_confirm': 'feed.settings.unsubscribe_confirm'|trans,
+                     'unsubscribed': 'feed.settings.unsubscribed'|trans,
+                     'toggle_active': 'feed.settings.toggle_active'|trans,
+                     'no_subscriptions': 'feed.settings.no_subscriptions'|trans,
+                     'synced': 'feed.settings.synced'|trans,
+                     'sync_error': 'feed.settings.sync_error'|trans,
+                     'error': 'feed.settings.error'|trans,
+                     'active': 'feed.settings.feed_active'|trans,
+                     'paused': 'feed.settings.paused'|trans,
+                     'posts_cached': 'feed.settings.posts_cached'|trans,
+                     'last_visited': 'feed.settings.last_visited'|trans,
+                     'loading': 'ui.loading'|trans,
+                 }|json_encode|e('html_attr') }}">
+
+                {# Loading state #}
+                <div id="subscribed-loading" class="text-center py-5">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                    <span class="text-muted ms-2">{{ 'ui.loading'|trans }}</span>
+                </div>
+
+                {# Subscribed feeds list container #}
+                <div id="subscribed-list" class="d-none"></div>
+
+                {# Empty state #}
+                <div id="subscribed-empty" class="d-none text-center py-5">
+                    <i class="mdi mdi-rss-off text-muted" style="font-size: 48px; opacity: 0.3;"></i>
+                    <p class="text-muted mt-2">{{ 'feed.settings.no_subscriptions'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-cq-feed') }}
+{% endblock %}

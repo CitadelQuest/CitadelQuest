@@ -59,6 +59,7 @@ export class CQFeedTimeline {
                             ...post,
                             feed_title: feed.title,
                             feed_slug: feed.feed_url_slug,
+                            feed_scope: feed.scope,
                             is_own: true,
                         });
                     }
@@ -167,6 +168,86 @@ export class CQFeedTimeline {
                 }
             });
         });
+
+        // Bind timeline feed badge toggle → show pause/unsub actions
+        this._bindTimelineFeedBadgeHandlers();
+    }
+
+    _bindTimelineFeedBadgeHandlers() {
+        this.container.querySelectorAll('.timeline-feed-badge-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const group = toggle.closest('.timeline-feed-badge-group');
+                const actions = group?.querySelector('.timeline-feed-badge-actions');
+                if (!actions) return;
+
+                toggle.classList.add('d-none');
+                actions.classList.remove('d-none');
+                actions.classList.add('d-inline-flex');
+
+                if (this._tlFeedTimer) clearTimeout(this._tlFeedTimer);
+                this._tlFeedTimer = setTimeout(() => {
+                    actions.classList.add('d-none');
+                    actions.classList.remove('d-inline-flex');
+                    toggle.classList.remove('d-none');
+                }, 3000);
+            });
+        });
+
+        // Pause
+        this.container.querySelectorAll('.timeline-feed-pause-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const feedId = btn.dataset.feedId;
+                btn.disabled = true;
+                btn.innerHTML = `<i class="mdi mdi-loading mdi-spin" style="font-size:0.75rem;"></i>`;
+                try {
+                    const resp = await fetch(`/api/feed/subscribed/${feedId}/toggle`, { method: 'POST' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.toast?.success(data.feed?.is_active == 1
+                            ? this.t('feed_resumed', 'Feed resumed')
+                            : this.t('feed_paused', 'Feed paused'));
+                        // Refresh the timeline
+                        await this.init();
+                    } else {
+                        throw new Error(data.message || 'Failed');
+                    }
+                } catch (error) {
+                    console.error('Timeline feed pause error:', error);
+                    window.toast?.error(error.message);
+                    btn.disabled = false;
+                }
+            });
+        });
+
+        // Unsubscribe
+        this.container.querySelectorAll('.timeline-feed-unsub-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const feedId = btn.dataset.feedId;
+                btn.disabled = true;
+                btn.innerHTML = `<i class="mdi mdi-loading mdi-spin" style="font-size:0.75rem;"></i>`;
+                try {
+                    const resp = await fetch(`/api/feed/subscribed/${feedId}`, { method: 'DELETE' });
+                    const data = await resp.json();
+                    if (data.success) {
+                        window.toast?.success(this.t('feed_unsubscribed', 'Unsubscribed'));
+                        // Refresh the timeline
+                        await this.init();
+                    } else {
+                        throw new Error(data.message || 'Failed');
+                    }
+                } catch (error) {
+                    console.error('Timeline feed unsub error:', error);
+                    window.toast?.error(error.message);
+                    btn.disabled = false;
+                }
+            });
+        });
     }
 
     _renderPost(post) {
@@ -177,24 +258,38 @@ export class CQFeedTimeline {
         const timeAgo = this._timeAgo(post.created_at);
         const contentHtml = this.md.render(post.content || '');
 
-        // Profile photo
+        // Profile photo — use local proxy for federation posts (handles API key auth server-side)
         let photoHtml;
         if (isOwn && this.userPhotoUrl) {
-            photoHtml = `<img src="${this.userPhotoUrl}" alt="${this._escapeHtml(this.username)}" class="rounded me-2 border_border-light_border-opacity-25" style="width: 32px; height: 32px; object-fit: cover;">`;
-        } else if (!isOwn && post.cq_contact_domain && post.cq_contact_username) {
-            const remotePhotoUrl = `https://${post.cq_contact_domain}/${post.cq_contact_username}/photo`;
-            photoHtml = `<img src="${remotePhotoUrl}" alt="${this._escapeHtml(authorName)}" class="rounded me-2 border_border-light_border-opacity-25" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.outerHTML='<i class=\'mdi mdi-account-box text-info me-2\' style=\'font-size:1.8rem\'></i>'">`;
+            photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
+        } else if (!isOwn && post.cq_contact_id) {
+            const photoUrl = `/api/cq-contact/${post.cq_contact_id}/profile-photo`;
+            photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
         } else {
-            photoHtml = `<i class="mdi mdi-account-box ${isOwn ? 'text-cyber' : 'text-info'} me-2" style="font-size: 1.8rem;"></i>`;
+            photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber"></i></div>`;
         }
 
         const authorDisplay = isOwn
             ? `<span class="fw-bold text-cyber">${this._escapeHtml(authorName)}</span>`
             : `<span class="fw-bold text-light">${this._escapeHtml(authorName)}</span><span class="text-light opacity-50 small">${this._escapeHtml(authorDomain)}</span>`;
 
-        const feedBadge = feedTitle
-            ? `<span class="badge bg-secondary bg-opacity-10 text-secondary me-2 small">${this._escapeHtml(feedTitle)}</span>`
-            : '';
+        // Feed badge — interactive for federation posts (pause/unsubscribe)
+        // scope: 0=Public (secondary), 1=CQ Contacts (primary)
+        const feedScope = parseInt(post.feed_scope || 0);
+        const badgeBg = feedScope === 1 ? 'bg-primary bg-opacity-10 text-primary opacity-75' : 'bg-secondary bg-opacity-10 text-secondary';
+        let feedBadge = '';
+        if (feedTitle && !isOwn && post.cq_feed_id) {
+            feedBadge = `
+                <div class="d-inline-flex align-items-center gap-1 me-2 timeline-feed-badge-group" data-feed-id="${post.cq_feed_id}">
+                    <a href="#" class="badge ${badgeBg} small text-decoration-none timeline-feed-badge-toggle" style="cursor:pointer;"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</a>
+                    <div class="d-none timeline-feed-badge-actions align-items-center gap-1">
+                        <button class="btn btn-sm px-1 py-0 btn-outline-warning timeline-feed-pause-btn" data-feed-id="${post.cq_feed_id}" title="${this.t('feed_pause', 'Pause')}"><i class="mdi mdi-pause" style="font-size:0.75rem;"></i></button>
+                        <button class="btn btn-sm px-1 py-0 btn-outline-danger timeline-feed-unsub-btn" data-feed-id="${post.cq_feed_id}" title="${this.t('feed_unsubscribe', 'Unsubscribe')}"><i class="mdi mdi-rss-off" style="font-size:0.75rem;"></i></button>
+                    </div>
+                </div>`;
+        } else if (feedTitle) {
+            feedBadge = `<span class="badge ${badgeBg} me-2 small"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</span>`;
+        }
 
         const deleteBtn = isOwn
             ? `<button class="btn btn-sm btn-link text-danger p-0 ms-2 opacity-50" data-feed-delete-post="${post.id}" title="${this.t('feed_delete_post', 'Delete')}"><i class="mdi mdi-delete-outline small"></i></button>`

@@ -97,17 +97,17 @@
                     {# Top row: Photo + (desktop: text) + Spirits #}
                     <div class="d-flex align-items-start">
                         {# Profile Photo #}
-                        <div class="me-3 me-md-4 flex-shrink-0">
+                        <div class="me-4 mb-3 flex-shrink-0">
                             {% if profile_has_photo %}
                                 <a href="#" data-bs-toggle="modal" data-bs-target="#profilePhotoModal" style="cursor: pointer;">
                                 <img src="{{ path('cq_profile_photo', {username: profile_username}) }}" 
                                      alt="{{ profile_username }}" 
                                      class="rounded border_ border-0 border-primary_border-opacity-50"
-                                     style="width: 96px; height: 96px; object-fit: cover;">
+                                     style="width: 125px; height: 125px; object-fit: cover;">
                                 </a>
                             {% else %}
                                 <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
-                                     style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                                     style="width: 125px; height: 125px; background: rgba(255,255,255,0.05);">
                                     <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 48px;"></i>
                                 </div>
                             {% endif %}
@@ -115,7 +115,7 @@
 
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
-                            <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
+                            <h2 class="h2 mb-1 text-cyber fw-bold">{{ profile_username }}</h2>
                             <small class="text-light d-inline-flex align-items-center">
                                 <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
                                 <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
@@ -125,22 +125,11 @@
                                     <i class="mdi mdi-link-variant opacity-75"></i>
                                 </button>
                             </small>
-                            {% if profile_bio %}
-                                {% if profile_bio|length > 600 %}
-                                    <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
-                                        <div class="bio-short">{{ (profile_bio[:600] ~ '…')|markdown_to_html }}</div>
-                                        <div class="bio-full d-none">{{ profile_bio|markdown_to_html }}</div>
-                                        <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
-                                    </div>
-                                {% else %}
-                                    <div class="text-light mt-2 mb-0" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|markdown_to_html }}</div>
-                                {% endif %}
-                            {% endif %}
                         </div>
 
                         {# Spirit Showcase — all screen sizes, right side #}
-                        {% if profile_spirits|length > 0 %}
                         <div class="ms-auto ms-md-3 flex-shrink-0">
+                        {% if profile_spirits|length > 0 %}
                             {% for spirit in profile_spirits %}
                             <div class="d-flex align-items-center mb-1" style="white-space: nowrap;">
                                 <div class="rounded-circle d-flex align-items-center justify-content-center me-2"
@@ -156,13 +145,26 @@
                                 </div>
                             </div>
                             {% endfor %}
-                        </div>
                         {% endif %}
+
+                            {# Public Feed Badges — right side, below spirits #}
+                            {% if profile_feeds|default([])|length > 0 %}
+                            <div class="d-flex flex-column align-items-end gap-1 ms-auto mt-3">
+                                <i class="mdi mdi-rss text-primary opacity-75" style="font-size: 1.2rem;"></i>
+                                {% for feed in profile_feeds %}
+                                <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug}) }}"
+                                    class="badge bg-primary bg-opacity-10 text-light opacity-75 text-decoration-none px-2 py-1" style="font-size: 0.75rem;">
+                                    <i class="mdi mdi-rss me-1 text-primary opacity-75"></i>{{ feed.title }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {# Username & Domain & Bio — mobile only (below photo+spirits row) #}
                     <div class="d-md-none mt-3">
-                        <h2 class="h3 mb-1 text-cyber">{{ profile_username }}</h2>
+                        <h2 class="h3 mb-1 text-cyber fw-bold">{{ profile_username }}</h2>
                         <small class="text-light d-inline-flex align-items-center">
                             <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
                             <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
@@ -172,18 +174,19 @@
                                 <i class="mdi mdi-link-variant opacity-75"></i>
                             </button>
                         </small>
-                        {% if profile_bio %}
-                            {% if profile_bio|length > 600 %}
-                                <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
-                                    <div class="bio-short">{{ (profile_bio[:600] ~ '…')|markdown_to_html }}</div>
-                                    <div class="bio-full d-none">{{ profile_bio|markdown_to_html }}</div>
-                                    <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
-                                </div>
-                            {% else %}
-                                <div class="text-light mt-2 mb-0" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|markdown_to_html }}</div>
-                            {% endif %}
-                        {% endif %}
                     </div>
+
+                    {% if profile_bio %}
+                        {% if profile_bio|length > 600 %}
+                            <div class="text-light mt-2 mb-0 bio-container" style="word-break: break-word;overflow-wrap: break-word;">
+                                <div class="bio-short">{{ (profile_bio[:600] ~ '…')|markdown_to_html }}</div>
+                                <div class="bio-full d-none">{{ profile_bio|markdown_to_html }}</div>
+                                <a href="#" class="bio-toggle text-cyber small ms-1" data-show-more="{{ 'ui.show_more'|trans }}" data-show-less="{{ 'ui.show_less'|trans }}">{{ 'ui.show_more'|trans }}</a>
+                            </div>
+                        {% else %}
+                            <div class="text-light mt-2 mb-0" style="word-break: break-word;overflow-wrap: break-word;">{{ profile_bio|markdown_to_html }}</div>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
 

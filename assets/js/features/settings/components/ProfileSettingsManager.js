@@ -192,7 +192,7 @@ export class ProfileSettingsManager {
                         <img src="${ev.target.result}" 
                              alt="Profile" 
                              class="rounded border border-2 border-primary"
-                             style="width: 96px; height: 96px; object-fit: cover;">
+                             style="width: 125px; height: 125px; object-fit: cover;">
                     `;
                 };
                 reader.readAsDataURL(file);
@@ -221,7 +221,7 @@ export class ProfileSettingsManager {
             if (data.success) {
                 this.photoPreview.innerHTML = `
                     <div class="rounded border border-2 border-secondary d-flex align-items-center justify-content-center"
-                         style="width: 96px; height: 96px; background: rgba(255,255,255,0.05);">
+                         style="width: 125px; height: 125px; background: rgba(255,255,255,0.05);">
                         <i class="mdi mdi-account text-cyber opacity-75" style="font-size: 48px;"></i>
                     </div>
                 `;

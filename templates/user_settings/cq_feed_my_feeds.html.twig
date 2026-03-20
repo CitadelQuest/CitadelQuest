@@ -1,0 +1,151 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'feed.settings.my_feeds_title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent pb-2">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-account-box me-2 text-cyber"></i> {{ 'profile.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_my_feeds') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0">
+                        <i class="mdi mdi-rss mx-2 text-cyber"></i> {{ 'feed.settings.my_feeds_title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_subscribed') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-rss-box mx-2 text-cyber"></i> {{ 'feed.settings.subscribed_title'|trans }}
+                    </a>
+                    <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel p-4 border-1 border-primary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="mdi mdi-rss me-3 text-cyber"></i>{{ 'feed.settings.my_feeds_title'|trans }}</h4>
+                    <button class="btn btn-sm btn-cyber" id="btn-create-feed">
+                        <i class="mdi mdi-plus me-1"></i> {{ 'feed.settings.create_feed'|trans }}
+                    </button>
+                </div>
+                <p class="text-muted small mb-3">{{ 'feed.settings.my_feeds_desc'|trans }}</p>
+            </div>
+
+            <div class="p-4" id="cq-feed-settings"
+                 data-api-url="/api/feed/my-feeds"
+                 data-username="{{ app.user.username }}"
+                 data-translations="{{ {
+                     'create_feed': 'feed.settings.create_feed'|trans,
+                     'edit_feed': 'feed.settings.edit_feed'|trans,
+                     'delete_feed': 'feed.settings.delete_feed'|trans,
+                     'delete_confirm': 'feed.settings.delete_confirm'|trans,
+                     'feed_title': 'feed.settings.feed_title'|trans,
+                     'feed_slug': 'feed.settings.feed_slug'|trans,
+                     'feed_scope': 'feed.settings.feed_scope'|trans,
+                     'scope_public': 'feed.settings.scope_public'|trans,
+                     'scope_contacts': 'feed.settings.scope_contacts'|trans,
+                     'feed_description': 'feed.settings.feed_description'|trans,
+                     'feed_active': 'feed.settings.feed_active'|trans,
+                     'no_feeds': 'feed.settings.no_feeds'|trans,
+                     'saved': 'feed.settings.saved'|trans,
+                     'deleted': 'feed.settings.deleted'|trans,
+                     'error': 'feed.settings.error'|trans,
+                     'posts': 'feed.settings.posts'|trans,
+                     'save': 'ui.save'|trans,
+                     'cancel': 'ui.cancel'|trans,
+                     'loading': 'ui.loading'|trans,
+                 }|json_encode|e('html_attr') }}">
+
+                {# Loading state #}
+                <div id="feeds-loading" class="text-center py-5">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                    <span class="text-muted ms-2">{{ 'ui.loading'|trans }}</span>
+                </div>
+
+                {# Feeds list container #}
+                <div id="feeds-list" class="d-none"></div>
+
+                {# Empty state #}
+                <div id="feeds-empty" class="d-none text-center py-5">
+                    <i class="mdi mdi-rss-off text-muted" style="font-size: 48px; opacity: 0.3;"></i>
+                    <p class="text-muted mt-2">{{ 'feed.settings.no_feeds'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Feed Edit Modal #}
+<div class="modal fade" id="feedEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="feedEditModalTitle">
+                    <i class="mdi mdi-rss me-2"></i>{{ 'feed.settings.create_feed'|trans }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="feed-edit-id" value="">
+                
+                <div class="mb-3">
+                    <label class="form-label" for="feed-edit-title"><i class="mdi mdi-label me-2 text-cyber"></i>{{ 'feed.settings.feed_title'|trans }}</label>
+                    <input type="text" class="form-control glass-input" id="feed-edit-title" maxlength="128" autofocus>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="feed-edit-slug"><i class="mdi mdi-link-variant me-2 text-cyber"></i>{{ 'feed.settings.feed_slug'|trans }}</label>
+                    <input type="text" class="form-control form-control-sm glass-input" id="feed-edit-slug" placeholder="my-feed" maxlength="128">
+                    <div class="text-muted small mt-1">URL: <code>{{ app.request.schemeAndHttpHost }}/{{ app.user.username }}/feed/<span id="slug-preview-val">my-feed</span></code></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="feed-edit-scope"><i class="mdi mdi-eye me-2 text-cyber"></i>{{ 'feed.settings.feed_scope'|trans }}</label>
+                    <select class="form-select form-select-sm glass-input" id="feed-edit-scope">
+                        <option value="0">{{ 'feed.settings.scope_public'|trans }}</option>
+                        <option value="1" selected>{{ 'feed.settings.scope_contacts'|trans }}</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label" for="feed-edit-description"><i class="mdi mdi-text me-2 text-cyber"></i>{{ 'feed.settings.feed_description'|trans }}</label>
+                    <textarea class="form-control glass-input" id="feed-edit-description" rows="2" maxlength="500"></textarea>
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="feed-edit-active" checked>
+                    <label class="form-check-label text-light small" for="feed-edit-active">{{ 'feed.settings.feed_active'|trans }}</label>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="btn-save-feed">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-cq-feed') }}
+{% endblock %}
