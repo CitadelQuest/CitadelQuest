@@ -1,4 +1,4 @@
-# CitadelQuest
+# [CitadelQuest](https://www.citadelquest.com/)
 
 ### Free, Open-Source, Self-Hosted Platform for Personal Data Sovereignty and AI-Human Collaboration
 
