@@ -46,7 +46,7 @@ export class CQFeedPostComposer {
                         placeholder="${this.t('feed_post_placeholder', "What's on your mind?")}"
                         style="resize: vertical; min-height: 60px;"></textarea>
                 </div>
-                <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2 justify-content-between">
                     <div class="d-flex align-items-center gap-2">
                         <a href="/settings/cq-feed/my-feeds" class="text-cyber opacity-75" title="${this.t('feed_settings', 'Feed Settings')}" style="font-size: 1.1rem; line-height: 1;">
                             <i class="mdi mdi-rss"></i>
@@ -55,11 +55,11 @@ export class CQFeedPostComposer {
                             ${this.feeds.map(f => `<option value="${f.id}" ${f.id === this.selectedFeedId ? 'selected' : ''}>${this._escapeHtml(f.title)}</option>`).join('')}
                         </select>
                         <span class="small text-muted opacity-50 d-none d-md-inline">
-                            <i class="mdi mdi-markdown me-1"></i>${this.t('feed_markdown_hint', 'Markdown')}
+                            <i class="mdi mdi-markdown"></i><span class="d-none d-sm-inline-block ms-1">${this.t('feed_markdown_hint', 'Markdown')}</span>
                         </span>
                     </div>
                     <button id="cqFeedPostBtn" class="btn btn-sm btn-cyber" disabled>
-                        <i class="mdi mdi-send me-1"></i>${this.t('feed_post_btn', 'Post')}
+                        <i class="mdi mdi-send"></i><span class="d-none d-sm-inline-block ms-1">${this.t('feed_post_btn', 'Post')}</span>
                     </button>
                 </div>
             </div>

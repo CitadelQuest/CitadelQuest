@@ -378,15 +378,17 @@ export class CQFeedTimeline {
             </div>`;
 
         return `
-            <div class="glass-panel p-3 pb-2 mb-2 cq-feed-post${newClass}" data-post-id="${post.id}">
-                <div class="d-flex align-items-center mb-2 pb-2 border-0 border-bottom border-1 border-secondary border-opacity-10">
+            <div class="glass-panel p-3 pb-2 mb-2 overflow-hidden cq-feed-post${newClass}" data-post-id="${post.id}">
+                <div class="d-flex align-items-start flex-column flex-sm-row gap-1 mb-2 pb-2 border-0 border-bottom border-1 border-secondary border-opacity-10 overflow-hidden">
                     <div class="d-flex align-items-center flex-grow-1"${headerClickAttr}>
                         ${photoHtml}
                         <div class="d-flex flex-column" style="line-height:1rem;">${authorDisplay}</div>
                     </div>
                     ${deleteBtn}
-                    ${feedBadge}
-                    <span class="text-muted small ms-2">${timeAgo}</span>
+                    <div class="d-flex justify-content-end align-items-center w-100">
+                        ${feedBadge}
+                        <span class="text-muted small ms-2 d-none_d-sm-inline-block">${timeAgo}</span>
+                    </div>
                 </div>
                 <div class="cq-feed-post-content markdown-body overflow-auto">${contentHtml}</div>
                 ${reactionsHtml}
@@ -741,13 +743,14 @@ export class CQFeedTimeline {
 
         // Profile photo
         let photoHtml;
+        let photoSize = '25px';
         if (isOwnComment && this.userPhotoUrl) {
-            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:22px; height:22px; background:rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
+            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
         } else if (commenterDomain && commenterName) {
             const photoUrl = `https://${commenterDomain}/${commenterName}/photo`;
-            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:22px; height:22px; background:rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
+            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
         } else {
-            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:22px; height:22px; background:rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber" style="font-size:0.7rem;"></i></div>`;
+            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber" style="font-size:0.7rem;"></i></div>`;
         }
 
         // Profile click attribute — opens CQ Profile in CQ Explorer
@@ -775,12 +778,15 @@ export class CQFeedTimeline {
                 <div class="cq-comment-profile-link d-flex align-items-start flex-shrink-0"${profileClickAttr}>${photoHtml}</div>
                 <div class="flex-grow-1" style="min-width:0;">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="cq-comment-profile-link fw-bold text-light" style="font-size:0.8rem;${contactUrl ? ' cursor:pointer;' : ''}"${profileClickAttr}>${this._escapeHtml(commenterName)}</span>
+                        <div style="min-width: 0; line-height:0.9rem;">
+                            <div class="cq-comment-profile-link fw-bold text-light" style="font-size:0.8rem;${contactUrl ? ' cursor:pointer;' : ''}"${profileClickAttr}>${this._escapeHtml(commenterName)}</div>
+                            <div class="text-light opacity-50" style="font-size: 0.65rem;">${commenterDomain}</div>
+                        </div>
                         <span class="text-muted" style="font-size:0.7rem;">${timeAgo}</span>
                         ${replyBtn}
                         ${actionsHtml}
                     </div>
-                    <div class="cq-comment-content text-light" style="font-size:0.82rem; word-break:break-word;">${this._escapeHtml(comment.content)}</div>
+                    <div class="cq-comment-content text-light pt-2" style="font-size:0.9rem; word-break:break-word;">${this._escapeHtml(comment.content)}</div>
                 </div>
             </div>`;
     }

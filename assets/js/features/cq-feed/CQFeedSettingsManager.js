@@ -342,7 +342,7 @@ export class CQFeedSettingsManager {
             : '—';
 
         return `
-            <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-secondary border-opacity-25 ${activeClass}">
+            <div class="d-flex justify-content-between align-items-center flex-column flex-sm-row py-2 border-bottom border-secondary border-opacity-25 ${activeClass}">
                 <div class="flex-grow-1">
                     <div class="d-flex align-items-center gap-2">
                         <i class="mdi mdi-rss text-warning"></i>
