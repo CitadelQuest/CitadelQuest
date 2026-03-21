@@ -89,28 +89,18 @@ export class CQFeedManager {
     }
 
     /**
-     * Background: fetch latest posts from all subscribed feeds
+     * Background: fetch latest posts from all subscribed feeds (single parallel call)
      */
     async _fetchSubscribedFeeds() {
         try {
             // Sync subscriptions first — discover feeds from contacts who created them after being followed
             await this.api.syncSubscriptions().catch(() => null);
 
-            const data = await this.api.listSubscribed();
-            if (!data.success) return;
+            // Single backend call — fires all federation requests in parallel server-side
+            const data = await this.api.fetchAllSubscribed().catch(() => null);
 
-            const feeds = data.feeds || [];
-            const activeFeeds = feeds.filter(f => f.is_active);
-
-            // Fetch in parallel (up to 5 concurrent)
-            const batchSize = 5;
-            for (let i = 0; i < activeFeeds.length; i += batchSize) {
-                const batch = activeFeeds.slice(i, i + batchSize);
-                await Promise.all(batch.map(f => this.api.fetchSubscribed(f.id).catch(() => null)));
-            }
-
-            // Reload timeline if any feeds were fetched
-            if (activeFeeds.length > 0 && this.timeline) {
+            // Reload timeline if any feeds were checked
+            if (data?.feeds_checked > 0 && this.timeline) {
                 await this.timeline.init();
             }
         } catch (e) {

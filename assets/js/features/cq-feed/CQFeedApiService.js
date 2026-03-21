@@ -94,6 +94,13 @@ export class CQFeedApiService {
         return resp.json();
     }
 
+    async fetchAllSubscribed() {
+        const resp = await fetch('/api/feed/subscribed/fetch-all', {
+            method: 'POST',
+        });
+        return resp.json();
+    }
+
     async unsubscribe(feedId) {
         const resp = await fetch(`/api/feed/subscribed/${feedId}`, {
             method: 'DELETE',

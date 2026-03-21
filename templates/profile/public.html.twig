@@ -115,7 +115,7 @@
 
                         {# Username & Domain & Bio — desktop only (inline with photo) #}
                         <div class="flex-grow-1 d-none d-md-block">
-                            <h2 class="h2 mb-1 mt-2 text-cyber fw-bold">{{ profile_username }}</h2>
+                            <a href="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"><h2 class="h2 mb-1 mt-2 text-cyber fw-bold">{{ profile_username }}</h2></a>
                             <small class="text-light d-inline-flex align-items-center">
                                 <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
                                 <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>
@@ -165,7 +165,7 @@
 
                     {# Username & Domain & Bio — mobile only (below photo+spirits row) #}
                     <div class="d-md-none mt-3">
-                        <h2 class="h3 mb-1 text-cyber fw-bold">{{ profile_username }}</h2>
+                        <a href="{{ app.request.schemeAndHttpHost }}/{{ profile_username }}"><h2 class="h3 mb-1 text-cyber fw-bold">{{ profile_username }}</h2></a>
                         <small class="text-light d-inline-flex align-items-center">
                             <img src="{{ asset('build/images/favicon-16x16.png') }}" title="Citadel" class="me-1" />
                             <span class="opacity-50">{{ app.request.schemeAndHttpHost }}/{{ profile_username }}</span>

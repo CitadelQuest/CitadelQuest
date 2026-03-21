@@ -449,6 +449,188 @@ class CQFederationFeedService
     }
 
     // ========================================
+    // Parallel Federation Operations
+    // ========================================
+
+    /**
+     * Fetch latest posts from multiple feeds in parallel.
+     * Fires all HTTP requests concurrently, then processes responses.
+     * Returns total number of new/updated posts.
+     *
+     * @param array<array{feed_id: string, api_key: ?string}> $feedJobs
+     */
+    public function fetchRemotePostsParallel(array $feedJobs, int $limit = 50): int
+    {
+        if (empty($feedJobs)) {
+            return 0;
+        }
+
+        // 1. Collect feed rows and fire all requests (non-blocking)
+        $pending = []; // ['feed' => row, 'response' => ResponseInterface, 'api_key' => ?string]
+        foreach ($feedJobs as $job) {
+            $feed = $this->findById($job['feed_id']);
+            if (!$feed) {
+                continue;
+            }
+
+            $baseUrl = 'https://' . $feed['cq_contact_domain'] . '/' . $feed['cq_contact_username'];
+            $url = $baseUrl . '/feed/' . $feed['feed_url_slug'];
+
+            $headers = [
+                'Accept' => 'application/json',
+                'User-Agent' => 'CitadelQuest HTTP Client',
+            ];
+            if (!empty($job['api_key'])) {
+                $headers['Authorization'] = 'Bearer ' . $job['api_key'];
+            }
+
+            // Symfony HttpClient fires the request immediately; response is lazy
+            $response = $this->httpClient->request('GET', $url, [
+                'headers' => $headers,
+                'query' => [
+                    'since' => $feed['last_visited_at'],
+                    'limit' => $limit,
+                ],
+                'timeout' => 15,
+                'verify_peer' => false,
+            ]);
+
+            $pending[] = [
+                'feed' => $feed,
+                'response' => $response,
+            ];
+        }
+
+        // 2. Process all responses (network I/O happens here, concurrently)
+        $totalCount = 0;
+        $db = $this->getUserDb();
+        $now = date('Y-m-d H:i:s');
+
+        foreach ($pending as $item) {
+            $feed = $item['feed'];
+            $feedId = $feed['id'];
+
+            try {
+                $data = $item['response']->toArray(false);
+                if (!($data['success'] ?? false)) {
+                    continue;
+                }
+
+                $count = 0;
+                foreach ($data['posts'] ?? [] as $post) {
+                    $author = $post['author'] ?? [];
+                    $this->cachePost(
+                        $feedId,
+                        $post['id'],
+                        $author['cq_contact_id'] ?? $feed['cq_contact_id'],
+                        $author['url'] ?? $feed['cq_contact_url'],
+                        $author['domain'] ?? $feed['cq_contact_domain'],
+                        $author['username'] ?? $feed['cq_contact_username'],
+                        $post['post_url_slug'] ?? '',
+                        $post['content'] ?? '',
+                        $post['created_at'] ?? $now,
+                        $post['updated_at'] ?? $now
+                    );
+                    $count++;
+                }
+
+                // Update timestamps
+                $this->updateLastVisited($feedId);
+                $db->executeStatement(
+                    'UPDATE cq_federation_feed SET updated_at = ? WHERE id = ?',
+                    [$now, $feedId]
+                );
+
+                $totalCount += $count;
+
+            } catch (\Exception $e) {
+                $this->logger->error('CQFederationFeedService::fetchRemotePostsParallel error', [
+                    'feed_id' => $feedId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $totalCount;
+    }
+
+    /**
+     * Discover and subscribe to feeds from multiple contacts in parallel.
+     * Fires all /feeds discovery requests concurrently, then processes results.
+     * Returns total number of new subscriptions.
+     *
+     * @param array<array{cq_contact_id: string, cq_contact_url: string, cq_contact_domain: string, cq_contact_username: string, api_key: ?string}> $contacts
+     */
+    public function discoverFeedsParallel(array $contacts): int
+    {
+        if (empty($contacts)) {
+            return 0;
+        }
+
+        // 1. Fire all discovery requests (non-blocking)
+        $pending = [];
+        foreach ($contacts as $contact) {
+            $url = 'https://' . $contact['cq_contact_domain'] . '/' . $contact['cq_contact_username'] . '/feeds';
+
+            $headers = [
+                'Accept' => 'application/json',
+                'User-Agent' => 'CitadelQuest HTTP Client',
+            ];
+            if (!empty($contact['api_key'])) {
+                $headers['Authorization'] = 'Bearer ' . $contact['api_key'];
+            }
+
+            $response = $this->httpClient->request('GET', $url, [
+                'headers' => $headers,
+                'timeout' => 15,
+                'verify_peer' => false,
+            ]);
+
+            $pending[] = [
+                'contact' => $contact,
+                'response' => $response,
+            ];
+        }
+
+        // 2. Process all responses concurrently
+        $totalCount = 0;
+
+        foreach ($pending as $item) {
+            $c = $item['contact'];
+
+            try {
+                $data = $item['response']->toArray(false);
+                if (!($data['success'] ?? false)) {
+                    continue;
+                }
+
+                foreach ($data['feeds'] ?? [] as $feed) {
+                    $this->subscribeFeed(
+                        $c['cq_contact_id'],
+                        $c['cq_contact_url'],
+                        $c['cq_contact_domain'],
+                        $c['cq_contact_username'],
+                        $feed['feed_url_slug'] ?? '',
+                        $feed['title'] ?? 'Untitled',
+                        $feed['description'] ?? null,
+                        $c['api_key'] ?? null,
+                        (int) ($feed['scope'] ?? 0)
+                    );
+                    $totalCount++;
+                }
+
+            } catch (\Exception $e) {
+                $this->logger->error('CQFederationFeedService::discoverFeedsParallel error', [
+                    'contact_id' => $c['cq_contact_id'],
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $totalCount;
+    }
+
+    // ========================================
     // Reactions
     // ========================================
 

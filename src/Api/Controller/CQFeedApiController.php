@@ -248,6 +248,7 @@ class CQFeedApiController extends AbstractController
     /**
      * Sync feed subscriptions: discover and subscribe to feeds from all followed contacts.
      * Ensures users who created feeds after being followed are picked up.
+     * Uses parallel HTTP requests for performance.
      */
     #[Route('/sync-subscriptions', name: 'api_feed_sync_subscriptions', methods: ['POST'])]
     public function syncSubscriptions(): JsonResponse
@@ -260,25 +261,20 @@ class CQFeedApiController extends AbstractController
 
             $this->contactService->setUser($user);
 
-            $newSubs = 0;
+            // Build contact list with API keys for parallel discovery
+            $contacts = [];
             foreach ($follows as $follow) {
-                try {
-                    // Look up contact API key for authenticated feed access
-                    $contact = $this->contactService->findById($follow['cq_contact_id']);
-                    $apiKey = $contact ? $contact->getCqContactApiKey() : null;
-
-                    $count = $this->federationFeedService->subscribeAllFeeds(
-                        $follow['cq_contact_id'],
-                        $follow['cq_contact_url'],
-                        $follow['cq_contact_domain'],
-                        $follow['cq_contact_username'],
-                        $apiKey
-                    );
-                    $newSubs += $count;
-                } catch (\Exception $e) {
-                    // Skip contacts that are unreachable
-                }
+                $contact = $this->contactService->findById($follow['cq_contact_id']);
+                $contacts[] = [
+                    'cq_contact_id' => $follow['cq_contact_id'],
+                    'cq_contact_url' => $follow['cq_contact_url'],
+                    'cq_contact_domain' => $follow['cq_contact_domain'],
+                    'cq_contact_username' => $follow['cq_contact_username'],
+                    'api_key' => $contact ? $contact->getCqContactApiKey() : null,
+                ];
             }
+
+            $newSubs = $this->federationFeedService->discoverFeedsParallel($contacts);
 
             return $this->json(['success' => true, 'new_subscriptions' => $newSubs]);
         } catch (\Exception $e) {
@@ -344,6 +340,44 @@ class CQFeedApiController extends AbstractController
             ]);
         } catch (\Exception $e) {
             $this->logger->error('CQFeedApiController::fetchSubscribed error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Fetch latest posts from ALL active subscribed feeds in parallel (single call).
+     * Replaces per-feed fetch loops from the frontend.
+     */
+    #[Route('/subscribed/fetch-all', name: 'api_feed_subscribed_fetch_all', methods: ['POST'])]
+    public function fetchAllSubscribed(): JsonResponse
+    {
+        try {
+            /** @var User $user */
+            $user = $this->getUser();
+            $this->contactService->setUser($user);
+
+            $feeds = $this->federationFeedService->listSubscribedFeeds();
+            $activeFeeds = array_filter($feeds, fn($f) => !empty($f['is_active']));
+
+            // Build feed jobs with API keys
+            $feedJobs = [];
+            foreach ($activeFeeds as $feed) {
+                $contact = $this->contactService->findById($feed['cq_contact_id']);
+                $feedJobs[] = [
+                    'feed_id' => $feed['id'],
+                    'api_key' => $contact ? $contact->getCqContactApiKey() : null,
+                ];
+            }
+
+            $count = $this->federationFeedService->fetchRemotePostsParallel($feedJobs);
+
+            return $this->json([
+                'success' => true,
+                'new_posts' => $count,
+                'feeds_checked' => count($feedJobs),
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('CQFeedApiController::fetchAllSubscribed error', ['error' => $e->getMessage()]);
             return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

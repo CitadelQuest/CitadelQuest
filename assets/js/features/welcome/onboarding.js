@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.querySelector('.onboarding-complete-container').classList.remove('d-none');
                         
                         // Add click handler for the "Chat with Spirit" button
-                        const chatWithSpiritBtn = document.querySelector('.onboarding-complete-container .btn-cyber');
+                        const chatWithSpiritBtn = document.getElementById('chatWithSpiritBtn');
                         if (chatWithSpiritBtn) {
                             chatWithSpiritBtn.addEventListener('click', function() {
                                 const spiritChatModal = document.getElementById('spiritChatModal');
