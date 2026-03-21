@@ -511,6 +511,16 @@ class CQFederationFeedService
             $feedId = $feed['id'];
 
             try {
+                $statusCode = $item['response']->getStatusCode(false);
+                if ($statusCode === 404) {
+                    // Feed deleted on source — unsubscribe and remove cached posts
+                    $this->logger->info('CQFederationFeedService::fetchRemotePostsParallel feed 404, unsubscribing', [
+                        'feed_id' => $feedId,
+                    ]);
+                    $this->unsubscribeFeed($feedId);
+                    continue;
+                }
+
                 $data = $item['response']->toArray(false);
                 if (!($data['success'] ?? false)) {
                     continue;
@@ -599,6 +609,18 @@ class CQFederationFeedService
             $c = $item['contact'];
 
             try {
+                $statusCode = $item['response']->getStatusCode(false);
+                if ($statusCode === 404) {
+                    // Contact's /feeds endpoint gone — unsubscribe all feeds from this contact
+                    $this->logger->info('CQFederationFeedService::discoverFeedsParallel contact feeds 404, unsubscribing all', [
+                        'contact_id' => $c['cq_contact_id'],
+                    ]);
+                    foreach ($this->listFeedsByContact($c['cq_contact_id']) as $existingFeed) {
+                        $this->unsubscribeFeed($existingFeed['id']);
+                    }
+                    continue;
+                }
+
                 $data = $item['response']->toArray(false);
                 if (!($data['success'] ?? false)) {
                     continue;
