@@ -33,7 +33,7 @@ Think of it as your own personal digital fortress — a **Citadel** — where:
 | **CQ Share** | Share files and Memory Packs with contacts or publicly |
 | **CQ Profile** | Public profile page with Spirit showcase, content groups, and themes |
 | **Backup** | Full backup and restore of your data |
-| **Multi-language** | English, Czech, Slovak |
+| **Multi-language** | English, Español, Čeština, Italiano, Magyar, Norsk, Polski, Slovenčina |
 
 ---
 

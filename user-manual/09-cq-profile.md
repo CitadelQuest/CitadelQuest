@@ -16,7 +16,6 @@ https://your-citadel.com/YourUsername
 
 For example:
 - `https://one.citadelquest.world/Human`
-- `https://bad.bois.quest/JuRaj`
 
 The page displays:
 - **Profile photo** — your uploaded photo (or a default avatar)
