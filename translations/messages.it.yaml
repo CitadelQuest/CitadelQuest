@@ -4,7 +4,7 @@ app:
     tagline: 'Il tuo spazio personale sicuro per la collaborazione uomo-IA. Costruito con la privacy al centro e la sovranità dei tuoi dati in mente.'
     tagline_html: 'Il tuo spazio personale sicuro per la collaborazione uomo-IA.<br/>Costruito con la privacy al centro e la sovranità dei tuoi dati in mente.'
     footer:
-        made_with_love: 'Fatto con 💜 da Umano e IA'
+        made_with_love: 'Fatto con 💜 da <a href="https://one.citadelquest.world/Human" target="_blank">Umano</a> e IA'
         version: '%version%'
 
 auth:

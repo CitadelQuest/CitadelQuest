@@ -39,7 +39,7 @@
                     </a>
                     <span>{{ 'app.footer.version'|trans({'%version%': citadel_version}) }}, {{ date('now')|date('Y') }}</span>
                     <span class="text-cyber mx-1">&bull;</span> 
-                    <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans }}</span>
+                    <span class="d-inline-block">{{ 'app.footer.made_with_love'|trans|raw }}</span>
                 </small>
             </div>
         </footer>

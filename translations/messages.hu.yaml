@@ -4,7 +4,7 @@ app:
     tagline: 'A személyes biztonságos tered az AI-ember együttműködéshez. Az adatvédelem és az adatszuverenitás szem előtt tartásával készült.'
     tagline_html: 'A személyes biztonságos tered az AI-ember együttműködéshez.<br/>Az adatvédelem és az adatszuverenitás szem előtt tartásával készült.'
     footer:
-        made_with_love: '💜-vel készítette Ember és AI'
+        made_with_love: '💜-vel készítette <a href="https://one.citadelquest.world/Human" target="_blank">Ember</a> és AI'
         version: '%version%'
 
 auth:

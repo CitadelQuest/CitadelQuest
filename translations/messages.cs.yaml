@@ -4,7 +4,7 @@ app:
     tagline: 'Váš osobní bezpečný prostor pro spolupráci s umělou inteligencí. Vytvořeno s důrazem na soukromí a suverenitu vašich dat.'
     tagline_html: 'Váš osobní bezpečný prostor pro spolupráci s umělou inteligencí.<br/>Vytvořeno s důrazem na soukromí a suverenitu vašich dat.'
     footer:
-        made_with_love: 'Vytvořeno s 💜 člověkem a AI'
+        made_with_love: 'Vytvořeno s 💜 <a href="https://one.citadelquest.world/Human" target="_blank">člověkem</a> a AI'
         version: '%version%'
 
 auth:

@@ -4,7 +4,7 @@ app:
     tagline: 'Ditt personlige sikre rom for samarbeid mellom menneske og KI. Bygget med personvern i kjernen og din datasuverenitet i tankene.'
     tagline_html: 'Ditt personlige sikre rom for samarbeid mellom menneske og KI.<br/>Bygget med personvern i kjernen og din datasuverenitet i tankene.'
     footer:
-        made_with_love: 'Laget med 💜 av Menneske og KI'
+        made_with_love: 'Laget med 💜 av <a href="https://one.citadelquest.world/Human" target="_blank">Menneske</a> og KI'
         version: '%version%'
 
 auth:
