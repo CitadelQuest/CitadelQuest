@@ -1,9 +1,13 @@
 import { CitadelExplorer } from '../js/features/cq-contact/CitadelExplorer.js';
 import { ExplorerSidebar } from '../js/features/cq-contact/ExplorerSidebar.js';
 import { CQFeedManager } from '../js/features/cq-feed/CQFeedManager.js';
+import { CQProfileIcons } from '../js/features/cq-contact/CQProfileIcons.js';
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load profile icons cache before sidebar renders (uses localStorage if fresh)
+    await CQProfileIcons.load();
+
     // Capture URL params BEFORE CitadelExplorer constructor strips them
     const urlParams = new URLSearchParams(window.location.search);
     const hasUrlParam = urlParams.has('url');

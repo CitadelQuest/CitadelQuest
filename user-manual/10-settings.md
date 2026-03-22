@@ -77,8 +77,6 @@ Manage your public identity and control what others see. See [CQ Profile](09-cq-
 - **Background overlay** — dark overlay for text readability
 
 ### CQ Contact Visibility
-- **Share bio** with contacts
-- **Share photo** with contacts
 - **Spirit showcase** — same 3-mode control for what contacts see
 
 ---

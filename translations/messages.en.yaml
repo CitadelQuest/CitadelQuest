@@ -506,8 +506,6 @@ profile:
         public_theme_desc: 'Choose a background theme for your public profile page.'
         federation: 'CQ Contact Visibility'
         federation_desc: 'Control what your CQ Contacts can see about you.'
-        federation_bio: 'Share bio with CQ Contacts'
-        federation_photo: 'Share profile photo with CQ Contacts'
         federation_spirits: 'Share spirits with CQ Contacts'
         saved: 'Profile settings saved'
         save_error: 'Failed to save profile settings'

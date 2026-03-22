@@ -506,8 +506,6 @@ profile:
         public_theme_desc: 'Wybierz motyw tła dla swojej publicznej strony profilu.'
         federation: 'Widoczność kontaktu CQ'
         federation_desc: 'Kontroluj, co Twoje kontakty CQ mogą o Tobie zobaczyć.'
-        federation_bio: 'Udostępnij biogram kontaktom CQ'
-        federation_photo: 'Udostępnij zdjęcie profilowe kontaktom CQ'
         federation_spirits: 'Udostępnij duchy kontaktom CQ'
         saved: 'Ustawienia profilu zapisane'
         save_error: 'Nie udało się zapisać ustawień profilu'

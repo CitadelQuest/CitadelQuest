@@ -1,5 +1,6 @@
 import * as bootstrap from 'bootstrap';
 import { updatesService } from '../../services/UpdatesService.js';
+import { CQProfileIcons } from './CQProfileIcons.js';
 
 /**
  * ExplorerSidebar
@@ -444,7 +445,7 @@ export class ExplorerSidebar {
 
             html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item' + newClass + '">' +
                 '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(f.cq_contact_url) + '" data-since="' + this.escHtml(sinceValue) + '" data-cq-contact-id="' + f.cq_contact_id + '">' +
-                this.avatarHtml(photoUrl, 28, 'border-success') +
+                this.avatarHtml(photoUrl, 28, 'border-success', f.cq_contact_url) +
                 '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
                 '</a>' +
                 '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-2">' +
@@ -550,7 +551,7 @@ export class ExplorerSidebar {
         this.followers.forEach(f => {
             const photoUrl = f.cq_contact_url + '/photo';
             html += '<a href="#" class="d-flex align-items-center text-decoration-none text-light px-2 py-1 rounded sidebar-hover-item" data-profile-url="' + this.escHtml(f.cq_contact_url) + '">' +
-                this.avatarHtml(photoUrl, 28, 'border-secondary') +
+                this.avatarHtml(photoUrl, 28, 'border-secondary', f.cq_contact_url) +
                 '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(f.cq_contact_username) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(f.cq_contact_domain) + '</div></div>' +
                 '</a>';
         });
@@ -588,7 +589,7 @@ export class ExplorerSidebar {
 
             html += '<div class="d-flex align-items-center px-2 py-1 rounded sidebar-hover-item">' +
                 '<a href="#" class="d-flex align-items-center text-decoration-none text-light flex-grow-1" style="min-width: 0;" data-profile-url="' + this.escHtml(c.cqContactUrl) + '">' +
-                this.avatarHtml(photoUrl, 28, 'border-success') +
+                this.avatarHtml(photoUrl, 28, 'border-success', c.cqContactUrl) +
                 '<div class="text-truncate" style="min-width: 0; line-height:0.9rem;"><div class="small fw-bold text-truncate">' + this.escHtml(c.cqContactUsername) + '</div><div class="text-light opacity-50" style="font-size: 0.65rem;">' + this.escHtml(c.cqContactDomain) + '</div></div>' +
                 '</a>' +
                 '<div class="flex-shrink-0 ms-auto d-flex align-items-center gap-0">' + statusIcon + actions + '</div>' +
@@ -782,10 +783,15 @@ export class ExplorerSidebar {
     // Utilities
     // ========================================
 
-    avatarHtml(photoUrl, size, borderClass) {
+    avatarHtml(photoUrl, size, borderClass, cqContactUrl) {
+        const iconData = CQProfileIcons.get(cqContactUrl);
+        if (iconData) {
+            return '<div class="rounded border_border-1_' + borderClass + ' me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: ' + size + 'px; height: ' + size + 'px; background: rgba(149,236,134,0.05);">' +
+                '<img src="' + iconData + '" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';">' +
+                '<i class="mdi mdi-account text-cyber" style="display: none;"></i></div>';
+        }
         return '<div class="rounded border_border-1_' + borderClass + ' me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: ' + size + 'px; height: ' + size + 'px; background: rgba(149,236,134,0.05);">' +
-            '<img src="' + photoUrl + '" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';">' +
-            '<i class="mdi mdi-account text-cyber" style="display: none;"></i></div>';
+            '<i class="mdi mdi-account text-cyber"></i></div>';
     }
 
     escHtml(str) {

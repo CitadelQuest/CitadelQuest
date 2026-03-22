@@ -64,8 +64,12 @@ export class CitadelExplorer {
             this.urlInput.value = savedUrl;
             this.fetchBtn.disabled = false;
             this.toggleUrlHelp();
-            // Auto-explore on page load if URL was saved
-            setTimeout(() => this.explore(), 100);
+            // Auto-explore on page load only if CQ Explorer tab is active (or no tab system)
+            const explorerTab = document.getElementById('cqExplorerTab');
+            const isExplorerActive = !explorerTab || explorerTab.classList.contains('active');
+            if (isExplorerActive) {
+                setTimeout(() => this.explore(), 100);
+            }
         }
 
         // Enable/disable explore button based on input

@@ -498,8 +498,6 @@ profile:
         public_theme_desc: 'Vyberte pozadie pre vašu verejnú profilovú stránku.'
         federation: 'Viditeľnosť pre CQ kontakty'
         federation_desc: 'Ovládajte, čo vaše CQ kontakty môžu vidieť o vás.'
-        federation_bio: 'Zdieľať bio s CQ kontaktmi'
-        federation_photo: 'Zdieľať profilovú fotku s CQ kontaktmi'
         federation_spirits: 'Zdieľať spiritov s CQ kontaktmi'
         saved: 'Nastavenia profilu uložené'
         save_error: 'Nepodarilo sa uložiť nastavenia profilu'

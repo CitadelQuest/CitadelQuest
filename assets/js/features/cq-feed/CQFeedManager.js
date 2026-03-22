@@ -42,14 +42,17 @@ export class CQFeedManager {
             `;
         }
 
-        // Init composer
+        // Fetch my feeds ONCE — shared by composer + timeline
+        const feeds = await this._fetchMyFeeds();
+
+        // Init composer with pre-fetched feeds
         if (this.composerContainer) {
             this.composer = new CQFeedPostComposer(this.composerContainer, this.api, this.trans);
             this.composer.onPostCreated = (post) => this._onPostCreated(post);
-            await this.composer.init();
+            this.composer.initWithFeeds(feeds);
         }
 
-        // Init timeline
+        // Init timeline with pre-fetched feeds
         if (this.timelineContainer) {
             this.timeline = new CQFeedTimeline(this.timelineContainer, this.api, this.trans, {
                 userPhotoUrl: this.config.userPhotoUrl || '',
@@ -60,18 +63,30 @@ export class CQFeedManager {
             // so all re-renders finish before we scroll/highlight/open comments
             if (this.pendingScrollToPostId) {
                 this._initializing = true;
-                await this.timeline.init();
+                await this.timeline.initWithFeeds(feeds);
                 await this._fetchSubscribedFeeds();
                 this._initializing = false;
                 this.timeline._handlePendingScrollToPost();
             } else {
-                await this.timeline.init();
+                await this.timeline.initWithFeeds(feeds);
                 // Fetch latest from subscribed feeds in background
                 this._fetchSubscribedFeeds();
             }
         } else {
             // No timeline container — still fetch in background
             this._fetchSubscribedFeeds();
+        }
+    }
+
+    /**
+     * Fetch my feeds list (single API call, shared by composer + timeline)
+     */
+    async _fetchMyFeeds() {
+        try {
+            const data = await this.api.listMyFeeds();
+            return (data.success) ? (data.feeds || []) : [];
+        } catch (e) {
+            return [];
         }
     }
 
@@ -99,9 +114,9 @@ export class CQFeedManager {
             // Single backend call — fires all federation requests in parallel server-side
             const data = await this.api.fetchAllSubscribed().catch(() => null);
 
-            // Reload timeline if any feeds were checked
+            // Reload only federated posts if new data arrived (own posts unchanged)
             if (data?.feeds_checked > 0 && this.timeline) {
-                await this.timeline.init();
+                await this.timeline.reloadFederatedPosts();
             }
         } catch (e) {
             console.error('CQFeedManager::_fetchSubscribedFeeds error', e);
@@ -114,10 +129,13 @@ export class CQFeedManager {
     async refresh() {
         if (!this.isInitialized) return;
 
-        // Re-fetch from subscribed feeds, then reload timeline
-        await this._fetchSubscribedFeeds();
+        // Sync + fetch from subscribed feeds (without auto-reload — full reload below)
+        try {
+            await this.api.syncSubscriptions().catch(() => null);
+            await this.api.fetchAllSubscribed().catch(() => null);
+        } catch (e) {}
 
-        // Update the feedLastViewedAt on the timeline so borders reflect current state
+        // Full timeline reload (user-triggered, may need fresh own posts too)
         if (this.timeline) {
             this.timeline.feedLastViewedAt = localStorage.getItem('cqFeedLastViewedAt') || null;
             await this.timeline.init();

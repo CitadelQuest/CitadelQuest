@@ -136,14 +136,13 @@ class CQFeedController extends AbstractController
             $domain = $request->getHost();
             $this->settingsService->setUser($user);
             $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
-            $showPhoto = $this->settingsService->getSettingValue('profile.federation_show_photo', '1') === '1';
 
             $author = [
                 'cq_contact_id' => $user->getId()->toRfc4122(),
                 'username' => $username,
                 'domain' => $domain,
                 'url' => 'https://' . $domain . '/' . $username,
-                'photo_url' => ($showPhoto && $photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null,
+                'photo_url' => ($photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null,
             ];
 
             $result = array_map(function ($post) use ($author) {

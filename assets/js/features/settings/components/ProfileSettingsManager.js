@@ -54,7 +54,6 @@ export class ProfileSettingsManager {
 
         // Federation
         this.federationBioCheckbox = document.getElementById('profile-federation-bio');
-        this.federationPhotoCheckbox = document.getElementById('profile-federation-photo');
         this.federationSpiritsSelect = document.getElementById('profile-federation-spirits');
 
         // Save (multiple buttons with same class)
@@ -333,8 +332,6 @@ export class ProfileSettingsManager {
                 public_page_locale: this.publicLocaleSelect?.value ?? 'en',
                 public_page_theme: this.selectedTheme ?? '',
                 public_page_bg_overlay: this.bgOverlayCheckbox?.checked ? '1' : '0',
-                federation_show_bio: this.federationBioCheckbox?.checked ? '1' : '0',
-                federation_show_photo: this.federationPhotoCheckbox?.checked ? '1' : '0',
                 federation_show_spirits: this.federationSpiritsSelect?.value ?? '1',
             };
 

@@ -655,6 +655,19 @@ class ProjectFileService
     }
     
     /**
+     * Get the absolute filesystem path for a file by ID.
+     * Returns null if the file record is not found.
+     */
+    public function getFileAbsolutePath(string $fileId): ?string
+    {
+        $file = $this->findById($fileId);
+        if (!$file || $file->isDirectory()) {
+            return null;
+        }
+        return $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
+    }
+
+    /**
      * Find a file by ID
      */
     public function findById(string $id): ?ProjectFile
@@ -1658,8 +1671,11 @@ class ProjectFileService
      * Thumbnail settings
      */
     private const THUMBNAIL_MAX_SIZE = 250;
-    private const THUMBNAIL_QUALITY = 84;
+    private const THUMBNAIL_QUALITY = 100;
     private const THUMBNAIL_SUFFIX = '.thumb';
+    private const THUMBNAIL_ICON_MAX_SIZE = 32;
+    private const THUMBNAIL_ICON_QUALITY = 100;
+    private const THUMBNAIL_ICON_SUFFIX = '.icon';
     
     /**
      * Check if file is an image that supports thumbnails
@@ -1677,6 +1693,14 @@ class ProjectFileService
     {
         return $originalPath . self::THUMBNAIL_SUFFIX;
     }
+
+    /**
+     * Get thumbnail path for a file
+     */
+    public function getThumbnailIconPath(string $originalPath): string
+    {
+        return $originalPath . self::THUMBNAIL_ICON_SUFFIX;
+    }
     
     /**
      * Check if GD library is available
@@ -1692,6 +1716,24 @@ class ProjectFileService
      */
     public function generateThumbnail(string $fileId): ?string
     {
+        return $this->_generateResizedImage($fileId, self::THUMBNAIL_SUFFIX, self::THUMBNAIL_MAX_SIZE, self::THUMBNAIL_QUALITY);
+    }
+
+    /**
+     * Generate thumbnail icon for an image file
+     * Returns the icon path if successful, null otherwise
+     */
+    public function generateThumbnailIcon(string $fileId): ?string
+    {
+        return $this->_generateResizedImage($fileId, self::THUMBNAIL_ICON_SUFFIX, self::THUMBNAIL_ICON_MAX_SIZE, self::THUMBNAIL_ICON_QUALITY);
+    }
+
+    /**
+     * Core resize logic shared by generateThumbnail and generateThumbnailIcon.
+     * Returns the output path on success, original path on fallback, null on error.
+     */
+    private function _generateResizedImage(string $fileId, string $suffix, int $maxSize, int $quality): ?string
+    {
         $file = $this->findById($fileId);
         if (!$file || $file->isDirectory()) {
             return null;
@@ -1706,20 +1748,19 @@ class ProjectFileService
             return null;
         }
         
-        // If GD is not available, return original path (no thumbnail generation)
+        // If GD is not available, return original path (no resized version)
         if (!$this->isGdAvailable()) {
-            $this->logger->warning('GD library not available for thumbnail generation');
+            $this->logger->warning('GD library not available for image resize');
             return $originalPath;
         }
         
-        $thumbnailPath = $this->getThumbnailPath($originalPath);
+        $outputPath = $originalPath . $suffix;
         
-        // Return existing thumbnail if it's newer than the original
-        if (file_exists($thumbnailPath) && filemtime($thumbnailPath) >= filemtime($originalPath)) {
-            return $thumbnailPath;
+        // Return existing output if it's newer than the original
+        if (file_exists($outputPath) && filemtime($outputPath) >= filemtime($originalPath)) {
+            return $outputPath;
         }
         
-        // Generate thumbnail using GD
         try {
             $imageInfo = getimagesize($originalPath);
             if ($imageInfo === false) {
@@ -1745,49 +1786,53 @@ class ProjectFileService
             }
             
             // Calculate new dimensions maintaining aspect ratio
-            $ratio = min(self::THUMBNAIL_MAX_SIZE / $originalWidth, self::THUMBNAIL_MAX_SIZE / $originalHeight);
+            $ratio = min($maxSize / $originalWidth, $maxSize / $originalHeight);
             
-            // Only resize if image is larger than thumbnail size
+            // Only resize if image is larger than target size
             if ($ratio >= 1) {
-                // Image is smaller than thumbnail size, just copy it
                 imagedestroy($sourceImage);
-                copy($originalPath, $thumbnailPath);
-                return $thumbnailPath;
+                copy($originalPath, $outputPath);
+                return $outputPath;
             }
             
             $newWidth = (int) round($originalWidth * $ratio);
             $newHeight = (int) round($originalHeight * $ratio);
             
-            // Create thumbnail image
-            $thumbnailImage = imagecreatetruecolor($newWidth, $newHeight);
+            $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
             
             // Preserve transparency for PNG and GIF
             if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
-                imagealphablending($thumbnailImage, false);
-                imagesavealpha($thumbnailImage, true);
-                $transparent = imagecolorallocatealpha($thumbnailImage, 0, 0, 0, 127);
-                imagefill($thumbnailImage, 0, 0, $transparent);
+                imagealphablending($resizedImage, false);
+                imagesavealpha($resizedImage, true);
+                $transparent = imagecolorallocatealpha($resizedImage, 0, 0, 0, 127);
+                imagefill($resizedImage, 0, 0, $transparent);
             }
             
             // Resize
             imagecopyresampled(
-                $thumbnailImage, $sourceImage,
+                $resizedImage, $sourceImage,
                 0, 0, 0, 0,
                 $newWidth, $newHeight,
                 $originalWidth, $originalHeight
             );
             
-            // Save as JPEG for consistent output (smaller file size)
-            imagejpeg($thumbnailImage, $thumbnailPath, self::THUMBNAIL_QUALITY);
+            // Save in original format
+            match ($mimeType) {
+                'image/png' => imagepng($resizedImage, $outputPath, 9),
+                'image/gif' => imagegif($resizedImage, $outputPath),
+                'image/webp' => imagewebp($resizedImage, $outputPath, $quality),
+                'image/bmp' => imagebmp($resizedImage, $outputPath),
+                default => imagejpeg($resizedImage, $outputPath, $quality),
+            };
             
             // Clean up
             imagedestroy($sourceImage);
-            imagedestroy($thumbnailImage);
+            imagedestroy($resizedImage);
             
-            return $thumbnailPath;
+            return $outputPath;
             
         } catch (\Exception $e) {
-            $this->logger->error('Thumbnail generation failed: ' . $e->getMessage());
+            $this->logger->error('Image resize failed: ' . $e->getMessage());
             return $originalPath;
         }
     }
@@ -1812,7 +1857,30 @@ class ProjectFileService
         }
         
         // Return base64 encoded thumbnail
-        return 'data:image/jpeg;base64,' . base64_encode(file_get_contents($thumbnailPath));
+        return 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($thumbnailPath));
+    }
+
+    /**
+     * Get file content with optional thumbnail icon support
+     */
+    public function getFileContentWithThumbnailIcon(string $fileId): ?string
+    {
+        $file = $this->findById($fileId);
+        if (!$file || $file->isDirectory()) {
+            return null;
+        }
+        
+        if (!$this->isImageFile($file->getName())) {
+            return null;
+        }
+        
+        $thumbnailIconPath = $this->generateThumbnailIcon($fileId);
+        if (!$thumbnailIconPath || !file_exists($thumbnailIconPath)) {
+            return null;
+        }
+        
+        // Return base64 encoded thumbnail
+        return 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($thumbnailIconPath));
     }
     
     /**

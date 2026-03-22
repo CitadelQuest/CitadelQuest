@@ -506,8 +506,6 @@ profile:
         public_theme_desc: 'Válassz háttértémát a nyilvános profil oldaladhoz.'
         federation: 'CQ Kontakt láthatóság'
         federation_desc: 'Szabályozd, mit láthatnak rólad a CQ kontaktjaid.'
-        federation_bio: 'Bemutatkozás megosztása CQ kontaktokkal'
-        federation_photo: 'Profilkép megosztása CQ kontaktokkal'
         federation_spirits: 'Szellemek megosztása CQ kontaktokkal'
         saved: 'Profil beállítások mentve'
         save_error: 'Nem sikerült menteni a profil beállításokat'

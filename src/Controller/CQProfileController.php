@@ -514,72 +514,77 @@ class CQProfileController extends AbstractController
         $isOwnUser = $currentUser && $currentUser->getId() === $user->getId();
 
         if (!$isOwnUser) {
-            $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1';
-            $federationShowPhoto = $this->settingsService->getSettingValue('profile.federation_show_photo', '1') === '1';
-
+            $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1' && $this->settingsService->getSettingValue('profile.public_page_show_photo', '0') === '1';
+            
             if (!$publicEnabled) {
                 // Try federation auth
                 $this->cqContactService->setUser($user);
                 $isAuthenticated = $this->checkFederationAuth($request);
-                if (!$isAuthenticated || !$federationShowPhoto) {
+                if (!$isAuthenticated) {
                     throw $this->createNotFoundException();
                 }
             }
         }
 
-        // Get photo file ID from settings
-        $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
-        if (!$photoFileId) {
-            throw $this->createNotFoundException();
+        $wantLastUpdated = $request->query->get('lastUpdated') === '1';
+        if ($wantLastUpdated) {
+            $lastUpdated = $this->settingsService->getSettingValue('profile.public_photo_last_updated');
+            if (!$lastUpdated) {
+                // Backward compat: resolve from file record if not yet cached
+                $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+                if ($photoFileId) {
+                    $this->projectFileService->setUser($user);
+                    $file = $this->projectFileService->findById($photoFileId);
+                    if ($file) {
+                        $lastUpdated = $file->getUpdatedAt()->format('Y-m-d H:i:s');
+                        $this->settingsService->setSetting('profile.public_photo_last_updated', $lastUpdated);
+                    }
+                }
+            }
+            return new JsonResponse(['last_updated' => $lastUpdated ?: null]);
         }
 
-        // Look up the file in user's database
-        $userDb = $this->userDatabaseManager->getDatabaseConnection($user);
-        $file = $userDb->executeQuery(
-            'SELECT * FROM project_file WHERE id = ?',
-            [$photoFileId]
-        )->fetchAssociative();
+        // Serve from pre-computed path settings (stored at upload time)
+        $originalPath = $this->settingsService->getSettingValue('profile.public_photo_file_path');
+        $thumbIconSet = $this->settingsService->getSettingValue('profile.public_photo_thumb_icon_file_path');
 
-        if (!$file) {
-            throw $this->createNotFoundException();
+        // Backward compat: resolve + cache paths if not yet stored
+        if (!$originalPath || !$thumbIconSet) {
+            $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+            if (!$photoFileId) {
+                throw $this->createNotFoundException();
+            }
+            $this->projectFileService->setUser($user);
+            $originalPath = $this->projectFileService->getFileAbsolutePath($photoFileId);
+            if ($originalPath && file_exists($originalPath)) {
+                $thumbPath = $this->projectFileService->generateThumbnail($photoFileId);
+                $thumbIconPath = $this->projectFileService->generateThumbnailIcon($photoFileId);
+                $this->settingsService->setSetting('profile.public_photo_file_path', $originalPath);
+                $this->settingsService->setSetting('profile.public_photo_thumb_file_path', $thumbPath ?: $originalPath);
+                $this->settingsService->setSetting('profile.public_photo_thumb_icon_file_path', $thumbIconPath ?: $originalPath);
+                $this->settingsService->setSetting('profile.public_photo_last_updated', date('Y-m-d H:i:s'));
+            }
         }
 
-        // Construct absolute path
-        $projectDir = $this->params->get('kernel.project_dir');
-        $basePath = $projectDir . '/var/user_data/' . $user->getId() . '/p/' . $file['project_id'];
-        $relativePath = ltrim($file['path'] ?? '', '/');
-        $filePath = $relativePath
-            ? $basePath . '/' . $relativePath . '/' . $file['name']
-            : $basePath . '/' . $file['name'];
-
-        if (!file_exists($filePath)) {
-            throw $this->createNotFoundException();
-        }
-
-        // Use full-size original when ?full=1 is requested (e.g. fullscreen modal)
         $wantFull = $request->query->get('full') === '1';
+        $servePath = $wantFull
+            ? $originalPath
+            : ($this->settingsService->getSettingValue('profile.public_photo_thumb_file_path') ?: $originalPath);
+        
+        $wantIcon = $request->query->get('icon') === '1';
+        if ($wantIcon) {
+            $servePath = $this->settingsService->getSettingValue('profile.public_photo_thumb_icon_file_path') ?: $originalPath;
+        }
+        
 
-        if ($wantFull) {
-            $mimeType = $file['mime_type'] ?? 'image/jpeg';
-        } else {
-            // Prefer .thumb version (smaller file, profile photo is never displayed full-size)
-            $thumbPath = $filePath . '.thumb';
-
-            if (!file_exists($thumbPath)) {
-                $this->projectFileService->setUser($user);
-                $this->projectFileService->generateThumbnail($photoFileId);
-            }
-
-            if (file_exists($thumbPath)) {
-                $filePath = $thumbPath;
-                $mimeType = 'image/jpeg'; // thumbnails are always JPEG
-            } else {
-                $mimeType = $file['mime_type'] ?? 'image/jpeg';
-            }
+        if (!$servePath || !file_exists($servePath)) {
+            throw $this->createNotFoundException();
         }
 
-        $response = new BinaryFileResponse($filePath);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $file['name']);
+        $mimeType = mime_content_type($servePath) ?: 'image/jpeg';
+
+        $response = new BinaryFileResponse($servePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($servePath));
         $response->headers->set('Content-Type', $mimeType);
         $response->headers->set('Cache-Control', 'public, max-age=3600');
 
@@ -626,14 +631,12 @@ class CQProfileController extends AbstractController
                 'follower_count' => $followerCount,
             ];
 
-            // Bio — only include if federation sharing is enabled
-            $showBio = $this->settingsService->getSettingValue('profile.federation_show_bio', '1') === '1';
-            $response['bio'] = $showBio ? $this->settingsService->getSettingValue('profile.bio') : null;
+            // Bio
+            $response['bio'] = $this->settingsService->getSettingValue('profile.bio');
 
             // Photo URL — only include if federation sharing is enabled
-            $showPhoto = $this->settingsService->getSettingValue('profile.federation_show_photo', '1') === '1';
             $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
-            $response['photo_url'] = ($showPhoto && $photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null;
+            $response['photo_url'] = ($photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null;
 
             // Background image + overlay
             $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');

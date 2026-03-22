@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { getCitadelLocale } from '../../shared/date-utils';
+import { CQProfileIcons } from '../cq-contact/CQProfileIcons.js';
 
 /**
  * CQ Feed Timeline
@@ -43,12 +44,41 @@ export class CQFeedTimeline {
         this.render();
     }
 
-    async _loadOwnPosts() {
-        try {
-            const feedsData = await this.api.listMyFeeds();
-            if (!feedsData.success) return;
+    /**
+     * Initialize with pre-fetched feeds (avoids duplicate listMyFeeds API call)
+     */
+    async initWithFeeds(feeds) {
+        this.page = 1;
+        this.hasMore = true;
+        this.ownPosts = [];
+        this.timelinePosts = [];
+        await this._loadOwnPosts(feeds);
+        //await this._loadTimeline(); // done later by refresh(), /api/feed/sync-subscribtions
+        this.render();
+    }
 
-            const feeds = feedsData.feeds || [];
+    /**
+     * Reload only federated timeline posts (own posts unchanged).
+     * Used after background sync to avoid re-fetching own posts + my-feeds.
+     */
+    async reloadFederatedPosts() {
+        this.page = 1;
+        this.hasMore = true;
+        this.timelinePosts = [];
+        await this._loadTimeline();
+        this.render();
+    }
+
+    async _loadOwnPosts(prefetchedFeeds = null) {
+        try {
+            let feeds;
+            if (prefetchedFeeds) {
+                feeds = prefetchedFeeds;
+            } else {
+                const feedsData = await this.api.listMyFeeds();
+                if (!feedsData.success) return;
+                feeds = feedsData.feeds || [];
+            }
             this.ownPosts = [];
 
             for (const feed of feeds) {
@@ -293,8 +323,13 @@ export class CQFeedTimeline {
         if (isOwn && this.userPhotoUrl) {
             photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
         } else if (!isOwn && post.cq_contact_domain && post.cq_contact_username) {
-            const photoUrl = `https://${post.cq_contact_domain}/${post.cq_contact_username}/photo`;
-            photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
+            const contactUrl = `https://${post.cq_contact_domain}/${post.cq_contact_username}`;
+            const iconData = CQProfileIcons.get(contactUrl);
+            if (iconData) {
+                photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><img src="${iconData}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display: none;"></i></div>`;
+            } else {
+                photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber"></i></div>`;
+            }
         } else {
             photoHtml = `<div class="rounded border_border-1_border-success me-2 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; background: rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber"></i></div>`;
         }
@@ -747,8 +782,13 @@ export class CQFeedTimeline {
         if (isOwnComment && this.userPhotoUrl) {
             photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><img src="${this.userPhotoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
         } else if (commenterDomain && commenterName) {
-            const photoUrl = `https://${commenterDomain}/${commenterName}/photo`;
-            photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><img src="${photoUrl}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
+            const contactUrl = `https://${commenterDomain}/${commenterName}`;
+            const iconData = CQProfileIcons.get(contactUrl);
+            if (iconData) {
+                photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><img src="${iconData}" alt="" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><i class="mdi mdi-account text-cyber" style="display:none; font-size:0.7rem;"></i></div>`;
+            } else {
+                photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber" style="font-size:0.7rem;"></i></div>`;
+            }
         } else {
             photoHtml = `<div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width:${photoSize}; height:${photoSize}; background:rgba(149,236,134,0.05);"><i class="mdi mdi-account text-cyber" style="font-size:0.7rem;"></i></div>`;
         }

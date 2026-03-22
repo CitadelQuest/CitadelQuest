@@ -506,8 +506,6 @@ profile:
         public_theme_desc: 'Scegli un tema di sfondo per la tua pagina profilo pubblica.'
         federation: 'Visibilità contatti CQ'
         federation_desc: 'Controlla cosa i tuoi contatti CQ possono vedere di te.'
-        federation_bio: 'Condividi biografia con i contatti CQ'
-        federation_photo: 'Condividi foto profilo con i contatti CQ'
         federation_spirits: 'Condividi spiriti con i contatti CQ'
         saved: 'Impostazioni profilo salvate'
         save_error: 'Impossibile salvare le impostazioni profilo'

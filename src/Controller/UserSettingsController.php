@@ -671,8 +671,6 @@ class UserSettingsController extends AbstractController
                 'profile.public_page_locale',
                 'profile.public_page_theme',
                 'profile.public_page_bg_overlay',
-                'profile.federation_show_bio',
-                'profile.federation_show_photo',
                 'profile.federation_show_spirits',
                 'profile.federation_show_status',
             ];
@@ -738,6 +736,15 @@ class UserSettingsController extends AbstractController
             // Save file ID to settings
             $this->settingsService->setSetting('profile.photo_project_file_id', $file->getId());
 
+            // Pre-compute and cache absolute paths for fast public serving
+            $originalPath = $this->projectFileService->getFileAbsolutePath($file->getId());
+            $thumbPath = $this->projectFileService->generateThumbnail($file->getId());
+            $thumbIconPath = $this->projectFileService->generateThumbnailIcon($file->getId());
+            $this->settingsService->setSetting('profile.public_photo_file_path', $originalPath);
+            $this->settingsService->setSetting('profile.public_photo_thumb_file_path', $thumbPath ?: $originalPath);
+            $this->settingsService->setSetting('profile.public_photo_thumb_icon_file_path', $thumbIconPath ?: $originalPath);
+            $this->settingsService->setSetting('profile.public_photo_last_updated', $file->getUpdatedAt()->format('Y-m-d H:i:s'));
+
             return new JsonResponse([
                 'success' => true,
                 'message' => 'Profile photo uploaded',
@@ -761,6 +768,10 @@ class UserSettingsController extends AbstractController
                     // File may already be gone
                 }
                 $this->settingsService->setSetting('profile.photo_project_file_id', null);
+                $this->settingsService->setSetting('profile.public_photo_file_path', null);
+                $this->settingsService->setSetting('profile.public_photo_thumb_file_path', null);
+                $this->settingsService->setSetting('profile.public_photo_thumb_icon_file_path', null);
+                $this->settingsService->setSetting('profile.public_photo_last_updated', null);
             }
 
             return new JsonResponse(['success' => true, 'message' => 'Profile photo removed']);

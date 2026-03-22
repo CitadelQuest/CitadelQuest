@@ -506,8 +506,6 @@ profile:
         public_theme_desc: 'Velg et bakgrunnstema for din offentlige profilside.'
         federation: 'CQ-kontaktsynlighet'
         federation_desc: 'Kontroller hva dine CQ-kontakter kan se om deg.'
-        federation_bio: 'Del biografi med CQ-kontakter'
-        federation_photo: 'Del profilbilde med CQ-kontakter'
         federation_spirits: 'Del ånder med CQ-kontakter'
         saved: 'Profilinnstillinger lagret'
         save_error: 'Kunne ikke lagre profilinnstillinger'

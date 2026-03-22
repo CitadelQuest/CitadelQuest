@@ -292,6 +292,10 @@ class CitadelExplorerApiController extends AbstractController
             $photoUrl .= (str_contains($photoUrl, '?') ? '&' : '?') . 'full=1';
         }
 
+        if ($request->query->get('icon') === '1') {
+            $photoUrl .= (str_contains($photoUrl, '?') ? '&' : '?') . 'icon=1';
+        }
+
         try {
             $response = $this->httpClient->request('GET', $photoUrl, [
                 'headers' => [

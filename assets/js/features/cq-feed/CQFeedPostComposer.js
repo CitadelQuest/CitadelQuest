@@ -22,6 +22,17 @@ export class CQFeedPostComposer {
         this.render();
     }
 
+    /**
+     * Initialize with pre-fetched feeds (avoids duplicate API call)
+     */
+    initWithFeeds(feeds) {
+        this.feeds = feeds || [];
+        if (this.feeds.length > 0 && !this.selectedFeedId) {
+            this.selectedFeedId = this.feeds[0].id;
+        }
+        this.render();
+    }
+
     async loadFeeds() {
         try {
             const data = await this.api.listMyFeeds();
