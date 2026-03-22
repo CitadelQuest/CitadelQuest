@@ -54,7 +54,7 @@ export class CQFeedPostComposer {
             <div class="glass-panel p-3 mb-4">
                 <div class="mb-2">
                     <textarea id="cqFeedPostContent" class="form-control glass-input" rows="3"
-                        placeholder="${this.t('feed_post_placeholder', "What's on your mind?")}"
+                        placeholder="${this._randomPlaceholder()}"
                         style="resize: vertical; min-height: 60px;"></textarea>
                 </div>
                 <div class="d-flex align-items-center gap-2 justify-content-between">
@@ -138,6 +138,20 @@ export class CQFeedPostComposer {
             postBtn.disabled = false;
             postBtn.innerHTML = `<i class="mdi mdi-send me-1"></i>${this.t('feed_post_btn', 'Post')}`;
         }
+    }
+
+    _randomPlaceholder() {
+        const placeholders = [
+            this.t('feed_placeholder_1', 'Share something worth remembering'),
+            this.t('feed_placeholder_2', "What's your Citadel building today?"),
+            this.t('feed_placeholder_3', 'Speak freely — this is your fortress'),
+            this.t('feed_placeholder_4', 'Drop some wisdom on the federation'),
+            this.t('feed_placeholder_5', 'What would your Spirit say about this?'),
+            this.t('feed_placeholder_6', 'Make the feed legendary'),
+            this.t('feed_placeholder_7', 'Your Citadel, your voice'),
+            this.t('feed_placeholder_8', 'Inspire the network'),
+        ];
+        return placeholders[Math.floor(Math.random() * placeholders.length)];
     }
 
     _escapeHtml(str) {
