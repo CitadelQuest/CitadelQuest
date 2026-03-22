@@ -3030,7 +3030,7 @@ class CQMemoryExplorer {
 
         // Determine pack storage path:
         // If a library is selected, store in the library's packs subdirectory
-        // (e.g., library at /spirit/Lori/memory → packs at /spirit/Lori/memory/packs)
+        // (e.g., library at /spirit/Bob/memory → packs at /spirit/Bob/memory/packs)
         const packPath = this.selectedLibrary
             ? this.selectedLibrary.path + '/packs'
             : this.packsPath;
