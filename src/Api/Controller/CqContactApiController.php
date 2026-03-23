@@ -858,7 +858,7 @@ class CqContactApiController extends AbstractController
                     $user = $this->getUser();
                     $this->federationFeedService->setUser($user);
                     $this->federationFeedService->subscribeAllFeeds(
-                        $contact->getCqContactId(),
+                        $contact->getId(),
                         $contact->getCqContactUrl(),
                         $contact->getCqContactDomain(),
                         $contact->getCqContactUsername(),
