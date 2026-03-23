@@ -104,6 +104,14 @@ class RegistrationController extends AbstractController
             $session->set('_locale', $request->cookies->get('citadel_locale', 'en'));
             $settingsService->setSetting('_locale', $session->get('_locale'));
 
+            // Set default profile settings for new users
+            $settingsService->setSetting('profile.public_page_enabled', '1');
+            $settingsService->setSetting('profile.public_page_show_photo', '1');
+            $settingsService->setSetting('profile.public_page_show_profile_content', '1');
+            $settingsService->setSetting('profile.public_page_show_share_content', '1');
+            $settingsService->setSetting('profile.public_page_show_spirits', '1');
+            $settingsService->setSetting('profile.public_page_show_shares', '0');
+
             // Add flash message
             $this->addFlash('success', $this->translator->trans('auth.register.success'));
 

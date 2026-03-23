@@ -77,7 +77,7 @@ class CQProfileController extends AbstractController
 
         $this->settingsService->setUser($user);
 
-        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0');
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1');
         if ($publicEnabled !== '1') {
             throw $this->createNotFoundException();
         }
@@ -155,7 +155,7 @@ class CQProfileController extends AbstractController
         $this->settingsService->setUser($user);
 
         // Check if public page is enabled
-        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0');
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1');
         if ($publicEnabled !== '1') {
             throw $this->createNotFoundException();
         }
@@ -164,7 +164,7 @@ class CQProfileController extends AbstractController
         $bio = $this->settingsService->getSettingValue('profile.bio');
         $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
         $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
-        $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
+        $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '0') === '1';
         $showProfileContent = $this->settingsService->getSettingValue('profile.public_page_show_profile_content', '1') === '1';
         $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
         $spiritMode = (int) $this->settingsService->getSettingValue('profile.public_page_show_spirits', '1');
@@ -326,7 +326,7 @@ class CQProfileController extends AbstractController
 
         $this->settingsService->setUser($user);
 
-        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0');
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1');
         if ($publicEnabled !== '1') {
             return $this->json(['success' => false, 'message' => 'Profile not public'], Response::HTTP_NOT_FOUND);
         }
@@ -335,7 +335,7 @@ class CQProfileController extends AbstractController
         $bio = $this->settingsService->getSettingValue('profile.bio');
         $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
         $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
-        $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '1') === '1';
+        $showShares = $this->settingsService->getSettingValue('profile.public_page_show_shares', '0') === '1';
         $showProfileContent = $this->settingsService->getSettingValue('profile.public_page_show_profile_content', '1') === '1';
         $showShareContent = $this->settingsService->getSettingValue('profile.public_page_show_share_content', '1') === '1';
         $spiritMode = (int) $this->settingsService->getSettingValue('profile.public_page_show_spirits', '1');
@@ -449,7 +449,7 @@ class CQProfileController extends AbstractController
         $this->settingsService->setUser($user);
 
         // Background is only served if public page is enabled
-        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1';
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1') === '1';
         $currentUser = $this->getUser();
         $isOwnUser = $currentUser && $currentUser->getId() === $user->getId();
 
@@ -514,7 +514,7 @@ class CQProfileController extends AbstractController
         $isOwnUser = $currentUser && $currentUser->getId() === $user->getId();
 
         if (!$isOwnUser) {
-            $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '0') === '1' && $this->settingsService->getSettingValue('profile.public_page_show_photo', '0') === '1';
+            $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1') === '1' && $this->settingsService->getSettingValue('profile.public_page_show_photo', '0') === '1';
             
             if (!$publicEnabled) {
                 // Try federation auth
