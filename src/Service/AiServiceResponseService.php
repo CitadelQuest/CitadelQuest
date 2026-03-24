@@ -188,7 +188,7 @@ class AiServiceResponseService
 
         $newFiles = [];
 
-        $messages = $message['content'];
+        $messages = $message['content'] ?? [];
         if (isset($message['images']) && is_array($message['images'])) {
             $messages = array_merge($messages, $message['images']);
         }

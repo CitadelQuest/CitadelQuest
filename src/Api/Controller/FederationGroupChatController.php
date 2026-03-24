@@ -308,6 +308,8 @@ class FederationGroupChatController extends AbstractController
             
             // Set user context for all services
             $this->cqContactService->setUser($user);
+            $this->cqChatService->setUser($user);
+            $this->cqChatMsgService->setUser($user);
             $this->groupChatService->setUser($user);
             $this->deliveryService->setUser($user);
             $this->settingsService->setUser($user);

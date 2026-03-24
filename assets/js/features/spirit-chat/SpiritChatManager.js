@@ -2685,7 +2685,7 @@ export class SpiritChatManager {
                 if (item.type === 'text') {
                     return this.formatMessageContent(item.text);
                 } else if (item.type === 'image_url') {
-                    return `<img src="${item.image_url.url}" alt="" class="chat-image-preview">`;
+                    return `<img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">`;
                 } else if (item.type === 'file') {
                     return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
                                 onclick="this.querySelector('.embed-container').classList.toggle('d-none');">

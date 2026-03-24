@@ -745,9 +745,16 @@ class CqContactApiController extends AbstractController
             }
 
             $photoUrl = rtrim($contact->getCqContactUrl(), '/') . '/photo';
-            // Forward ?full=1 for fullscreen modal
+            // Forward query params for photo variants
+            $queryParams = [];
             if ($request->query->get('full') === '1') {
-                $photoUrl .= '?full=1';
+                $queryParams[] = 'full=1';
+            }
+            if ($request->query->get('icon') === '1') {
+                $queryParams[] = 'icon=1';
+            }
+            if ($queryParams) {
+                $photoUrl .= '?' . implode('&', $queryParams);
             }
 
             $response = $this->httpClient->request('GET', $photoUrl, [

@@ -798,8 +798,8 @@ class CitadelQuestUpdater
                 }
             } */
 
-            // Clear var/cache directory
-            $cacheDir = $this->installDir . '/var/cache/prod';
+            // Clear entire var/cache directory (all environments)
+            $cacheDir = $this->installDir . '/var/cache';
             if (file_exists($cacheDir)) {
                 $this->removeDirectory($cacheDir);
                 mkdir($cacheDir, 0755, true);

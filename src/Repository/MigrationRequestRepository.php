@@ -43,45 +43,8 @@ class MigrationRequestRepository extends ServiceEntityRepository
      */
     public function findPendingOutgoingForUser(Uuid $userId): ?MigrationRequest
     {
-        // DEBUG: Log the userId we're searching for
-        $this->logger->error('MigrationRequestRepository::findPendingOutgoingForUser', [
-            'userId_string' => (string)$userId,
-        ]);
-        
-        // Try using Doctrine's findBy which handles UUID type automatically
         $allForUser = $this->findBy(['userId' => $userId]);
         
-        $this->logger->error('MigrationRequestRepository - findBy result', [
-            'found_count' => count($allForUser),
-        ]);
-        
-        foreach ($allForUser as $mr) {
-            $this->logger->error('MigrationRequestRepository - found record', [
-                'id' => (string)$mr->getId(),
-                'userId' => (string)$mr->getUserId(),
-                'direction' => $mr->getDirection(),
-                'status' => $mr->getStatus(),
-            ]);
-        }
-        
-        if (count($allForUser) === 0) {
-            // Fallback: fetch all records to compare UUIDs
-            $allRecords = $this->findAll();
-            $this->logger->error('MigrationRequestRepository - total records in table', [
-                'count' => count($allRecords),
-            ]);
-            
-            foreach (array_slice($allRecords, 0, 5) as $mr) {
-                $this->logger->error('MigrationRequestRepository - DB record', [
-                    'id' => (string)$mr->getId(),
-                    'db_userId' => (string)$mr->getUserId(),
-                    'username' => $mr->getUsername(),
-                    'direction' => $mr->getDirection(),
-                ]);
-            }
-        }
-        
-        // Filter from the results we already have
         foreach ($allForUser as $mr) {
             if ($mr->getDirection() === MigrationRequest::DIRECTION_OUTGOING &&
                 !in_array($mr->getStatus(), [

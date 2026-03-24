@@ -6,8 +6,10 @@ use App\Entity\MemoryNode;
 use App\Entity\MemoryRelationship;
 use App\Entity\MemoryTag;
 use App\Entity\MemoryJob;
+use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -325,10 +327,13 @@ class CQMemoryPackService
     {
         $this->close(); // Close any existing connection
         
+        $configuration = new Configuration();
+        $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+
         $this->connection = DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
             'path' => $packPath,
-        ]);
+        ], $configuration);
         
         $this->currentPackPath = $packPath;
         

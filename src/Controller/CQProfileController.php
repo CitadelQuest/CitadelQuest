@@ -213,10 +213,9 @@ class CQProfileController extends AbstractController
                         throw $this->createNotFoundException();
                     }
                 } else {
-                    // Homepage: show first group if any
+                    // Homepage: show first group if any (but don't set slug — no auto-scroll)
                     if (!empty($allShareGroups)) {
                         $activeGroup = $allShareGroups[0];
-                        $activeGroupSlug = $activeGroup['url_slug'] ?? null;
                     }
                 }
             } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {

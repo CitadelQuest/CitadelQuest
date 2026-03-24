@@ -119,6 +119,11 @@ export class CqChatModalManager {
             this.handleImageUpload(e.target.files);
         });
         
+        // Clipboard paste for images (Ctrl+V)
+        this.messageInput?.addEventListener('paste', (e) => {
+            this.handleClipboardPaste(e);
+        });
+        
         // Register listener for updates (polling starts in entry point)
         this.updatesService.addListener('cqChat', (updates) => {
             this.handleUpdates(updates);
@@ -551,24 +556,26 @@ export class CqChatModalManager {
                 // Find and update the status icon
                 const timestampEl = messageEl.querySelector('.chat-timestamp');
                 if (timestampEl) {
-                    // Get the time part (before the icon)
-                    const timeText = timestampEl.textContent.trim().split(' ')[0];
+                    // Remove existing status icon (keep separator and timestamp text intact)
+                    const oldIcon = timestampEl.querySelector('.mdi-eye, .mdi-check, .mdi-check-all, .mdi-alert-circle, .mdi-circle-small[title]');
+                    if (oldIcon) oldIcon.remove();
                     
-                    // Generate new status icon
-                    let statusIcon = '';
+                    // Generate and append new status icon
                     const status = update.status;
+                    let iconHtml = '';
                     if (status === 'SEEN') {
-                        statusIcon = '<i class="mdi mdi-eye text-cyber ms-1" title="Seen"></i>';
+                        iconHtml = '<i class="mdi mdi-eye text-cyber ms-1" title="Seen"></i>';
                     } else if (status === 'DELIVERED') {
-                        statusIcon = '<i class="mdi mdi-check-all text-cyber ms-1" title="Delivered"></i>';
+                        iconHtml = '<i class="mdi mdi-check-all text-cyber ms-1" title="Delivered"></i>';
                     } else if (status === 'SENT') {
-                        statusIcon = '<i class="mdi mdi-check text-muted ms-1" title="Sent"></i>';
+                        iconHtml = '<i class="mdi mdi-check ms-1" title="Sent"></i>';
                     } else if (status === 'FAILED') {
-                        statusIcon = '<i class="mdi mdi-alert-circle text-danger ms-1" title="Failed"></i>';
+                        iconHtml = '<i class="mdi mdi-alert-circle text-danger ms-1" title="Failed"></i>';
                     }
                     
-                    // Update the timestamp element with new icon
-                    timestampEl.innerHTML = timeText + statusIcon;
+                    if (iconHtml) {
+                        timestampEl.insertAdjacentHTML('beforeend', iconHtml);
+                    }
                 }
             }
         });
@@ -694,14 +701,14 @@ export class CqChatModalManager {
         
         let nameDisplay;
         if (isOutgoing) {
-            const userPhotoUrl = `/${userName}/photo`;
+            const userPhotoUrl = `/${userName}/photo?icon=1`;
             nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-2 pb-1 mb-2 border-0 border-bottom border-1 border-secondary border-opacity-50"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
         } else {
             // For real contacts use API endpoint, for non-friend placeholders use public photo URL
             const isRealContact = contactId && !contactId.startsWith('nf_');
             const contactPhotoUrl = isRealContact 
-                ? `/api/cq-contact/${contactId}/profile-photo` 
-                : (contactDomain && contactName ? `https://${contactDomain}/${contactName}/photo` : '');
+                ? `/api/cq-contact/${contactId}/profile-photo?icon=1` 
+                : (contactDomain && contactName ? `https://${contactDomain}/${contactName}/photo?icon=1` : '');
             const photoImg = contactPhotoUrl 
                 ? `<img src="${contactPhotoUrl}" class="rounded me-1 border-1 border-light border-opacity-25" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
                 : `<div class="rounded border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
@@ -931,6 +938,23 @@ export class CqChatModalManager {
                 badge.style.display = 'none';
             }
         }
+        this.updatePageTitle(count);
+    }
+    
+    /**
+     * Update page title with unread message count and envelope icon
+     */
+    updatePageTitle(count) {
+        // Store original title on first call
+        if (!this._originalTitle) {
+            this._originalTitle = document.title.replace(/^\[\d+x 🖂\] /, '');
+        }
+        
+        if (count > 0) {
+            document.title = `[${count}x 🖂] ${this._originalTitle}`;
+        } else {
+            document.title = this._originalTitle;
+        }
     }
     
     /**
@@ -961,7 +985,7 @@ export class CqChatModalManager {
         const pIcon = `<i class="mdi mdi-account d-none me-1" style="font-size:${ps/2}px;"></i>`;
         
         // Build members HTML - current user first (as "You"), then others
-        const userPhoto = `<img src="/${currentUsername}/photo" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}`;
+        const userPhoto = `<img src="/${currentUsername}/photo?icon=1" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}`;
         let html = `<span class="badge bg-cyber text-dark d-inline-flex align-items-center">${userPhoto}${currentUsername || 'You'}</span>`;
         
         // If we have a host contact (meaning current user is NOT the host), show the host first
@@ -969,7 +993,7 @@ export class CqChatModalManager {
             const hostUsername = hostContact.cqContactUsername || 'Host';
             const hostDomain = hostContact.cqContactDomain || '';
             const hostId = hostContact.id || '';
-            const hostPhoto = hostId ? `<img src="/api/cq-contact/${hostId}/profile-photo" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
+            const hostPhoto = hostId ? `<img src="/api/cq-contact/${hostId}/profile-photo?icon=1" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
             html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${hostDomain}/${hostUsername}">${hostPhoto}${hostUsername}</span>`;
         }
         
@@ -985,8 +1009,8 @@ export class CqChatModalManager {
                 const cId = contact.id || '';
                 // For real contacts use API endpoint, for non-friend placeholders use public photo URL
                 const isRealContact = cId && !cId.startsWith('nf_');
-                const publicPhotoUrl = domain && username ? `https://${domain}/${username}/photo` : '';
-                const photoUrl = isRealContact ? `/api/cq-contact/${cId}/profile-photo` : publicPhotoUrl;
+                const publicPhotoUrl = domain && username ? `https://${domain}/${username}/photo?icon=1` : '';
+                const photoUrl = isRealContact ? `/api/cq-contact/${cId}/profile-photo?icon=1` : publicPhotoUrl;
                 const cPhoto = photoUrl ? `<img src="${photoUrl}" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
                 html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${domain}/${username}">${cPhoto}${username}</span>`;
             }
@@ -1170,6 +1194,32 @@ export class CqChatModalManager {
     }
     
     // ==================== Image Upload Methods ====================
+    
+    /**
+     * Handle clipboard paste for images (Ctrl+V)
+     */
+    handleClipboardPaste(e) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        
+        for (let item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                let file = item.getAsFile();
+                if (file) {
+                    // Clipboard images often have generic names — generate a proper one
+                    if (!file.name || file.name === '' || file.name === 'image.png' || !file.name.includes('.')) {
+                        const ext = item.type.split('/')[1] || 'png';
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        const newName = `clipboard-${timestamp}.${ext}`;
+                        file = new File([file], newName, { type: file.type });
+                    }
+                    this.handleImageUpload([file]);
+                }
+                return;
+            }
+        }
+    }
     
     /**
      * Handle image file upload

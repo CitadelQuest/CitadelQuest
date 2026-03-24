@@ -8,6 +8,9 @@ use App\Service\CQShareService;
 use App\Service\CqContactService;
 use App\Service\SettingsService;
 use App\Service\UserDatabaseManager;
+use Doctrine\DBAL\Configuration;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -313,10 +316,13 @@ class CQShareController extends AbstractController
             }
 
             // Open the .cqmpack SQLite file directly and read graph data
-            $packDb = \Doctrine\DBAL\DriverManager::getConnection([
+            $packConfiguration = new Configuration();
+            $packConfiguration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
+
+            $packDb = DriverManager::getConnection([
                 'driver' => 'pdo_sqlite',
                 'path' => $filePath,
-            ]);
+            ], $packConfiguration);
 
             $nodes = $packDb->executeQuery(
                 'SELECT id, content, summary, category, importance, confidence, created_at, access_count, source_type, source_ref, depth

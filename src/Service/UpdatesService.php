@@ -214,9 +214,8 @@ class UpdatesService
                  WHERE cq_chat_id = c.id) as member_count
              FROM cq_chat c
              WHERE c.is_active = 1
-             ORDER BY 
-                CASE WHEN last_message_at IS NULL THEN 0 ELSE 1 END DESC,
-                last_message_at DESC
+             AND last_message_at IS NOT NULL
+             ORDER BY last_message_at DESC
              LIMIT 10',
             ['SEEN']
         )->fetchAllAssociative();

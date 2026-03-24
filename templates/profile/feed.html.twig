@@ -27,8 +27,8 @@
 
     {# Back to profile link #}
     <div class="mb-3">
-        <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="text-decoration-none text-light opacity-75">
-            <i class="mdi mdi-arrow-left me-1"></i>{{ profile_username }}
+        <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="text-decoration-none text-light opacity-50">
+            <i class="mdi mdi-arrow-left me-2"></i>{{ profile_username }}
         </a>
     </div>
 
@@ -45,8 +45,8 @@
                 </a>
                 {% endif %}
                 <div class="flex-grow-1">
-                    <i class="mdi mdi-rss me-2 opacity-75"></i>
-                    <h1 class="h4 mb-0 text-cyber">
+                    <i class="mdi mdi-rss me-2 opacity-75" title="CQ Feed"></i>
+                    <h1 class="h4 mb-0">
                         {{ feed.title }}
                     </h1>
                     <small class="text-light opacity-50">

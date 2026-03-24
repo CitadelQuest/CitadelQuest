@@ -2,7 +2,7 @@
 
 {% block html_attributes %} lang="{{ profile_locale|default('en') }}"{% if profile_theme is defined and profile_theme %} data-theme="{{ profile_theme }}"{% endif %}{% endblock %}
 
-{% block title %}{{ profile_username }} @ {{ profile_domain }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ profile_username }} @ {{ profile_domain }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -133,7 +133,7 @@
                             {# Public Feed Badges — right side, below spirits #}
                             {% if profile_feeds|default([])|length > 0 %}
                             <div class="d-flex flex-column align-items-end gap-1 ms-auto mb-2">
-                                <i class="mdi mdi-rss text-primary opacity-75" style="font-size: 1.2rem;"></i>
+                                <i class="mdi mdi-rss text-warning opacity-75" style="font-size: 1.2rem;" title="CQ Feed"></i>
                                 {% for feed in profile_feeds %}
                                 <a href="{{ path('cq_profile_public_feed', {username: profile_username, feedSlug: feed.feed_url_slug}) }}"
                                     class="badge bg-primary bg-opacity-10 text-light opacity-75 text-decoration-none px-2 py-1" style="font-size: 0.75rem;">

@@ -120,6 +120,9 @@ class CqChatApiController extends AbstractController
                 return $chatData;
             }, $chats);
 
+            // Filter out empty chats (no messages yet)
+            $chats = array_values(array_filter($chats, fn($c) => !empty($c['lastMessage'])));
+
             return $this->json([
                 'unseenCount' => $unseenCount,
                 'chats' => $chats
