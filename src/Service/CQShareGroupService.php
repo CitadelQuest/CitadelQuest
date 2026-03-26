@@ -14,10 +14,6 @@ use Psr\Log\LoggerInterface;
  */
 class CQShareGroupService
 {
-    public const SCOPE_PUBLIC = 0;
-    public const SCOPE_CQ_CONTACT = 1;
-    public const SCOPE_CQ_CONTACT_SELECT = 2;
-
     private ?User $user;
 
     public function __construct(
@@ -48,7 +44,7 @@ class CQShareGroupService
     /**
      * Create a new share group
      */
-    public function createGroup(string $title, string $mdiIcon = 'mdi-folder', int $scope = self::SCOPE_PUBLIC, bool $showInNav = true, ?string $urlSlug = null, ?string $iconColor = null): array
+    public function createGroup(string $title, string $mdiIcon = 'mdi-folder', int $scope = CQShareService::SCOPE_PUBLIC, bool $showInNav = true, ?string $urlSlug = null, ?string $iconColor = null): array
     {
         $db = $this->getUserDb();
 
@@ -383,7 +379,7 @@ class CQShareGroupService
         $db = $this->getUserDb();
         $result = $db->executeQuery(
             'SELECT MAX(updated_at) FROM cq_share_group WHERE is_active = 1 AND scope = ?',
-            [self::SCOPE_PUBLIC]
+            [CQShareService::SCOPE_PUBLIC]
         )->fetchOne();
 
         return $result ?: null;
@@ -403,7 +399,7 @@ class CQShareGroupService
              JOIN cq_share_group g ON g.id = gi.group_id
              JOIN cq_share s ON s.id = gi.share_id
              WHERE g.is_active = 1 AND g.scope = ? AND s.is_active = 1',
-            [self::SCOPE_PUBLIC]
+            [CQShareService::SCOPE_PUBLIC]
         )->fetchOne();
 
         return $result ?: null;

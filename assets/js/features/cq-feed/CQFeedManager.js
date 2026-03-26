@@ -18,6 +18,9 @@ export class CQFeedManager {
         this.timeline = null;
         this.isInitialized = false;
 
+        // Pending feed filter (set from URL param before init)
+        this.pendingFeedFilter = null;
+
         this.composerContainer = document.getElementById('cqFeedComposer');
         this.timelineContainer = document.getElementById('cqFeedTimeline');
     }
@@ -70,12 +73,15 @@ export class CQFeedManager {
             } else {
                 await this.timeline.initWithFeeds(feeds);
                 // Fetch latest from subscribed feeds in background
-                this._fetchSubscribedFeeds();
+                await this._fetchSubscribedFeeds();
             }
         } else {
             // No timeline container — still fetch in background
             this._fetchSubscribedFeeds();
         }
+
+        // Apply pending feed filter (from URL param or localStorage)
+        this._applyPendingFilter();
     }
 
     /**
@@ -136,9 +142,78 @@ export class CQFeedManager {
         } catch (e) {}
 
         // Full timeline reload (user-triggered, may need fresh own posts too)
+        // activeFeedFilter is preserved across init() — no need to re-apply
         if (this.timeline) {
             this.timeline.feedLastViewedAt = localStorage.getItem('cqFeedLastViewedAt') || null;
             await this.timeline.init();
         }
+    }
+
+    // ========================================
+    // Feed Filter
+    // ========================================
+
+    /**
+     * Set feed filter on timeline + persist to localStorage.
+     * Called from feed badge click or URL param.
+     */
+    setFeedFilter(feedUrl, feedTitle, feedScope) {
+        if (this.timeline) {
+            this.timeline.setFeedFilter(feedUrl, feedTitle, feedScope);
+        }
+        localStorage.setItem('cqFeedFilter', JSON.stringify({ feedUrl, feedTitle, feedScope }));
+    }
+
+    /**
+     * Clear feed filter from timeline + remove from localStorage.
+     */
+    clearFeedFilter() {
+        if (this.timeline) {
+            this.timeline.clearFeedFilter();
+        }
+        localStorage.removeItem('cqFeedFilter');
+    }
+
+    /**
+     * Apply pending feed filter (from URL param) or restore from localStorage.
+     */
+    _applyPendingFilter() {
+        if (!this.timeline) return;
+
+        const filter = this.pendingFeedFilter || this._loadSavedFilter();
+        if (!filter) return;
+
+        // If title is missing (from URL param), try to resolve from loaded posts
+        if (!filter.feedTitle) {
+            const allPosts = [...this.timeline.ownPosts, ...this.timeline.timelinePosts];
+            const match = allPosts.find(p => this.timeline._buildFeedUrl(p) === filter.feedUrl);
+            if (match) {
+                filter.feedTitle = match.feed_title || '';
+                filter.feedScope = parseInt(match.feed_scope || 0);
+            } else {
+                // Fallback: extract slug from URL as display title
+                try {
+                    const url = new URL(filter.feedUrl);
+                    const parts = url.pathname.split('/').filter(Boolean);
+                    filter.feedTitle = parts[parts.length - 1] || 'Feed';
+                } catch { filter.feedTitle = 'Feed'; }
+            }
+        }
+
+        this.timeline.setFeedFilter(filter.feedUrl, filter.feedTitle, filter.feedScope);
+        // Persist resolved title
+        localStorage.setItem('cqFeedFilter', JSON.stringify(filter));
+        this.pendingFeedFilter = null;
+    }
+
+    /**
+     * Load saved feed filter from localStorage.
+     */
+    _loadSavedFilter() {
+        try {
+            const saved = localStorage.getItem('cqFeedFilter');
+            if (saved) return JSON.parse(saved);
+        } catch (e) {}
+        return null;
     }
 }

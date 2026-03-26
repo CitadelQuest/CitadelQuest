@@ -76,7 +76,7 @@ class CQShareGroupController extends AbstractController
             $group = $this->groupService->createGroup(
                 $data['title'],
                 $data['mdi_icon'] ?? 'mdi-folder',
-                (int) ($data['scope'] ?? CQShareGroupService::SCOPE_PUBLIC),
+                (int) ($data['scope'] ?? CQShareService::SCOPE_PUBLIC),
                 (bool) ($data['show_in_nav'] ?? true),
                 $data['url_slug'] ?? null,
                 $data['icon_color'] ?? null

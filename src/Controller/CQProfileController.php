@@ -92,7 +92,7 @@ class CQProfileController extends AbstractController
         $this->feedService->setUser($user);
         $feed = $this->feedService->findFeedBySlug($feedSlug);
 
-        if (!$feed || (int) $feed['scope'] !== CQFeedService::SCOPE_PUBLIC) {
+        if (!$feed || (int) $feed['scope'] !== CQShareService::SCOPE_PUBLIC) {
             throw $this->createNotFoundException();
         }
 
@@ -111,7 +111,7 @@ class CQProfileController extends AbstractController
         $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
 
         // All public feeds for nav
-        $publicFeeds = $this->feedService->listActiveFeedsByScope([CQFeedService::SCOPE_PUBLIC]);
+        $publicFeeds = $this->feedService->listActiveFeedsByScope([CQShareService::SCOPE_PUBLIC]);
 
         return $this->render('profile/feed.html.twig', [
             'profile_username' => $username,
@@ -186,7 +186,7 @@ class CQProfileController extends AbstractController
         if ($showProfileContent) {
             try {
                 $this->shareGroupService->setUser($user);
-                $allShareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareGroupService::SCOPE_PUBLIC]);
+                $allShareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareService::SCOPE_PUBLIC]);
 
                 // Profile Content groups always get content previews (independent from show_share_content toggle)
                 if (!empty($allShareGroups)) {
@@ -237,7 +237,7 @@ class CQProfileController extends AbstractController
                 $publicShares = $this->shareService->listPublicShares();
 
                 // Filter out grouped shares from the ungrouped list
-                $groupedShareIds = $this->shareGroupService->getGroupedShareIds([CQShareGroupService::SCOPE_PUBLIC]);
+                $groupedShareIds = $this->shareGroupService->getGroupedShareIds([CQShareService::SCOPE_PUBLIC]);
                 if (!empty($groupedShareIds)) {
                     $publicShares = array_values(array_filter($publicShares, fn($s) => !in_array($s['id'], $groupedShareIds)));
                 }
@@ -281,7 +281,7 @@ class CQProfileController extends AbstractController
         $publicFeeds = [];
         try {
             $this->feedService->setUser($user);
-            $publicFeeds = $this->feedService->listActiveFeedsByScope([CQFeedService::SCOPE_PUBLIC]);
+            $publicFeeds = $this->feedService->listActiveFeedsByScope([CQShareService::SCOPE_PUBLIC]);
         } catch (\Exception $e) {
             $this->logger->warning('CQProfileController: Failed to load public feeds', [
                 'username' => $username,
@@ -367,7 +367,7 @@ class CQProfileController extends AbstractController
         if ($showProfileContent) {
             try {
                 $this->shareGroupService->setUser($user);
-                $shareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareGroupService::SCOPE_PUBLIC]);
+                $shareGroups = $this->shareGroupService->listActiveGroupsWithItems([CQShareService::SCOPE_PUBLIC]);
 
                 // Profile Content groups always get content previews (independent from show_share_content toggle)
                 if (!empty($shareGroups)) {
@@ -395,7 +395,7 @@ class CQProfileController extends AbstractController
                 $this->shareGroupService->setUser($user);
                 $publicShares = $this->shareService->listPublicShares();
 
-                $groupedShareIds = $this->shareGroupService->getGroupedShareIds([CQShareGroupService::SCOPE_PUBLIC]);
+                $groupedShareIds = $this->shareGroupService->getGroupedShareIds([CQShareService::SCOPE_PUBLIC]);
                 if (!empty($groupedShareIds)) {
                     $publicShares = array_values(array_filter($publicShares, fn($s) => !in_array($s['id'], $groupedShareIds)));
                 }
@@ -652,7 +652,7 @@ class CQProfileController extends AbstractController
                 $this->shareGroupService->setUser($user);
 
                 // Load share groups for federation (only if profile content toggle is on)
-                $federationScopes = [CQShareGroupService::SCOPE_PUBLIC, CQShareGroupService::SCOPE_CQ_CONTACT];
+                $federationScopes = [CQShareService::SCOPE_PUBLIC, CQShareService::SCOPE_CQ_CONTACT];
                 $shareGroups = [];
                 if ($showProfileContent) {
                     $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);

@@ -28,7 +28,8 @@ export class CQFeedPostComposer {
     initWithFeeds(feeds) {
         this.feeds = feeds || [];
         if (this.feeds.length > 0 && !this.selectedFeedId) {
-            this.selectedFeedId = this.feeds[0].id;
+            const sorted = [...this.feeds].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            this.selectedFeedId = sorted[0].id;
         }
         this.render();
     }
@@ -39,7 +40,8 @@ export class CQFeedPostComposer {
             if (data.success) {
                 this.feeds = data.feeds || [];
                 if (this.feeds.length > 0 && !this.selectedFeedId) {
-                    this.selectedFeedId = this.feeds[0].id;
+                    const sorted = [...this.feeds].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+                    this.selectedFeedId = sorted[0].id;
                 }
             }
         } catch (e) {
@@ -63,7 +65,7 @@ export class CQFeedPostComposer {
                             <i class="mdi mdi-rss"></i>
                         </a>
                         <select id="cqFeedSelect" class="form-select form-select-sm glass-input" style="width: auto; min-width: 140px;">
-                            ${this.feeds.map(f => `<option value="${f.id}" ${f.id === this.selectedFeedId ? 'selected' : ''}>${this._escapeHtml(f.title)}</option>`).join('')}
+                            ${[...this.feeds].sort((a, b) => (a.title || '').localeCompare(b.title || '')).map(f => `<option value="${f.id}" ${f.id === this.selectedFeedId ? 'selected' : ''}>${this._escapeHtml(f.title)}</option>`).join('')}
                         </select>
                         <span class="small text-muted opacity-50 d-none d-md-inline">
                             <i class="mdi mdi-markdown"></i><span class="d-none d-sm-inline-block ms-1">${this.t('feed_markdown_hint', 'Markdown')}</span>

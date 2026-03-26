@@ -77,7 +77,7 @@ class CQShareController extends AbstractController
 
             // Load share groups for federation (only if profile content toggle is on)
             $this->shareGroupService->setUser($user);
-            $federationScopes = [CQShareGroupService::SCOPE_PUBLIC, CQShareGroupService::SCOPE_CQ_CONTACT];
+            $federationScopes = [CQShareService::SCOPE_PUBLIC, CQShareService::SCOPE_CQ_CONTACT];
             $shareGroups = [];
             if ($showProfileContent) {
                 $shareGroups = $this->shareGroupService->listActiveGroupsWithItems($federationScopes);

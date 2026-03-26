@@ -15,9 +15,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class CQFeedService
 {
-    public const SCOPE_PUBLIC = 0;
-    public const SCOPE_CQ_CONTACT = 1;
-
     public const REACTION_LIKE = 0;
     public const REACTION_DISLIKE = 1;
 
@@ -54,7 +51,7 @@ class CQFeedService
     /**
      * Create a new feed
      */
-    public function createFeed(string $title, string $feedUrlSlug, int $scope = self::SCOPE_CQ_CONTACT, ?string $description = null, ?string $imageProjectFileId = null): array
+    public function createFeed(string $title, string $feedUrlSlug, int $scope = CQShareService::SCOPE_CQ_CONTACT, ?string $description = null, ?string $imageProjectFileId = null): array
     {
         $db = $this->getUserDb();
 
@@ -345,7 +342,7 @@ class CQFeedService
             return $existing;
         }
 
-        return $this->createFeed('Public', 'public', self::SCOPE_CQ_CONTACT);
+        return $this->createFeed('Public', 'public', CQShareService::SCOPE_PUBLIC);
     }
 
     // ========================================

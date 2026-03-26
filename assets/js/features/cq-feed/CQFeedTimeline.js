@@ -27,6 +27,9 @@ export class CQFeedTimeline {
         this.ownPosts = [];
         this.timelinePosts = [];
 
+        // Timeline feed filter (set by clicking feed badge)
+        this.activeFeedFilter = null; // { feedUrl, feedTitle, feedScope }
+
         this.md = new MarkdownIt({ html: false, linkify: true, typographer: true });
     }
 
@@ -127,10 +130,18 @@ export class CQFeedTimeline {
     }
 
     /**
-     * Get merged and sorted posts (own + timeline, newest first)
+     * Get merged and sorted posts (own + timeline, newest first).
+     * Applies activeFeedFilter if set.
      */
     _getMergedPosts() {
-        const all = [...this.ownPosts, ...this.timelinePosts];
+        let all = [...this.ownPosts, ...this.timelinePosts];
+
+        // Apply feed filter
+        if (this.activeFeedFilter) {
+            const filterUrl = this.activeFeedFilter.feedUrl;
+            all = all.filter(p => this._buildFeedUrl(p) === filterUrl);
+        }
+
         all.sort((a, b) => {
             const dateA = new Date(a.created_at);
             const dateB = new Date(b.created_at);
@@ -139,22 +150,68 @@ export class CQFeedTimeline {
         return all;
     }
 
+    /**
+     * Build the full feed URL for a post (used for filter matching + deep links).
+     * Format: https://domain/username/feed/slug
+     */
+    _buildFeedUrl(post) {
+        if (post.is_own) {
+            return `https://${window.location.hostname}/${this.username}/feed/${post.feed_slug || ''}`;
+        }
+        return `https://${post.cq_contact_domain || ''}/${post.cq_contact_username || ''}/feed/${post.feed_slug || ''}`;
+    }
+
+    /**
+     * Set the timeline feed filter — only show posts from the given feed.
+     */
+    setFeedFilter(feedUrl, feedTitle, feedScope) {
+        this.activeFeedFilter = { feedUrl, feedTitle: feedTitle || '', feedScope: feedScope || 0 };
+        this.render();
+    }
+
+    /**
+     * Clear the timeline feed filter — show all posts.
+     */
+    clearFeedFilter() {
+        this.activeFeedFilter = null;
+        this.render();
+    }
+
     render() {
         if (!this.container) return;
 
         const posts = this._getMergedPosts();
 
+        // Filter bar (shown when a feed filter is active)
+        let filterHtml = '';
+        if (this.activeFeedFilter) {
+            const f = this.activeFeedFilter;
+            const fScope = parseInt(f.feedScope || 0);
+            const fBadgeBg = fScope === 1 ? 'bg-primary bg-opacity-25 text-primary opacity-75' : 'bg-secondary bg-opacity-25 text-light opacity-75';
+            filterHtml = `
+                <div class="cq-feed-filter-bar d-flex align-items-center gap-2 mb-3 px-3 py-2 glass-panel glass-panel-glow border border-primary border-opacity-50 border-bottom-0">
+                    <span class="badge ${fBadgeBg}"><i class="mdi mdi-rss me-1 text-cyber"></i>${this._escapeHtml(f.feedTitle || 'Feed')}</span>
+                    <button class="btn btn-sm p-0 border-0 text-secondary cq-feed-filter-close link-danger" title="${this.t('feed_filter_clear', 'Clear filter')}">
+                        <i class="mdi mdi-close"></i>
+                    </button>
+                </div>`;
+        }
+
         if (posts.length === 0 && !this.isLoading) {
-            this.container.innerHTML = `
+            const emptyMsg = this.activeFeedFilter
+                ? this.t('feed_no_posts_filtered', 'No posts in this feed yet.')
+                : this.t('feed_no_posts', 'No posts yet. Create your first post or follow someone!');
+            this.container.innerHTML = filterHtml + `
                 <div class="text-center py-5 text-light opacity-50">
                     <i class="mdi mdi-newspaper-variant-outline" style="font-size: 3rem;"></i>
-                    <p class="mt-2">${this.t('feed_no_posts', 'No posts yet. Create your first post or follow someone!')}</p>
+                    <p class="mt-2">${emptyMsg}</p>
                 </div>
             `;
+            this._bindFilterCloseHandler();
             return;
         }
 
-        let html = '<div class="cq-feed-timeline mb-4">';
+        let html = filterHtml + '<div class="cq-feed-timeline mb-4">';
 
         for (const post of posts) {
             html += this._renderPost(post);
@@ -199,7 +256,10 @@ export class CQFeedTimeline {
             });
         });
 
-        // Bind timeline feed badge toggle → show pause/unsub actions
+        // Bind filter close button
+        this._bindFilterCloseHandler();
+
+        // Bind timeline feed badge → filter + config actions
         this._bindTimelineFeedBadgeHandlers();
 
         // Bind reaction buttons (like/dislike)
@@ -233,16 +293,41 @@ export class CQFeedTimeline {
         this._toggleComments(postId);
     }
 
+    _bindFilterCloseHandler() {
+        const closeBtn = this.container.querySelector('.cq-feed-filter-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.cqFeedManager?.clearFeedFilter();
+            });
+        }
+    }
+
     _bindTimelineFeedBadgeHandlers() {
-        this.container.querySelectorAll('.timeline-feed-badge-toggle').forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
+        // Feed badge click → set timeline filter
+        this.container.querySelectorAll('.timeline-feed-badge-filter').forEach(badge => {
+            badge.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const group = toggle.closest('.timeline-feed-badge-group');
+                const feedUrl = badge.dataset.feedUrl;
+                const feedTitle = badge.dataset.feedTitle;
+                const feedScope = parseInt(badge.dataset.feedScope || 0);
+                if (feedUrl) {
+                    window.cqFeedManager?.setFeedFilter(feedUrl, feedTitle, feedScope);
+                }
+            });
+        });
+
+        // Config button → show pause/unsub actions
+        this.container.querySelectorAll('.timeline-feed-badge-config').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const group = btn.closest('.timeline-feed-badge-group');
                 const actions = group?.querySelector('.timeline-feed-badge-actions');
                 if (!actions) return;
 
-                toggle.classList.add('d-none');
+                btn.classList.add('d-none');
                 actions.classList.remove('d-none');
                 actions.classList.add('d-inline-flex');
 
@@ -250,7 +335,7 @@ export class CQFeedTimeline {
                 this._tlFeedTimer = setTimeout(() => {
                     actions.classList.add('d-none');
                     actions.classList.remove('d-inline-flex');
-                    toggle.classList.remove('d-none');
+                    btn.classList.remove('d-none');
                 }, 3000);
             });
         });
@@ -270,7 +355,6 @@ export class CQFeedTimeline {
                         window.toast?.success(data.feed?.is_active == 1
                             ? this.t('feed_resumed', 'Feed resumed')
                             : this.t('feed_paused', 'Feed paused'));
-                        // Refresh the timeline
                         await this.init();
                     } else {
                         throw new Error(data.message || 'Failed');
@@ -296,7 +380,6 @@ export class CQFeedTimeline {
                     const data = await resp.json();
                     if (data.success) {
                         window.toast?.success(this.t('feed_unsubscribed', 'Unsubscribed'));
-                        // Refresh the timeline
                         await this.init();
                     } else {
                         throw new Error(data.message || 'Failed');
@@ -338,22 +421,24 @@ export class CQFeedTimeline {
             ? `<span class="fw-bold text-cyber">${this._escapeHtml(authorName)}</span>`
             : `<span class="fw-bold text-light">${this._escapeHtml(authorName)}</span><span class="text-light opacity-50 small">${this._escapeHtml(authorDomain)}</span>`;
 
-        // Feed badge — interactive for federation posts (pause/unsubscribe)
+        // Feed badge — clickable to set timeline filter
         // scope: 0=Public (secondary), 1=CQ Contacts (primary)
         const feedScope = parseInt(post.feed_scope || 0);
         const badgeBg = feedScope === 1 ? 'bg-primary bg-opacity-10 text-primary opacity-75' : 'bg-secondary bg-opacity-10 text-secondary';
+        const postFeedUrl = feedTitle ? this._buildFeedUrl(post) : '';
         let feedBadge = '';
         if (feedTitle && !isOwn && post.cq_feed_id) {
             feedBadge = `
                 <div class="d-inline-flex align-items-center gap-1 me-2 timeline-feed-badge-group" data-feed-id="${post.cq_feed_id}">
-                    <a href="#" class="badge ${badgeBg} small text-decoration-none timeline-feed-badge-toggle" style="cursor:pointer;"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</a>
+                    <a href="#" class="badge ${badgeBg} small text-decoration-none timeline-feed-badge-filter" data-feed-url="${this._escapeHtml(postFeedUrl)}" data-feed-title="${this._escapeHtml(feedTitle)}" data-feed-scope="${feedScope}" style="cursor:pointer;"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</a>
+                    <a href="#" class="timeline-feed-badge-config text-secondary" style="font-size:0.75rem; cursor:pointer;" title="${this.t('feed_options', 'Feed options')}"><i class="mdi mdi-dots-vertical"></i></a>
                     <div class="d-none timeline-feed-badge-actions align-items-center gap-1">
                         <button class="btn btn-sm px-1 py-0 btn-outline-warning timeline-feed-pause-btn" data-feed-id="${post.cq_feed_id}" title="${this.t('feed_pause', 'Pause')}"><i class="mdi mdi-pause" style="font-size:0.75rem;"></i></button>
                         <button class="btn btn-sm px-1 py-0 btn-outline-danger timeline-feed-unsub-btn" data-feed-id="${post.cq_feed_id}" title="${this.t('feed_unsubscribe', 'Unsubscribe')}"><i class="mdi mdi-rss-off" style="font-size:0.75rem;"></i></button>
                     </div>
                 </div>`;
         } else if (feedTitle) {
-            feedBadge = `<span class="badge ${badgeBg} me-2 small"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</span>`;
+            feedBadge = `<a href="#" class="badge ${badgeBg} me-2 small text-decoration-none timeline-feed-badge-filter" data-feed-url="${this._escapeHtml(postFeedUrl)}" data-feed-title="${this._escapeHtml(feedTitle)}" data-feed-scope="${feedScope}" style="cursor:pointer;"><i class="mdi mdi-rss me-1"></i>${this._escapeHtml(feedTitle)}</a>`;
         }
 
         const deleteBtn = isOwn

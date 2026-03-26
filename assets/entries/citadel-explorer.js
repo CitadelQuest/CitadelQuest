@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hasUrlParam = urlParams.has('url');
     const feedPostId = urlParams.get('feed-post');
+    const feedUrlParam = urlParams.get('feedUrl');
 
     window.citadelExplorer = new CitadelExplorer();
     window.explorerSidebar = new ExplorerSidebar(window.explorerSidebarConfig || {});
@@ -66,6 +67,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.history.replaceState({}, '', window.location.pathname);
             // Store target post ID — CQFeedTimeline will handle scroll/highlight/open after each render
             window.cqFeedManager.pendingScrollToPostId = feedPostId;
+            activateFeed();
+        } else if (feedUrlParam) {
+            // ?feedUrl= param → activate CQ Feed tab with feed filter
+            window.history.replaceState({}, '', window.location.pathname);
+            window.cqFeedManager.pendingFeedFilter = { feedUrl: feedUrlParam, feedTitle: '', feedScope: 0 };
             activateFeed();
         } else if (hasUrlParam) {
             // If URL had ?url= param, always show CQ Explorer tab

@@ -5,6 +5,7 @@ namespace App\Api\Controller;
 use App\CitadelVersion;
 use App\Entity\User;
 use App\Service\CQFeedService;
+use App\Service\CQShareService;
 use App\Service\CqContactService;
 use App\Service\SettingsService;
 use App\Service\UserDatabaseManager;
@@ -58,8 +59,8 @@ class CQFeedController extends AbstractController
             // Determine allowed scopes based on auth
             $isAuthenticated = $this->checkFederationAuth($request);
             $allowedScopes = $isAuthenticated
-                ? [CQFeedService::SCOPE_PUBLIC, CQFeedService::SCOPE_CQ_CONTACT]
-                : [CQFeedService::SCOPE_PUBLIC];
+                ? [CQShareService::SCOPE_PUBLIC, CQShareService::SCOPE_CQ_CONTACT]
+                : [CQShareService::SCOPE_PUBLIC];
 
             $feeds = $this->feedService->listActiveFeedsByScope($allowedScopes);
 
@@ -120,7 +121,7 @@ class CQFeedController extends AbstractController
             // Check scope access
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -208,7 +209,7 @@ class CQFeedController extends AbstractController
             // Check scope access
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -315,7 +316,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -383,7 +384,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -440,7 +441,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -499,7 +500,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -550,7 +551,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -602,7 +603,7 @@ class CQFeedController extends AbstractController
 
             $isAuthenticated = $this->checkFederationAuth($request);
             $scope = (int) $feed['scope'];
-            if ($scope === CQFeedService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
+            if ($scope === CQShareService::SCOPE_CQ_CONTACT && !$isAuthenticated) {
                 return $this->json(['success' => false, 'message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
             }
 

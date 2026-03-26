@@ -5,6 +5,7 @@ namespace App\Api\Controller;
 use App\Entity\User;
 use App\Service\CQFeedService;
 use App\Service\CQFederationFeedService;
+use App\Service\CQShareService;
 use App\Service\CQFollowService;
 use App\Service\CqContactService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -70,7 +71,7 @@ class CQFeedApiController extends AbstractController
             }
 
             $feedUrlSlug = $data['feed_url_slug'] ?? $this->feedService->generateSlug($title);
-            $scope = (int) ($data['scope'] ?? CQFeedService::SCOPE_CQ_CONTACT);
+            $scope = (int) ($data['scope'] ?? CQShareService::SCOPE_CQ_CONTACT);
             $description = $data['description'] ?? null;
             $imageProjectFileId = $data['image_project_file_id'] ?? null;
 
