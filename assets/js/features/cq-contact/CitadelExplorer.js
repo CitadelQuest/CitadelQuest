@@ -1135,7 +1135,8 @@ export class CitadelExplorer {
         const previewOpts = {
             showContent: opts.showContent !== undefined ? opts.showContent : this.profile.show_share_content,
             md: this.md,
-            t: (k, f) => this.t(k, f)
+            t: (k, f) => this.t(k, f),
+            contactId: (this.profile.is_contact && this.profile.contact_id) ? this.profile.contact_id : undefined
         };
         if (opts.displayStyle !== undefined && opts.displayStyle !== null) {
             previewOpts.displayStyleOverride = opts.displayStyle;

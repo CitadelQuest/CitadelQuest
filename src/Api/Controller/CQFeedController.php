@@ -146,15 +146,29 @@ class CQFeedController extends AbstractController
                 'photo_url' => ($photoFileId) ? ('https://' . $domain . '/' . $username . '/photo') : null,
             ];
 
-            $result = array_map(function ($post) use ($author) {
+            $result = array_map(function ($post) use ($author, $username, $domain) {
                 $stats = json_decode($post['stats'] ?? '{}', true) ?: ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
                 unset($stats['my_reaction']);
+
+                // Build attachment data for federation (use share URLs for content access)
+                $attachments = [];
+                foreach ($post['attachments'] ?? [] as $att) {
+                    $attachments[] = [
+                        'share_title' => $att['share_title'] ?? '',
+                        'share_url' => $att['share_url'] ? ('https://' . $domain . '/' . $username . '/share/' . $att['share_url']) : null,
+                        'display_style' => (int) ($att['display_style'] ?? 1),
+                        'file_name' => $att['file_name'] ?? '',
+                        'file_mime_type' => $att['file_mime_type'] ?? '',
+                    ];
+                }
+
                 return [
                     'id' => $post['id'],
                     'post_url_slug' => $post['post_url_slug'],
                     'content' => $post['content'],
                     'stats' => $stats,
                     'author' => $author,
+                    'attachments' => $attachments,
                     'created_at' => $post['created_at'],
                     'updated_at' => $post['updated_at'],
                 ];
@@ -654,6 +668,6 @@ class CQFeedController extends AbstractController
         }
 
         $contact = $this->cqContactService->findByApiKey($apiKey);
-        return $contact !== null;
+        return $contact !== null && $contact->getFriendRequestStatus() && $contact->getFriendRequestStatus()=='ACCEPTED';
     }
 }

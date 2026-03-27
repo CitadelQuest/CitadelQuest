@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\User;
+use App\CitadelVersion;
 use App\Service\CQFeedService;
 use App\Service\CQFederationFeedService;
 use App\Service\CQShareService;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -31,6 +33,7 @@ class CQFeedApiController extends AbstractController
         private readonly CQFollowService $followService,
         private readonly CqContactService $contactService,
         private readonly EntityManagerInterface $entityManager,
+        private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger
     ) {}
 
@@ -187,8 +190,9 @@ class CQFeedApiController extends AbstractController
             }
 
             $postUrlSlug = $data['post_url_slug'] ?? $this->feedService->generatePostSlug($id);
+            $attachments = $data['attachments'] ?? [];
 
-            $post = $this->feedService->createPost($id, $content, $postUrlSlug);
+            $post = $this->feedService->createPost($id, $content, $postUrlSlug, $attachments);
 
             return $this->json(['success' => true, 'post' => $post]);
         } catch (\Exception $e) {
@@ -870,6 +874,104 @@ class CQFeedApiController extends AbstractController
         } catch (\Exception $e) {
             $this->logger->error('CQFeedApiController::timeline error', ['error' => $e->getMessage()]);
             return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // ========================================
+    // Attachment Proxy
+    // ========================================
+
+    /**
+     * Proxy for fetching federation attachment images with CQ Contact API key auth.
+     * Used when the attachment share is CQ_CONTACT scoped (not publicly accessible).
+     * The browser can't send Bearer tokens via <img src>, so this local endpoint
+     * fetches the remote binary on behalf of the authenticated user.
+     */
+    #[Route('/attachment-proxy', name: 'api_feed_attachment_proxy', methods: ['GET'])]
+    public function attachmentProxy(Request $request): Response
+    {
+        $shareUrl = $request->query->get('url', '');
+        $contactId = $request->query->get('contact_id', '');
+
+        if (empty($shareUrl) || empty($contactId)) {
+            return new Response('Missing parameters', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $contact = $this->contactService->findById($contactId);
+            if (!$contact) {
+                //return new Response('Contact not found', Response::HTTP_NOT_FOUND);
+                throw new \Exception('Contact not found');
+            }
+
+            if (!$contact->getCqContactApiKey()) {
+                throw new \Exception('No API key for contact');
+            }
+
+            // Validate that the share_url belongs to this contact's domain (security check)
+            $contactDomain = $contact->getCqContactDomain();
+            $urlParts = parse_url($shareUrl);
+            if (!$urlParts || ($urlParts['host'] ?? '') !== $contactDomain) {
+                return new Response('URL does not match contact domain', Response::HTTP_FORBIDDEN);
+            }
+
+            // Fetch binary content from remote Citadel with Bearer auth
+            $response = $this->httpClient->request('GET', $shareUrl, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $contact->getCqContactApiKey(),
+                    'Accept' => '*/*',
+                    'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                ],
+                'timeout' => 30,
+                'verify_peer' => false,
+            ]);
+
+            $statusCode = $response->getStatusCode(false);
+            if ($statusCode !== 200) {
+                return new Response('Remote server returned ' . $statusCode, $statusCode >= 400 ? $statusCode : Response::HTTP_BAD_GATEWAY);
+            }
+
+            $content = $response->getContent(false);
+            $contentType = $response->getHeaders(false)['content-type'][0] ?? 'application/octet-stream';
+
+            return new Response($content, 200, [
+                'Content-Type' => $contentType,
+                'Cache-Control' => 'private, max-age=3600',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        } catch (\Exception $e) {
+            try {
+                // fetch public share url
+                $response = $this->httpClient->request('GET', $shareUrl, [
+                    'headers' => [
+                        'Accept' => '*/*',
+                        'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+                    ],
+                    'timeout' => 30,
+                ]);
+
+                $statusCode = $response->getStatusCode(false);
+                if ($statusCode !== 200) {
+                    return new Response('Remote server returned ' . $statusCode, $statusCode >= 400 ? $statusCode : Response::HTTP_BAD_GATEWAY);
+                }
+
+                $content = $response->getContent(false);
+                $contentType = $response->getHeaders(false)['content-type'][0] ?? 'application/octet-stream';
+
+                return new Response($content, 200, [
+                    'Content-Type' => $contentType,
+                    'Cache-Control' => 'private, max-age=3600',
+                    'X-Content-Type-Options' => 'nosniff',
+                ]);
+
+            } catch (\Exception $e) {
+                $this->logger->warning('CQFeedApiController::attachmentProxy error', [
+                    'shareUrl' => $shareUrl,
+                    'contactId' => $contactId,
+                    'error' => $e->getMessage()
+                ]);
+                return new Response('Proxy error', Response::HTTP_BAD_GATEWAY);
+            }
         }
     }
 }

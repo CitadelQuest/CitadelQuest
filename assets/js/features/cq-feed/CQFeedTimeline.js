@@ -110,7 +110,14 @@ export class CQFeedTimeline {
         try {
             const data = await this.api.getTimeline(this.page, this.limit);
             if (data.success) {
-                const newPosts = (data.posts || []).map(p => ({ ...p, is_own: false }));
+                const newPosts = (data.posts || []).map(p => {
+                    // Parse attachments_json from federation cached posts
+                    let attachments = p.attachments || [];
+                    if (!attachments.length && p.attachments_json) {
+                        try { attachments = JSON.parse(p.attachments_json); } catch (e) { /* ignore */ }
+                    }
+                    return { ...p, is_own: false, attachments };
+                });
                 this.timelinePosts = this.timelinePosts.concat(newPosts);
                 this.total = data.total || 0;
                 this.hasMore = this.timelinePosts.length < this.total;
@@ -511,10 +518,90 @@ export class CQFeedTimeline {
                     </div>
                 </div>
                 <div class="cq-feed-post-content markdown-body overflow-auto">${contentHtml}</div>
+                ${this._renderAttachments(post)}
                 ${reactionsHtml}
                 ${commentsPanelHtml}
             </div>
         `;
+    }
+
+    /**
+     * Render attachments for a post based on display_style.
+     * display_style: 0 = header only, 1 = preview (thumbnail), 2 = full content
+     */
+    _renderAttachments(post) {
+        const attachments = post.attachments;
+        if (!attachments || attachments.length === 0) return '';
+
+        const isOwn = post.is_own;
+        let html = '<div class="cq-feed-attachments mt-2 mb-1">';
+
+        for (const att of attachments) {
+            const displayStyle = parseInt(att.display_style ?? att.share_display_style ?? 1);
+            const fileName = att.file_name || att.share_title || 'Attachment';
+            const mimeType = att.file_mime_type || '';
+            const isImage = mimeType.startsWith('image/');
+            const sourceId = att.source_id || '';
+            const shareUrl = att.share_url || '';
+            // Federation share_url is absolute (https://...), own is relative slug
+            const isAbsoluteUrl = shareUrl.startsWith('http');
+            const viewUrl = isAbsoluteUrl ? shareUrl : (shareUrl ? `/${this.username}/share/${shareUrl}` : '');
+
+            if (displayStyle === 0) {
+                // Header only — just show file name with icon
+                const icon = isImage ? 'mdi-image' : 'mdi-file';
+                html += `
+                    <div class="d-flex align-items-center gap-2 p-2 rounded mb-1 bg-dark bg-opacity-75">
+                        <i class="mdi ${icon} text-cyber small"></i>
+                        <span class="small text-light opacity-75">${this._escapeHtml(fileName)}</span>
+                    </div>`;
+            } else if ((displayStyle === 1 || displayStyle === 2) && isImage && isOwn && sourceId) {
+                // Own image: use local file API for preview/full
+                const maxH = displayStyle === 1 ? '250px' : '500px';
+                const maxW = displayStyle === 1 ? 'max-width: 300px;' : '';
+                html += `
+                    <div class="cq-feed-attachment-preview mb-1 rounded overflow-hidden bg-dark bg-opacity-75" style="${maxW}">
+                        <img src="/api/project-file/${sourceId}/download"
+                             alt="${this._escapeHtml(fileName)}"
+                             class="img-fluid rounded _cursor-pointer"
+                             style="max-height: ${maxH}; object-fit: contain; width: 100%;"
+                             loading="lazy"
+                             onerror="this.parentElement.innerHTML='<div class=\\'p-2 small text-muted\\'><i class=\\'mdi mdi-image-broken-variant me-1\\'></i>${this._escapeHtml(fileName)}</div>'">
+                    </div>`;
+            } else if ((displayStyle === 1 || displayStyle === 2) && isImage && !isOwn && viewUrl) {
+                // Federation image: use local proxy for authenticated access (respects CQ Contact scope)
+                const contactId = post.cq_contact_id || '';
+                const imgSrc = contactId
+                    ? `/api/feed/attachment-proxy?url=${encodeURIComponent(viewUrl)}&contact_id=${encodeURIComponent(contactId)}`
+                    : viewUrl;
+                const maxH = displayStyle === 1 ? '250px' : '500px';
+                const maxW = displayStyle === 1 ? 'max-width: 300px;' : '';
+                html += `
+                    <div class="cq-feed-attachment-preview mb-1 rounded overflow-hidden bg-dark bg-opacity-75" style="${maxW}">
+                        <img src="${this._escapeHtml(imgSrc)}"
+                             alt="${this._escapeHtml(fileName)}"
+                             class="img-fluid rounded _cursor-pointer"
+                             style="max-height: ${maxH}; object-fit: contain; width: 100%;"
+                             loading="lazy"
+                             onerror="this.parentElement.innerHTML='<div class=\\'p-2 small text-muted\\'><i class=\\'mdi mdi-image-broken-variant me-1\\'></i>${this._escapeHtml(fileName)}</div>'">
+                    </div>`;
+            } else {
+                // Fallback — header with optional view link
+                const icon = isImage ? 'mdi-image' : 'mdi-file';
+                const linkPart = viewUrl
+                    ? `<a href="${this._escapeHtml(viewUrl)}" target="_blank" class="text-cyber text-decoration-none small ms-auto"><i class="mdi mdi-open-in-new me-1"></i>View</a>`
+                    : '';
+                html += `
+                    <div class="d-flex align-items-center gap-2 p-2 rounded mb-1 bg-dark bg-opacity-75">
+                        <i class="mdi ${icon} text-cyber small"></i>
+                        <span class="small text-light opacity-75">${this._escapeHtml(fileName)}</span>
+                        ${linkPart}
+                    </div>`;
+            }
+        }
+
+        html += '</div>';
+        return html;
     }
 
     async _deletePost(postId) {

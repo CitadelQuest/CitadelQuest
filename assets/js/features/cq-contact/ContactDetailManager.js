@@ -241,7 +241,8 @@ export class ContactDetailManager {
             html += renderSharePreviewBlock(share, {
                 showContent: this.showShareContent,
                 md: this.md,
-                t: (k, f) => this.t(k, f)
+                t: (k, f) => this.t(k, f),
+                contactId: this.contact?.id
             });
 
             html += `</div>`;

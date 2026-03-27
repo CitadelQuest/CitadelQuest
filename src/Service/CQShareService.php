@@ -282,6 +282,20 @@ class CQShareService
         )->fetchAllAssociative();
     }
 
+    /**
+     * Find the first active share by source_type + source_id.
+     * Used by CQ Feed to check if a file already has a share before creating one.
+     */
+    public function findActiveBySourceTypeAndSourceId(string $sourceType, string $sourceId): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT * FROM cq_share WHERE source_type = ? AND source_id = ? AND is_active = 1 ORDER BY created_at ASC LIMIT 1',
+            [$sourceType, $sourceId]
+        )->fetchAssociative();
+        return $row ?: null;
+    }
+
     // ========================================
     // Preview enrichment
     // ========================================

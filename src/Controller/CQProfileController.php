@@ -803,6 +803,6 @@ class CQProfileController extends AbstractController
         }
 
         $contact = $this->cqContactService->findByApiKey($apiKey);
-        return $contact !== null;
+        return $contact !== null && $contact->getFriendRequestStatus() && $contact->getFriendRequestStatus()=='ACCEPTED';
     }
 }

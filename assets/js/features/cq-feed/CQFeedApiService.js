@@ -48,11 +48,11 @@ export class CQFeedApiService {
         return resp.json();
     }
 
-    async createPost(feedId, content) {
+    async createPost(feedId, content, attachments = []) {
         const resp = await fetch(`/api/feed/my-feeds/${feedId}/posts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ content, attachments }),
         });
         return resp.json();
     }

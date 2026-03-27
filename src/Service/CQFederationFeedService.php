@@ -211,7 +211,8 @@ class CQFederationFeedService
         string $postUrlSlug,
         string $content,
         string $createdAt,
-        string $updatedAt
+        string $updatedAt,
+        ?string $attachmentsJson = null
     ): array {
         $db = $this->getUserDb();
 
@@ -222,20 +223,20 @@ class CQFederationFeedService
         )->fetchAssociative();
 
         if ($existing) {
-            // Update content if changed
-            if ($existing['content'] !== $content || $existing['updated_at'] !== $updatedAt) {
+            // Update content/attachments if changed
+            if ($existing['content'] !== $content || $existing['updated_at'] !== $updatedAt || ($attachmentsJson && $existing['attachments_json'] !== $attachmentsJson)) {
                 $db->executeStatement(
-                    'UPDATE cq_federation_feed_post SET content = ?, updated_at = ? WHERE id = ?',
-                    [$content, $updatedAt, $remotePostId]
+                    'UPDATE cq_federation_feed_post SET content = ?, attachments_json = ?, updated_at = ? WHERE id = ?',
+                    [$content, $attachmentsJson, $updatedAt, $remotePostId]
                 );
             }
             return $db->executeQuery('SELECT * FROM cq_federation_feed_post WHERE id = ?', [$remotePostId])->fetchAssociative();
         }
 
         $db->executeStatement(
-            'INSERT INTO cq_federation_feed_post (id, cq_feed_id, cq_contact_id, cq_contact_url, cq_contact_domain, cq_contact_username, post_url_slug, content, is_active, created_at, updated_at, last_visited_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
-            [$remotePostId, $feedId, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $postUrlSlug, $content, $createdAt, $updatedAt, $createdAt]
+            'INSERT INTO cq_federation_feed_post (id, cq_feed_id, cq_contact_id, cq_contact_url, cq_contact_domain, cq_contact_username, post_url_slug, content, attachments_json, is_active, created_at, updated_at, last_visited_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)',
+            [$remotePostId, $feedId, $cqContactId, $cqContactUrl, $cqContactDomain, $cqContactUsername, $postUrlSlug, $content, $attachmentsJson, $createdAt, $updatedAt, $createdAt]
         );
 
         return $db->executeQuery('SELECT * FROM cq_federation_feed_post WHERE id = ?', [$remotePostId])->fetchAssociative();
@@ -334,6 +335,7 @@ class CQFederationFeedService
             $count = 0;
             foreach ($data['posts'] ?? [] as $post) {
                 $author = $post['author'] ?? [];
+                $attJson = !empty($post['attachments']) ? json_encode($post['attachments']) : null;
                 $this->cachePost(
                     $feedId,
                     $post['id'],
@@ -344,7 +346,8 @@ class CQFederationFeedService
                     $post['post_url_slug'] ?? '',
                     $post['content'] ?? '',
                     $post['created_at'] ?? date('Y-m-d H:i:s'),
-                    $post['updated_at'] ?? date('Y-m-d H:i:s')
+                    $post['updated_at'] ?? date('Y-m-d H:i:s'),
+                    $attJson
                 );
                 $count++;
             }
@@ -529,6 +532,7 @@ class CQFederationFeedService
                 $count = 0;
                 foreach ($data['posts'] ?? [] as $post) {
                     $author = $post['author'] ?? [];
+                    $attJson = !empty($post['attachments']) ? json_encode($post['attachments']) : null;
                     $this->cachePost(
                         $feedId,
                         $post['id'],
@@ -539,7 +543,8 @@ class CQFederationFeedService
                         $post['post_url_slug'] ?? '',
                         $post['content'] ?? '',
                         $post['created_at'] ?? $now,
-                        $post['updated_at'] ?? $now
+                        $post['updated_at'] ?? $now,
+                        $attJson
                     );
                     $count++;
                 }

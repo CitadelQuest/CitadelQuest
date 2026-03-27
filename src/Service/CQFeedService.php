@@ -26,7 +26,8 @@ class CQFeedService
         private readonly SluggerInterface $slugger,
         private readonly LoggerInterface $logger,
         private readonly NotificationService $notificationService,
-        private readonly TranslatorInterface $translator
+        private readonly TranslatorInterface $translator,
+        private readonly CQShareService $shareService
     ) {
         $this->user = $security->getUser();
     }
@@ -165,8 +166,10 @@ class CQFeedService
 
     /**
      * Create a new post in a feed
+     *
+     * @param array $attachments Optional array of [{project_file_id, display_style, file_name}]
      */
-    public function createPost(string $feedId, string $content, string $postUrlSlug): array
+    public function createPost(string $feedId, string $content, string $postUrlSlug, array $attachments = []): array
     {
         $db = $this->getUserDb();
 
@@ -184,6 +187,54 @@ class CQFeedService
             'UPDATE cq_user_feed SET updated_at = ? WHERE id = ?',
             [$now, $feedId]
         );
+
+        // Process attachments
+        if (!empty($attachments)) {
+            $feed = $this->findFeedById($feedId);
+            $feedScope = $feed ? (int) $feed['scope'] : CQShareService::SCOPE_CQ_CONTACT;
+
+            foreach ($attachments as $att) {
+                $projectFileId = $att['project_file_id'] ?? null;
+                $displayStyle = (int) ($att['display_style'] ?? 1);
+                $fileName = $att['file_name'] ?? 'Attachment';
+
+                if (!$projectFileId) continue;
+
+                // Find or create CQ Share for this file.
+                // Share scope always matches the feed scope to respect privacy.
+                // For CQ_CONTACT scoped shares, federation viewers use a local proxy
+                // endpoint that injects the CQ Contact API key for authenticated access.
+                $share = $this->shareService->findActiveBySourceTypeAndSourceId(
+                    CQShareService::TYPE_FILE,
+                    $projectFileId
+                );
+
+                if (!$share) {
+                    // Auto-create share with feed's scope
+                    $shareUrl = $this->slugger->slug($fileName)->lower()->toString();
+                    if (empty($shareUrl)) $shareUrl = 'file';
+                    $shareUrl .= '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+
+                    $share = $this->shareService->create(
+                        CQShareService::TYPE_FILE,
+                        $projectFileId,
+                        $fileName,
+                        $shareUrl,
+                        $feedScope
+                    );
+                }
+
+                if ($share) {
+                    // Insert attachment record
+                    $attId = Uuid::v4()->toRfc4122();
+                    $db->executeStatement(
+                        'INSERT INTO cq_user_feed_post_attachment (id, cq_user_feed_post_id, cq_share_id, display_style, created_at)
+                         VALUES (?, ?, ?, ?, ?)',
+                        [$attId, $id, $share['id'], $displayStyle, $now]
+                    );
+                }
+            }
+        }
 
         return $this->findPostById($id);
     }
@@ -258,7 +309,30 @@ class CQFeedService
     {
         $db = $this->getUserDb();
         $row = $db->executeQuery('SELECT * FROM cq_user_feed_post WHERE id = ?', [$id])->fetchAssociative();
-        return $row ?: null;
+        if (!$row) return null;
+
+        $row['attachments'] = $this->getPostAttachments($id);
+        return $row;
+    }
+
+    /**
+     * Get enriched attachments for a post (join with cq_share + project_file).
+     */
+    private function getPostAttachments(string $postId): array
+    {
+        $db = $this->getUserDb();
+        return $db->executeQuery(
+            'SELECT a.id, a.cq_share_id, a.display_style,
+                    s.source_type, s.source_id, s.title AS share_title, s.share_url, s.scope AS share_scope,
+                    s.display_style AS share_display_style, s.description, s.description_display_style,
+                    pf.name AS file_name, pf.mime_type AS file_mime_type, pf.path AS file_path
+             FROM cq_user_feed_post_attachment a
+             JOIN cq_share s ON s.id = a.cq_share_id
+             LEFT JOIN project_file pf ON pf.id = s.source_id
+             WHERE a.cq_user_feed_post_id = ?
+             ORDER BY a.created_at ASC',
+            [$postId]
+        )->fetchAllAssociative();
     }
 
     /**
@@ -284,6 +358,12 @@ class CQFeedService
                 [$feedId, $limit, $offset]
             )->fetchAllAssociative();
         }
+
+        // Enrich with attachments
+        foreach ($rows as &$row) {
+            $row['attachments'] = $this->getPostAttachments($row['id']);
+        }
+        unset($row);
 
         return $rows;
     }

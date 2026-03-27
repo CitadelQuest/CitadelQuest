@@ -7,9 +7,10 @@
  * @param {boolean} options.showContent - Whether to show content preview (from profile setting)
  * @param {Object} options.md - MarkdownIt instance for rendering markdown
  * @param {Function} options.t - Translation function (key, fallback) => string
+ * @param {string} [options.contactId] - CQ Contact ID for proxying CQ_CONTACT scoped remote content
  * @returns {string} HTML string for the preview block
  */
-export function renderSharePreviewBlock(share, { showContent, md, t, displayStyleOverride, descriptionDisplayStyleOverride }) {
+export function renderSharePreviewBlock(share, { showContent, md, t, displayStyleOverride, descriptionDisplayStyleOverride, contactId }) {
     const ds = parseInt(displayStyleOverride ?? share.display_style ?? 1);
     const desc = (share.description || '').trim();
     const dds = parseInt(descriptionDisplayStyleOverride ?? share.description_display_style ?? 1);
@@ -40,14 +41,22 @@ export function renderSharePreviewBlock(share, { showContent, md, t, displayStyl
             const imgStyle = ds === 1
                 ? 'max-height: 500px; object-fit: contain; background: rgba(0,0,0,0.2);'
                 : 'background: rgba(0,0,0,0.2);';
-            html += `<div><img src="${share.preview_url}" alt="${share.title || ''}" class="rounded w-100" style="${imgStyle}"></div>`;
+            const imgSrc = (contactId && share.preview_url.startsWith('http'))
+                ? `/api/feed/attachment-proxy?url=${encodeURIComponent(share.preview_url)}&contact_id=${encodeURIComponent(contactId)}`
+                : share.preview_url;
+            html += `<div><img src="${imgSrc}" alt="${share.title || ''}" class="rounded w-100" style="${imgStyle}"></div>`;
         }
 
         if (share.preview_type === 'pdf' && share.preview_url) {
             const pdfHeight = ds === 1 ? '500px' : '90vh';
-            const pdfSrc = share.preview_url.startsWith('http')
-                ? `/api/citadel-explorer/share-content?url=${encodeURIComponent(share.preview_url)}`
-                : share.preview_url;
+            let pdfSrc;
+            if (contactId && share.preview_url.startsWith('http')) {
+                pdfSrc = `/api/feed/attachment-proxy?url=${encodeURIComponent(share.preview_url)}&contact_id=${encodeURIComponent(contactId)}`;
+            } else if (share.preview_url.startsWith('http')) {
+                pdfSrc = `/api/citadel-explorer/share-content?url=${encodeURIComponent(share.preview_url)}`;
+            } else {
+                pdfSrc = share.preview_url;
+            }
             html += `<div class="rounded" style="background: rgba(0,0,0,0.2);"><iframe src="${pdfSrc}" class="w-100 rounded border-0" style="height: ${pdfHeight};"></iframe></div>`;
         }
 
@@ -75,10 +84,13 @@ export function renderSharePreviewBlock(share, { showContent, md, t, displayStyl
         }
 
         if (share.preview_type === 'graph' && share.preview_graph_url) {
+            const graphUrl = (contactId && share.preview_graph_url.startsWith('http'))
+                ? `/api/feed/attachment-proxy?url=${encodeURIComponent(share.preview_graph_url)}&contact_id=${encodeURIComponent(contactId)}`
+                : share.preview_graph_url;
             html += `
                 <div>
                     <div class="share-graph-preview memory-graph-preview rounded"
-                         data-graph-url="${share.preview_graph_url}"
+                         data-graph-url="${graphUrl}"
                          style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
                         <div class="graph-loading position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
                             <div class="spinner-border spinner-border-sm text-cyber" role="status">
