@@ -56,7 +56,6 @@ class UserSettingsController extends AbstractController
     public function updateEmail(
         Request $request,
         EntityManagerInterface $entityManager,
-        NotificationService $notificationService,
         TranslatorInterface $translator
     ): JsonResponse {
         if (!$request->isXmlHttpRequest()) {
@@ -187,7 +186,6 @@ class UserSettingsController extends AbstractController
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
         EntityManagerInterface $entityManager,
-        NotificationService $notificationService,
         TranslatorInterface $translator
     ): JsonResponse {
         if (!$request->isXmlHttpRequest()) {
@@ -219,13 +217,6 @@ class UserSettingsController extends AbstractController
 
         $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
         $entityManager->flush();
-
-        $notificationService->createNotification(
-            $user,
-            $translator->trans('profile.password.updated.title'),
-            $translator->trans('profile.password.updated.message'),
-            'success'
-        );
 
         return new JsonResponse([
             'message' => $translator->trans('profile.password.updated.title')
