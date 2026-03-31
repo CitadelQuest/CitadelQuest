@@ -553,6 +553,7 @@ share_groups:
     edit: 'Upraviť skupinu'
     delete: 'Zmazať skupinu'
     delete_confirm: 'Zmazať túto skupinu? Položky budú odskupené.'
+    add_file: 'Pridať súbor'
     add_share: 'Pridať zdieľanie'
     remove_item: 'Odobrať'
     no_groups: 'Zatiaľ žiadne skupiny obsahu. Vytvorte jednu pre organizáciu obsahu profilu.'

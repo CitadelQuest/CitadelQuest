@@ -561,6 +561,7 @@ share_groups:
     edit: 'Rediger gruppe'
     delete: 'Slett gruppe'
     delete_confirm: 'Slette denne gruppen? Elementer vil bli fjernet fra gruppen.'
+    add_file: 'Legg til fil'
     add_share: 'Legg til deling'
     remove_item: 'Fjern'
     no_groups: 'Ingen innholdsgrupper ennå. Opprett en for å organisere profilinnholdet ditt.'

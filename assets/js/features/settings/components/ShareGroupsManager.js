@@ -1,6 +1,7 @@
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 import { MemoryGraphView } from '../../cq-memory/MemoryGraphView';
+import { FileBrowserModal } from '../../file-browser/components/FileBrowserModal';
 /**
  * ShareGroupsManager
  * 
@@ -20,6 +21,7 @@ export class ShareGroupsManager {
 
         this.groups = [];
         this.allShares = [];
+        this.fileBrowserModal = null;
         this.dragSrcEl = null;
         this.activeFilterGroupId = null; // null = show all
         this.md = new MarkdownIt({ html: true, linkify: true, typographer: true });
@@ -258,8 +260,11 @@ export class ShareGroupsManager {
                         </span>
                     </div>
                     <div class="d-flex align-items-center gap-1">
-                        <button class="btn btn-sm btn-outline-cyber border-0" onclick="shareGroupsMgr.openAddShareModal('${group.id}')" title="${this.tl('add_share')}">
-                            <i class="mdi mdi-plus"></i>
+                        <button class="btn btn-sm btn-outline-cyber border-0" onclick="shareGroupsMgr.openAddFileModal('${group.id}')" title="${this.tl('add_file')}">
+                            <i class="mdi mdi-file-plus-outline"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary border-0 opacity-50" onclick="shareGroupsMgr.openAddShareModal('${group.id}')" title="${this.tl('add_share')}">
+                            <i class="mdi mdi-plus-circle-outline"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-secondary border-0" onclick="shareGroupsMgr.openGroupModal('${group.id}')" title="${this.tl('edit_group')}">
                             <i class="mdi mdi-pencil"></i>
@@ -693,6 +698,33 @@ export class ShareGroupsManager {
     // ========================================
     // Add Share to Group
     // ========================================
+
+    async openAddFileModal(groupId) {
+        if (!this.fileBrowserModal) {
+            this.fileBrowserModal = new FileBrowserModal({ translations: this.t });
+        }
+
+        const file = await this.fileBrowserModal.open();
+        if (!file) return;
+
+        try {
+            const resp = await fetch(`${this.apiUrl}/${groupId}/items/from-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_file_id: file.id, file_name: file.name }),
+            });
+            const data = await resp.json();
+            if (data.success) {
+                window.toast?.success(this.tl('item_added'));
+                this.loadGroups();
+            } else {
+                window.toast?.error(data.message || this.tl('error'));
+            }
+        } catch (e) {
+            console.error('ShareGroupsManager::openAddFileModal error', e);
+            window.toast?.error(this.tl('error'));
+        }
+    }
 
     openAddShareModal(groupId) {
         this.currentGroupIdForAdd = groupId;

@@ -561,6 +561,7 @@ share_groups:
     edit: 'Upravit skupinu'
     delete: 'Smazat skupinu'
     delete_confirm: 'Smazat tuto skupinu? Položky budou odeskupeny.'
+    add_file: 'Přidat soubor'
     add_share: 'Přidat sdílení'
     remove_item: 'Odebrat'
     no_groups: 'Zatím žádné skupiny obsahu. Vytvořte jednu pro organizaci obsahu profilu.'

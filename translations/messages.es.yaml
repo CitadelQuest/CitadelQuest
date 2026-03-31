@@ -561,6 +561,7 @@ share_groups:
     edit: 'Editar grupo'
     delete: 'Eliminar grupo'
     delete_confirm: '¿Eliminar este grupo? Los elementos serán desagrupados.'
+    add_file: 'Añadir archivo'
     add_share: 'Añadir compartido'
     remove_item: 'Eliminar'
     no_groups: 'Aún no hay grupos de contenido. Crea uno para organizar el contenido de tu perfil.'

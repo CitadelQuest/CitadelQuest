@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\String\Slugger\SluggerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,7 +24,8 @@ class CQShareGroupController extends AbstractController
     public function __construct(
         private readonly CQShareGroupService $groupService,
         private readonly CQShareService $shareService,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly SluggerInterface $slugger
     ) {}
 
     // ========================================
@@ -206,6 +208,56 @@ class CQShareGroupController extends AbstractController
             return $this->json(['success' => true]);
         } catch (\Exception $e) {
             $this->logger->error('CQShareGroupController::deleteItem error', ['error' => $e->getMessage()]);
+            return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/api/share-group/{id}/items/from-file', name: 'api_share_group_add_item_from_file', methods: ['POST'], priority: 10)]
+    public function addItemFromFile(Request $request, string $id): JsonResponse
+    {
+        try {
+            $group = $this->groupService->findGroupById($id);
+            if (!$group) {
+                return $this->json(['success' => false, 'message' => 'Group not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            if (!$data || empty($data['project_file_id'])) {
+                return $this->json(['success' => false, 'message' => 'Missing required field: project_file_id'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $projectFileId = $data['project_file_id'];
+            $fileName = $data['file_name'] ?? 'File';
+            $groupScope = (int) ($group['scope'] ?? CQShareService::SCOPE_PUBLIC);
+
+            // Find or create a CQ Share for this file (same logic as CQ Feed attachments)
+            $share = $this->shareService->findActiveBySourceTypeAndSourceId(
+                CQShareService::TYPE_FILE,
+                $projectFileId
+            );
+
+            if (!$share) {
+                $shareUrl = $this->slugger->slug($fileName)->lower()->toString();
+                if (empty($shareUrl)) $shareUrl = 'file';
+                $shareUrl .= '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+
+                $share = $this->shareService->create(
+                    CQShareService::TYPE_FILE,
+                    $projectFileId,
+                    $fileName,
+                    $shareUrl,
+                    $groupScope
+                );
+            }
+
+            if (!$share) {
+                return $this->json(['success' => false, 'message' => 'Failed to create share'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $item = $this->groupService->addItem($id, $share['id']);
+            return $this->json(['success' => true, 'item' => $item]);
+        } catch (\Exception $e) {
+            $this->logger->error('CQShareGroupController::addItemFromFile error', ['error' => $e->getMessage()]);
             return $this->json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

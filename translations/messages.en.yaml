@@ -561,6 +561,7 @@ share_groups:
     edit: 'Edit Group'
     delete: 'Delete Group'
     delete_confirm: 'Delete this group? Items will be ungrouped.'
+    add_file: 'Add File'
     add_share: 'Add Share'
     remove_item: 'Remove'
     no_groups: 'No content groups yet. Create one to organize your profile content.'

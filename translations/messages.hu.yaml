@@ -561,6 +561,7 @@ share_groups:
     edit: 'Csoport szerkesztése'
     delete: 'Csoport törlése'
     delete_confirm: 'Törölni szeretnéd ezt a csoportot? Az elemek csoporton kívülre kerülnek.'
+    add_file: 'Fájl hozzáadása'
     add_share: 'Megosztás hozzáadása'
     remove_item: 'Eltávolítás'
     no_groups: 'Még nincsenek tartalomcsoportok. Hozz létre egyet a profil tartalmad rendszerezéséhez.'
