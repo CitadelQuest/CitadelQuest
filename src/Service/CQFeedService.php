@@ -316,6 +316,14 @@ class CQFeedService
     }
 
     /**
+     * Public accessor for post attachments (used by public feed post page).
+     */
+    public function getPostAttachmentsPublic(string $postId): array
+    {
+        return $this->getPostAttachments($postId);
+    }
+
+    /**
      * Get enriched attachments for a post (join with cq_share + project_file).
      */
     private function getPostAttachments(string $postId): array

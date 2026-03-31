@@ -1342,6 +1342,8 @@ feed:
     delete_confirm: '¿Eliminar esta publicación?'
     post_deleted: 'Publicación eliminada'
     delete_error: 'Error al eliminar publicación'
+    comments: 'Comentarios'
+    no_comments: 'Aún no hay comentarios'
     feed_pause: 'Pausar'
     feed_resume: 'Reanudar'
     feed_paused: 'Canal pausado'

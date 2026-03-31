@@ -1342,6 +1342,8 @@ feed:
     delete_confirm: 'Eliminare questo post?'
     post_deleted: 'Post eliminato'
     delete_error: 'Impossibile eliminare il post'
+    comments: 'Commenti'
+    no_comments: 'Ancora nessun commento'
     feed_pause: 'Pausa'
     feed_resume: 'Riprendi'
     feed_paused: 'Feed in pausa'

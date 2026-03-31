@@ -1308,6 +1308,8 @@ feed:
     delete_confirm: 'Slette dette innlegget?'
     post_deleted: 'Innlegg slettet'
     delete_error: 'Kunne ikke slette innlegget'
+    comments: 'Kommentarer'
+    no_comments: 'Ingen kommentarer ennå'
     feed_pause: 'Pause'
     feed_resume: 'Gjenoppta'
     feed_paused: 'Kanal satt på pause'

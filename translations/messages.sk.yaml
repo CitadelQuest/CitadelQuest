@@ -1333,6 +1333,8 @@ feed:
     delete_confirm: 'Odstrániť tento príspevok?'
     post_deleted: 'Príspevok odstránený'
     delete_error: 'Nepodarilo sa odstrániť príspevok'
+    comments: 'Komentáre'
+    no_comments: 'Zatiaľ žiadne komentáre'
     feed_pause: 'Pozastaviť'
     feed_resume: 'Obnoviť'
     feed_paused: 'Kanál pozastavený'

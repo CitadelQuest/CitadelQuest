@@ -102,6 +102,15 @@ class CQProfileController extends AbstractController
         $total = $this->feedService->countPosts($feed['id']);
         $hasMore = ($page * $limit) < $total;
 
+        // Enrich posts with parsed stats and comments for public rendering
+        foreach ($posts as &$post) {
+            $post['parsed_stats'] = json_decode($post['stats'] ?? '{}', true) ?: ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+            unset($post['parsed_stats']['my_reaction']);
+            $commentData = $this->feedService->listComments($post['id'], 1, 50);
+            $post['comments_list'] = $commentData['comments'] ?? [];
+        }
+        unset($post);
+
         // Profile data for layout
         $bio = $this->settingsService->getSettingValue('profile.bio');
         $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
@@ -128,6 +137,80 @@ class CQProfileController extends AbstractController
             'page' => $page,
             'total' => $total,
             'has_more' => $hasMore,
+        ]);
+    }
+
+    /**
+     * Public single post page: GET /{username}/view-feed/{feedSlug}/{postSlug}
+     * Shows a single post from a public feed with full stats, comments, and attachments.
+     */
+    #[Route('/{username}/view-feed/{feedSlug}/{postSlug}', name: 'cq_profile_public_feed_post', methods: ['GET'], priority: -10)]
+    public function publicFeedPost(Request $request, string $username, string $feedSlug, string $postSlug): Response
+    {
+        $user = $this->resolveUser($username);
+        if (!$user) {
+            throw $this->createNotFoundException();
+        }
+
+        $this->settingsService->setUser($user);
+
+        $publicEnabled = $this->settingsService->getSettingValue('profile.public_page_enabled', '1');
+        if ($publicEnabled !== '1') {
+            throw $this->createNotFoundException();
+        }
+
+        // Apply locale
+        $locale = $this->settingsService->getSettingValue('profile.public_page_locale', 'en');
+        if (in_array($locale, ['en', 'cs', 'sk', 'es', 'hu', 'pl', 'no', 'it'])) {
+            $request->setLocale($locale);
+            $this->translator->setLocale($locale);
+        }
+
+        $this->feedService->setUser($user);
+        $feed = $this->feedService->findFeedBySlug($feedSlug);
+
+        if (!$feed || (int) $feed['scope'] !== CQShareService::SCOPE_PUBLIC) {
+            throw $this->createNotFoundException();
+        }
+
+        $total = $this->feedService->countPosts($feed['id']);
+
+        $post = $this->feedService->findPostByFeedSlugAndPostSlug($feedSlug, $postSlug);
+        if (!$post) {
+            throw $this->createNotFoundException();
+        }
+
+        // Enrich post with attachments, parsed stats, and comments
+        $post['attachments'] = $this->feedService->getPostAttachmentsPublic($post['id']);
+        $post['parsed_stats'] = json_decode($post['stats'] ?? '{}', true) ?: ['likes' => 0, 'dislikes' => 0, 'comments' => 0];
+        unset($post['parsed_stats']['my_reaction']);
+        $commentData = $this->feedService->listComments($post['id'], 1, 100);
+        $post['comments_list'] = $commentData['comments'] ?? [];
+
+        // Profile data for layout
+        $bio = $this->settingsService->getSettingValue('profile.bio');
+        $photoFileId = $this->settingsService->getSettingValue('profile.photo_project_file_id');
+        $showPhoto = $this->settingsService->getSettingValue('profile.public_page_show_photo', '1') === '1';
+        $pageTheme = $this->settingsService->getSettingValue('profile.public_page_theme', '');
+        $customBgFileId = $this->settingsService->getSettingValue('profile.public_page_custom_bg_file_id');
+        $bgOverlay = $this->settingsService->getSettingValue('profile.public_page_bg_overlay', '1') === '1';
+
+        // All public feeds for nav
+        $publicFeeds = $this->feedService->listActiveFeedsByScope([CQShareService::SCOPE_PUBLIC]);
+
+        return $this->render('profile/feed_post.html.twig', [
+            'profile_username' => $username,
+            'profile_domain' => $request->getHost(),
+            'profile_bio' => $bio,
+            'profile_has_photo' => $showPhoto && !empty($photoFileId),
+            'profile_theme' => $pageTheme,
+            'profile_custom_bg' => !empty($customBgFileId),
+            'profile_bg_overlay' => $bgOverlay,
+            'profile_locale' => $locale,
+            'profile_feeds' => $publicFeeds,
+            'feed' => $feed,
+            'post' => $post,
+            'total' => $total,
         ]);
     }
 

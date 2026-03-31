@@ -48,7 +48,7 @@ export class FileBrowserModal {
         this.modalEl.tabIndex = -1;
         this.modalEl.setAttribute('aria-hidden', 'true');
         this.modalEl.innerHTML = `
-            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
                 <div class="modal-content glass-panel" style="min-height: 70vh;">
                     <div class="modal-header bg-cyber-g border-success border-1 border-bottom py-2">
                         <h6 class="modal-title mb-0">

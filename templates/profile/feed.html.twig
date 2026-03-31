@@ -23,21 +23,14 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-4 mb-5" style="max-width: 800px;">
-
-    {# Back to profile link #}
-    <div class="mb-3">
-        <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="text-decoration-none text-light opacity-50">
-            <i class="mdi mdi-arrow-left me-2"></i>{{ profile_username }}
-        </a>
-    </div>
+<div class="container mt-4 mb-5">
 
     {# Feed header card #}
     <div class="card glass-panel mb-4">
         <div class="card-body p-4">
-            <div class="d-flex align-items-center">
+            <div class="d-flex align-items-center flex-column flex-sm-row">
                 {% if profile_has_photo %}
-                <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="me-3 flex-shrink-0">
+                <a href="{{ path('cq_profile_public', {username: profile_username}) }}" class="flex-shrink-0 me-0 me-sm-3">
                     <img src="{{ path('cq_profile_photo', {username: profile_username}) }}"
                          alt="{{ profile_username }}"
                          class="rounded"
@@ -87,21 +80,130 @@
     {% else %}
         <div class="d-flex flex-column gap-3">
             {% for post in posts %}
-            <div class="card glass-panel">
-                <div class="card-body p-4">
-                    <div class="mb-3" style="word-break: break-word; overflow-wrap: break-word;">
+            <div class="card glass-panel" id="post-{{ post.post_url_slug }}">
+                <div class="card-body p-4 pb-2">
+                    {# Post content #}
+                    <div class="mb-2" style="word-break: break-word; overflow-wrap: break-word;">
                         {{ post.content|markdown_to_html }}
                     </div>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <small class="text-light opacity-50">
-                            <i class="mdi mdi-clock-outline me-1"></i>{{ post.created_at|date('j M Y, H:i') }}
-                        </small>
-                        {% if post.updated_at != post.created_at %}
-                        <small class="text-light opacity-25">
-                            <i class="mdi mdi-pencil-outline me-1"></i>{{ post.updated_at|date('j M Y, H:i') }}
-                        </small>
-                        {% endif %}
+
+                    {# Attachments #}
+                    {% if post.attachments is defined and post.attachments|length > 0 %}
+                    <div class="mb-2">
+                        {% for att in post.attachments %}
+                            {% set displayStyle = att.display_style|default(att.share_display_style|default(1)) %}
+                            {% set fileName = att.file_name|default(att.share_title|default('Attachment')) %}
+                            {% set mimeType = att.file_mime_type|default('') %}
+                            {% set isImage = mimeType[:6] == 'image/' %}
+                            {% set shareUrl = att.share_url|default('') %}
+
+                            {% if displayStyle == 0 %}
+                                {# Header only #}
+                                <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
+                                    <i class="mdi {{ isImage ? 'mdi-image' : 'mdi-file' }} text-cyber small"></i>
+                                    <span class="small text-light opacity-75">{{ fileName }}</span>
+                                </div>
+                            {% elseif (displayStyle == 1 or displayStyle == 2) and isImage and shareUrl %}
+                                {# Image preview/full via public share URL #}
+                                {% set maxH = displayStyle == 1 ? '250px' : '500px' %}
+                                {% set maxW = displayStyle == 1 ? 'max-width: 300px;' : '' %}
+                                <div class="mb-1 rounded overflow-hidden" style="background: rgba(0,0,0,0.3); {{ maxW }}">
+                                    <img src="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}"
+                                         alt="{{ fileName }}"
+                                         class="img-fluid rounded"
+                                         style="max-height: {{ maxH }}; object-fit: contain; width: 100%;"
+                                         loading="lazy">
+                                </div>
+                            {% else %}
+                                {# Fallback header #}
+                                <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
+                                    <i class="mdi {{ isImage ? 'mdi-image' : 'mdi-file' }} text-cyber small"></i>
+                                    <span class="small text-light opacity-75">{{ fileName }}</span>
+                                    {% if shareUrl %}
+                                    <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" target="_blank" class="text-cyber text-decoration-none small ms-auto">
+                                        <i class="mdi mdi-open-in-new me-1"></i>View
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
                     </div>
+                    {% endif %}
+
+                    {# Stats bar: likes, dislikes, comments count #}
+                    {% set stats = post.parsed_stats|default({likes: 0, dislikes: 0, comments: 0}) %}
+                    <a href="{{ path('cq_profile_public_feed_post', {username: profile_username, feedSlug: feed.feed_url_slug, postSlug: post.post_url_slug}) }}" class="d-block align-items-center gap-1 text-decoration-none w-100" _style="margin-left: auto;">
+                        <div class="d-flex align-items-center gap-3 pt-2 border-top border-secondary border-opacity-10" style="font-size:0.7rem !important;">
+                            <span class="text-light opacity-50 flex-grow-1">
+                                <i class="mdi mdi-clock-outline me-1"></i>{{ post.created_at|date('j M Y, H:i') }}
+                            </span>
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="mdi mdi-heart {{ stats.likes > 0 ? 'text-danger opacity-75' : 'text-secondary' }}"></i>
+                                {% if stats.likes > 0 %}<span class="text-light opacity-50">{{ stats.likes }}</span>{% endif %}
+                            </span>
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="mdi mdi-thumb-down text-secondary"></i>
+                                {% if stats.dislikes > 0 %}<span class="text-light opacity-50">{{ stats.dislikes }}</span>{% endif %}
+                            </span>
+                            <span class="d-flex align-items-center gap-1">
+                            <i class="mdi mdi-chat-outline text-secondary"></i>
+                            {% if stats.comments > 0 %}<span class="text-light opacity-50">{{ stats.comments }}</span>{% endif %}
+                            </span>
+                        </div>
+                    </a>
+
+                    {# Read-only comments #}
+                    {% if post.comments_list is defined and post.comments_list|length > 0 %}
+                    <div class="mt-2 pt-1">
+                        {% for comment in post.comments_list %}
+                            {% set cUrl = comment.cq_contact_url|default('') %}
+                            {% set cName = cUrl ? cUrl|split('/')|last : 'Unknown' %}
+                            {% set cDomain = cUrl ? cUrl|replace({'https://': ''})|split('/')|first : '' %}
+                            <div class="d-flex gap-2 py-1 border-0 border-secondary border-opacity-10">
+                                {# <div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 25px; height: 25px; background: rgba(149,236,134,0.05);">
+                                    <i class="mdi mdi-account text-cyber" style="font-size: 0.7rem;"></i>
+                                </div> #}
+                                <div class="rounded mt-1 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; background: rgba(149,236,134,0.05);">
+                                    <img src="{{ cUrl }}/photo?icon=1" alt="{{ cName }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <div class="d-flex align-items-sm-center gap-1 small flex-column flex-sm-row">
+                                        <div style="min-width: 0; line-height: 0.9rem;">
+                                            <span class="fw-bold text-light">{{ cName }}</span>
+                                            <span class="text-light opacity-50">{{ cDomain }}</span>
+                                        </div>
+                                        <span class="text-muted" style="font-size: 0.7rem;">{{ comment.created_at|date('j M, H:i') }}</span>
+                                    </div>
+                                    <div class="text-light pb-1" style="font-size: 0.9rem; word-break: break-word;">{{ comment.content }}</div>
+                                    {# Replies #}
+                                    {% if comment.replies is defined and comment.replies|length > 0 %}
+                                        {% for reply in comment.replies %}
+                                            {% set rUrl = reply.cq_contact_url|default('') %}
+                                            {% set rName = rUrl ? rUrl|split('/')|last : 'Unknown' %}
+                                            {% set rDomain = rUrl ? rUrl|replace({'https://': ''})|split('/')|first : '' %}
+                                            <div class="d-flex gap-2 py-1 border-0 border-secondary border-opacity-10">
+                                                {# <div class="rounded flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background: rgba(149,236,134,0.05);">
+                                                    <i class="mdi mdi-account text-cyber" style="font-size: 0.6rem;"></i>
+                                                </div> #}
+                                                <div class="rounded mt-1 flex-shrink-0 overflow-hidden d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; background: rgba(149,236,134,0.05);">
+                                                    <img src="{{ rUrl }}/photo?icon=1" alt="{{ rName }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                                </div>
+                                                <div class="flex-grow-1" style="min-width: 0;">
+                                                    <div class="d-flex align-items-sm-center gap-1 small flex-column flex-sm-row">
+                                                        <span class="fw-bold text-light">{{ rName }}</span>
+                                                        <span class="text-light opacity-50">{{ rDomain }}</span>
+                                                        <span class="text-muted" style="font-size: 0.7rem;">{{ reply.created_at|date('j M, H:i') }}</span>
+                                                    </div>
+                                                    <div class="text-light" style="font-size: 0.85rem; word-break: break-word;">{{ reply.content }}</div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}

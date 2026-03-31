@@ -1342,6 +1342,8 @@ feed:
     delete_confirm: 'Usunąć ten post?'
     post_deleted: 'Post usunięty'
     delete_error: 'Nie udało się usunąć posta'
+    comments: 'Komentarze'
+    no_comments: 'Brak komentarzy'
     feed_pause: 'Wstrzymaj'
     feed_resume: 'Wznów'
     feed_paused: 'Kanał wstrzymany'

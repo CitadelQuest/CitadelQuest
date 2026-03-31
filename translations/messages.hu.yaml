@@ -1342,6 +1342,8 @@ feed:
     delete_confirm: 'Törölni ezt a bejegyzést?'
     post_deleted: 'Bejegyzés törölve'
     delete_error: 'Nem sikerült törölni a bejegyzést'
+    comments: 'Hozzászólások'
+    no_comments: 'Még nincsenek hozzászólások'
     feed_pause: 'Szüneteltetés'
     feed_resume: 'Folytatás'
     feed_paused: 'Csatorna szüneteltetve'
