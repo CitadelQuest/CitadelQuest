@@ -173,6 +173,8 @@ export class CQFeedTimeline {
      */
     setFeedFilter(feedUrl, feedTitle, feedScope) {
         this.activeFeedFilter = { feedUrl, feedTitle: feedTitle || '', feedScope: feedScope || 0 };
+        document.getElementById('cqExplorerPane').classList.add('d-none');
+        document.getElementById('cqFeedPane').classList.remove('d-none');
         this.render();
     }
 

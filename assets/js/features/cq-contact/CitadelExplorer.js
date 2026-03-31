@@ -1660,13 +1660,22 @@ export class CitadelExplorer {
                 const statusClass = isActive ? 'bg-success bg-opacity-25' : 'bg-secondary bg-opacity-25';
                 const statusIcon = isActive ? 'mdi-rss text-success' : 'mdi-pause text-secondary';
                 const titleText = feed.title || feed.feed_url_slug;
+                // Build feed URL for filtering (matching CQ Feed Timeline pattern)
+                const feedUrl = feed.feed_url || `https://${feed.cq_contact_domain}/${feed.cq_contact_username}/feed/${feed.feed_url_slug}`;
 
                 html += `
                     <div class="d-flex align-items-center gap-1 explorer-feed-badge-group" data-feed-id="${feed.id}">
-                        <a href="#" class="badge ${statusClass} px-2 py-1 text-decoration-none explorer-feed-badge-toggle"
-                           style="cursor: pointer;" title="${this._escapeAttr(titleText)}">
+                        <a href="#" class="badge ${statusClass} px-2 py-1 text-decoration-none explorer-feed-badge-filter"
+                           style="cursor: pointer;" title="${this._escapeAttr(titleText)}"
+                           data-feed-url="${this._escapeAttr(feedUrl)}"
+                           data-feed-title="${this._escapeAttr(titleText)}"
+                           data-feed-scope="${feed.scope || 0}">
                             <i class="mdi ${statusIcon}" style="font-size: 0.75rem;"></i>
                             <span class="small text-light opacity-75">${this._escapeAttr(titleText)}</span>
+                        </a>
+                        <a href="#" class="explorer-feed-badge-config text-secondary" 
+                           style="font-size:0.75rem; cursor:pointer;" title="${this.t('feed_options', 'Feed options')}">
+                            <i class="mdi mdi-dots-vertical"></i>
                         </a>
                         <div class="d-none explorer-feed-badge-actions d-flex align-items-center gap-1">
                             <button class="btn btn-sm px-1 py-0 ${isActive ? 'btn-outline-warning' : 'btn-outline-success'} explorer-feed-pause-btn"
@@ -1689,15 +1698,37 @@ export class CitadelExplorer {
     }
 
     bindFeedBadgeHandlers(container, contactId) {
-        // Toggle: click badge → show pause/unsub buttons (auto-hide 3s)
-        container.querySelectorAll('.explorer-feed-badge-toggle').forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
+        // Feed badge click → set timeline filter and switch to CQ Feed tab
+        container.querySelectorAll('.explorer-feed-badge-filter').forEach(badge => {
+            badge.addEventListener('click', (e) => {
                 e.preventDefault();
-                const group = toggle.closest('.explorer-feed-badge-group');
+                e.stopPropagation();
+                const feedUrl = badge.dataset.feedUrl;
+                const feedTitle = badge.dataset.feedTitle;
+                const feedScope = parseInt(badge.dataset.feedScope || 0);
+                if (feedUrl && window.cqFeedManager) {
+                    // Switch to CQ Feed tab first
+                    const feedTab = document.getElementById('cqFeedTab');
+                    if (feedTab) {
+                        const bsTab = new bootstrap.Tab(feedTab);
+                        bsTab.show();
+                    }
+                    // Then set the filter
+                    window.cqFeedManager.setFeedFilter(feedUrl, feedTitle, feedScope);
+                }
+            });
+        });
+
+        // Config button (dots icon) → show pause/unsub actions
+        container.querySelectorAll('.explorer-feed-badge-config').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const group = btn.closest('.explorer-feed-badge-group');
                 const actions = group?.querySelector('.explorer-feed-badge-actions');
                 if (!actions) return;
 
-                toggle.classList.add('d-none');
+                btn.classList.add('d-none');
                 actions.classList.remove('d-none');
                 actions.classList.add('d-flex');
 
@@ -1705,7 +1736,7 @@ export class CitadelExplorer {
                 this._feedBadgeTimer = setTimeout(() => {
                     actions.classList.add('d-none');
                     actions.classList.remove('d-flex');
-                    toggle.classList.remove('d-none');
+                    btn.classList.remove('d-none');
                 }, 3000);
             });
         });
