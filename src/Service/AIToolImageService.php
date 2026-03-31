@@ -156,7 +156,7 @@ class AIToolImageService
             // Get usage from full response
             $fullResponse = $aiServiceResponse->getFullResponse();
             $usage = isset($fullResponse['usage']) ? $fullResponse['usage'] : null;
-            $totalCost = isset($usage['cost']) ? number_format($usage['cost']*100.0, 2) : null;
+            $totalCost = isset($usage['total_cost_credits']) ? number_format($usage['total_cost_credits'], 2) : null;
             $total_cost_credits_parts = explode(".", $totalCost);
             $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
             
