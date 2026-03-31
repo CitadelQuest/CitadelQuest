@@ -329,7 +329,7 @@ class CQFeedService
     private function getPostAttachments(string $postId): array
     {
         $db = $this->getUserDb();
-        return $db->executeQuery(
+        $attachments = $db->executeQuery(
             'SELECT a.id, a.cq_share_id, a.display_style,
                     s.source_type, s.source_id, s.title AS share_title, s.share_url, s.scope AS share_scope,
                     s.display_style AS share_display_style, s.description, s.description_display_style,
@@ -341,6 +341,12 @@ class CQFeedService
              ORDER BY a.created_at ASC',
             [$postId]
         )->fetchAllAssociative();
+
+        if (!empty($attachments) && $this->user) {
+            $attachments = $this->shareService->enrichSharesWithPreview($this->user, $this->user->getUsername(), $attachments);
+        }
+
+        return $attachments;
     }
 
     /**

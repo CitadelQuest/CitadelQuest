@@ -543,15 +543,20 @@ export class CQFeedTimeline {
             const fileName = att.file_name || att.share_title || 'Attachment';
             const mimeType = att.file_mime_type || '';
             const isImage = mimeType.startsWith('image/');
+            const isPdf = mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+            const isHtml = mimeType === 'text/html' || fileName.toLowerCase().endsWith('.html') || fileName.toLowerCase().endsWith('.htm');
+            const isMarkdown = fileName.toLowerCase().endsWith('.md') || fileName.toLowerCase().endsWith('.markdown');
+            const isText = mimeType.startsWith('text/') || isMarkdown || isHtml;
             const sourceId = att.source_id || '';
             const shareUrl = att.share_url || '';
+            const previewContent = att.preview_content || '';
             // Federation share_url is absolute (https://...), own is relative slug
             const isAbsoluteUrl = shareUrl.startsWith('http');
             const viewUrl = isAbsoluteUrl ? shareUrl : (shareUrl ? `/${this.username}/share/${shareUrl}` : '');
 
             if (displayStyle === 0) {
                 // Header only — just show file name with icon
-                const icon = isImage ? 'mdi-image' : 'mdi-file';
+                const icon = isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file'));
                 html += `
                     <div class="d-flex align-items-center gap-2 p-2 rounded mb-1 bg-dark bg-opacity-75">
                         <i class="mdi ${icon} text-cyber small"></i>
@@ -568,7 +573,7 @@ export class CQFeedTimeline {
                              class="img-fluid rounded _cursor-pointer"
                              style="max-height: ${maxH}; object-fit: contain; width: 100%;"
                              loading="lazy"
-                             onerror="this.parentElement.innerHTML='<div class=\\'p-2 small text-muted\\'><i class=\\'mdi mdi-image-broken-variant me-1\\'></i>${this._escapeHtml(fileName)}</div>'">
+                             onerror="this.parentElement.innerHTML='<div class=\'p-2 small text-muted\'><i class=\'mdi mdi-image-broken-variant me-1\'></i>${this._escapeHtml(fileName)}</div>'">
                     </div>`;
             } else if ((displayStyle === 1 || displayStyle === 2) && isImage && !isOwn && viewUrl) {
                 // Federation image: use local proxy for authenticated access (respects CQ Contact scope)
@@ -585,11 +590,57 @@ export class CQFeedTimeline {
                              class="img-fluid rounded _cursor-pointer"
                              style="max-height: ${maxH}; object-fit: contain; width: 100%;"
                              loading="lazy"
-                             onerror="this.parentElement.innerHTML='<div class=\\'p-2 small text-muted\\'><i class=\\'mdi mdi-image-broken-variant me-1\\'></i>${this._escapeHtml(fileName)}</div>'">
+                             onerror="this.parentElement.innerHTML='<div class=\'p-2 small text-muted\'><i class=\'mdi mdi-image-broken-variant me-1\'></i>${this._escapeHtml(fileName)}</div>'">
                     </div>`;
+            } else if ((displayStyle === 1 || displayStyle === 2) && isPdf && viewUrl) {
+                // PDF preview via iframe
+                const contactId = post.cq_contact_id || '';
+                let pdfSrc;
+                if (contactId && viewUrl.startsWith('http')) {
+                    pdfSrc = `/api/feed/attachment-proxy?url=${encodeURIComponent(viewUrl)}&contact_id=${encodeURIComponent(contactId)}`;
+                } else if (viewUrl.startsWith('http')) {
+                    pdfSrc = `/api/citadel-explorer/share-content?url=${encodeURIComponent(viewUrl)}`;
+                } else {
+                    pdfSrc = viewUrl;
+                }
+                const pdfHeight = displayStyle === 1 ? '500px' : '90vh';
+                html += `
+                    <div class="rounded mb-1" style="background: rgba(0,0,0,0.2);">
+                        <iframe src="${this._escapeHtml(pdfSrc)}" class="w-100 rounded border-0" style="height: ${pdfHeight};"></iframe>
+                    </div>`;
+            } else if ((displayStyle === 1 || displayStyle === 2) && isHtml && previewContent) {
+                // HTML preview - escaped in preview mode, rendered in full mode
+                if (displayStyle === 1) {
+                    const escaped = previewContent.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    html += `
+                        <div class="p-3 rounded mb-1 share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
+                            <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre>
+                        </div>`;
+                } else if (displayStyle === 2) {
+                    html += `
+                        <div class="rounded mb-1" style="background: rgba(0,0,0,0.1);">${previewContent}</div>`;
+                }
+            } else if ((displayStyle === 1 || displayStyle === 2) && (isText || isMarkdown) && previewContent) {
+                // Text/Markdown preview
+                const scrollStyle = displayStyle === 1
+                    ? 'background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;'
+                    : 'background: rgba(0,0,0,0.2);';
+                if (isMarkdown) {
+                    const rendered = this.md.render(previewContent);
+                    html += `
+                        <div class="p-3 rounded mb-1 share-preview-scroll" style="${scrollStyle}">
+                            <div class="text-light small">${rendered}</div>
+                        </div>`;
+                } else {
+                    const escaped = previewContent.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    html += `
+                        <div class="p-3 rounded mb-1 share-preview-scroll" style="${scrollStyle}">
+                            <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre>
+                        </div>`;
+                }
             } else {
                 // Fallback — header with optional view link
-                const icon = isImage ? 'mdi-image' : 'mdi-file';
+                const icon = isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file'));
                 const linkPart = viewUrl
                     ? `<a href="${this._escapeHtml(viewUrl)}" target="_blank" class="text-cyber text-decoration-none small ms-auto"><i class="mdi mdi-open-in-new me-1"></i>View</a>`
                     : '';

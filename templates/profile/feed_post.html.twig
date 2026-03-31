@@ -89,12 +89,17 @@
                     {% set fileName = att.file_name|default(att.share_title|default('Attachment')) %}
                     {% set mimeType = att.file_mime_type|default('') %}
                     {% set isImage = mimeType[:6] == 'image/' %}
+                    {% set isPdf = mimeType == 'application/pdf' or fileName|lower ends with '.pdf' %}
+                    {% set isHtml = mimeType == 'text/html' or fileName|lower ends with '.html' or fileName|lower ends with '.htm' %}
+                    {% set isMarkdown = fileName|lower ends with '.md' or fileName|lower ends with '.markdown' %}
+                    {% set isText = mimeType[:5] == 'text/' or isMarkdown or isHtml %}
                     {% set shareUrl = att.share_url|default('') %}
+                    {% set previewContent = att.preview_content|default('') %}
 
                     {% if displayStyle == 0 %}
                         {# Header only #}
                         <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
-                            <i class="mdi {{ isImage ? 'mdi-image' : 'mdi-file' }} text-cyber small"></i>
+                            <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file')) }} text-cyber small"></i>
                             <span class="small text-light opacity-75">{{ fileName }}</span>
                         </div>
                     {% elseif (displayStyle == 1 or displayStyle == 2) and isImage and shareUrl %}
@@ -107,10 +112,37 @@
                                  style="max-height: {{ maxH }}; object-fit: contain; width: 100%;"
                                  loading="lazy">
                         </div>
+                    {% elseif (displayStyle == 1 or displayStyle == 2) and isPdf and shareUrl %}
+                        {# PDF preview via iframe #}
+                        {% set pdfHeight = displayStyle == 1 ? '500px' : '90vh' %}
+                        <div class="rounded mb-1" style="background: rgba(0,0,0,0.2);">
+                            <iframe src="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" class="w-100 rounded border-0" style="height: {{ pdfHeight }};"></iframe>
+                        </div>
+                    {% elseif (displayStyle == 1 or displayStyle == 2) and isHtml and previewContent %}
+                        {# HTML preview - escaped in preview mode, rendered in full mode #}
+                        {% if displayStyle == 1 %}
+                            <div class="p-3 rounded mb-1 share-preview-scroll" style="background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;">
+                                <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ previewContent|e }}</pre>
+                            </div>
+                        {% else %}
+                            <div class="rounded mb-1" style="background: rgba(0,0,0,0.1);">{{ previewContent|raw }}</div>
+                        {% endif %}
+                    {% elseif (displayStyle == 1 or displayStyle == 2) and (isText or isMarkdown) and previewContent %}
+                        {# Text/Markdown preview #}
+                        {% set scrollStyle = displayStyle == 1 ? 'background: rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto;' : 'background: rgba(0,0,0,0.2);' %}
+                        {% if isMarkdown %}
+                            <div class="p-3 rounded mb-1 share-preview-scroll" style="{{ scrollStyle }}">
+                                <div class="text-light small">{{ previewContent|markdown_to_html }}</div>
+                            </div>
+                        {% else %}
+                            <div class="p-3 rounded mb-1 share-preview-scroll" style="{{ scrollStyle }}">
+                                <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ previewContent|e }}</pre>
+                            </div>
+                        {% endif %}
                     {% else %}
                         {# Fallback header #}
                         <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
-                            <i class="mdi {{ isImage ? 'mdi-image' : 'mdi-file' }} text-cyber small"></i>
+                            <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file')) }} text-cyber small"></i>
                             <span class="small text-light opacity-75">{{ fileName }}</span>
                             {% if shareUrl %}
                             <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" target="_blank" class="text-cyber text-decoration-none small ms-auto">

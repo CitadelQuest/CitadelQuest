@@ -153,13 +153,23 @@ class CQFeedController extends AbstractController
                 // Build attachment data for federation (use share URLs for content access)
                 $attachments = [];
                 foreach ($post['attachments'] ?? [] as $att) {
-                    $attachments[] = [
+                    $attData = [
                         'share_title' => $att['share_title'] ?? '',
                         'share_url' => $att['share_url'] ? ('https://' . $domain . '/' . $username . '/share/' . $att['share_url']) : null,
                         'display_style' => (int) ($att['display_style'] ?? 1),
                         'file_name' => $att['file_name'] ?? '',
                         'file_mime_type' => $att['file_mime_type'] ?? '',
                     ];
+                    if (!empty($att['preview_content'])) {
+                        $attData['preview_content'] = $att['preview_content'];
+                    }
+                    if (!empty($att['preview_ext'])) {
+                        $attData['preview_ext'] = $att['preview_ext'];
+                    }
+                    if (!empty($att['preview_type'])) {
+                        $attData['preview_type'] = $att['preview_type'];
+                    }
+                    $attachments[] = $attData;
                 }
 
                 return [
