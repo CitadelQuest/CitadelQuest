@@ -164,23 +164,23 @@ class CQShareGroupService
         $db = $this->getUserDb();
 
         $fieldMap = [
-            'title' => 'title',
-            'mdi_icon' => 'mdi_icon',
-            'scope' => 'scope',
-            'show_in_nav' => 'show_in_nav',
-            'is_active' => 'is_active',
-            'order' => '"order"',
-            'url_slug' => 'url_slug',
-            'icon_color' => 'icon_color',
+            'title'                  => 'title',
+            'mdiIcon'                => 'mdi_icon',
+            'scope'                  => 'scope',
+            'showInNav'              => 'show_in_nav',
+            'isActive'               => 'is_active',
+            'order'                  => '"order"',
+            'urlSlug'                => 'url_slug',
+            'iconColor'              => 'icon_color',
         ];
 
         // Auto-generate slug from title if slug is empty but title changed
-        if (array_key_exists('url_slug', $data) && empty($data['url_slug']) && !empty($data['title'])) {
-            $data['url_slug'] = $this->generateSlug($data['title']);
+        if (array_key_exists('urlSlug', $data) && empty($data['urlSlug']) && !empty($data['title'])) {
+            $data['urlSlug'] = $this->generateSlug($data['title']);
         }
         // Ensure slug uniqueness
-        if (!empty($data['url_slug'])) {
-            $data['url_slug'] = $this->ensureUniqueSlug($data['url_slug'], $id);
+        if (!empty($data['urlSlug'])) {
+            $data['urlSlug'] = $this->ensureUniqueSlug($data['urlSlug'], $id);
         }
 
         $sets = [];
@@ -262,9 +262,9 @@ class CQShareGroupService
                 $id,
                 $groupId,
                 $shareId,
-                $config['display_style'] ?? null,
-                $config['description_display_style'] ?? null,
-                $config['show_header'] ?? 1,
+                $config['displayStyle'] ?? null,
+                $config['descriptionDisplayStyle'] ?? null,
+                $config['showHeader'] ?? 1,
                 $order,
             ]
         );
@@ -315,9 +315,9 @@ class CQShareGroupService
         $db = $this->getUserDb();
 
         $fieldMap = [
-            'display_style' => 'display_style',
-            'description_display_style' => 'description_display_style',
-            'show_header' => 'show_header',
+            'displayStyle' => 'display_style',
+            'descriptionDisplayStyle' => 'description_display_style',
+            'showHeader' => 'show_header',
             'order' => '"order"',
         ];
 

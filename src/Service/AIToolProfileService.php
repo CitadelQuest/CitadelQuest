@@ -13,7 +13,8 @@ class AIToolProfileService
     public function __construct(
         private readonly CQShareGroupService $shareGroupService,
         private readonly CQShareService $shareService,
-        private readonly SluggerInterface $slugger
+        private readonly SluggerInterface $slugger,
+        private readonly ProjectFileService $projectFileService
     ) {
     }
 
@@ -44,11 +45,11 @@ class AIToolProfileService
                     }
                     $group = $this->shareGroupService->createGroup(
                         $arguments['title'],
-                        $arguments['mdi_icon'] ?? 'mdi-folder',
+                        $arguments['mdiIcon'] ?? 'mdi-folder',
                         (int) ($arguments['scope'] ?? CQShareService::SCOPE_PUBLIC),
-                        isset($arguments['show_in_nav']) ? (bool) $arguments['show_in_nav'] : true,
-                        $arguments['url_slug'] ?? null,
-                        $arguments['icon_color'] ?? null
+                        isset($arguments['showInNav']) ? (bool) $arguments['showInNav'] : true,
+                        $arguments['urlSlug'] ?? null,
+                        $arguments['iconColor'] ?? null
                     );
                     return ['success' => true, 'operation' => 'create', 'group' => $group];
 
@@ -119,7 +120,8 @@ class AIToolProfileService
                     if (!$group) {
                         throw new \InvalidArgumentException('Group not found: ' . $arguments['groupId']);
                     }
-                    $fileName = $arguments['fileName'] ?? 'File';
+                    $projectFile = $this->projectFileService->findById($arguments['projectFileId']);
+                    $fileName = $arguments['fileName'] ?? ($projectFile ? $projectFile->getName() : 'File');
                     $groupScope = (int) ($group['scope'] ?? CQShareService::SCOPE_PUBLIC);
 
                     // Find or create a CQ Share for this file (same logic as CQ Feed attachments and profile UI)
