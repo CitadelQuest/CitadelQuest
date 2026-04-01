@@ -44,6 +44,8 @@ class AIToolWebService
      *   - resultFormat: string (optional) - 'AI-friendly-content'(default) | 'raw-html-code' (skip cleanup/AI, return raw HTML)
      *   - forceRefresh: bool (optional) - Force refresh even if cached
      *   - maxLength: int (optional) - Maximum content length to return
+     *   - downloadPath: string (optional) - If set with downloadFilename, saves fetched content as a file
+     *   - downloadFilename: string (optional) - Filename for the downloaded file
      * 
      * @return array Tool result with success status and content
      */
@@ -57,6 +59,8 @@ class AIToolWebService
         $maxLength = $arguments['maxLength'] ?? self::MAX_OUTPUT_LENGTH;
         $projectId = $arguments['projectId'] ?? 'general';
         $lang = $arguments['lang'] ?? 'English';
+        $downloadPath = $arguments['downloadPath'] ?? null;
+        $downloadFilename = $arguments['downloadFilename'] ?? null;
         
         // Validate URL
         if (!$this->isValidUrl($url)) {
@@ -67,6 +71,10 @@ class AIToolWebService
         }
         
         try {
+            // Download mode: fetch binary and save to file
+            if ($downloadPath && $downloadFilename) {
+                return $this->downloadAndSaveFile($url, $projectId, $downloadPath, $downloadFilename);
+            }
             // Raw HTML mode: skip cache, cleanup, AI extraction — return raw HTTP response
             if ($resultFormat === 'raw-html-code') {
                 $fetchResult = $this->fetchWithLimits($url);
@@ -322,6 +330,93 @@ class AIToolWebService
                 'error' => 'Fetch failed: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Download file from URL and save to ProjectFileService
+     */
+    private function downloadAndSaveFile(string $url, string $projectId, string $downloadPath, string $downloadFilename): array
+    {
+        // Normalize path
+        $downloadPath = '/' . trim($downloadPath, '/');
+
+        // Fetch binary content with permissive Accept header
+        try {
+            $response = $this->httpClient->request('GET', $url, [
+                'timeout' => self::HTTP_TIMEOUT,
+                'max_redirects' => self::MAX_REDIRECTS,
+                'headers' => [
+                    'User-Agent' => 'CitadelQuest ' . \App\CitadelVersion::VERSION . ' HTTP Client (File Downloader)',
+                    'Accept' => '*/*',
+                ],
+            ]);
+
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 400) {
+                return [
+                    'success' => false,
+                    'error' => "HTTP error: $statusCode",
+                ];
+            }
+
+            $headers = $response->getHeaders();
+
+            // Check content length
+            if (isset($headers['content-length'][0])) {
+                $contentLength = (int) $headers['content-length'][0];
+                if ($contentLength > self::MAX_CONTENT_SIZE) {
+                    return [
+                        'success' => false,
+                        'error' => 'File too large: ' . round($contentLength / 1024 / 1024, 2) . 'MB (max 3MB)',
+                    ];
+                }
+            }
+
+            // Stream content with size limit
+            $content = '';
+            foreach ($this->httpClient->stream($response) as $chunk) {
+                $content .= $chunk->getContent();
+                if (strlen($content) > self::MAX_CONTENT_SIZE) {
+                    return [
+                        'success' => false,
+                        'error' => 'File too large (exceeded 3MB during download)',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Download failed: ' . $e->getMessage(),
+            ];
+        }
+
+        // Detect mime type from Content-Type header or filename extension
+        $mimeType = null;
+        if (isset($headers['content-type'][0])) {
+            $mimeType = explode(';', $headers['content-type'][0])[0];
+            $mimeType = trim($mimeType);
+        }
+
+        // Delete existing file at same path+name if present, then create new
+        $existing = $this->projectFileService->findByPathAndName($projectId, $downloadPath, $downloadFilename);
+        if ($existing) {
+            $this->projectFileService->delete($existing->getId());
+        }
+
+        // Ensure parent directories exist and create file
+        $file = $this->projectFileService->createFile($projectId, $downloadPath, $downloadFilename, $content, $mimeType);
+
+        return [
+            'success' => true,
+            'operation' => 'download',
+            'message' => 'File downloaded and saved successfully',
+            'url' => $url,
+            'projectFileId' => $file->getId(),
+            'path' => $downloadPath,
+            'filename' => $downloadFilename,
+            'size' => strlen($content),
+            'mimeType' => $mimeType,
+        ];
     }
 
     /**

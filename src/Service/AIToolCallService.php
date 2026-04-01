@@ -79,7 +79,7 @@ class AIToolCallService
             }
 
             // For CQ Profile tools, delegate to AIToolProfileService
-            if (in_array($toolName, ['cqProfileManageGroup', 'cqProfileManageItem'])) {
+            if (in_array($toolName, ['cqProfileManage', 'cqProfileManageGroup', 'cqProfileManageItem'])) {
                 return $this->aiToolProfileService->{$toolName}($arguments);
             }
 

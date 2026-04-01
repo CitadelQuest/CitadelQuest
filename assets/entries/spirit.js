@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the spirit manager if the spirit container exists
     if (document.querySelector('#spirit-container')) {
-        const spiritManager = new SpiritManager({
+        window.spiritManager = new SpiritManager({
             spiritId: spiritId,
             translations: translations,
             apiEndpoints: {
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (openPromptBuilderBtn) {
             openPromptBuilderBtn.addEventListener('click', () => {
                 // Get current spirit ID from the manager if available
-                const currentSpiritId = spiritManager.spirit?.id || spiritId;
+                const currentSpiritId = window.spiritManager.spirit?.id || spiritId;
                 if (currentSpiritId) {
                     promptBuilder.open(currentSpiritId);
                 } else {

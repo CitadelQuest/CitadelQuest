@@ -265,8 +265,10 @@
                         // Update display
                         const displayText = model.modelName || '{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}';
                         document.getElementById('spirit-ai-model-display').textContent = displayText;
-                        // Enable save button
-                        if (saveBtn) {
+                        // Auto-save immediately (like Memory Type does)
+                        if (window.spiritManager) {
+                            window.spiritManager.updateSpiritSettings();
+                        } else if (saveBtn) {
                             saveBtn.disabled = false;
                         }
                     }, currentModelId || null);
