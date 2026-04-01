@@ -25,7 +25,8 @@ class AIToolCallService
         private readonly AIToolImageService $aiToolImageService,
         private readonly AIToolDiffusionService $aiToolDiffusionService,
         private readonly AIToolWebService $aiToolWebService,
-        private readonly AIToolMemoryService $aiToolMemoryService
+        private readonly AIToolMemoryService $aiToolMemoryService,
+        private readonly AIToolProfileService $aiToolProfileService
     ) {
     }
     
@@ -75,6 +76,11 @@ class AIToolCallService
             // For memory tools, delegate to AIToolMemoryService
             if (in_array($toolName, ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract', 'memorySource'])) {
                 return $this->aiToolMemoryService->{$toolName}($arguments);
+            }
+
+            // For CQ Profile tools, delegate to AIToolProfileService
+            if (in_array($toolName, ['cqProfileManageGroup', 'cqProfileManageItem'])) {
+                return $this->aiToolProfileService->{$toolName}($arguments);
             }
 
             // createSepaEuroPaymentQrCode

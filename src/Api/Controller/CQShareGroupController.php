@@ -15,8 +15,6 @@ use Psr\Log\LoggerInterface;
 
 /**
  * CQ Share Group Controller — management API endpoints.
- * 
- * @see /docs/features/CQ-SHARE-GROUPS.md
  */
 #[IsGranted('ROLE_USER')]
 class CQShareGroupController extends AbstractController
