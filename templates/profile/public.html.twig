@@ -220,8 +220,8 @@
             {# Active group content #}
             {% if profile_active_group is not null and profile_active_group.items|default([])|length > 0 %}
             {% set group = profile_active_group %}
-            <div class="card glass-panel mb-4" id="share-group-{{ group.id }}">
-                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+            <div class="card_glass-panel mb-4" id="share-group-{{ group.id }}">
+                <div class="card-header glass-panel bg-dark_bg-opacity-50 border-primary border-opacity-75 border-0 border-top p-3 rounded">
                     <div class="mb-0">
                         <i class="mdi {{ group.mdi_icon|default('mdi-folder') }} me-2" style="color: {{ group.icon_color|default('#95ec86') }};"></i>
                         <span class="text-cyber">{{ group.title }}</span>
@@ -235,9 +235,9 @@
                         {% set ds = item.effective_display_style|default(item.share_display_style|default(1)) %}
                         {% set desc = item.description|default('') %}
                         {% set dds = item.effective_description_display_style|default(item.share_description_display_style|default(1)) %}
-                        <div class="list-group-item bg-transparent border-0 px-4 py-3">
+                        <div class="list-group-item glass-panel _bg-transparent border-0 p-0 my-2">
                             {% if showHeader %}
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-4 pt-3">
                                 <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: item.share_url}) }}"
                                    class="text-decoration-none">
                                     {% if item.source_type == 'cqmpack' %}

@@ -644,12 +644,12 @@ export class ShareGroupsManager {
 
         const payload = {
             title,
-            mdi_icon: this.groupEditIcon.value.trim() || 'mdi-folder',
+            mdiIcon: this.groupEditIcon.value.trim() || 'mdi-folder',
             scope: parseInt(this.groupEditScope.value),
-            show_in_nav: this.groupEditNav.checked ? 1 : 0,
-            is_active: this.groupEditActive.checked ? 1 : 0,
-            icon_color: this.groupEditIconColorText.value.trim() || null,
-            url_slug: this.groupEditSlug.value.trim() || null,
+            showInNav: this.groupEditNav.checked ? 1 : 0,
+            isActive: this.groupEditActive.checked ? 1 : 0,
+            iconColor: this.groupEditIconColorText.value.trim() || null,
+            urlSlug: this.groupEditSlug.value.trim() || null,
         };
 
         try {
@@ -851,9 +851,9 @@ export class ShareGroupsManager {
         const shEl = document.getElementById(`item-cfg-sh-${itemId}`);
 
         const payload = {
-            display_style: dsEl.value === '' ? null : parseInt(dsEl.value),
-            description_display_style: ddsEl.value === '' ? null : parseInt(ddsEl.value),
-            show_header: shEl.checked ? 1 : 0,
+            displayStyle: dsEl.value === '' ? null : parseInt(dsEl.value),
+            descriptionDisplayStyle: ddsEl.value === '' ? null : parseInt(ddsEl.value),
+            showHeader: shEl.checked ? 1 : 0,
         };
 
         try {
