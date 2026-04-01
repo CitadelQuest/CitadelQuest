@@ -1181,8 +1181,10 @@ export class CitadelExplorer {
         this.graphViews.push(graphView);
 
         try {
-            const proxyUrl = `/api/citadel-explorer/graph?url=${encodeURIComponent(graphUrl)}`;
-            const response = await fetch(proxyUrl);
+            const fetchUrl = graphUrl.startsWith('/')
+                ? graphUrl
+                : `/api/citadel-explorer/graph?url=${encodeURIComponent(graphUrl)}`;
+            const response = await fetch(fetchUrl);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
