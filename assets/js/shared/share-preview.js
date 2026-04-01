@@ -8,9 +8,10 @@
  * @param {Object} options.md - MarkdownIt instance for rendering markdown
  * @param {Function} options.t - Translation function (key, fallback) => string
  * @param {string} [options.contactId] - CQ Contact ID for proxying CQ_CONTACT scoped remote content
+ * @param {string} [options.domain] - CQ Contact domain (required when contactId is provided and URL is relative)
  * @returns {string} HTML string for the preview block
  */
-export function renderSharePreviewBlock(share, { showContent, md, t, displayStyleOverride, descriptionDisplayStyleOverride, contactId }) {
+export function renderSharePreviewBlock(share, { showContent, md, t, displayStyleOverride, descriptionDisplayStyleOverride, contactId, domain }) {
     const ds = parseInt(displayStyleOverride ?? share.display_style ?? 1);
     const desc = (share.description || '').trim();
     const dds = parseInt(descriptionDisplayStyleOverride ?? share.description_display_style ?? 1);
@@ -84,9 +85,14 @@ export function renderSharePreviewBlock(share, { showContent, md, t, displayStyl
         }
 
         if (share.preview_type === 'graph' && share.preview_graph_url) {
-            const graphUrl = (contactId && share.preview_graph_url.startsWith('http'))
-                ? `/api/feed/attachment-proxy?url=${encodeURIComponent(share.preview_graph_url)}&contact_id=${encodeURIComponent(contactId)}`
-                : share.preview_graph_url;
+            let finalGraphUrl = share.preview_graph_url;
+            // Convert relative URLs to absolute for CQ Contact proxy
+            if (contactId && finalGraphUrl.startsWith('/')) {
+                finalGraphUrl = `https://${domain}${finalGraphUrl}`;
+            }
+            const graphUrl = (contactId && finalGraphUrl.startsWith('http'))
+                ? `/api/feed/attachment-proxy?url=${encodeURIComponent(finalGraphUrl)}&contact_id=${encodeURIComponent(contactId)}`
+                : finalGraphUrl;
             html += `
                 <div>
                     <div class="share-graph-preview memory-graph-preview rounded"

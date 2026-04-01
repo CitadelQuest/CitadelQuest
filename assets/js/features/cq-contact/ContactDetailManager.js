@@ -242,7 +242,8 @@ export class ContactDetailManager {
                 showContent: this.showShareContent,
                 md: this.md,
                 t: (k, f) => this.t(k, f),
-                contactId: this.contact?.id
+                contactId: this.contact?.id,
+                domain: this.contact?.cqContactDomain
             });
 
             html += `</div>`;
