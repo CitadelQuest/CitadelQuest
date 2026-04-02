@@ -69,7 +69,15 @@ export class SpiritChatManager {
         this.responseTemperatureSlider = document.getElementById('responseTemperatureSlider');
         this.responseTemperatureValue = document.getElementById('responseTemperatureValue');
         this.chatSettingsIcon = document.getElementById('chatSettingsIcon');
-        this.chatSettings = document.getElementById('chatSettings');
+        this.chatSettingsModal = document.getElementById('chatSettingsModal');
+        this.chatSettingsTemperature = document.getElementById('chatSettingsTemperature');
+        this.chatSettingsTemperatureValue = document.getElementById('chatSettingsTemperatureValue');
+        this.chatSettingsToolsList = document.getElementById('chatSettingsToolsList');
+        this.chatSettingsSaveBtn = document.getElementById('chatSettingsSaveBtn');
+        this.chatSettingsMemoryType = document.getElementById('chatSettingsMemoryType');
+        this.chatSettingsMemoryTypeInfo = document.getElementById('chatSettingsMemoryTypeInfo');
+        this.chatSettingsIncludeTools = document.getElementById('chatSettingsIncludeTools');
+        this.chatSettingsToolsData = []; // Loaded tools with toggle state
         this.spiritChatToolsAndConversationsToggle = document.getElementById('spiritChatToolsAndConversationsToggle');
         this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
         this.creditIndicator = document.getElementById('creditIndicator');
@@ -82,7 +90,6 @@ export class SpiritChatManager {
         this.imageUploadPreview = document.getElementById('imageUploadPreview');
         this.chatInfoPrimaryAiModel = document.getElementById('chatInfoPrimaryAiModel');
         this.chatInfoSecondaryAiModel = document.getElementById('chatInfoSecondaryAiModel');
-        this.chatInfoIcon = document.getElementById('chatInfoIcon');
         this.chatInfo = document.getElementById('chatInfo');
         this.contentShowcaseModal = document.getElementById('contentShowcaseModal');
         this.contextWindowUsageBar = document.getElementById('contextWindowUsageBar');
@@ -378,33 +385,17 @@ export class SpiritChatManager {
             });
         }
 
-        // Chat settings icon
-        if (this.chatSettingsIcon) {
+        // Chat settings icon — open Chat Settings modal
+        if (this.chatSettingsIcon && this.chatSettingsModal) {
             this.chatSettingsIcon.addEventListener('click', () => {
-                let open = localStorage.getItem('config.chat.settings.open') === 'true';
-                localStorage.setItem('config.chat.settings.open', !open);
-                if (open) {
-                    this.chatSettings.classList.add('d-none');
-                    this.chatSettings.classList.remove('d-flex');
-                } else {
-                    this.chatSettings.classList.remove('d-none');
-                    this.chatSettings.classList.add('d-flex');
-                }
+                this.openChatSettingsModal();
             });
         }
 
-        // Chat info icon
-        if (this.chatInfoIcon) {
-            this.chatInfoIcon.addEventListener('click', () => {
-                let open = localStorage.getItem('config.chat.info.open') === 'true';
-                localStorage.setItem('config.chat.info.open', !open);
-                if (open) {
-                    this.chatInfo.classList.add('d-none');
-                    this.chatInfo.classList.remove('d-flex');
-                } else {
-                    this.chatInfo.classList.remove('d-none');
-                    this.chatInfo.classList.add('d-flex');
-                }
+        // Chat Settings modal — save button
+        if (this.chatSettingsSaveBtn) {
+            this.chatSettingsSaveBtn.addEventListener('click', () => {
+                this.saveChatSettings();
             });
         }
 
@@ -564,30 +555,272 @@ export class SpiritChatManager {
 
             this.responseTemperatureValue.textContent = this.responseTemperatureSlider.value;
         }
+    }
 
-        // set chat settings open
-        if (this.chatSettings) {
-            let open = localStorage.getItem('config.chat.settings.open') === 'true';
-            localStorage.setItem('config.chat.settings.open', open);
-            if (open) {
-                this.chatSettings.classList.remove('d-none');
-                this.chatSettings.classList.add('d-flex');
-            } else {
-                this.chatSettings.classList.add('d-none');
-                this.chatSettings.classList.remove('d-flex');
-            }
+    /**
+     * Open Chat Settings modal — loads temperature from localStorage and fetches tools for current spirit
+     */
+    async openChatSettingsModal() {
+        if (!this.chatSettingsModal || !this.currentSpiritId) return;
+
+        // Sync temperature slider with current value
+        const currentTemp = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
+        if (this.chatSettingsTemperature) {
+            this.chatSettingsTemperature.value = currentTemp;
+        }
+        if (this.chatSettingsTemperatureValue) {
+            this.chatSettingsTemperatureValue.textContent = currentTemp;
         }
 
-        // set chat info open
-        if (this.chatInfo) {
-            let open = localStorage.getItem('config.chat.info.open') === 'true';
-            localStorage.setItem('config.chat.info.open', open);
-            if (open) {
-                this.chatInfo.classList.remove('d-none');
-                this.chatInfo.classList.add('d-flex');
-            } else {
-                this.chatInfo.classList.add('d-none');
-                this.chatInfo.classList.remove('d-flex');
+        // Live update temperature label
+        if (this.chatSettingsTemperature) {
+            this.chatSettingsTemperature.oninput = (e) => {
+                if (this.chatSettingsTemperatureValue) {
+                    this.chatSettingsTemperatureValue.textContent = e.target.value;
+                }
+            };
+        }
+
+        // Show loading in tools list
+        if (this.chatSettingsToolsList) {
+            this.chatSettingsToolsList.innerHTML = `
+                <div class="text-center p-3">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            `;
+        }
+
+        // Wire up includeTools toggle to show/hide tools list
+        if (this.chatSettingsIncludeTools) {
+            this.chatSettingsIncludeTools.onchange = (e) => {
+                if (this.chatSettingsToolsList) {
+                    if (e.target.checked) {
+                        this.chatSettingsToolsList.classList.remove('d-none');
+                        this.chatSettingsToolsList.classList.add('d-flex');
+                    } else {
+                        this.chatSettingsToolsList.classList.add('d-none');
+                        this.chatSettingsToolsList.classList.remove('d-flex');
+                    }
+                }
+            };
+        }
+
+        // Show modal
+        const modal = new bootstrap.Modal(this.chatSettingsModal);
+        modal.show();
+
+        // Load prompt config (memory type + includeTools)
+        try {
+            const configResponse = await fetch(`/api/spirit/${this.currentSpiritId}/system-prompt-preview`);
+            if (configResponse.ok) {
+                const configData = await configResponse.json();
+                const config = configData.config || {};
+
+                // Memory Type
+                const includeMemory = config.includeMemory ?? true;
+                const memoryType = config.memoryType ?? 2;
+                if (this.chatSettingsMemoryType) {
+                    this.chatSettingsMemoryType.value = includeMemory ? String(memoryType) : '0';
+                    this.updateChatSettingsMemoryTypeInfo(includeMemory ? memoryType : 0);
+                    this.chatSettingsMemoryType.onchange = (e) => {
+                        this.updateChatSettingsMemoryTypeInfo(parseInt(e.target.value, 10));
+                    };
+                }
+
+                // includeTools toggle
+                const includeTools = config.includeTools ?? true;
+                if (this.chatSettingsIncludeTools) {
+                    this.chatSettingsIncludeTools.checked = includeTools;
+                    if (this.chatSettingsToolsList) {
+                        if (includeTools) {
+                            this.chatSettingsToolsList.classList.remove('d-none');
+                            this.chatSettingsToolsList.classList.add('d-flex');
+                        } else {
+                            this.chatSettingsToolsList.classList.add('d-none');
+                            this.chatSettingsToolsList.classList.remove('d-flex');
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error loading prompt config:', e);
+        }
+
+        // Fetch tools for current spirit
+        try {
+            const result = await this.apiService.getSpiritTools(this.currentSpiritId);
+            this.chatSettingsToolsData = result.tools || [];
+            this.renderChatSettingsTools();
+            // Re-apply visibility after rendering
+            if (this.chatSettingsToolsList && this.chatSettingsIncludeTools) {
+                if (this.chatSettingsIncludeTools.checked) {
+                    this.chatSettingsToolsList.classList.remove('d-none');
+                    this.chatSettingsToolsList.classList.add('d-flex');
+                } else {
+                    this.chatSettingsToolsList.classList.add('d-none');
+                    this.chatSettingsToolsList.classList.remove('d-flex');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading spirit tools:', error);
+            if (this.chatSettingsToolsList) {
+                this.chatSettingsToolsList.innerHTML = `
+                    <div class="alert alert-danger small py-1 mb-0">${error.message || 'Failed to load tools'}</div>
+                `;
+            }
+        }
+    }
+
+    /**
+     * Render AI Tools list in Chat Settings modal
+     */
+    renderChatSettingsTools() {
+        if (!this.chatSettingsToolsList || !this.chatSettingsToolsData) return;
+
+        if (this.chatSettingsToolsData.length === 0) {
+            this.chatSettingsToolsList.innerHTML = `
+                <div class="text-secondary small py-2">No AI Tools available</div>
+            `;
+            return;
+        }
+
+        this.chatSettingsToolsList.innerHTML = '';
+
+        // Sort A-Z by tool name
+        const sortedTools = [...this.chatSettingsToolsData].sort((a, b) => a.name.localeCompare(b.name));
+
+        sortedTools.forEach((tool, index) => {
+            const toolEl = document.createElement('div');
+            toolEl.className = 'border border-secondary border-opacity-25 rounded p-2 bg-secondary bg-opacity-10';
+            
+            // Format parameters for display
+            let paramsHtml = '';
+            const params = tool.parameters;
+            if (params && params.properties) {
+                const props = params.properties;
+                const required = params.required || [];
+                paramsHtml = Object.entries(props).map(([name, prop]) => {
+                    const isRequired = required.includes(name);
+                    return `<div class="d-flex gap-2 align-items-start py-1">
+                            <span class="text-cyber small">${name}</span>
+                            <span class="text-secondary" style="font-size: 0.7rem;">${prop.type || ''}${isRequired ? ' <span class="text-warning">*</span>' : ''}</span>
+                        </div>
+                        ${prop.description ? `<span class="text-light opacity-75" style="font-size: 0.7rem;">${prop.description}</span>` : ''}
+                    `;
+                }).join('');
+            }
+
+            toolEl.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="cursor-pointer tool-name-toggle flex-grow-1 text-cyber" data-tool-index="${index}" title="Show details">
+                        <i class="mdi mdi-chevron-right tool-chevron me-1 text-secondary"></i>${tool.name}
+                    </span>
+                    <div class="form-check form-switch mb-0 ms-2">
+                        <input class="form-check-input tool-active-toggle" type="checkbox" role="switch" 
+                            data-tool-index="${index}" ${tool.isActiveForSpirit ? 'checked' : ''}>
+                    </div>
+                </div>
+                <div class="tool-details d-none mt-2 ms-3 ps-1 border-start border-secondary border-opacity-25">
+                    <div class="text-light opacity-75 small mb-1">${tool.description}</div>
+                    ${paramsHtml ? `<div class="mt-1 d-flex flex-column gap-1">${paramsHtml}</div>` : ''}
+                </div>
+            `;
+
+            // Toggle details on name click
+            const nameToggle = toolEl.querySelector('.tool-name-toggle');
+            const details = toolEl.querySelector('.tool-details');
+            const chevron = toolEl.querySelector('.tool-chevron');
+            nameToggle.addEventListener('click', () => {
+                const isOpen = !details.classList.contains('d-none');
+                details.classList.toggle('d-none');
+                chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+            });
+
+            // Toggle active state (mutate object ref shared with chatSettingsToolsData)
+            const activeToggle = toolEl.querySelector('.tool-active-toggle');
+            activeToggle.addEventListener('change', (e) => {
+                tool.isActiveForSpirit = e.target.checked;
+            });
+
+            this.chatSettingsToolsList.appendChild(toolEl);
+        });
+    }
+
+    /**
+     * Update Memory Type info text in Chat Settings modal
+     */
+    updateChatSettingsMemoryTypeInfo(memoryType) {
+        if (!this.chatSettingsMemoryTypeInfo) return;
+        const descriptions = {
+            '0': '<i class="mdi mdi-cancel me-1 text-secondary"></i>Memory disabled. Spirit will not use any memory context.',
+            '1': '<i class="mdi mdi-brain me-1 text-cyber"></i>FTS5 keyword search with automatic recall. On-demand, token-efficient.',
+            '2': '<i class="mdi mdi-robot-outline me-1 text-cyber"></i>Reflexes + AI Sub-Agent synthesis. Most contextual, adds ~0.7 Credit/message.'
+        };
+        this.chatSettingsMemoryTypeInfo.innerHTML = descriptions[String(memoryType)] || '';
+    }
+
+    /**
+     * Save Chat Settings — persist temperature, memory type, includeTools and per-spirit active tools
+     */
+    async saveChatSettings() {
+        if (!this.currentSpiritId) return;
+
+        // Save temperature
+        const newTemp = this.chatSettingsTemperature ? this.chatSettingsTemperature.value : '0.7';
+        localStorage.setItem('config.chat.settings.responseTemperature.value', newTemp);
+        if (this.responseTemperatureSlider) {
+            this.responseTemperatureSlider.value = newTemp;
+        }
+        if (this.responseTemperatureValue) {
+            this.responseTemperatureValue.textContent = newTemp;
+        }
+
+        // Gather memory type config
+        const memoryTypeVal = this.chatSettingsMemoryType ? parseInt(this.chatSettingsMemoryType.value, 10) : 2;
+        const includeMemory = memoryTypeVal !== 0;
+        const memoryType = includeMemory ? memoryTypeVal : 2;
+
+        // Gather includeTools
+        const includeTools = this.chatSettingsIncludeTools ? this.chatSettingsIncludeTools.checked : true;
+
+        // Save per-spirit active tools
+        const activeToolIds = this.chatSettingsToolsData
+            .filter(t => t.isActiveForSpirit)
+            .map(t => t.id);
+
+        // Disable save button during request
+        if (this.chatSettingsSaveBtn) {
+            this.chatSettingsSaveBtn.disabled = true;
+            this.chatSettingsSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        }
+
+        try {
+            // Save prompt config (memory type + includeTools)
+            await fetch(`/api/spirit/${this.currentSpiritId}/system-prompt-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ includeMemory, memoryType, includeTools })
+            });
+
+            // Save per-spirit active tools
+            await this.apiService.saveSpiritTools(this.currentSpiritId, activeToolIds);
+
+            // Close modal
+            const modalInstance = bootstrap.Modal.getInstance(this.chatSettingsModal);
+            if (modalInstance) modalInstance.hide();
+
+            if (window.toast) {
+                window.toast.success(window.translations?.['ui.saved'] || 'Settings saved');
+            }
+        } catch (error) {
+            console.error('Error saving chat settings:', error);
+            if (window.toast) {
+                window.toast.error(error.message || 'Failed to save settings');
+            }
+        } finally {
+            if (this.chatSettingsSaveBtn) {
+                this.chatSettingsSaveBtn.disabled = false;
+                this.chatSettingsSaveBtn.innerHTML = `<i class="mdi mdi-content-save me-1"></i>${window.translations?.['ui.save'] || 'Save'}`;
             }
         }
     }
@@ -2560,8 +2793,8 @@ export class SpiritChatManager {
     updatePrimaryModelInfo(data) {
         if (!this.chatInfoPrimaryAiModel) return;
         this.chatInfoPrimaryAiModel.innerHTML = 
-            '<span class="me-1 fw-bold">' + data.modelName + '</span> ' +
-            '<span class="d-md-inline d-none">[context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString(getCitadelLocale()) + '</span>]</span>';
+            '<span class="me-1 fw-bold opacity-75 text-light">' + data.modelName + '</span> ' +
+            '<span class="d-md-inline d-none">context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString(getCitadelLocale()) + '</span></span>';
         // Store context window for usage calculation
         this.primaryModelContextWindow = data.contextWindow || null;
     }

@@ -76,9 +76,8 @@
                                 <i class="mdi mdi-file-plus"></i>
                             </button>
 
-                            <div class="d-flex gap-2">
-                                <i class="mdi mdi-information-outline text-cyber cursor-pointer ms-1" id="chatInfoIcon" data-bs-toggle="collapse" data-bs-target="#chatInfo" aria-expanded="false" aria-controls="chatInfo"></i>
-                                <i class="mdi mdi-tune-vertical text-cyber cursor-pointer me-1" id="chatSettingsIcon" data-bs-toggle="collapse" data-bs-target="#chatSettings" aria-expanded="false" aria-controls="chatSettings"></i>
+                            <div class="d-flex gap-2 justify-content-end">
+                                <i class="mdi mdi-tune-vertical text-cyber cursor-pointer me-1 fs-5" id="chatSettingsIcon" title="{{ 'spirit.chat.settings'|trans|default('Chat Settings') }}"></i>
                             </div>
                         </div>
 
@@ -86,34 +85,11 @@
                             <textarea id="messageInput" class="form-control flex-grow-1" rows="3" placeholder="{{ 'spirit.chat.type_message'|trans }}" autocomplete="off" focus></textarea>
 
                             <div class="d-flex flex-column gap-1 align-items-center mt-2 ps-2">
-                                <div class="form-range d-flex_ d-none align-items-center gap-2 collapse" id="chatSettings_">
-                                    <label class="form-range-label small text-end" for="responseMaxOutputSlider">
-                                        <i class="mdi mdi-arrow-collapse-right text-white me-2"></i>
-                                        <span class="d-none d-md-inline">{{ 'spirit.chat.response_max_output'|trans }}:</span> 
-                                        <span id="responseMaxOutputValue" class="text-cyber fw-bold d-inline-block text-end" style="width: 3.2em;">-</span> tokens
-                                    </label>
-                                    <input class="form-range-input" type="range" id="responseMaxOutputSlider" min="10" max="4096" value="500" step="10">
-                                </div>
-
-                                <div class="form-range d-flex align-items-center gap-2 collapse" id="chatSettings">
-                                    <label class="form-range-label small text-end" for="responseTemperatureSlider">
-                                        <i class="mdi mdi-thermometer text-white me-2"></i>
-                                        <span class="d-none d-md-inline">{{ 'spirit.chat.response_temperature'|trans }}:</span> 
-                                        <span id="responseTemperatureValue" class="text-cyber fw-bold d-inline-block text-end" style="width: 3.2em;">-</span>
-                                    </label>
-                                    <input class="form-range-input" type="range" id="responseTemperatureSlider" min="0" max="1" value="0.7" step="0.1">
-                                </div>
-
-                                <div class="form-range d-flex flex-column_ justify-content-between gap-1 collapse" id="chatInfo">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="mdi mdi-brain text-cyber"></i>
-                                        <span id="chatInfoPrimaryAiModel" class="small" title="{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}">-</span>
-                                    </div>
-                                    <div class="d-flex_ d-none align-items-center gap-2">
-                                        <i class="mdi mdi-image-edit-outline text-cyber"></i>
-                                        <span id="_chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
-                                    </div>
-                                </div>
+                                {# Hidden sliders — values managed by Chat Settings modal #}
+                                <input type="hidden" id="responseMaxOutputSlider" value="500">
+                                <span id="responseMaxOutputValue" class="d-none">500</span>
+                                <input type="hidden" id="responseTemperatureSlider" value="0.7">
+                                <span id="responseTemperatureValue" class="d-none">0.7</span>
                             </div>
                         </div>
                         
@@ -229,6 +205,85 @@
                     <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal"><i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}</button>
                     <button type="button" class="btn btn-cyber" id="extractMemoryConfirmBtn"><i class="mdi mdi-graph me-2"></i>{{ 'spirit.chat.extract_memory_start'|trans|default('Extract Memory') }}</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Chat Settings modal #}
+<div class="modal fade" id="chatSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content glass-panel bg-dark">
+            <div class="modal-header bg-cyber-g border-success py-2">
+                <h6 class="modal-title"><i class="mdi mdi-tune-vertical me-2"></i>{{ 'spirit.chat.settings'|trans|default('Chat Settings') }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                {# chatInfo AI Model #}
+                <div class="mb-5">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="mdi mdi-brain text-cyber"></i>
+                        <span id="chatInfoPrimaryAiModel" class="small d-flex w-100 justify-content-between" title="{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}">-</span>
+                    </div>
+                    <div class="d-flex_ d-none align-items-center gap-2">
+                        <i class="mdi mdi-image-edit-outline text-cyber"></i>
+                        <span id="_chatInfoSecondaryAiModel" class="small" title="{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}">-</span>
+                    </div>
+                </div>
+
+                {# Temperature slider #}
+                <div class="mb-5">
+                    <label class="form-label all d-flex justify-content-between align-items-center" for="chatSettingsTemperature">
+                        <span><i class="mdi mdi-thermometer text-cyber me-1"></i> {{ 'spirit.chat.response_temperature'|trans|default('Temperature') }}</span>
+                        <span id="chatSettingsTemperatureValue" class="badge fw-normal bg-secondary bg-opacity-25">0.7</span>
+                    </label>
+                    <input type="range" class="form-range-input w-100" id="chatSettingsTemperature" min="0" max="1" value="0.7" step="0.1">
+                    <div class="d-flex justify-content-between small text-secondary mt-1 mx-2">
+                        <span>0 ({{ 'spirit.chat.temperature_precise'|trans|default('Precise') }})</span>
+                        <span>1 ({{ 'spirit.chat.temperature_creative'|trans|default('Creative') }})</span>
+                    </div>
+                </div>
+
+                {# Memory Type select #}
+                <div class="mb-5">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label for="chatSettingsMemoryType" class="form-label mb-0">
+                            <i class="mdi mdi-memory text-cyber me-1"></i> {{ 'spirit.memory.type'|trans|default('Spirit Memory Type') }}
+                        </label>
+                        <select class="form-select form-select-sm bg-dark bg-opacity-50 text-light border-secondary" 
+                                id="chatSettingsMemoryType" style="width: auto; min-width: 180px;">
+                            <option value="0">🚫 {{ 'spirit.memory.type_none'|trans|default('No Memory') }}</option>
+                            <option value="1">🧠 {{ 'spirit.memory.type_reflexes'|trans|default('Reflexes') }}</option>
+                            <option value="2">🤖 {{ 'spirit.memory.type_agent'|trans|default('Memory Agent') }}</option>
+                        </select>
+                    </div>
+                    <div id="chatSettingsMemoryTypeInfo" class="mt-2 mx-4 small text-secondary"></div>
+                </div>
+
+                {# AI Tools toggle + list #}
+                <div>
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <label class="form-label mb-0">
+                            <i class="mdi mdi-tools text-cyber me-1"></i> {{ 'spirit.chat.ai_tools'|trans|default('AI Tools') }}
+                        </label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="chatSettingsIncludeTools" checked>
+                        </div>
+                    </div>
+                    <div id="chatSettingsToolsList" class="d-flex flex-column gap-1">
+                        <div class="text-center p-3">
+                            <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between border-secondary border-opacity-25">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-1"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-sm btn-cyber" id="chatSettingsSaveBtn">
+                    <i class="mdi mdi-content-save me-1"></i>{{ 'ui.save'|trans|default('Save') }}
+                </button>
             </div>
         </div>
     </div>

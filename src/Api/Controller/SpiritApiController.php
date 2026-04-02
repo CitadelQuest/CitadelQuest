@@ -4,6 +4,7 @@ namespace App\Api\Controller;
 
 use App\Service\SpiritService;
 use App\Service\SpiritConversationService;
+use App\Service\AiToolService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,7 +19,8 @@ class SpiritApiController extends AbstractController
 {
     public function __construct(
         private readonly SpiritService $spiritService,
-        private readonly SpiritConversationService $spiritConversationService
+        private readonly SpiritConversationService $spiritConversationService,
+        private readonly AiToolService $aiToolService
     ) {
     }
 
@@ -213,6 +215,51 @@ class SpiritApiController extends AbstractController
             return $this->json(['success' => true, 'message' => 'Spirit deleted successfully']);
         } catch (\RuntimeException $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Get all AI tools with per-spirit active state for Chat Settings
+     */
+    #[Route('/{id}/tools', name: 'api_spirit_tools_list', methods: ['GET'])]
+    public function getToolsForSpirit(string $id): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $tools = $this->aiToolService->findAllWithSpiritState($id);
+
+            return $this->json(['tools' => $tools]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Save per-spirit active tools list
+     */
+    #[Route('/{id}/tools', name: 'api_spirit_tools_save', methods: ['POST'])]
+    public function saveToolsForSpirit(string $id, Request $request): JsonResponse
+    {
+        try {
+            $spirit = $this->spiritService->getSpirit($id);
+            if (!$spirit) {
+                return $this->json(['error' => 'Spirit not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['activeToolIds']) || !is_array($data['activeToolIds'])) {
+                return $this->json(['error' => 'Missing activeToolIds array'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $this->aiToolService->setSpiritActiveToolIds($id, $data['activeToolIds']);
+
+            return $this->json(['success' => true]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

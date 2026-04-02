@@ -597,6 +597,41 @@ class SpiritConversationService
     }
 
     /**
+     * Get available tools for a spirit, respecting per-spirit activeTools config.
+     * Falls back to global is_active if no per-spirit config exists.
+     */
+    private function getAvailableToolsForSpirit(string $spiritId): array
+    {
+        // Check master includeTools setting
+        $includeTools = $this->spiritService->getSpiritSetting(
+            $spiritId,
+            'systemPrompt.config.includeTools',
+            '1'
+        ) === '1';
+        if (!$includeTools) {
+            return [];
+        }
+
+        // Get per-spirit tool definitions (already filtered by spirit's activeTools)
+        $toolsBase = $this->aiToolService->getToolDefinitionsForSpirit($spiritId);
+
+        // Convert to CQAIGateway format (same as CQAIGateway::getAvailableTools)
+        $tools = [];
+        foreach ($toolsBase as $toolDef) {
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => $toolDef['name'],
+                    'description' => $toolDef['description'],
+                    'parameters' => $toolDef['parameters']
+                ]
+            ];
+        }
+
+        return $tools;
+    }
+
+    /**
      * Send message (returns immediately without executing tools)
      * 
      * @return array Contains message entity, type, toolCalls, and requiresToolExecution flag
@@ -629,8 +664,8 @@ class SpiritConversationService
         // Prepare messages for AI request (from message table)
         $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang, $cachedSystemPrompt);
         
-        // Add tools
-        $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
+        // Add tools (per-spirit filtering)
+        $tools = $this->getAvailableToolsForSpirit($spirit->getId());
         
         // Create AI service request
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
@@ -764,8 +799,8 @@ class SpiritConversationService
         // Prepare messages including tool results
         $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang);
         
-        // Add tools
-        $tools = $this->aiGatewayService->getAvailableTools($aiServiceModel->getAiGatewayId());
+        // Add tools (per-spirit filtering)
+        $tools = $this->getAvailableToolsForSpirit($spirit->getId());
         
         // Create new AI request
         $aiServiceRequest = $this->aiServiceRequestService->createRequest(
@@ -1440,42 +1475,30 @@ class SpiritConversationService
                 // Legacy .md File Memory
                 return $this->buildMemorySectionLegacy($spirit, $spiritMemoryDir);
             case 2:
-                // Memory Agent (future) — fall back to Reflexes for now
+                // Memory Agent 
+                return $this->buildMemorySectionCQMemoryAgent($spirit, $config['includeTools']);
             case 1:
-            default:
                 // Reflexes — CQ Memory graph-based with automatic recall
                 return $this->buildMemorySectionCQMemoryReflexes($spirit, $config['includeTools']);
+            case 0:
+            default:
+                // no memory
+                return "";
         }
     }
     
     /**
-     * Build Memory section for CQ Memory Reflexes mode (memoryType = 1)
+     * Build Memory section for CQ Memory Agent mode (memoryType = 2)
      * Returns only the <spirit-memory-system> content (projects section is separate)
      */
-    private function buildMemorySectionCQMemoryReflexes(Spirit $spirit, bool $includeTools = true): string
+    private function buildMemorySectionCQMemoryAgent(Spirit $spirit, bool $includeTools = true): string
     {
-        // Dynamically build <available-tools> from active memory tools in DB (respects includeTools config)
-        $toolsSection = '';
-        if ($includeTools) {
-            $memoryToolNames = ['memoryStore', 'memoryRecall', 'memoryUpdate', 'memoryForget', 'memoryExtract', 'memorySource'];
-            $toolsXml = '';
-            foreach ($memoryToolNames as $toolName) {
-                $tool = $this->aiToolService->findByName($toolName);
-                if ($tool && $tool->isActive()) {
-                    $desc = htmlspecialchars($tool->getDescription(), ENT_XML1, 'UTF-8');
-                    $toolsXml .= "\n                    <tool name=\"{$toolName}\">\n                        {$desc}\n                    </tool>";
-                }
-            }
-            if (!empty($toolsXml)) {
-                $toolsSection = "\n\n                <available-tools>{$toolsXml}\n                </available-tools>";
-            }
-        }
-        
+        // TODO update actual return content - this is just copy&paste from `buildMemorySectionCQMemoryReflexes()`
         return "
             <spirit-memory-system version=\"cq-memory\">
                 <overview>
                     Your memory is powered by **CQ Memory** - a graph-based knowledge system.
-                    Use the memory tools to store, recall, update, and forget information.
+                    " . ($includeTools ? "Use the memory tools to store, recall, update, and forget information. " : "") . "
                     Memories are automatically scored by importance, recency, and relevance.
                 </overview>
                 
@@ -1485,14 +1508,47 @@ class SpiritConversationService
                     based on what the user says. Use these naturally in your responses without 
                     explicitly saying \"I recalled...\" — just weave the knowledge in naturally,
                     as if you simply remember it.
-                </automatic-recall>{$toolsSection}
-                
+                </automatic-recall>
+                " . ($includeTools ? "
                 <best-practices>
                     - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
                     - When automatic recall provides relevant context, use it naturally
                     - Use memoryRecall tool for deeper/specific searches beyond automatic recall
                     - Always use sourceType=\"spirit_conversation\" for extracting conversation content - on User's request only! Usually at the ver end of conversation.
                 </best-practices>
+                " : "") . "
+            </spirit-memory-system>";
+    }
+    
+    /**
+     * Build Memory section for CQ Memory Reflexes mode (memoryType = 1)
+     * Returns only the <spirit-memory-system> content (projects section is separate)
+     */
+    private function buildMemorySectionCQMemoryReflexes(Spirit $spirit, bool $includeTools = true): string
+    {        
+        return "
+            <spirit-memory-system version=\"cq-memory\">
+                <overview>
+                    Your memory is powered by **CQ Memory** - a graph-based knowledge system.
+                    " . ($includeTools ? "Use the memory tools to store, recall, update, and forget information. " : "") . "
+                    Memories are automatically scored by importance, recency, and relevance.
+                </overview>
+                
+                <automatic-recall>
+                    Your memory system now includes **automatic recall**. Relevant memories are 
+                    automatically searched and injected into your context as &lt;recalled-memories&gt; 
+                    based on what the user says. Use these naturally in your responses without 
+                    explicitly saying \"I recalled...\" — just weave the knowledge in naturally,
+                    as if you simply remember it.
+                </automatic-recall>
+                " . ($includeTools ? "
+                <best-practices>
+                    - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
+                    - When automatic recall provides relevant context, use it naturally
+                    - Use memoryRecall tool for deeper/specific searches beyond automatic recall
+                    - Always use sourceType=\"spirit_conversation\" for extracting conversation content - on User's request only! Usually at the ver end of conversation.
+                </best-practices>
+                " : "") . "
             </spirit-memory-system>";
     }
     

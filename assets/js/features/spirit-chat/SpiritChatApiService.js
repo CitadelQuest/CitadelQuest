@@ -283,6 +283,51 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Get all AI tools with per-spirit active state for Chat Settings
+     * @param {string} spiritId - The ID of the spirit
+     * @returns {Promise<Object>} - Response with tools array
+     */
+    async getSpiritTools(spiritId) {
+        try {
+            const response = await fetch(`/api/spirit/${spiritId}/tools`);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to fetch spirit tools');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching spirit tools:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save per-spirit active tools list
+     * @param {string} spiritId - The ID of the spirit
+     * @param {Array<string>} activeToolIds - Array of active tool IDs
+     * @returns {Promise<Object>} - Success status
+     */
+    async saveSpiritTools(spiritId, activeToolIds) {
+        try {
+            const response = await fetch(`/api/spirit/${spiritId}/tools`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ activeToolIds })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save spirit tools');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error saving spirit tools:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Stop tool execution chain
      * @param {string} conversationId - The ID of the conversation
      * @returns {Promise<Object>} - Success status

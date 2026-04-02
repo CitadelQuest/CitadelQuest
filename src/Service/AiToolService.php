@@ -10,7 +10,8 @@ class AiToolService
 {
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly SpiritService $spiritService
     ) {
     }
     
@@ -198,5 +199,83 @@ class AiToolService
         }
         
         return $definitions;
+    }
+
+    /**
+     * Get tool definitions filtered by per-spirit activeTools setting.
+     * If spirit has no activeTools setting, falls back to global is_active.
+     */
+    public function getToolDefinitionsForSpirit(string $spiritId): array
+    {
+        $activeToolIds = $this->getSpiritActiveToolIds($spiritId);
+        
+        if ($activeToolIds === null) {
+            // No per-spirit config — use global is_active
+            return $this->getToolDefinitions();
+        }
+        
+        // Fetch all tools and filter by spirit's activeTools list
+        $allTools = $this->findAll(false);
+        $definitions = [];
+        
+        foreach ($allTools as $tool) {
+            if (in_array($tool->getId(), $activeToolIds)) {
+                $definitions[$tool->getName()] = [
+                    'name' => $tool->getName(),
+                    'description' => $tool->getDescription(),
+                    'parameters' => $tool->getParametersAsArray()
+                ];
+            }
+        }
+        
+        return $definitions;
+    }
+
+    /**
+     * Get all tools with per-spirit active state for the Chat Settings UI.
+     * Returns all tools with an 'isActiveForSpirit' flag.
+     */
+    public function findAllWithSpiritState(string $spiritId): array
+    {
+        $allTools = $this->findAll(false);
+        $activeToolIds = $this->getSpiritActiveToolIds($spiritId);
+        
+        $result = [];
+        foreach ($allTools as $tool) {
+            $data = $tool->jsonSerialize();
+            // If spirit has per-spirit config, use it; otherwise fall back to global is_active
+            $data['isActiveForSpirit'] = $activeToolIds !== null
+                ? in_array($tool->getId(), $activeToolIds)
+                : $tool->isActive();
+            $result[] = $data;
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Get spirit's activeTools IDs from spirit_settings.
+     * Returns null if no per-spirit config exists (meaning: use global).
+     */
+    public function getSpiritActiveToolIds(string $spiritId): ?array
+    {
+        $json = $this->spiritService->getSpiritSetting($spiritId, 'systemPrompt.config.activeTools');
+        if ($json === null) {
+            return null;
+        }
+        $ids = json_decode($json, true);
+        return is_array($ids) ? $ids : null;
+    }
+
+    /**
+     * Save spirit's activeTools IDs to spirit_settings.
+     */
+    public function setSpiritActiveToolIds(string $spiritId, array $toolIds): void
+    {
+        $this->spiritService->setSpiritSetting(
+            $spiritId,
+            'systemPrompt.config.activeTools',
+            json_encode(array_values($toolIds))
+        );
     }
 }
