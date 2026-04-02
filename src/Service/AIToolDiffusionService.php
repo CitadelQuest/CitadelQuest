@@ -11,7 +11,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * Service for AI Tool diffusion image operations
  * 
- * Implements the diffusionArtistSpirit tool which:
+ * Implements the spiritCreateDiffusionImage tool which:
  * 1. Receives natural language prompt from main Spirit
  * 2. Calls a specialized LLM to translate to diffusion keywords
  * 3. Parses JSON response with optimized params
@@ -51,7 +51,7 @@ class AIToolDiffusionService
      * 
      * @return array Tool result with success status, files, and frontend data
      */
-    public function diffusionArtistSpirit(array $arguments): array
+    public function spiritCreateDiffusionImage(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'prompt']);
         
@@ -100,7 +100,7 @@ class AIToolDiffusionService
             // Send request to AI service (standard chat endpoint)
             $aiServiceResponse = $this->aiGatewayService->sendRequest(
                 $aiServiceRequest, 
-                'diffusionArtistSpirit AI Tool - Prompt Translation', 
+                'spiritCreateDiffusionImage AI Tool - Prompt Translation', 
                 $lang, 
                 $arguments['projectId']
             );
@@ -134,7 +134,7 @@ class AIToolDiffusionService
                 // Send retry request
                 $retryResponse = $this->aiGatewayService->sendRequest(
                     $retryAiServiceRequest,
-                    'diffusionArtistSpirit AI Tool - Prompt Translation (Retry)',
+                    'spiritCreateDiffusionImage AI Tool - Prompt Translation (Retry)',
                     $lang,
                     $arguments['projectId']
                 );

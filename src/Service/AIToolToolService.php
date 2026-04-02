@@ -18,7 +18,7 @@ class AIToolToolService
     /**
      * List all AI Tools, with active tools first
      */
-    public function listAITools(array $arguments): array
+    public function aiToolList(array $arguments): array
     {
         try {
             // arg: activeOnly
@@ -55,7 +55,7 @@ class AIToolToolService
     /**
      * Set an AI Tool's active status
      */
-    public function setAIToolActive(array $arguments): array
+    public function aiToolSetActive(array $arguments): array
     {
         // Validate required arguments
         if (!isset($arguments['toolName']) || !isset($arguments['active'])) {
@@ -66,7 +66,7 @@ class AIToolToolService
         }
 
         // skip `this` tool
-        if ($arguments['toolName'] == 'setAIToolActive') {
+        if ($arguments['toolName'] == 'aiToolSetActive') {
             return [
                 'success' => false,
                 'error' => 'Tool ' . $arguments['toolName'] . ' must always be active'

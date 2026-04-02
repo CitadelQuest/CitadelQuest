@@ -99,8 +99,8 @@ Your Spirit can use various tools during conversation to help you:
 | **memoryExtract** | Extract knowledge from documents into memory graphs (with automatic relationship analysis) |
 | **memorySource** | Look up original source content for a memory |
 | **fetchURL** | Read web page content |
-| **imageEditorSpirit** | Generate and edit images using AI |
-| **diffusionArtistSpirit** | Generate images using AI diffusion models |
+| **spiritCreateOrEditImage** | Generate and edit images using AI |
+| **spiritCreateDiffusionImage** | Generate images using AI diffusion models |
 
 > Tools are used automatically when relevant — just ask your Spirit naturally and it will decide which tools to use.
 

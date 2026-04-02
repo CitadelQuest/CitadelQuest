@@ -9,6 +9,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 /**
  * Service for AI Tool image operations
+ * Implements the spiritCreateOrEditImage tool
  */
 class AIToolImageService
 {
@@ -27,7 +28,7 @@ class AIToolImageService
     /**
      * Edit an image using AI
      */
-    public function imageEditorSpirit(array $arguments): array
+    public function spiritCreateOrEditImage(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'textPrompt']);
         

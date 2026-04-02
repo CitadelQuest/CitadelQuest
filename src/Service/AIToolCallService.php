@@ -54,17 +54,17 @@ class AIToolCallService
             }
 
             // For AI Tool management tools, delegate to AIToolToolService
-            if (in_array($toolName, ['listAITools', 'setAIToolActive'])) {
+            if (in_array($toolName, ['aiToolList', 'aiToolSetActive'])) {
                 return $this->aiToolToolService->{$toolName}($arguments);
             }
             
             // For image tools, delegate to AIToolImageService
-            if (in_array($toolName, ['imageEditorSpirit'])) {
+            if (in_array($toolName, ['spiritCreateOrEditImage'])) {
                 return $this->aiToolImageService->{$toolName}($arguments);
             }
             
             // For diffusion image tools, delegate to AIToolDiffusionService
-            if (in_array($toolName, ['diffusionArtistSpirit'])) {
+            if (in_array($toolName, ['spiritCreateDiffusionImage'])) {
                 return $this->aiToolDiffusionService->{$toolName}($arguments);
             }
             

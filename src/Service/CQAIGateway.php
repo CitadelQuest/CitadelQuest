@@ -320,23 +320,6 @@ class CQAIGateway implements AiGatewayInterface
             $filteredMessages[] = $filteredMessage;
         }
 
-        // moved to CQ AI Gateway
-        /*
-        foreach ($filteredMessages as $key => $message) {
-            if ($message['role'] == 'assistant') {
-                if (is_array($message['content'])) {
-                    if (isset($message['content'][0]['text']) && trim($message['content'][0]['text']) == '') {
-                        $filteredMessages[$key]['content'][0]['text'] = '<empty-content />';
-                    } else {
-                        $filteredMessages[$key]['content'] = '<empty-content />';
-                    }
-                } elseif (is_string($message['content']) && (trim($message['content']) == '' || $message['content'] == '[]')) {
-                    $filteredMessages[$key]['content'] = '<empty-content />';
-                }
-            }
-        }
-        */
-
         return $filteredMessages;
     }
 
@@ -396,109 +379,6 @@ class CQAIGateway implements AiGatewayInterface
                     'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
                 ]
             ]);
-
-            /* output:
-            {
-                "data": [
-                    {
-                    "id": "microsoft/phi-4-reasoning-plus:free",
-                    "name": "Microsoft: Phi 4 Reasoning Plus (free)",
-                    "created": 1746130961,
-                    "description": "Phi-4-reasoning-plus is an enhanced 14B parameter model from Microsoft, fine-tuned from Phi-4 with additional reinforcement learning to boost accuracy on math, science, and code reasoning tasks. It uses the same dense decoder-only transformer architecture as Phi-4, but generates longer, more comprehensive outputs structured into a step-by-step reasoning trace and final answer.\n\nWhile it offers improved benchmark scores over Phi-4-reasoning across tasks like AIME, OmniMath, and HumanEvalPlus, its responses are typically ~50% longer, resulting in higher latency. Designed for English-only applications, it is well-suited for structured reasoning workflows where output quality takes priority over response speed.",
-                    "context_length": 32768,
-                    "architecture": {
-                        "modality": "text->text",
-                        "input_modalities": [
-                        "text"
-                        ],
-                        "output_modalities": [
-                        "text"
-                        ],
-                        "tokenizer": "Other",
-                        "instruct_type": null
-                    },
-                    "pricing": {
-                        "prompt": "0",
-                        "completion": "0",
-                        "request": "0",
-                        "image": "0",
-                        "web_search": "0",
-                        "internal_reasoning": "0"
-                    },
-                    "top_provider": {
-                        "context_length": 32768,
-                        "max_completion_tokens": null,
-                        "is_moderated": false
-                    },
-                    "per_request_limits": null,
-                    "supported_parameters": [
-                        "max_tokens",
-                        "temperature",
-                        "top_p",
-                        "reasoning",
-                        "include_reasoning",
-                        "stop",
-                        "frequency_penalty",
-                        "presence_penalty",
-                        "seed",
-                        "top_k",
-                        "min_p",
-                        "repetition_penalty",
-                        "logprobs",
-                        "logit_bias",
-                        "top_logprobs"
-                    ]
-                    },
-                    {
-                    "id": "microsoft/phi-4-reasoning-plus",
-                    "name": "Microsoft: Phi 4 Reasoning Plus",
-                    "created": 1746130961,
-                    "description": "Phi-4-reasoning-plus is an enhanced 14B parameter model from Microsoft, fine-tuned from Phi-4 with additional reinforcement learning to boost accuracy on math, science, and code reasoning tasks. It uses the same dense decoder-only transformer architecture as Phi-4, but generates longer, more comprehensive outputs structured into a step-by-step reasoning trace and final answer.\n\nWhile it offers improved benchmark scores over Phi-4-reasoning across tasks like AIME, OmniMath, and HumanEvalPlus, its responses are typically ~50% longer, resulting in higher latency. Designed for English-only applications, it is well-suited for structured reasoning workflows where output quality takes priority over response speed.",
-                    "context_length": 32768,
-                    "architecture": {
-                        "modality": "text->text",
-                        "input_modalities": [
-                        "text"
-                        ],
-                        "output_modalities": [
-                        "text"
-                        ],
-                        "tokenizer": "Other",
-                        "instruct_type": null
-                    },
-                    "pricing": {
-                        "prompt": "0.00000007",
-                        "completion": "0.00000035",
-                        "request": "0",
-                        "image": "0",
-                        "web_search": "0",
-                        "internal_reasoning": "0"
-                    },
-                    "top_provider": {
-                        "context_length": 32768,
-                        "max_completion_tokens": null,
-                        "is_moderated": false
-                    },
-                    "per_request_limits": null,
-                    "supported_parameters": [
-                        "max_tokens",
-                        "temperature",
-                        "top_p",
-                        "reasoning",
-                        "include_reasoning",
-                        "stop",
-                        "frequency_penalty",
-                        "presence_penalty",
-                        "repetition_penalty",
-                        "response_format",
-                        "top_k",
-                        "seed",
-                        "min_p"
-                    ]
-                    }
-                ]
-            }
-            */
             
             // Parse response
             $responseData = json_decode($response->getContent(), true);
@@ -536,75 +416,6 @@ class CQAIGateway implements AiGatewayInterface
         // Use the static getInstance method to avoid circular dependencies
         $aiToolService = $this->serviceLocator->get(AiToolService::class);
         $toolsBase = $aiToolService->getToolDefinitions();
-
-        // add createSepaEuroPaymentQrCode tool
-        /* $toolsBase[] = [
-            'name' => 'createSepaEuroPaymentQrCode',
-            'description' => 'Create a SEPA payment QR code, with optional remittance text/variable symbol in format: `/VS/{variable_symbol_numbers}`',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'name' => [
-                        'type' => 'string',
-                        'description' => 'Name of the person or company to be debited'
-                    ],
-                    'iban' => [
-                        'type' => 'string',
-                        'description' => 'IBAN of the person or company to be debited'
-                    ],
-                    'bic' => [
-                        'type' => 'string',
-                        'description' => 'BIC of the person or company to be debited'
-                    ],
-                    'amount' => [
-                        'type' => 'number',
-                        'description' => 'Amount to be debited only in Euro'
-                    ],
-                    'remittanceText' => [
-                        'type' => 'string',
-                        'description' => 'Remittance text. This field is used for `variable symbol` in format: `/VS/{variable_symbol_numbers}` '
-                    ]
-                ],
-                'required' => ['name', 'iban', 'bic', 'amount']
-            ]
-        ];
-
-        // image tool
-        $toolsBase[] = [
-            'name' => 'imageEditorSpirit',
-            'description' => 'Edit or generate image file(s) by prompting specialized AI Spirit. Input image files(optional) and text prompt are used to generate the output image file(s).',
-            'parameters' => [
-                'type' => 'object',
-                'properties' => [
-                    'projectId' => [
-                        'type' => 'string',
-                        'description' => 'Project ID'
-                    ],
-                    'inputImageFiles' => [
-                        'type' => 'array',
-                        'description' => 'Input image files for smart editing',
-                        'items' => [
-                            'properties' => [
-                                'imageFile' => [
-                                    'type' => 'string',
-                                    'description' => 'Full path with name of the input image file'
-                                ]
-                            ],
-                            'required' => ['imageFile']
-                        ]
-                    ],
-                    'textPrompt' => [
-                        'type' => 'string',
-                        'description' => 'Text prompt to edit or generate the image, it can be used to add or remove objects, restore old photo, change the style, etc. It is recommended to use a clear and concise prompt - it will be used with input image files to generate(by specialized AI Spirit) the output image file.'
-                    ],
-                    'outputImageFile' => [
-                        'type' => 'string',
-                        'description' => 'Full path with name of the output image file. If not specified, the output image file will be generated in the default output directory `/uploads/ai/img`. If multiple output image files are generated, they will be generated with unique names automatically.'
-                    ]
-                ],
-                'required' => ['projectId', 'textPrompt']
-            ]
-        ]; */
 
         // Convert to CQAIGateway format
         $tools = [];
