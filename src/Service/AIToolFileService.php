@@ -16,176 +16,6 @@ class AIToolFileService
         private readonly AnnoService $annoService
     ) {
     }
-    
-    /**
-     * List files in a project directory
-     */
-    public function listFiles(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path']);
-        $this->validateSpiritAccess($arguments);
-        
-        try {
-            $files = $this->projectFileService->listFiles(
-                $arguments['projectId'],
-                $arguments['path'] ?? '/'
-            );
-            
-            return [
-                'success' => true,
-                'files' => array_map(fn($file) => $file->jsonSerialize(), $files)
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Get file content
-     * For PDF files, returns cached annotations if available (saves AI processing costs)
-     */
-    public function getFileContent(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
-        $this->validateSpiritAccess($arguments);
-        
-        try {
-            $file = $this->projectFileService->findByPathAndName(
-                $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name']
-            );
-
-            if (!$file && isset($arguments['fileId'])) {
-                $file = $this->projectFileService->findById($arguments['fileId']);
-            }
-            
-            if (!$file) {
-                return [
-                    'success' => false,
-                    'error' => 'File not found'
-                ];
-            }
-            
-            if ($file->isDirectory()) {
-                return [
-                    'success' => false,
-                    'error' => 'Cannot get content of a directory'
-                ];
-            }
-            
-            $withLineNumbers = $arguments['withLineNumbers'] ?? false;
-            $projectId = $arguments['projectId'];
-            $filename = $file->getName();
-            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-            
-            // For PDF files, try to use cached annotations instead of raw binary (uses AnnoService)
-            $usedAnnotations = false;
-            if ($extension === 'pdf') {
-                $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
-                
-                if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
-                    $content = $this->annoService->getTextContent($annoData);
-                    $usedAnnotations = true;
-                }
-            }
-            
-            // If no annotations used, get raw content
-            if (!$usedAnnotations) {
-                $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
-            }
-            
-            // return HTML code for frontend display
-            $contentFrontendData = "";
-            // default: text
-            $contentFrontendData = '<pre>' . htmlspecialchars($content) . '</pre>';
-            // image data, based on mime type
-            if (strpos($file->getMimeType(), 'image/') === 0) {
-                $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
-            }
-            // video data, based on mime type
-            if (strpos($file->getMimeType(), 'video/') === 0) {
-                $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%;" class="rounded shadow"></video>';                
-            }
-            // audio data, based on mime type
-            if (strpos($file->getMimeType(), 'audio/') === 0) {
-                $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="width: 100%;" class="rounded shadow"></audio>';                
-            }
-            // PDF with annotations - show annotation info
-            if ($usedAnnotations) {
-                //$contentFrontendData = '<div class="alert alert-success mb-2 p-1 px-2 d-inline-block opacity-75"><i class="mdi mdi-file-document-check"></i> Using cached PDF annotations</div><pre>' . htmlspecialchars($content) . '</pre>';
-                $contentFrontendData = '<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
-                                onclick="this.querySelector(\'.embed-container\').classList.toggle(\'d-none\');">
-                            <div class="d-flex align-items-center px-1">
-                                <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
-                                <span class="text-cyber">' . htmlspecialchars($file->getName()) . '</span>
-                            </div>
-                            <div class="p-2 pt-0 d-none embed-container">
-                                <embed src="/api/project-file/' . $file->getId() . '/download" loading="lazy"
-                                    width="100%" height="420"
-                                    class="rounded"
-                                    type="application/pdf"
-                                    title="' . htmlspecialchars($file->getName()) . '" />
-                            </div>
-                        </div>';
-            }
-
-            // binary data, not displayed (only if not using annotations)
-            if (!$usedAnnotations && strpos($content, 'data:') === 0) {
-                $content = "binary data, not displayed";
-                // image/video/audio data, displayed
-                if (strpos($file->getMimeType(), 'image/') === 0 || 
-                    strpos($file->getMimeType(), 'video/') === 0 || 
-                    strpos($file->getMimeType(), 'audio/') === 0) {
-                    $content = 'binary data, displayed directly in frontend';
-                }
-            }
-            
-            return [
-                'success' => true,
-                'content' => $content,
-                'file' => $file->jsonSerialize(),
-                'with_line_numbers' => $withLineNumbers,
-                //'used_annotations' => $usedAnnotations,
-                '_frontendData' => $contentFrontendData
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Create a directory
-     */
-    public function createDirectory(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name']);
-        $this->validateSpiritAccess($arguments);
-        
-        try {
-            $directory = $this->projectFileService->createDirectory(
-                $arguments['projectId'],
-                $arguments['path'],
-                $arguments['name']
-            );
-            
-            return [
-                'success' => true,
-                'directory' => $directory->jsonSerialize()
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
 
     /**
      * Update file content efficiently using find/replace operations
@@ -201,7 +31,7 @@ class AIToolFileService
      * Simplified format (one operation per call) for better LLM compatibility.
      * For multiple operations, call this tool multiple times.
      */
-    public function updateFileEfficient(array $arguments): array
+    public function fileUpdate(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
         $this->validateSpiritAccess($arguments);
@@ -267,94 +97,11 @@ class AIToolFileService
             ];
         }
     }
-
-    /**
-     * Get file versions
-     */
-    public function getFileVersions(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['fileId']);
-        
-        try {
-            $file = $this->projectFileService->findById($arguments['fileId']);
-            
-            if (!$file) {
-                return [
-                    'success' => false,
-                    'error' => 'File not found'
-                ];
-            }
-            
-            if ($file->isDirectory()) {
-                return [
-                    'success' => false,
-                    'error' => 'Directories do not have versions'
-                ];
-            }
-            
-            $versions = $this->projectFileService->getFileVersions($arguments['fileId']);
-            
-            return [
-                'success' => true,
-                'versions' => array_map(fn($version) => $version->jsonSerialize(), $versions)
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Ensure project directory structure exists
-     */
-    /* public function ensureProjectStructure(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId']);
-        
-        try {
-            $this->projectFileService->ensureProjectDirectoryStructure($arguments['projectId']);
-            
-            return [
-                'success' => true
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    } */
-    
-    /**
-     * Get the complete project tree structure
-     * Note: Spirit access validation is done per-path, tree shows all but access is restricted
-     */
-    public function getProjectTree(array $arguments): array
-    {
-        $this->validateArguments($arguments, ['projectId']);
-        // Note: getProjectTree shows full structure, access control is enforced on individual file operations
-        
-        try {
-            $tree = $this->projectFileService->showProjectTree($arguments['projectId'], true);
-            
-            return [
-                'success' => true,
-                'tree' => $tree
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
     
     /**
      * Search files by query string matching against path and name
      */
-    public function searchFile(array $arguments): array
+    public function fileSearch(array $arguments): array
     {
         $this->validateArguments($arguments, ['projectId', 'query']);
         
@@ -388,92 +135,54 @@ class AIToolFileService
     
     /**
      * Unified file management operations for AI tools
-     * Supports: create, copy, rename_move, delete
+     * Supports: 
+     * - File operations: create, read, copy, rename_move, delete
+     * - Directory operations: createDirectory, list, tree
      * 
      * Simplified flat parameters for better LLM compatibility:
-     * - sourcePath, sourceName: for copy, rename_move, delete
-     * - destPath, destName: for create, copy, rename_move
+     * - sourcePath, sourceName: for copy, read, rename_move, delete, list, tree
+     * - destPath, destName: for create, copy, rename_move, createDirectory
      * - content: for create operation
+     * - withLineNumbers: for read operation
      */
-    public function manageFile(array $arguments): array
+    public function fileManage(array $arguments): array
     {
         try {
             // Validate required parameters
             if (!isset($arguments['projectId']) || !isset($arguments['operation'])) {
-                throw new \InvalidArgumentException('manageFile requires projectId and operation parameters');
+                throw new \InvalidArgumentException('fileManage requires projectId and operation parameters');
             }
             
-            // Validate Spirit access for source path
-            if (isset($arguments['sourcePath'])) {
-                $this->validateSpiritAccess(['path' => $arguments['sourcePath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
-            }
-            // Validate Spirit access for destination path
-            if (isset($arguments['destPath'])) {
-                $this->validateSpiritAccess(['path' => $arguments['destPath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
-            }
-
             $projectId = $arguments['projectId'];
             $operation = $arguments['operation'];
+            
+            // Get path/name from various parameter combinations
+            $path = $arguments['destPath'] ?? $arguments['sourcePath'] ?? '/';
+            $name = $arguments['destName'] ?? $arguments['sourceName'] ?? '';
 
-            // Validate operation type
-            $validOperations = ['create', 'copy', 'rename_move', 'delete'];
-            if (!in_array($operation, $validOperations)) {
-                throw new \InvalidArgumentException('Invalid operation. Supported operations: ' . implode(', ', $validOperations));
+            // Handle consolidated directory and read operations
+            switch ($operation) {
+                case 'createDirectory':
+                    return $this->handleCreateDirectory($projectId, $path, $name, $arguments);
+                    
+                case 'list':
+                    return $this->handleListFiles($projectId, $path, $arguments);
+                    
+                case 'tree':
+                    return $this->handleGetProjectTree($projectId, $arguments);
+                    
+                case 'read':
+                    return $this->handleReadFile($projectId, $path, $name, $arguments);
+                    
+                case 'create':
+                case 'copy':
+                case 'rename_move':
+                case 'delete':
+                    return $this->handleFileOperations($projectId, $operation, $arguments);
+                    
+                default:
+                    throw new \InvalidArgumentException('Invalid operation: ' . $operation . '. Supported: create, copy, rename_move, delete, createDirectory, list, tree, read');
             }
-
-            // Prepare parameters based on operation
-            $params = [];
-
-            // Source parameters (required for copy, rename_move, delete)
-            // Support both flat (sourcePath, sourceName) and nested (source.path, source.name) formats
-            if (in_array($operation, ['copy', 'rename_move', 'delete'])) {
-                if (isset($arguments['sourcePath']) && isset($arguments['sourceName'])) {
-                    // New flat format
-                    $params['source'] = [
-                        'path' => $arguments['sourcePath'],
-                        'name' => $arguments['sourceName']
-                    ];
-                } elseif (isset($arguments['source']) && isset($arguments['source']['path']) && isset($arguments['source']['name'])) {
-                    // Legacy nested format
-                    $params['source'] = $arguments['source'];
-                } else {
-                    throw new \InvalidArgumentException($operation . ' operation requires sourcePath and sourceName');
-                }
-            }
-
-            // Destination parameters (required for create, copy, rename_move)
-            // Support both flat (destPath, destName) and nested (destination.path, destination.name) formats
-            if (in_array($operation, ['create', 'copy', 'rename_move'])) {
-                if (isset($arguments['destPath']) && isset($arguments['destName'])) {
-                    // New flat format
-                    $params['destination'] = [
-                        'path' => $arguments['destPath'],
-                        'name' => $arguments['destName']
-                    ];
-                } elseif (isset($arguments['destination']) && isset($arguments['destination']['path']) && isset($arguments['destination']['name'])) {
-                    // Legacy nested format
-                    $params['destination'] = $arguments['destination'];
-                } else {
-                    throw new \InvalidArgumentException($operation . ' operation requires destPath and destName');
-                }
-            }
-
-            // Content parameter (required for create)
-            if ($operation === 'create') {
-                if (!isset($arguments['content'])) {
-                    throw new \InvalidArgumentException('Create operation requires content parameter');
-                }
-                $params['content'] = $arguments['content'];
-            }
-
-            // Execute the operation
-            $result = $this->projectFileService->manageFile($projectId, $operation, $params);
-
-            return [
-                'success' => true,
-                'operation' => $operation,
-                'result' => $result
-            ];
 
         } catch (\Exception $e) {
             return [
@@ -482,6 +191,244 @@ class AIToolFileService
                 'operation' => $arguments['operation'] ?? 'unknown'
             ];
         }
+    }
+    
+    /**
+     * Handle createDirectory operation
+     */
+    private function handleCreateDirectory(string $projectId, string $path, string $name, array $arguments): array
+    {
+        // Validate Spirit access
+        $this->validateSpiritAccess(['path' => $path, '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+        
+        try {
+            $directory = $this->projectFileService->createDirectory($projectId, $path, $name);
+            return [
+                'success' => true,
+                'operation' => 'createDirectory',
+                'directory' => $directory->jsonSerialize()
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Handle list operation (list files in directory)
+     */
+    private function handleListFiles(string $projectId, string $path, array $arguments): array
+    {
+        // Validate Spirit access
+        $this->validateSpiritAccess(['path' => $path, '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+        
+        try {
+            $files = $this->projectFileService->listFiles($projectId, $path);
+            return [
+                'success' => true,
+                'operation' => 'list',
+                'path' => $path,
+                'files' => array_map(fn($file) => $file->jsonSerialize(), $files)
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Handle tree operation (get project tree)
+     */
+    private function handleGetProjectTree(string $projectId, array $arguments): array
+    {
+        // Note: getProjectTree shows full structure, access control is enforced on individual file operations
+        
+        try {
+            $tree = $this->projectFileService->showProjectTree($projectId, true);
+            return [
+                'success' => true,
+                'operation' => 'tree',
+                'tree' => $tree
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Handle read operation (get file content)
+     */
+    private function handleReadFile(string $projectId, string $path, string $name, array $arguments): array
+    {
+        // Validate Spirit access
+        $this->validateSpiritAccess(['path' => $path, '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+        
+        try {
+            $file = $this->projectFileService->findByPathAndName($projectId, $path, $name);
+            
+            if (!$file && isset($arguments['fileId'])) {
+                $file = $this->projectFileService->findById($arguments['fileId']);
+            }
+            
+            if (!$file) {
+                return ['success' => false, 'error' => 'File not found'];
+            }
+            
+            if ($file->isDirectory()) {
+                return ['success' => false, 'error' => 'Cannot get content of a directory'];
+            }
+            
+            $withLineNumbers = $arguments['withLineNumbers'] ?? false;
+            $filename = $file->getName();
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            // For PDF files, try to use cached annotations
+            $usedAnnotations = false;
+            $content = '';
+            if ($extension === 'pdf') {
+                $annoData = $this->annoService->readAnnotation(AnnoService::TYPE_PDF, $filename, $projectId, false);
+                if ($annoData && $this->annoService->verifyPdfAnnotation($annoData, $filename)) {
+                    $content = $this->annoService->getTextContent($annoData);
+                    $usedAnnotations = true;
+                }
+            }
+            
+            // If no annotations used, get raw content
+            if (!$usedAnnotations) {
+                $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
+            }
+            
+            // Build frontend display HTML (same logic as original getFileContent)
+            $contentFrontendData = $this->buildContentFrontendData($file, $content, $usedAnnotations, $projectId);
+            
+            // Handle binary data display
+            if (!$usedAnnotations && strpos($content, 'data:') === 0) {
+                $content = "binary data, not displayed";
+                if (strpos($file->getMimeType(), 'image/') === 0 || 
+                    strpos($file->getMimeType(), 'video/') === 0 || 
+                    strpos($file->getMimeType(), 'audio/') === 0) {
+                    $content = 'binary data, displayed directly in frontend';
+                }
+            }
+            
+            return [
+                'success' => true,
+                'operation' => 'read',
+                'content' => $content,
+                'file' => $file->jsonSerialize(),
+                'with_line_numbers' => $withLineNumbers,
+                '_frontendData' => $contentFrontendData
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Build frontend display data for file content
+     */
+    private function buildContentFrontendData($file, string $content, bool $usedAnnotations, string $projectId): string
+    {
+        $contentFrontendData = '<pre>' . htmlspecialchars($content) . '</pre>';
+        
+        // Image data
+        if (strpos($file->getMimeType(), 'image/') === 0) {
+            $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
+        }
+        // Video data
+        elseif (strpos($file->getMimeType(), 'video/') === 0) {
+            $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%;" class="rounded shadow"></video>';
+        }
+        // Audio data
+        elseif (strpos($file->getMimeType(), 'audio/') === 0) {
+            $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="width: 100%;" class="rounded shadow"></audio>';
+        }
+        // PDF with annotations
+        elseif ($usedAnnotations) {
+            $contentFrontendData = '<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                            onclick="this.querySelector(\'.embed-container\').classList.toggle(\'d-none\');">
+                        <div class="d-flex align-items-center px-1">
+                            <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                            <span class="text-cyber">' . htmlspecialchars($file->getName()) . '</span>
+                        </div>
+                        <div class="p-2 pt-0 d-none embed-container">
+                            <embed src="/api/project-file/' . $file->getId() . '/download" loading="lazy"
+                                width="100%" height="420"
+                                class="rounded"
+                                type="application/pdf"
+                                title="' . htmlspecialchars($file->getName()) . '" />
+                        </div>
+                    </div>';
+        }
+        
+        return $contentFrontendData;
+    }
+    
+    /**
+     * Handle file operations (create, copy, rename_move, delete)
+     */
+    private function handleFileOperations(string $projectId, string $operation, array $arguments): array
+    {
+        // Validate Spirit access for source path
+        if (isset($arguments['sourcePath'])) {
+            $this->validateSpiritAccess(['path' => $arguments['sourcePath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+        }
+        // Validate Spirit access for destination path
+        if (isset($arguments['destPath'])) {
+            $this->validateSpiritAccess(['path' => $arguments['destPath'], '_spiritSlug' => $arguments['_spiritSlug'] ?? null]);
+        }
+
+        // Prepare parameters based on operation
+        $params = [];
+
+        // Source parameters (required for copy, rename_move, delete)
+            // Support both flat (sourcePath, sourceName) and nested (source.path, source.name) formats
+        if (in_array($operation, ['copy', 'rename_move', 'delete'])) {
+            if (isset($arguments['sourcePath']) && isset($arguments['sourceName'])) {
+                    // New flat format
+                $params['source'] = [
+                    'path' => $arguments['sourcePath'],
+                    'name' => $arguments['sourceName']
+                ];
+            } elseif (isset($arguments['source']) && isset($arguments['source']['path']) && isset($arguments['source']['name'])) {
+                    // Legacy nested format
+                $params['source'] = $arguments['source'];
+            } else {
+                throw new \InvalidArgumentException($operation . ' operation requires sourcePath and sourceName');
+            }
+        }
+
+        // Destination parameters (required for create, copy, rename_move)
+            // Support both flat (destPath, destName) and nested (destination.path, destination.name) formats
+        if (in_array($operation, ['create', 'copy', 'rename_move'])) {
+            if (isset($arguments['destPath']) && isset($arguments['destName'])) {
+                    // New flat format
+                $params['destination'] = [
+                    'path' => $arguments['destPath'],
+                    'name' => $arguments['destName']
+                ];
+            } elseif (isset($arguments['destination']) && isset($arguments['destination']['path']) && isset($arguments['destination']['name'])) {
+                    // Legacy nested format
+                $params['destination'] = $arguments['destination'];
+            } else {
+                throw new \InvalidArgumentException($operation . ' operation requires destPath and destName');
+            }
+        }
+
+        // Content parameter (required for create)
+        if ($operation === 'create') {
+            if (!isset($arguments['content'])) {
+                throw new \InvalidArgumentException('Create operation requires content parameter');
+            }
+            $params['content'] = $arguments['content'];
+        }
+
+        // Execute the operation
+        $result = $this->projectFileService->manageFile($projectId, $operation, $params);
+
+        return [
+            'success' => true,
+            'operation' => $operation,
+            'result' => $result
+        ];
     }
 
     /**

@@ -89,18 +89,24 @@ Your Spirit can use various tools during conversation to help you:
 
 | Tool | Description |
 |------|-------------|
-| **getFileContent** | Read files from your File Browser |
-| **searchFile** | Search for files in your File Browser |
-| **manageFile** | Create, rename, move, or delete files |
-| **updateFileEfficient** | Edit specific parts of files with precision |
-| **getProjectTree / listFiles** | Browse your file system |
-| **memoryStore** | Save important information to memory |
+| **aiToolList** | View all available AI tools |
+| **aiToolSetActive** | Enable or disable specific tools for your Spirit |
+| **cqProfileManage** | Manage your CQ Profile — update bio, photos, background, language settings |
+| **cqProfileManageGroup** | Organize your profile into content groups (for file and memory sharing) |
+| **cqProfileManageItem** | Add files, memories, or shares to your profile groups |
+| **createSepaEuroPaymentQrCode** | Create QR codes for Euro bank payments |
+| **fetchURL** | Read web pages and research online content |
+| **fileManage** | Create, edit, copy, move, delete files and directories in your File Browser |
+| **fileSearch** | Find files by name or path |
+| **fileUpdate** | Edit files precisely — find/replace text or update specific lines |
+| **memoryExtract** | Turn documents, conversations, or web pages into organized memory knowledge graphs |
+| **memoryForget** | Remove outdated information from memory |
 | **memoryRecall** | Search through stored memories |
-| **memoryExtract** | Extract knowledge from documents into memory graphs (with automatic relationship analysis) |
-| **memorySource** | Look up original source content for a memory |
-| **fetchURL** | Read web page content |
-| **spiritCreateOrEditImage** | Generate and edit images using AI |
-| **spiritCreateDiffusionImage** | Generate images using AI diffusion models |
+| **memorySource** | Check original source of any memory (for fact verification) |
+| **memoryStore** | Save important facts and insights for future reference |
+| **memoryUpdate** | Update existing memories with new information |
+| **spiritCreateDiffusionImage** | Generate artistic images, photos, anime, or NSFW content using AI |
+| **spiritCreateOrEditImage** | Create or edit images using AI image generation |
 
 > Tools are used automatically when relevant — just ask your Spirit naturally and it will decide which tools to use.
 
