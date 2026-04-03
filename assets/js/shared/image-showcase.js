@@ -53,7 +53,7 @@ export class ImageShowcase {
         // Also add flex centering to the content container
         const contentContainer = modalBody.querySelector('.contentShowcaseModal-content');
         if (contentContainer) {
-            contentContainer.classList.add('d-flex', 'align-items-center', 'justify-content-center');
+            contentContainer.classList.add('d-flex', 'align-items-center', 'justify-content-center', 'gap-2');
         }
         
         // Add nav buttons if they don't exist
@@ -98,13 +98,13 @@ export class ImageShowcase {
         modal.innerHTML = `
             <div class="modal-dialog modal-dialog-centered modal-fullscreen">
                 <div class="modal-content bg-dark">
-                    <div class="modal-header border-0 position-absolute w-100" style="z-index: 2; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); pointer-events: none;">
+                    <div class="modal-header border-0 position-absolute w-100" style="z-index: 2; pointer-events: none;">
                         <span class="modal-title text-light small" id="contentShowcaseModalTitle" style="pointer-events: auto;"></span>
                         <i class="mdi mdi-close text-cyber bg-dark bg-opacity-75 rounded p-1 cursor-pointer fs-5" style="pointer-events: auto;" 
                             data-bs-dismiss="modal" aria-label="Close" title="Close"></i>
                     </div>
                     <div class="modal-body position-relative d-flex align-items-center justify-content-center p-0">
-                        <div class="contentShowcaseModal-content w-100 h-100 position-relative d-flex align-items-center justify-content-center">
+                        <div class="contentShowcaseModal-content w-100 h-100 position-relative d-flex align-items-center justify-content-center gap-2">
                         </div>
                         <button class="btn btn-dark bg-opacity-75 position-absolute start-0 bottom-0 ms-2 mb-2 showcase-nav-prev" style="z-index: 2; display: none; font-size: 1.5rem; padding: 8px 12px;" title="Previous">
                             <i class="mdi mdi-chevron-left text-cyber"></i>

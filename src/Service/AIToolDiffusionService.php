@@ -529,7 +529,7 @@ PROMPT;
             $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
             $html .= '    <div class="small text-muted float-start mt-2"><i class="mdi mdi-circle-multiple-outline me-1 ms-2 text-cyber opacity-50" title="Credits"></i> ' . $total_cost_credits_display . '</div>';
             // Download button
-            $html .= '    <a class="btn btn-sm btn-outline-primary mt-3 float-end me-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1">';
+            $html .= '    <a class="btn btn-sm btn-outline-primary mt-3 float-end mx-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1">';
             $html .= '      <i class="mdi mdi-download"></i>';
             $html .= '    </a>';
             $html .= '  </div>';
