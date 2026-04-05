@@ -17,6 +17,7 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\CitadelVersion;
 use Psr\Log\LoggerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class CQAIGateway implements AiGatewayInterface
 {
@@ -26,7 +27,8 @@ class CQAIGateway implements AiGatewayInterface
         private readonly HttpClientInterface $httpClient,
         private readonly SettingsService $settingsService,
         private readonly ServiceLocator $serviceLocator, 
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly Security $security
     ) {
     }
     
@@ -100,7 +102,8 @@ class CQAIGateway implements AiGatewayInterface
         $headers = [
             'Content-Type' => 'application/json',
             'Authorization' => 'Bearer ' . $apiKey,
-            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client'
+            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+            'X-CQ-CONTACT-ID' => $this->security->getUser()?->getId()?->toRfc4122() ?? ''
         ];
         
         try {

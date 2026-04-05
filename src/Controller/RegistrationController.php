@@ -155,6 +155,7 @@ class RegistrationController extends AbstractController
                             'headers' => [
                                 'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
                                 'Content-Type' => 'application/json',
+                                'X-CQ-CONTACT-ID' => $user->getId()->toRfc4122(),
                             ],
                             'json' => [
                                 'username' => $userRepository->getCQAIGatewayUsername($user),
