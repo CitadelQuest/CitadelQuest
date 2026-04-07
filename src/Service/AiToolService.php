@@ -32,22 +32,26 @@ class AiToolService
         string $name,
         string $description,
         array $parameters,
-        bool $isActive = true
+        bool $isActive = true,
+        string $category = 'general',
+        int $displayOrder = 0
     ): AiTool {
         $parametersJson = json_encode($parameters);
-        $tool = new AiTool($name, $description, $parametersJson, $isActive);
+        $tool = new AiTool($name, $description, $parametersJson, $isActive, $category, $displayOrder);
 
         // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
-            'INSERT INTO ai_tool (id, name, description, parameters, is_active, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO ai_tool (id, name, description, parameters, is_active, category, display_order, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $tool->getId(),
                 $tool->getName(),
                 $tool->getDescription(),
                 $tool->getParameters(),
                 $tool->isActive() ? 1 : 0,
+                $tool->getCategory(),
+                $tool->getDisplayOrder(),
                 $tool->getCreatedAt()->format('Y-m-d H:i:s'),
                 $tool->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -106,7 +110,7 @@ class AiToolService
             $params[] = 1;
         }
         
-        $sql .= ' ORDER BY is_active DESC, name ASC';
+        $sql .= ' ORDER BY category ASC, display_order ASC, name ASC';
         
         $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
 
@@ -151,6 +155,18 @@ class AiToolService
             $updates[] = 'is_active = ?';
             $params[] = $data['isActive'] ? 1 : 0;
             $tool->setIsActive($data['isActive']);
+        }
+
+        if (isset($data['category'])) {
+            $updates[] = 'category = ?';
+            $params[] = $data['category'];
+            $tool->setCategory($data['category']);
+        }
+
+        if (isset($data['displayOrder'])) {
+            $updates[] = 'display_order = ?';
+            $params[] = $data['displayOrder'];
+            $tool->setDisplayOrder($data['displayOrder']);
         }
 
         if (!empty($updates)) {

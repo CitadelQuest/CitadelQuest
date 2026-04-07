@@ -1,0 +1,127 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'ai_tools.settings.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card glass-panel mb-4">
+                <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
+                    <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
+                </div>
+                <div class="list-group list-group-flush bg-transparent pb-2">
+                    <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-account-box me-2 text-cyber"></i> {{ 'profile.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_my_feeds') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-rss mx-2 text-cyber"></i> {{ 'feed.settings.my_feeds_title'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_cq_feed_subscribed') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                        <i class="mdi mdi-rss-box mx-2 text-cyber"></i> {{ 'feed.settings.subscribed_title'|trans }}
+                    </a>
+                    <hr class="my-2 border-secondary">
+                    <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
+                        <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans }}
+                    </a>
+                    <a href="{{ path('app_user_settings_ai_tools') }}" class="list-group-item list-group-item-action link-light bg-primary bg-opacity-25 border-0">
+                        <i class="mdi mdi-tools me-2 text-cyber"></i> {{ 'ai_tools.settings.title'|trans }}
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="glass-panel p-4 border-1 border-primary border-opacity-25">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="mdi mdi-tools me-3 text-cyber"></i>{{ 'ai_tools.settings.title'|trans }}</h4>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="ai-tools-count" class="badge bg-cyber bg-opacity-25 text-dark"></span>
+                    </div>
+                </div>
+                <p class="text-muted small mb-3">{{ 'ai_tools.settings.description'|trans }}</p>
+            </div>
+
+            <div class="p-4 px-2 px-sm-4" id="ai-tools-settings"
+                 data-api-url="/api/ai/tool"
+                 data-translations="{{ {
+                     'title': 'ai_tools.settings.title'|trans,
+                     'loading': 'ui.loading'|trans,
+                     'save': 'ui.save'|trans,
+                     'cancel': 'ui.cancel'|trans,
+                     'saved': 'ai_tools.settings.saved'|trans,
+                     'error': 'ai_tools.settings.error'|trans,
+                     'no_tools': 'ai_tools.settings.no_tools'|trans,
+                     'active': 'ai_tools.settings.active'|trans,
+                     'inactive': 'ai_tools.settings.inactive'|trans,
+                     'tool_settings': 'ai_tools.settings.tool_settings'|trans,
+                     'no_settings': 'ai_tools.settings.no_settings'|trans,
+                     'parameters': 'ai_tools.settings.parameters'|trans,
+                     'required': 'ai_tools.settings.required'|trans,
+                     'category_file': 'ai_tools.category.file'|trans,
+                     'category_web': 'ai_tools.category.web'|trans,
+                     'category_image': 'ai_tools.category.image'|trans,
+                     'category_memory': 'ai_tools.category.memory'|trans,
+                     'category_profile': 'ai_tools.category.profile'|trans,
+                     'category_development': 'ai_tools.category.development'|trans,
+                     'category_spirit': 'ai_tools.category.spirit'|trans,
+                     'category_utility': 'ai_tools.category.utility'|trans,
+                     'category_general': 'ai_tools.category.general'|trans,
+                 }|json_encode|e('html_attr') }}">
+
+                {# Loading state #}
+                <div id="ai-tools-loading" class="text-center py-5">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                    <span class="text-muted ms-2">{{ 'ui.loading'|trans }}</span>
+                </div>
+
+                {# Tools list container #}
+                <div id="ai-tools-list" class="d-none"></div>
+
+                {# Empty state #}
+                <div id="ai-tools-empty" class="d-none text-center py-5">
+                    <i class="mdi mdi-tools text-muted" style="font-size: 48px; opacity: 0.3;"></i>
+                    <p class="text-muted mt-2">{{ 'ai_tools.settings.no_tools'|trans }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Tool Settings Modal #}
+<div class="modal fade" id="toolSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="toolSettingsModalTitle">
+                    <i class="mdi mdi-cog me-2"></i>{{ 'ai_tools.settings.tool_settings'|trans }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans }}"></button>
+            </div>
+            <div class="modal-body" id="toolSettingsModalBody">
+                {# Dynamic content rendered by JS #}
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="btn-save-tool-settings">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('settings-ai-tools') }}
+{% endblock %}

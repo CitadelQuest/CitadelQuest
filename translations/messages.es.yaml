@@ -1417,3 +1417,27 @@ feed:
         paused: 'Pausado'
         posts_cached: 'Publicaciones en caché'
         last_visited: 'Última sincronización'
+
+ai_tools:
+    settings:
+        title: 'Herramientas IA'
+        description: 'Gestiona tus herramientas de IA — activa/desactiva y configura los ajustes de cada herramienta.'
+        saved: 'Ajustes guardados'
+        error: 'Error al guardar los ajustes'
+        no_tools: 'No hay herramientas de IA disponibles'
+        active: 'Activo'
+        inactive: 'Inactivo'
+        tool_settings: 'Ajustes de herramienta'
+        no_settings: 'No hay ajustes configurables para esta herramienta'
+        parameters: 'Parámetros'
+        required: 'obligatorio'
+    category:
+        file: 'Gestión de archivos'
+        web: 'Herramientas web'
+        image: 'Generación de imágenes'
+        memory: 'Memoria'
+        profile: 'Perfil'
+        development: 'Desarrollo'
+        spirit: 'Spirit'
+        utility: 'Utilidades'
+        general: 'General'

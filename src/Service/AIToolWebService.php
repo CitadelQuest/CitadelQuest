@@ -532,7 +532,7 @@ class AIToolWebService
         }
         
         // Build system prompt
-        $systemPrompt = $this->buildExtractorSystemPrompt();
+        $systemPrompt = $this->buildExtractorSystemPrompt() . '<clean_system_prompt>';
         
         // Build user message
         $userMessage = "URL: $url\n";
@@ -633,7 +633,6 @@ Return ONLY the extracted content in Markdown format. No explanations, no meta-c
 - NEVER fabricate, guess, or hallucinate any information. Every piece of data in your output MUST come directly from the source HTML content.
 - Email addresses are often obfuscated by Cloudflare protection (e.g. `[email protected]`). If the actual email address is not visible in the source, do NOT invent one. Instead write: `[email protected]` or omit it entirely. Wrong data is worse than no data.
 - Same applies to phone numbers, prices, names, or any other specific data — if it's not clearly present in the source, do not make it up.
-<clean_system_prompt>
 PROMPT;
     }
 

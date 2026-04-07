@@ -1383,3 +1383,27 @@ feed:
         paused: 'Pauset'
         posts_cached: 'Hurtigbufrede innlegg'
         last_visited: 'Siste synkronisering'
+
+ai_tools:
+    settings:
+        title: 'AI-verktøy'
+        description: 'Administrer AI-verktøyene dine — slå av/på og konfigurer innstillinger for hvert verktøy.'
+        saved: 'Innstillinger lagret'
+        error: 'Kunne ikke lagre innstillingene'
+        no_tools: 'Ingen AI-verktøy tilgjengelig'
+        active: 'Aktiv'
+        inactive: 'Inaktiv'
+        tool_settings: 'Verktøyinnstillinger'
+        no_settings: 'Ingen konfigurerbare innstillinger for dette verktøyet'
+        parameters: 'Parametere'
+        required: 'obligatorisk'
+    category:
+        file: 'Filhåndtering'
+        web: 'Nettverktøy'
+        image: 'Bildegenerering'
+        memory: 'Minne'
+        profile: 'Profil'
+        development: 'Utvikling'
+        spirit: 'Spirit'
+        utility: 'Verktøy'
+        general: 'Generelt'

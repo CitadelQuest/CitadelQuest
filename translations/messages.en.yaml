@@ -1416,3 +1416,27 @@ feed:
         paused: 'Paused'
         posts_cached: 'Posts cached'
         last_visited: 'Last sync'
+
+ai_tools:
+    settings:
+        title: 'AI Tools'
+        description: 'Manage your AI tools — toggle activation and configure tool-specific settings.'
+        saved: 'Settings saved'
+        error: 'Failed to save settings'
+        no_tools: 'No AI tools available'
+        active: 'Active'
+        inactive: 'Inactive'
+        tool_settings: 'Tool Settings'
+        no_settings: 'No configurable settings for this tool'
+        parameters: 'Parameters'
+        required: 'required'
+    category:
+        file: 'File Management'
+        web: 'Web Tools'
+        image: 'Image Generation'
+        memory: 'Memory'
+        profile: 'Profile'
+        development: 'Development'
+        spirit: 'Spirit'
+        utility: 'Utility'
+        general: 'General'

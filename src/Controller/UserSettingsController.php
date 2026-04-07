@@ -881,4 +881,14 @@ class UserSettingsController extends AbstractController
     {
         return $this->render('user_settings/cq_feed_subscribed.html.twig');
     }
+
+    // ========================================
+    // AI Tools Settings
+    // ========================================
+
+    #[Route('/ai-tools', name: 'app_user_settings_ai_tools', methods: ['GET'])]
+    public function aiTools(): Response
+    {
+        return $this->render('user_settings/ai_tools.html.twig');
+    }
 }

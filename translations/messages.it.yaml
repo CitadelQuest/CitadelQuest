@@ -1417,3 +1417,27 @@ feed:
         paused: 'In pausa'
         posts_cached: 'Post in cache'
         last_visited: 'Ultima sincronizzazione'
+
+ai_tools:
+    settings:
+        title: 'Strumenti IA'
+        description: 'Gestisci i tuoi strumenti IA — attiva/disattiva e configura le impostazioni di ogni strumento.'
+        saved: 'Impostazioni salvate'
+        error: 'Impossibile salvare le impostazioni'
+        no_tools: 'Nessuno strumento IA disponibile'
+        active: 'Attivo'
+        inactive: 'Inattivo'
+        tool_settings: 'Impostazioni strumento'
+        no_settings: 'Nessuna impostazione configurabile per questo strumento'
+        parameters: 'Parametri'
+        required: 'obbligatorio'
+    category:
+        file: 'Gestione file'
+        web: 'Strumenti web'
+        image: 'Generazione immagini'
+        memory: 'Memoria'
+        profile: 'Profilo'
+        development: 'Sviluppo'
+        spirit: 'Spirit'
+        utility: 'Utilità'
+        general: 'Generale'

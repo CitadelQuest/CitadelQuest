@@ -1417,3 +1417,27 @@ feed:
         paused: 'Wstrzymany'
         posts_cached: 'Posty w pamięci podręcznej'
         last_visited: 'Ostatnia synchronizacja'
+
+ai_tools:
+    settings:
+        title: 'Narzędzia AI'
+        description: 'Zarządzaj swoimi narzędziami AI — włączaj/wyłączaj i konfiguruj ustawienia poszczególnych narzędzi.'
+        saved: 'Ustawienia zapisane'
+        error: 'Nie udało się zapisać ustawień'
+        no_tools: 'Brak dostępnych narzędzi AI'
+        active: 'Aktywne'
+        inactive: 'Nieaktywne'
+        tool_settings: 'Ustawienia narzędzia'
+        no_settings: 'Brak konfigurowalnych ustawień dla tego narzędzia'
+        parameters: 'Parametry'
+        required: 'wymagane'
+    category:
+        file: 'Zarządzanie plikami'
+        web: 'Narzędzia webowe'
+        image: 'Generowanie obrazów'
+        memory: 'Pamięć'
+        profile: 'Profil'
+        development: 'Rozwój'
+        spirit: 'Spirit'
+        utility: 'Narzędzia'
+        general: 'Ogólne'

@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\AiToolService;
+use App\Service\AiToolSettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,7 +16,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AiToolApiController extends AbstractController
 {
     public function __construct(
-        private readonly AiToolService $aiToolService
+        private readonly AiToolService $aiToolService,
+        private readonly AiToolSettingsService $aiToolSettingsService
     ) {
     }
 
@@ -104,5 +106,50 @@ class AiToolApiController extends AbstractController
         }
         
         return $this->json(null, Response::HTTP_NO_CONTENT);
+    }
+
+    #[Route('/categories', name: 'app_api_ai_tool_categories', methods: ['GET'], priority: 10)]
+    public function getCategories(): JsonResponse
+    {
+        return $this->json([
+            'labels' => AiToolSettingsService::getCategoryLabels(),
+            'icons' => AiToolSettingsService::getCategoryIcons(),
+        ]);
+    }
+
+    #[Route('/{id}/settings', name: 'app_api_ai_tool_settings_list', methods: ['GET'])]
+    public function getToolSettings(string $id): JsonResponse
+    {
+        $tool = $this->aiToolService->findById($id);
+        if (!$tool) {
+            return $this->json(['error' => 'Tool not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $settings = $this->aiToolSettingsService->getSettingsForTool($id);
+
+        return $this->json([
+            'settings' => array_map(fn($s) => $s->jsonSerialize(), $settings)
+        ]);
+    }
+
+    #[Route('/{id}/settings', name: 'app_api_ai_tool_settings_save', methods: ['PUT'])]
+    public function saveToolSettings(string $id, Request $request): JsonResponse
+    {
+        $tool = $this->aiToolService->findById($id);
+        if (!$tool) {
+            return $this->json(['error' => 'Tool not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (empty($data) || !isset($data['settings'])) {
+            return $this->json(['error' => 'Missing settings data'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $updated = $this->aiToolSettingsService->bulkUpdateValues($id, $data['settings']);
+
+        return $this->json([
+            'success' => true,
+            'settings' => $updated
+        ]);
     }
 }

@@ -11,16 +11,20 @@ class AiTool implements JsonSerializable
     private string $description;
     private string $parameters;
     private bool $isActive;
+    private string $category;
+    private int $displayOrder;
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $updatedAt;
     
-    public function __construct(string $name, string $description, string $parameters, bool $isActive = true)
+    public function __construct(string $name, string $description, string $parameters, bool $isActive = true, string $category = 'general', int $displayOrder = 0)
     {
         $this->id = uuid_create();
         $this->name = $name;
         $this->description = $description;
         $this->parameters = $parameters;
         $this->isActive = $isActive;
+        $this->category = $category;
+        $this->displayOrder = $displayOrder;
         $this->createdAt = new \DateTime();
         $this->updatedAt = new \DateTime();
     }
@@ -85,6 +89,28 @@ class AiTool implements JsonSerializable
         return $this;
     }
     
+    public function getCategory(): string
+    {
+        return $this->category;
+    }
+    
+    public function setCategory(string $category): self
+    {
+        $this->category = $category;
+        return $this;
+    }
+    
+    public function getDisplayOrder(): int
+    {
+        return $this->displayOrder;
+    }
+    
+    public function setDisplayOrder(int $displayOrder): self
+    {
+        $this->displayOrder = $displayOrder;
+        return $this;
+    }
+    
     public function getCreatedAt(): \DateTimeInterface
     {
         return $this->createdAt;
@@ -121,6 +147,8 @@ class AiTool implements JsonSerializable
             'description' => $this->description,
             'parameters' => $this->getParametersAsArray(),
             'isActive' => $this->isActive,
+            'category' => $this->category,
+            'displayOrder' => $this->displayOrder,
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => $this->updatedAt->format(\DateTimeInterface::ATOM)
         ];
@@ -132,7 +160,9 @@ class AiTool implements JsonSerializable
             $data['name'],
             $data['description'],
             $data['parameters'],
-            (bool) ($data['is_active'] ?? true)
+            (bool) ($data['is_active'] ?? true),
+            $data['category'] ?? 'general',
+            (int) ($data['display_order'] ?? 0)
         );
         
         $tool->setId($data['id']);

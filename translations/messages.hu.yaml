@@ -1417,3 +1417,27 @@ feed:
         paused: 'Szüneteltetve'
         posts_cached: 'Gyorsítótárazott bejegyzések'
         last_visited: 'Utolsó szinkronizálás'
+
+ai_tools:
+    settings:
+        title: 'AI Eszközök'
+        description: 'Kezeld az AI eszközeidet — kapcsold be/ki és állítsd be az egyes eszközök beállításait.'
+        saved: 'Beállítások mentve'
+        error: 'Nem sikerült menteni a beállításokat'
+        no_tools: 'Nincsenek elérhető AI eszközök'
+        active: 'Aktív'
+        inactive: 'Inaktív'
+        tool_settings: 'Eszköz beállításai'
+        no_settings: 'Nincs konfigurálható beállítás ehhez az eszközhöz'
+        parameters: 'Paraméterek'
+        required: 'kötelező'
+    category:
+        file: 'Fájlkezelés'
+        web: 'Webes eszközök'
+        image: 'Képgenerálás'
+        memory: 'Memória'
+        profile: 'Profil'
+        development: 'Fejlesztés'
+        spirit: 'Spirit'
+        utility: 'Segédeszközök'
+        general: 'Általános'

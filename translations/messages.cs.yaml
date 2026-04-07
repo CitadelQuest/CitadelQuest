@@ -1416,3 +1416,27 @@ feed:
         paused: 'Pozastaven'
         posts_cached: 'Příspěvky v cache'
         last_visited: 'Poslední synchronizace'
+
+ai_tools:
+    settings:
+        title: 'AI Nástroje'
+        description: 'Spravujte své AI nástroje — přepínejte aktivaci a konfigurujte nastavení nástrojů.'
+        saved: 'Nastavení uloženo'
+        error: 'Nepodařilo se uložit nastavení'
+        no_tools: 'Žádné AI nástroje nejsou k dispozici'
+        active: 'Aktivní'
+        inactive: 'Neaktivní'
+        tool_settings: 'Nastavení nástroje'
+        no_settings: 'Žádná konfigurovatelná nastavení pro tento nástroj'
+        parameters: 'Parametry'
+        required: 'povinný'
+    category:
+        file: 'Správa souborů'
+        web: 'Webové nástroje'
+        image: 'Generování obrázků'
+        memory: 'Paměť'
+        profile: 'Profil'
+        development: 'Vývoj'
+        spirit: 'Spirit'
+        utility: 'Utility'
+        general: 'Obecné'
