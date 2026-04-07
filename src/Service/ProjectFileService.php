@@ -1518,6 +1518,7 @@ class ProjectFileService
     /**
      * Recursively remove a directory and its contents based on database records
      * Only deletes files that are tracked in the database
+     * + image `.thumb`, `.icon` and `/.git` directory
      * 
      * @param string $dir Physical directory path
      * @param string $projectId Project ID for database lookup
@@ -1545,6 +1546,12 @@ class ProjectFileService
             // Delete file from filesystem if it exists
             if (file_exists($filePath)) {
                 unlink($filePath);
+            }
+            if (file_exists($filePath . '.thumb')) {
+                unlink($filePath . '.thumb');
+            }
+            if (file_exists($filePath . '.icon')) {
+                unlink($filePath . '.icon');
             }
             
             // Delete file versions
@@ -1585,9 +1592,40 @@ class ProjectFileService
                 rmdir($subDirPath);
             }
         }
+
+        // check if `.git` directory exists, if so - remove it whole from filesystem
+        if (is_dir($dir . '/.git')) {
+            $this->removeFilesystemDirectory($dir . '/.git');
+        }
         
         // Finally, remove the current directory if it's empty
         return is_dir($dir) ? rmdir($dir) : true;
+    }
+
+    /**
+     * Recursively remove a directory and all its contents from the filesystem
+     * Used for untracked directories like .git that aren't in the database
+     */
+    private function removeFilesystemDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            if ($item->isDir()) {
+                rmdir($item->getPathname());
+            } else {
+                unlink($item->getPathname());
+            }
+        }
+
+        rmdir($dir);
     }
     
     /**

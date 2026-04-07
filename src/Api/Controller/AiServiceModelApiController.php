@@ -68,7 +68,7 @@ class AiServiceModelApiController extends AbstractController
                 // Must NOT have image OUTPUT (text responses only)
                 $hasImageOutput = in_array('image', $outputModalities);
                 
-                if ($hasTextInput && $hasImageInput && !$hasImageOutput) {
+                if (/* $hasTextInput && $hasImageInput && */ !$hasImageOutput) { // TMP dev test
                     $models[] = $model;
                 }
             }

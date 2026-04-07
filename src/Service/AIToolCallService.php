@@ -26,7 +26,8 @@ class AIToolCallService
         private readonly AIToolDiffusionService $aiToolDiffusionService,
         private readonly AIToolWebService $aiToolWebService,
         private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly AIToolProfileService $aiToolProfileService
+        private readonly AIToolProfileService $aiToolProfileService,
+        private readonly AIToolGitService $aiToolGitService
     ) {
     }
     
@@ -81,6 +82,11 @@ class AIToolCallService
             // For CQ Profile tools, delegate to AIToolProfileService
             if (in_array($toolName, ['cqProfileManage', 'cqProfileManageGroup', 'cqProfileManageItem'])) {
                 return $this->aiToolProfileService->{$toolName}($arguments);
+            }
+
+            // For git tools, delegate to AIToolGitService
+            if (in_array($toolName, ['gitOperation', 'gitSetCredentials'])) {
+                return $this->aiToolGitService->{$toolName}($arguments);
             }
 
             // createSepaEuroPaymentQrCode
