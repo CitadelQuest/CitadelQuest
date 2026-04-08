@@ -32,7 +32,9 @@ class AIToolWebService
         private readonly AiServiceRequestService $aiServiceRequestService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly HttpClientInterface $httpClient,
-        private readonly AnnoService $annoService
+        private readonly AnnoService $annoService,
+        private readonly AiToolSettingsService $aiToolSettingsService,
+        private readonly AiToolService $aiToolService
     ) {
     }
 
@@ -506,14 +508,24 @@ class AIToolWebService
         string $lang,
         string $projectId
     ): array {
-        // Get a fast AI model for extraction
+        // Get AI model for extraction — check user's tool settings first
         $aiServiceModel = null;
-        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-        if ($gateway) {
-            // Try fast models first
-            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
-            if (!$aiServiceModel) {
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+        $fetchUrlTool = $this->aiToolService->findByName('fetchURL');
+        if ($fetchUrlTool) {
+            $customModelId = $this->aiToolSettingsService->getSettingValue($fetchUrlTool->getId(), 'extraction_ai_model');
+            if ($customModelId) {
+                $aiServiceModel = $this->aiServiceModelService->findById($customModelId);
+            }
+        }
+
+        // Fallback: try fast models
+        if (!$aiServiceModel) {
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if ($gateway) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                if (!$aiServiceModel) {
+                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+                }
             }
         }
         
@@ -531,8 +543,12 @@ class AIToolWebService
             $content = substr($content, 0, $maxInputLength) . "\n\n[Content truncated due to length...]";
         }
         
-        // Build system prompt
-        $systemPrompt = $this->buildExtractorSystemPrompt() . '<clean_system_prompt>';
+        // Build system prompt — check user's tool settings first
+        $customPrompt = null;
+        if ($fetchUrlTool) {
+            $customPrompt = $this->aiToolSettingsService->getSettingValue($fetchUrlTool->getId(), 'extraction_system_prompt');
+        }
+        $systemPrompt = ($customPrompt ?: $this->buildExtractorSystemPrompt()) . '<clean_system_prompt>';
         
         // Build user message
         $userMessage = "URL: $url\n";

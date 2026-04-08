@@ -1431,6 +1431,8 @@ ai_tools:
         no_settings: 'Brak konfigurowalnych ustawień dla tego narzędzia'
         parameters: 'Parametry'
         required: 'wymagane'
+        select_model: 'Wybierz model'
+        default_model: 'Domyślny (auto)'
     category:
         file: 'Zarządzanie plikami'
         web: 'Narzędzia webowe'

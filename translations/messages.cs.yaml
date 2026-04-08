@@ -1430,6 +1430,8 @@ ai_tools:
         no_settings: 'Žádná konfigurovatelná nastavení pro tento nástroj'
         parameters: 'Parametry'
         required: 'povinný'
+        select_model: 'Vybrat model'
+        default_model: 'Výchozí (auto)'
     category:
         file: 'Správa souborů'
         web: 'Webové nástroje'

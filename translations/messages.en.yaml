@@ -1430,6 +1430,8 @@ ai_tools:
         no_settings: 'No configurable settings for this tool'
         parameters: 'Parameters'
         required: 'required'
+        select_model: 'Select Model'
+        default_model: 'Default (auto)'
     category:
         file: 'File Management'
         web: 'Web Tools'

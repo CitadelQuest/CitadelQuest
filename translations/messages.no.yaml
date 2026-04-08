@@ -1397,6 +1397,8 @@ ai_tools:
         no_settings: 'Ingen konfigurerbare innstillinger for dette verktøyet'
         parameters: 'Parametere'
         required: 'obligatorisk'
+        select_model: 'Velg modell'
+        default_model: 'Standard (auto)'
     category:
         file: 'Filhåndtering'
         web: 'Nettverktøy'

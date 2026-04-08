@@ -1,3 +1,4 @@
+import * as bootstrap from 'bootstrap';
 /**
  * AiToolsSettingsManager
  * 
@@ -327,6 +328,72 @@ export default class AiToolsSettingsManager {
         });
 
         this.settingsModalBody.innerHTML = html;
+
+        // Post-render: bind aiModel selector buttons
+        this.bindAiModelSelectors(settings);
+    }
+
+    bindAiModelSelectors(settings) {
+        // Select buttons
+        this.settingsModalBody.querySelectorAll('.ai-model-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inputId = btn.dataset.inputId;
+                const hiddenInput = document.getElementById(inputId);
+                const displayEl = document.getElementById(`${inputId}-display`);
+                const currentModelId = hiddenInput ? hiddenInput.value : null;
+
+                if (window.aiModelSelector) {
+                    // Close tool settings modal temporarily
+                    const toolModal = bootstrap.Modal.getInstance(this.settingsModal);
+                    if (toolModal) toolModal.hide();
+
+                    window.aiModelSelector.open('primary', (model) => {
+                        if (hiddenInput) hiddenInput.value = model.id;
+                        if (displayEl) displayEl.textContent = model.modelName;
+                        // Re-open tool settings modal
+                        setTimeout(() => {
+                            const toolModal2 = new bootstrap.Modal(this.settingsModal);
+                            toolModal2.show();
+                        }, 300);
+                    }, currentModelId || null);
+                }
+            });
+        });
+
+        // Clear buttons
+        this.settingsModalBody.querySelectorAll('.ai-model-clear-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inputId = btn.dataset.inputId;
+                const hiddenInput = document.getElementById(inputId);
+                const displayEl = document.getElementById(`${inputId}-display`);
+                if (hiddenInput) hiddenInput.value = '';
+                if (displayEl) displayEl.textContent = this.translations.default_model || 'Default (auto)';
+                btn.remove();
+            });
+        });
+
+        // Resolve model names for any aiModel settings that have a value
+        settings.filter(s => s.type === 'aiModel' && s.value).forEach(setting => {
+            this.resolveModelName(setting.key, setting.value);
+        });
+    }
+
+    async resolveModelName(settingKey, modelId) {
+        if (!modelId) return;
+        const displayEl = document.getElementById(`tool-setting-${settingKey}-display`);
+        if (!displayEl) return;
+
+        try {
+            const response = await fetch(`/api/ai/model/${modelId}`);
+            const data = await response.json();
+            if (data.model && data.model.modelName) {
+                displayEl.textContent = data.model.modelName;
+            } else {
+                displayEl.textContent = modelId.substring(0, 12) + '...';
+            }
+        } catch (e) {
+            displayEl.textContent = modelId.substring(0, 12) + '...';
+        }
     }
 
     renderSettingInput(setting) {
@@ -350,7 +417,7 @@ export default class AiToolsSettingsManager {
             case 'number':
                 return `
                     <div class="mb-3">
-                        <label class="form-label small" for="${inputId}"><i class="mdi mdi-numeric me-1 text-cyber"></i>${label}</label>
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-numeric me-1 text-cyber"></i>${label}</label>
                         <input type="number" class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
                             data-key="${setting.key}" data-type="number" value="${setting.value || ''}">
                         ${desc}
@@ -360,9 +427,28 @@ export default class AiToolsSettingsManager {
             case 'textarea':
                 return `
                     <div class="mb-3">
-                        <label class="form-label small" for="${inputId}"><i class="mdi mdi-text me-1 text-cyber"></i>${label}</label>
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-text me-1 text-cyber"></i>${label}</label>
                         <textarea class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
-                            data-key="${setting.key}" data-type="textarea" rows="3">${setting.value || ''}</textarea>
+                            data-key="${setting.key}" data-type="textarea" rows="8">${setting.value || ''}</textarea>
+                        ${desc}
+                    </div>
+                `;
+
+            case 'aiModel':
+                return `
+                    <div class="mb-3">
+                        <label class="form-label"><i class="mdi mdi-robot me-1 text-cyber"></i>${label}</label>
+                        <input type="hidden" class="tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="aiModel" value="${setting.value || ''}">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-light small ai-model-display" id="${inputId}-display">${setting.value ? '...' : (this.translations.default_model || 'Default (auto)')}</span>
+                            <button type="button" class="btn btn-sm btn-outline-cyber ai-model-select-btn" data-input-id="${inputId}">
+                                <i class="mdi mdi-swap-horizontal me-1"></i>${this.translations.select_model || 'Select Model'}
+                            </button>
+                            ${setting.value ? `<button type="button" class="btn btn-sm btn-outline-secondary ai-model-clear-btn" data-input-id="${inputId}" title="Reset to default">
+                                <i class="mdi mdi-close"></i>
+                            </button>` : ''}
+                        </div>
                         ${desc}
                     </div>
                 `;
@@ -381,7 +467,7 @@ export default class AiToolsSettingsManager {
                 }
                 return `
                     <div class="mb-3">
-                        <label class="form-label small" for="${inputId}"><i class="mdi mdi-menu me-1 text-cyber"></i>${label}</label>
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-menu me-1 text-cyber"></i>${label}</label>
                         <select class="form-select form-select-sm glass-input tool-setting-input" id="${inputId}"
                             data-key="${setting.key}" data-type="select">
                             ${options}
@@ -392,7 +478,7 @@ export default class AiToolsSettingsManager {
             case 'json':
                 return `
                     <div class="mb-3">
-                        <label class="form-label small" for="${inputId}"><i class="mdi mdi-code-json me-1 text-cyber"></i>${label}</label>
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-code-json me-1 text-cyber"></i>${label}</label>
                         <textarea class="form-control form-control-sm glass-input font-monospace tool-setting-input" id="${inputId}"
                             data-key="${setting.key}" data-type="json" rows="4">${setting.value || ''}</textarea>
                         ${desc}
@@ -402,7 +488,7 @@ export default class AiToolsSettingsManager {
             default: // text
                 return `
                     <div class="mb-3">
-                        <label class="form-label small" for="${inputId}"><i class="mdi mdi-form-textbox me-1 text-cyber"></i>${label}</label>
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-form-textbox me-1 text-cyber"></i>${label}</label>
                         <input type="text" class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
                             data-key="${setting.key}" data-type="text" value="${setting.value || ''}">
                         ${desc}

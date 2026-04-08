@@ -36,6 +36,8 @@ class ProjectFileService
         'audio/mpeg', 'audio/ogg', 'audio/wav',
         // Video
         'video/mp4', 'video/webm', 'video/ogg',
+        //
+        'application/*', 'text/*', 'application/javascript', 'text/*',
     ];
     
     private const MAX_FILE_SIZE = 209715200; // 200MB
@@ -326,11 +328,11 @@ class ProjectFileService
         }
 
         // Validate mime type if provided
-        if ($mimeType && !in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+        /* if ($mimeType && !in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
             if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
                 throw new \InvalidArgumentException('Unsupported file type: ' . $mimeType);
             }
-        }
+        } */
         
         // Validate file size
         if (strlen($content) > self::MAX_FILE_SIZE) {
@@ -508,9 +510,9 @@ class ProjectFileService
         }
         
         // Validate mime type
-        if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+        /* if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
             throw new \InvalidArgumentException('Unsupported file type: ' . $mimeType);
-        }
+        } */
         
         // Ensure all parent directories exist in both filesystem and database
         $this->ensureParentDirectoriesExist($projectId, $path);

@@ -1431,6 +1431,8 @@ ai_tools:
         no_settings: 'No hay ajustes configurables para esta herramienta'
         parameters: 'Parámetros'
         required: 'obligatorio'
+        select_model: 'Seleccionar modelo'
+        default_model: 'Predeterminado (auto)'
     category:
         file: 'Gestión de archivos'
         web: 'Herramientas web'

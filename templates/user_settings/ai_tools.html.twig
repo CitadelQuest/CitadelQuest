@@ -10,14 +10,14 @@
                 <div class="card-header bg-transparent border-success border-1 border-bottom p-3">
                     <h5 class="mb-0"><i class="mdi mdi-tune-vertical me-2 text-cyber"></i><a href="{{ path('app_user_settings') }}">{{ 'navigation.user_menu.settings'|trans }}</a></h5>
                 </div>
-                <div class="list-group list-group-flush bg-transparent pb-2">
+                <div class="list-group list-group-flush bg-transparent pb-0">
                     <a href="{{ path('app_user_settings') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-tune-variant me-2 text-cyber"></i> {{ 'settings.general.title'|trans }}
                     </a>
                     <a href="{{ path('app_user_settings_profile') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-account-box me-2 text-cyber"></i> {{ 'profile.settings.title'|trans }}
                     </a>
-                    <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
+                    {# <a href="{{ path('app_user_settings_share_groups') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-folder-multiple mx-2 text-cyber"></i> {{ 'share_groups.settings.title'|trans }}
                     </a>
                     <a href="{{ path('app_user_settings_cq_feed_my_feeds') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
@@ -26,7 +26,7 @@
                     <a href="{{ path('app_user_settings_cq_feed_subscribed') }}" class="list-group-item list-group-item-action text-light bg-transparent border-0">
                         <i class="mdi mdi-rss-box mx-2 text-cyber"></i> {{ 'feed.settings.subscribed_title'|trans }}
                     </a>
-                    <hr class="my-2 border-secondary">
+                    <hr class="my-2 border-secondary"> #}
                     <a href="{{ path('app_user_settings_ai') }}" class="list-group-item list-group-item-action bg-transparent text-light border-0">
                         <i class="mdi mdi-robot me-2 text-cyber"></i> {{ 'settings.nav.ai_services'|trans }}
                     </a>
@@ -73,6 +73,8 @@
                      'category_spirit': 'ai_tools.category.spirit'|trans,
                      'category_utility': 'ai_tools.category.utility'|trans,
                      'category_general': 'ai_tools.category.general'|trans,
+                     'select_model': 'ai_tools.settings.select_model'|trans,
+                     'default_model': 'ai_tools.settings.default_model'|trans,
                  }|json_encode|e('html_attr') }}">
 
                 {# Loading state #}
@@ -95,8 +97,8 @@
 </div>
 
 {# Tool Settings Modal #}
-<div class="modal fade" id="toolSettingsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="modal modal-lg fade" id="toolSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content glass-panel">
             <div class="modal-header bg-cyber-g border-success">
                 <h5 class="modal-title" id="toolSettingsModalTitle">
@@ -119,9 +121,13 @@
         </div>
     </div>
 </div>
+
+{# AI Model Selector Modal (reusable component) #}
+{% include 'components/_ai_model_selector.html.twig' %}
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
+    {{ encore_entry_script_tags('ai-model-selector') }}
     {{ encore_entry_script_tags('settings-ai-tools') }}
 {% endblock %}

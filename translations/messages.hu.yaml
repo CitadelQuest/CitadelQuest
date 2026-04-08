@@ -1431,6 +1431,8 @@ ai_tools:
         no_settings: 'Nincs konfigurálható beállítás ehhez az eszközhöz'
         parameters: 'Paraméterek'
         required: 'kötelező'
+        select_model: 'Modell kiválasztása'
+        default_model: 'Alapértelmezett (auto)'
     category:
         file: 'Fájlkezelés'
         web: 'Webes eszközök'

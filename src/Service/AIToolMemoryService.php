@@ -46,7 +46,9 @@ class AIToolMemoryService
         private readonly Security $security,
         private readonly CQMemoryPackService $packService,
         private readonly CQMemoryLibraryService $libraryService,
-        private readonly TranslatorInterface $translator
+        private readonly TranslatorInterface $translator,
+        private readonly AiToolSettingsService $aiToolSettingsService,
+        private readonly AiToolService $aiToolService
     ) {
         $this->user = $security->getUser();
     }
@@ -719,176 +721,6 @@ class AIToolMemoryService
     }
 
     /**
-     * Build the system prompt for the Memory Extractor LLM
-     */
-    private function buildMemoryExtractorSystemPrompt(): string
-    {
-        return <<<'PROMPT'
-You are the Memory Extractor Agent - an expert at analyzing content and extracting discrete, meaningful pieces of information that should be remembered long-term.
-
-## Your Task
-Analyze the provided content and extract individual memory nodes. Each memory should be a self-contained piece of information that could be useful in future conversations.
-
-## Memory Categories
-- `conversation` - Summary of an interaction or dialogue
-- `thought` - Reflections, insights, or internal observations
-- `knowledge` - General information or learned concepts
-- `fact` - Specific factual information about the user or world
-- `preference` - User preferences, likes, dislikes, habits
-
-## Extraction Guidelines
-
-### What TO Extract:
-- User preferences and habits
-- Important facts about the user (name, job, interests, family)
-- Significant events or milestones mentioned
-- Opinions and beliefs expressed
-- Skills, expertise, or knowledge areas
-- Relationships and connections mentioned
-- Goals, plans, or aspirations
-- Emotional states or concerns expressed
-- Specific requests or instructions for future reference
-- Keep it detailed and complete
-
-### What NOT TO Extract:
-- Trivial or temporary information (e.g., "user said hello")
-- Duplicate information (if similar content exists, skip it)
-- Vague or unclear statements
-- Information that's only relevant to the immediate context
-- Technical details of the conversation itself
-
-### Importance Scoring (0.0 to 1.0):
-- **0.9-1.0**: Critical information (user's name, major life events, core values)
-- **0.7-0.8**: Important preferences and facts (job, interests, family members)
-- **0.5-0.6**: Useful context (opinions, minor preferences)
-- **0.3-0.4**: Nice to know (casual mentions, temporary states)
-- **0.1-0.2**: Low priority (might be useful someday)
-
-### Summary Guidelines:
-- Keep summaries under 50 characters
-- Make them searchable and descriptive
-- Use keywords that would help find this memory later
-
-## Output Format
-You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
-
-```json
-{
-    "memories": [
-        {
-            "content": "Full memory content - self-contained and understandable alone. In original language.",
-            "summary": "Short searchable summary (max 50 chars)",
-            "category": "fact|preference|knowledge|thought|conversation",
-            "importance": 0.7,
-            "tags": ["relevant", "searchable", "tags"]
-        }
-    ],
-    "skipped": "Brief explanation of what was intentionally not extracted and why"
-}
-```
-
-## Important Rules
-1. ONLY output the JSON object, nothing else
-2. Each memory must be self-contained and understandable without context
-3. Assign appropriate importance based on long-term relevance
-4. Use specific, searchable tags (2-5 tags per memory)
-5. If no meaningful memories can be extracted, return empty memories array
-6. Quality over quantity - fewer good memories is better than many trivial ones
-
-## Data Integrity (CRITICAL):
-- NEVER fabricate, guess, or hallucinate any information. Every piece of data you extract MUST come directly from the provided source content.
-- If specific data (email addresses, phone numbers, prices, names, dates) is missing, obfuscated, or unclear in the source — do NOT invent it. Omit it or note it as unavailable. Wrong data is worse than no data.
-- Web content may contain Cloudflare-obfuscated emails (e.g. `[email protected]`). Never guess the real address. Information in extracted memories must be 100% coherent with the source.
-<clean_system_prompt>
-PROMPT;
-    }
-
-    /**
-     * Build the user message for the Memory Extractor
-     */
-    private function buildMemoryExtractorUserMessage(array $arguments): array
-    {
-        if (isset($arguments['content']) && is_string($arguments['content'])) {
-
-            $message = "Extract memories from the following content:\n\n";
-        
-            if (!empty($arguments['sourceType'])) {
-                $message .= "**Source Type**: " . $arguments['sourceType'] . "\n";
-            }
-        
-            if (!empty($arguments['sourceRef'])) {
-                $message .= "**Source Reference**: " . $arguments['sourceRef'] . "\n";
-            }
-            
-            if (!empty($arguments['context'])) {
-                $message .= "**Additional Context**: " . $arguments['context'] . "\n";
-            }
-            
-            // Inject contextual warning if content has obfuscated data
-            $dataWarning = $this->buildDataIntegrityWarning($arguments['content']);
-            if ($dataWarning) {
-                $message .= $dataWarning . "\n";
-            }
-
-            $message .= "\n---\n\n";
-            $message .= "**Content to analyze**:\n\n";
-            $message .= $this->addLineNumbers($arguments['content']);
-            $message .= "\n\n---\n\n";
-            $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
-            
-            return  [
-                        [
-                            'text' => $message,
-                            'type' => 'text'
-                        ]
-                    ];
-
-        } elseif (isset($arguments['content']) && is_array($arguments['content'])) {
-
-            $message = "Extract memories from the attached content:\n\n";
-        
-            if (!empty($arguments['sourceType'])) {
-                $message .= "**Source Type**: " . $arguments['sourceType'] . "\n";
-            }
-        
-            if (!empty($arguments['sourceRef'])) {
-                $message .= "**Source Reference**: " . $arguments['sourceRef'] . "\n";
-            }
-            
-            if (!empty($arguments['context'])) {
-                $message .= "**Additional Context**: " . $arguments['context'] . "\n";
-            }
-            
-            $message .= "---\n\n";
-            $message .= "Respond with ONLY the JSON object containing extracted memories, no other text.";
-            
-            return  [
-                        [
-                            'text' => $message,
-                            'type' => 'text'
-                        ],
-                        [
-                            'file' => [
-                                'file_data' => $arguments['content']['file_data'],
-                                'filename' => $arguments['content']['filename'],
-                            ],
-                            'type' => 'file'
-                        ]
-                    ];
-
-        } else {
-
-            return [
-                [
-                    'text' => 'No content or file ID provided',
-                    'type' => 'text'
-                ]
-            ];
-
-        }
-    }
-
-    /**
      * Generate an AI summary of document content
      * Uses the same AI model as memory extraction for consistency
      * 
@@ -897,7 +729,24 @@ PROMPT;
     private function generateDocumentSummary(string|array $content, string $documentTitle, $aiServiceModel, ?string $jobId = null): ?string
     {
         try {
-            $systemPrompt = <<<'PROMPT'
+            // Check tool settings for custom AI model
+            $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
+            if ($memoryExtractTool) {
+                $customModelId = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'document_summary_ai_model');
+                if ($customModelId) {
+                    $customModel = $this->aiServiceModelService->findById($customModelId);
+                    if ($customModel) {
+                        $aiServiceModel = $customModel;
+                    }
+                }
+            }
+
+            // Check tool settings for custom system prompt
+            $customPrompt = $memoryExtractTool
+                ? $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'document_summary_system_prompt')
+                : null;
+
+            $defaultPrompt = <<<'PROMPT'
 You are a Document Summarizer. Your task is to create a comprehensive yet concise summary of the provided document content.
 
 ## Guidelines:
@@ -915,6 +764,7 @@ You are a Document Summarizer. Your task is to create a comprehensive yet concis
 ## Output:
 Respond with ONLY the summary text, no formatting, no headers, no explanations.
 PROMPT;
+            $systemPrompt = $customPrompt ?: $defaultPrompt;
 
             // Build user message content based on content type
             if (is_string($content)) {
@@ -988,7 +838,7 @@ PROMPT;
             }
 
             // Prepend document info to the summary
-            return "Document: {$documentTitle}\n\n" . trim($summary);
+            return /* "Document:  */"{$documentTitle}\n\n" . trim($summary);
 
         } catch (\Exception $e) {
             $this->logger->warning('Failed to generate document summary', [
@@ -1515,13 +1365,23 @@ PROMPT;
             }
         }
 
-        // Get AI model for the Relationship Analyzer Sub-Agent
+        // Get AI model for the Relationship Analyzer Sub-Agent — check tool settings first
         $aiServiceModel = null;
-        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-        if ($gateway) {
-            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
-            if (!$aiServiceModel) {
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+        $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
+        if ($memoryExtractTool) {
+            $customModelId = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_ai_model');
+            if ($customModelId) {
+                $aiServiceModel = $this->aiServiceModelService->findById($customModelId);
+            }
+        }
+        // Fallback: default fast models
+        if (!$aiServiceModel) {
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if ($gateway) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+                if (!$aiServiceModel) {
+                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                }
             }
         }
         if (!$aiServiceModel) {
@@ -1532,8 +1392,11 @@ PROMPT;
             ];
         }
 
-        // Build pairwise prompts
-        $systemPrompt = $this->buildPairwiseAnalyzerSystemPrompt();
+        // Build pairwise prompts — check tool settings first
+        $customPrompt = $memoryExtractTool
+            ? $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_system_prompt')
+            : null;
+        $systemPrompt = $customPrompt ?: $this->buildPairwiseAnalyzerSystemPrompt();
         $userMessage = $this->buildPairwiseAnalyzerUserMessage($nodeA, $nodeB);
 
         $messages = [
@@ -2477,7 +2340,13 @@ PROMPT;
     public function extractContentBlocks(string $content, string $documentTitle, $aiServiceModel, int $startLineOffset = 1, ?string $jobId = null): ?array
     {
         try {
-            $systemPrompt = $this->buildContentBlockExtractorSystemPrompt();
+            // Check tool settings for custom system prompt
+            $customPrompt = null;
+            $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
+            if ($memoryExtractTool) {
+                $customPrompt = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'extraction_system_prompt');
+            }
+            $systemPrompt = $customPrompt ?: $this->buildContentBlockExtractorSystemPrompt();
             
             // Add line numbers to content (like getFileContent does)
             $contentWithLineNumbers = $this->addLineNumbers($content, $startLineOffset);
@@ -2696,10 +2565,23 @@ PROMPT;
     }
 
     /**
-     * Get the AI model for extraction operations
+     * Get the AI model for extraction operations — checks tool settings first
      */
     private function getExtractionModel()
     {
+        // Check user's tool settings first
+        $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
+        if ($memoryExtractTool) {
+            $customModelId = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'extraction_ai_model');
+            if ($customModelId) {
+                $model = $this->aiServiceModelService->findById($customModelId);
+                if ($model) {
+                    return $model;
+                }
+            }
+        }
+
+        // Fallback: default fast models
         $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
         if (!$gateway) {
             return null;
@@ -3088,11 +2970,11 @@ PROMPT;
             // Without this lock, both can process the same needs_init step simultaneously,
             // creating duplicate root nodes and sub-nodes.
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
-            if (time() - $stepLockedAt < 30) {
+            if (time() - $stepLockedAt < 240) {
                 $this->packService->close();
                 return false; // Another process is handling this step
             }
-            // Claim the lock before AI calls (which take 5-15s)
+            // Claim the lock before AI calls (may take 30-90s with large thinking models)
             $payload['step_locked_at'] = time();
             $this->packService->updateJobPayload($jobId, $payload);
 
@@ -3169,6 +3051,14 @@ PROMPT;
                     [$baseTag],
                     $blocks['document_tags'] ?? []
                 );
+
+                // Re-check idempotency after slow AI calls (safety net against race condition)
+                if ($this->packService->hasRootNodeForSourceRef($sourceRef)) {
+                    unset($payload['step_locked_at']);
+                    $this->packService->updateJobPayload($jobId, $payload);
+                    $this->packService->close();
+                    return false;
+                }
 
                 $rootNode = $this->packService->storeNode(
                     $summaryContent,
@@ -3322,7 +3212,7 @@ PROMPT;
             // Generate summary for this block
             $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel, $jobId);
             if (!$summaryContent) {
-                $summaryContent = $block['summary'] ?? "Section: {$blockTitle}";
+                $summaryContent = $block['summary'] ?? $blockTitle;//"Section: {$blockTitle}";
             }
 
             $sourceRange = $block['start_line'] . ':' . $block['end_line'];
@@ -3337,7 +3227,7 @@ PROMPT;
                 $summaryContent,
                 MemoryNode::CATEGORY_KNOWLEDGE,
                 0.8,
-                "Section: {$blockTitle}",
+                $blockTitle,//"Section: {$blockTitle}",
                 $sourceType,
                 $sourceRef,
                 $blockTags,
@@ -3446,7 +3336,7 @@ PROMPT;
 
             // Concurrent processing guard (same as extraction — see processPackExtractionJobStep)
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
-            if (time() - $stepLockedAt < 30) {
+            if (time() - $stepLockedAt < 240) {
                 $this->packService->close();
                 return false; // Another process is handling this step
             }
