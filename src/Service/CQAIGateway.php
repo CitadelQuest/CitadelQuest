@@ -82,7 +82,7 @@ class CQAIGateway implements AiGatewayInterface
         ];
         
         if ($request->getMaxTokens() !== null) {
-            $requestData['max_tokens'] = $request->getMaxTokens();
+            $requestData['max_completion_tokens'] = $request->getMaxTokens();
         }
         
         if ($request->getTemperature() !== null) {
