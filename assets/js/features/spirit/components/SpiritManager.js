@@ -604,6 +604,11 @@ export class SpiritManager {
             await this.reloadSpirit();
             this.updateSpiritDisplay();
             
+            // Update Chat Settings modal AI model name (no HTTP request needed)
+            if (window.spiritChatManager) {
+                window.spiritChatManager.updateModelNameFromProfile();
+            }
+            
         } catch (error) {
             console.error('Error updating spirit settings:', error);
             this.showError(this.translate('error.updating_settings', 'Failed to update spirit settings'));

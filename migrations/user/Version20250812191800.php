@@ -261,9 +261,9 @@ class UserMigration_20250812191800
         $stmt = $db->prepare("SELECT id FROM ai_tool WHERE name = ?");
         $stmt->execute([$name]);
         if (!$stmt->fetch(\PDO::FETCH_ASSOC)) {
-            // Active by default: getFileContent, updateFileEfficient, getProjectTree, manageFile, setAIToolActive; 
-            // Inactive by default: listFiles, createDirectory, listAITools
-            $isActive = in_array($name, ['getFileContent', 'updateFileEfficient', 'getProjectTree', 'manageFile', 'setAIToolActive']) ? 1 : 0;
+            // Active by default: getFileContent, updateFileEfficient, getProjectTree, manageFile, listAITools, setAIToolActive; 
+            // Inactive by default: listFiles, createDirectory
+            $isActive = in_array($name, ['getFileContent', 'updateFileEfficient', 'getProjectTree', 'manageFile', 'listAITools', 'setAIToolActive']) ? 1 : 0;
 
 
             // Insert tool

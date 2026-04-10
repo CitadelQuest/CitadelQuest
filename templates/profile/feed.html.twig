@@ -99,13 +99,15 @@
                             {% set isHtml = mimeType == 'text/html' or fileName|lower ends with '.html' or fileName|lower ends with '.htm' %}
                             {% set isMarkdown = fileName|lower ends with '.md' or fileName|lower ends with '.markdown' %}
                             {% set isText = mimeType[:5] == 'text/' or isMarkdown or isHtml %}
+                            {% set isAudio = mimeType[:6] == 'audio/' %}
+                            {% set isVideo = mimeType[:6] == 'video/' %}
                             {% set shareUrl = att.share_url|default('') %}
                             {% set previewContent = att.preview_content|default('') %}
 
                             {% if displayStyle == 0 %}
                                 {# Header only #}
                                 <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
-                                    <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file')) }} text-cyber small"></i>
+                                    <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : (isAudio ? 'mdi-music' : (isVideo ? 'mdi-file-video' : 'mdi-file')))) }} text-cyber small"></i>
                                     <span class="small text-light opacity-75">{{ fileName }}</span>
                                 </div>
                             {% elseif (displayStyle == 1 or displayStyle == 2) and isImage and shareUrl %}
@@ -146,14 +148,34 @@
                                         <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">{{ previewContent|e }}</pre>
                                     </div>
                                 {% endif %}
+                            {% elseif (displayStyle == 1 or displayStyle == 2) and (isAudio or isVideo) and shareUrl %}
+                                {# Audio/Video preview with native player #}
+                                <div class="rounded mb-1 p-2" style="background: rgba(0,0,0,0.3);">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <i class="mdi {{ isAudio ? 'mdi-music' : 'mdi-file-video' }} text-cyber small"></i>
+                                        <span class="small text-light opacity-75">{{ fileName }}</span>
+                                        <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}?download=1" target="_blank" class="text-cyber text-decoration-none small ms-auto">
+                                            <i class="mdi mdi-download me-1"></i>{{ 'file_browser.download'|trans }}
+                                        </a>
+                                    </div>
+                                    {% if isAudio %}
+                                        <audio controls class="w-100 px-0 px-md-3 py-2 opacity-75" preload="metadata">
+                                            <source src="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" type="{{ mimeType }}">
+                                        </audio>
+                                    {% else %}
+                                        <video controls class="w-100 rounded" preload="metadata" style="max-height: 500px;">
+                                            <source src="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" type="{{ mimeType }}">
+                                        </video>
+                                    {% endif %}
+                                </div>
                             {% else %}
                                 {# Fallback header #}
                                 <div class="d-flex align-items-center gap-2 p-2 rounded mb-1" style="background: rgba(0,0,0,0.3);">
-                                    <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file')) }} text-cyber small"></i>
+                                    <i class="mdi {{ isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : (isAudio ? 'mdi-music' : (isVideo ? 'mdi-file-video' : 'mdi-file')))) }} text-cyber small"></i>
                                     <span class="small text-light opacity-75">{{ fileName }}</span>
                                     {% if shareUrl %}
-                                    <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}" target="_blank" class="text-cyber text-decoration-none small ms-auto">
-                                        <i class="mdi mdi-open-in-new me-1"></i>View
+                                    <a href="{{ path('cq_share_access', {username: profile_username, shareUrl: shareUrl}) }}?download=1" target="_blank" class="text-cyber text-decoration-none small ms-auto">
+                                        <i class="mdi mdi-download me-1"></i>{{ 'file_browser.download'|trans }}
                                     </a>
                                     {% endif %}
                                 </div>

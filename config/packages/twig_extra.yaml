@@ -1,0 +1,4 @@
+twig_extra:
+    commonmark:
+        renderer:
+            soft_break: "<br>"

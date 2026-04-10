@@ -121,7 +121,7 @@ export class CQFeedSettingsManager {
                                 ${activeBadge}
                             </div>
                             <div class="small text-muted">
-                                <span class="me-3"><i class="mdi mdi-link-variant me-1"></i><code>/${this.username}/feed/${this.escapeHtml(feed.feed_url_slug)}</code></span>
+                                <span class="me-3"><i class="mdi mdi-link-variant me-1"></i><code>/${this.username}/view-feed/${this.escapeHtml(feed.feed_url_slug)}</code></span>
                                 <span class="me-3">${scopeLabel}</span>
                                 <span class="me-3"><i class="mdi mdi-calendar me-1"></i>${createdAt}</span>
                             </div>
@@ -350,7 +350,7 @@ export class CQFeedSettingsManager {
                         ${statusBadge}
                     </div>
                     <div class="small text-muted">
-                        <span class="me-3"><i class="mdi mdi-link-variant me-1"></i><code>/${this.escapeHtml(feed.cq_contact_username)}/feed/${this.escapeHtml(feed.feed_url_slug)}</code></span>
+                        <span class="me-3"><i class="mdi mdi-link-variant me-1"></i><code>/${this.escapeHtml(feed.cq_contact_username)}/view-feed/${this.escapeHtml(feed.feed_url_slug)}</code></span>
                         <span><i class="mdi mdi-clock-outline me-1"></i>${this.t('last_visited', 'Last sync')}: ${lastVisited}</span>
                     </div>
                 </div>

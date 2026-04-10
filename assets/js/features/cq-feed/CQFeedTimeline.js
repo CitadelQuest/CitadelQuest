@@ -21,6 +21,7 @@ export class CQFeedTimeline {
         this.limit = 20;
         this.total = 0;
         this.isLoading = false;
+        this.isBackgroundLoading = false;
         this.hasMore = true;
 
         // Own posts + federated posts merged
@@ -30,7 +31,7 @@ export class CQFeedTimeline {
         // Timeline feed filter (set by clicking feed badge)
         this.activeFeedFilter = null; // { feedUrl, feedTitle, feedScope }
 
-        this.md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        this.md = new MarkdownIt({ html: false, breaks: true, linkify: true, typographer: true });
     }
 
     t(key, fallback) {
@@ -220,14 +221,24 @@ export class CQFeedTimeline {
             return;
         }
 
-        let html = filterHtml + '<div class="cq-feed-timeline mb-4">';
+        // Top loading indicator (shown during background federation sync)
+        let loadingIndicatorHtml = '';
+        if (this.isBackgroundLoading) {
+            loadingIndicatorHtml = `
+                <div class="text-center py-3">
+                    <i class="mdi mdi-loading mdi-spin text-cyber" style="font-size: 1.5rem;"></i>
+                </div>
+            `;
+        }
+
+        let html = filterHtml + loadingIndicatorHtml + '<div class="cq-feed-timeline mb-4">';
 
         for (const post of posts) {
             html += this._renderPost(post);
         }
 
-        // Load more button
-        if (this.hasMore) {
+        // Load more button (only when not background-loading)
+        if (this.hasMore && !this.isBackgroundLoading) {
             html += `
                 <div class="text-center py-3">
                     <button class="btn btn-sm btn-outline-secondary" id="cqFeedLoadMoreBtn">
@@ -547,6 +558,8 @@ export class CQFeedTimeline {
             const isHtml = mimeType === 'text/html' || fileName.toLowerCase().endsWith('.html') || fileName.toLowerCase().endsWith('.htm');
             const isMarkdown = fileName.toLowerCase().endsWith('.md') || fileName.toLowerCase().endsWith('.markdown');
             const isText = mimeType.startsWith('text/') || isMarkdown || isHtml;
+            const isAudio = mimeType.startsWith('audio/');
+            const isVideo = mimeType.startsWith('video/');
             const sourceId = att.source_id || '';
             const shareUrl = att.share_url || '';
             const previewContent = att.preview_content || '';
@@ -638,11 +651,41 @@ export class CQFeedTimeline {
                             <pre class="mb-0 text-light small" style="white-space: pre-wrap; word-break: break-word;">${escaped}</pre>
                         </div>`;
                 }
+            } else if ((displayStyle === 1 || displayStyle === 2) && (isAudio || isVideo)) {
+                // Audio/Video preview with native player
+                const icon = isAudio ? 'mdi-music' : 'mdi-file-video';
+                let mediaSrc = '';
+                if (isOwn && sourceId) {
+                    mediaSrc = `/api/project-file/${sourceId}/download`;
+                } else if (viewUrl) {
+                    const contactId = post.cq_contact_id || '';
+                    mediaSrc = contactId && viewUrl.startsWith('http')
+                        ? `/api/feed/attachment-proxy?url=${encodeURIComponent(viewUrl)}&contact_id=${encodeURIComponent(contactId)}`
+                        : viewUrl;
+                }
+                const downloadPart = viewUrl
+                    ? `<a href="${this._escapeHtml(viewUrl)}?download=1" target="_blank" class="text-cyber text-decoration-none small ms-auto"><i class="mdi mdi-download me-1"></i>${this.t('download', 'Download')}</a>`
+                    : '';
+                html += `
+                    <div class="rounded mb-1 bg-dark bg-opacity-75 p-2">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="mdi ${icon} text-cyber small"></i>
+                            <span class="small text-light opacity-75">${this._escapeHtml(fileName)}</span>
+                            ${downloadPart}
+                        </div>`;
+                if (mediaSrc) {
+                    if (isAudio) {
+                        html += `<audio controls class="w-100 px-0 px-md-3 py-2 opacity-75" preload="metadata"><source src="${this._escapeHtml(mediaSrc)}" type="${this._escapeHtml(mimeType)}"></audio>`;
+                    } else {
+                        html += `<video controls class="w-100 rounded" preload="metadata" style="max-height: 500px;"><source src="${this._escapeHtml(mediaSrc)}" type="${this._escapeHtml(mimeType)}"></video>`;
+                    }
+                }
+                html += `</div>`;
             } else {
-                // Fallback — header with optional view link
-                const icon = isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : 'mdi-file'));
+                // Fallback — header with optional download link
+                const icon = isImage ? 'mdi-image' : (isPdf ? 'mdi-file-pdf-box' : (isHtml ? 'mdi-code-html' : (isAudio ? 'mdi-music' : (isVideo ? 'mdi-file-video' : 'mdi-file'))));
                 const linkPart = viewUrl
-                    ? `<a href="${this._escapeHtml(viewUrl)}" target="_blank" class="text-cyber text-decoration-none small ms-auto"><i class="mdi mdi-open-in-new me-1"></i>View</a>`
+                    ? `<a href="${this._escapeHtml(viewUrl)}?download=1" target="_blank" class="text-cyber text-decoration-none small ms-auto"><i class="mdi mdi-download me-1"></i>${this.t('download', 'Download')}</a>`
                     : '';
                 html += `
                     <div class="d-flex align-items-center gap-2 p-2 rounded mb-1 bg-dark bg-opacity-75">

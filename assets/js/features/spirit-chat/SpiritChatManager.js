@@ -200,11 +200,15 @@ export class SpiritChatManager {
                 }
                 localStorage.setItem('spiritChatModal', 'true');
                 localStorage.setItem('spiritChatModalUrl', window.location.pathname);
+                // Hide memory graph canvas to save GPU while chat modal is open
+                document.getElementById('profile-memory-canvas')?.classList.add('d-none');
             });
             
             this.spiritChatModal.addEventListener('hidden.bs.modal', () => {
                 localStorage.removeItem('spiritChatModal');
                 localStorage.removeItem('spiritChatModalUrl');
+                // Restore memory graph canvas
+                document.getElementById('profile-memory-canvas')?.classList.remove('d-none');
             });
         }
 
@@ -2797,6 +2801,23 @@ export class SpiritChatManager {
             '<span class="d-md-inline d-none">context window: <span class="fw-bold_">' + Number(data.contextWindow).toLocaleString(getCitadelLocale()) + '</span></span>';
         // Store context window for usage calculation
         this.primaryModelContextWindow = data.contextWindow || null;
+    }
+    
+    /**
+     * Update AI model name from Spirit profile display (when settings are saved)
+     */
+    updateModelNameFromProfile() {
+        const profileModelDisplay = document.getElementById('spirit-ai-model-display');
+        if (!this.chatInfoPrimaryAiModel || !profileModelDisplay) return;
+        
+        // Get the first span (model name) from current display
+        const currentHTML = this.chatInfoPrimaryAiModel.innerHTML;
+        const contextWindowMatch = currentHTML.match(/<span class="d-md-inline d-none">.*?<\/span>/);
+        const contextWindowPart = contextWindowMatch ? contextWindowMatch[0] : '';
+        
+        // Update with new model name but keep context window
+        this.chatInfoPrimaryAiModel.innerHTML = 
+            '<span class="me-1 fw-bold opacity-75 text-light">' + profileModelDisplay.textContent + '</span> ' + contextWindowPart;
     }
     
     /**

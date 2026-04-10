@@ -71,6 +71,8 @@ export class CQFeedManager {
                 this._initializing = false;
                 this.timeline._handlePendingScrollToPost();
             } else {
+                // Set background loading before first render so spinner shows immediately
+                this.timeline.isBackgroundLoading = true;
                 await this.timeline.initWithFeeds(feeds);
                 // Fetch latest from subscribed feeds in background
                 await this._fetchSubscribedFeeds();
@@ -120,12 +122,23 @@ export class CQFeedManager {
             // Single backend call — fires all federation requests in parallel server-side
             const data = await this.api.fetchAllSubscribed().catch(() => null);
 
+            // Clear background loading before re-render
+            if (this.timeline) {
+                this.timeline.isBackgroundLoading = false;
+            }
+
             // Reload only federated posts if new data arrived (own posts unchanged)
             if (data?.feeds_checked > 0 && this.timeline) {
                 await this.timeline.reloadFederatedPosts();
+            } else if (this.timeline) {
+                this.timeline.render();
             }
         } catch (e) {
             console.error('CQFeedManager::_fetchSubscribedFeeds error', e);
+            if (this.timeline) {
+                this.timeline.isBackgroundLoading = false;
+                this.timeline.render();
+            }
         }
     }
 
