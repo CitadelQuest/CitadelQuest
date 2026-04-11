@@ -1426,7 +1426,7 @@ export class SpiritChatManager {
                         frontendDataEl.className = 'chat-message chat-message-system';
                         
                         frontendDataEl.innerHTML = `
-                            <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
+                            <div data-type='tool_calls_frontend_data' class='bg-dark p-2 rounded d-block w-100'>
                                 ${item.frontendData}
                             </div>
                         `;
@@ -1440,7 +1440,7 @@ export class SpiritChatManager {
                 frontendDataEl.className = 'chat-message chat-message-system';
                 
                 frontendDataEl.innerHTML = `
-                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
+                    <div data-type='tool_calls_frontend_data' class='bg-dark p-2 rounded d-block w-100'>
                         ${content.frontendData}
                     </div>
                 `;
@@ -3224,7 +3224,7 @@ export class SpiritChatManager {
                 frontendDataEl.className = 'chat-message chat-message-system';
                 
                 frontendDataEl.innerHTML = `
-                    <div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 rounded d-block w-100'>
+                    <div data-type='tool_calls_frontend_data' class='bg-dark p-2 rounded d-block w-100'>
                         ${toolResult.frontendData}
                     </div>
                 `;

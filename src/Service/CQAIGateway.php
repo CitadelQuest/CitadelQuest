@@ -60,8 +60,7 @@ class CQAIGateway implements AiGatewayInterface
             throw new \Exception('CQAIGateway API key not configured');
         }
 
-        // filter injected system data from messages
-        $filteredMessages = $this->filterInjectedSystemData($request->getMessages());
+        $filteredMessages = $request->getMessages();
 
         // Filter out image_url type content from messages
         // for models that do not have image input modality
@@ -123,12 +122,6 @@ class CQAIGateway implements AiGatewayInterface
             $choices = $responseData['choices'] ?? [];
             $message = $choices[0]['message'] ?? [];
             $finishReason = $choices[0]['finish_reason'] ?? null;
-
-            // check if message contains injected system data (only for string content, not array/image responses)
-            if (isset($message['content']) && is_string($message['content'])) {
-                $message['content'] = $this->detectAndMarkInjectedSystemDataAsHallucination($message['content']);
-                // TODO: if hallucination detected, make request again
-            }
             
             // Create response entity
             $aiServiceResponse = new AiServiceResponse(
@@ -142,7 +135,6 @@ class CQAIGateway implements AiGatewayInterface
                 $aiServiceResponse->setInputTokens($responseData['usage']['prompt_tokens'] ?? null);
                 $aiServiceResponse->setOutputTokens($responseData['usage']['completion_tokens'] ?? null);
                 $aiServiceResponse->setTotalTokens($responseData['usage']['total_tokens'] ?? null);
-                // TODO (in future): set also price/credit balance
             }
             
             $aiServiceResponse->setFinishReason($finishReason);
@@ -166,6 +158,8 @@ class CQAIGateway implements AiGatewayInterface
      */
     public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse
     {
+        $this->logger->error('CQAIGatewayService:::handleToolCalls');
+
         // Get services
         $aiToolCallService = $this->serviceLocator->get(AIToolCallService::class);
         $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
@@ -173,13 +167,11 @@ class CQAIGateway implements AiGatewayInterface
         $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
         
         if ($response->getFinishReason() === 'tool_calls') {
+            $this->logger->error('CQAIGatewayService:::handleToolCalls called');
             // Get all tool calls from fullResponse
             $toolCalls = $response->getFullResponse()['choices'][0]['message']['tool_calls'];
             
             $messages = $request->getMessages();
-
-            // Filter injected system data from messages, so we do not send it to AI + database
-            $messages = $this->filterInjectedSystemData($messages);
 
             // Filter out image_url type content from messages
             // for models that do not have image input modality
@@ -195,7 +187,6 @@ class CQAIGateway implements AiGatewayInterface
 
             // Process tool_calls
             $logCaption = '';
-            $injectedSystemDataItems = [];
             foreach ($toolCalls as $toolCall) {
                 // Call tool and add result using AIToolCallService
                 $toolExecutionResult = $aiToolCallService->executeTool(
@@ -209,23 +200,8 @@ class CQAIGateway implements AiGatewayInterface
                         $lang
                 );                
 
-                // Inject system data:
-                // > tool name + success/fail icon
-                $injectedSystemDataItems[] = 
-                "<span class='text-cyber font-monospace small'>" . 
-                    $toolCall['function']['name'] . "(): " . 
-                    ((isset($toolExecutionResult['success']) && $toolExecutionResult['success'] == true) ? 
-                        "<span class='text-success' title='" . (isset($toolExecutionResult['message']) ? $toolExecutionResult['message'] : 'Success') . "'>🗸</span>" : 
-                        "<span class='text-danger' title='" . (isset($toolExecutionResult['error']) ? $toolExecutionResult['error'] : 'Failed') . "'>✗</span>") . 
-                "</span>";
-                // > `_frontendData`
+                // remove _frontendData from toolExecutionResult for AI
                 if (isset($toolExecutionResult['_frontendData'])) {
-                    $injectedSystemDataItems[] = 
-                    "<div data-src='injected system data' data-type='tool_calls_frontend_data' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded d-block w-100'>\n" . 
-                        $toolExecutionResult['_frontendData'] . 
-                    "</div><!-- injected system FE data end -->\n";
-
-                    // remove _frontendData from toolExecutionResult for AI
                     unset($toolExecutionResult['_frontendData']);
                 }
 
@@ -256,12 +232,6 @@ class CQAIGateway implements AiGatewayInterface
             // > before tool call AI response
             $responseContent_before = isset($response->getFullResponse()['choices'][0]['message']['content']) ? $response->getFullResponse()['choices'][0]['message']['content'] : '';
             
-            // > Inject system data
-            // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-            $responseContent_injectedSystemData = "\n<div data-src='injected system data' data-type='tool_calls_response' data-ai-generated='false' class='bg-dark p-2 mb-2 rounded'>\n" . 
-                                                        implode("<br>\n", $injectedSystemDataItems) . 
-                                                    "</div><!-- injected system data end -->\n";
-
             // > append after tool call AI response
             $responseContent_after = isset($aiServiceResponse->getMessage()['content']) ? $aiServiceResponse->getMessage()['content'] : '';
             // TODO: Gemini 2.5 pro (and others too) - sometimes produces same response + tool call / reproduce, debug, fix
@@ -272,58 +242,12 @@ class CQAIGateway implements AiGatewayInterface
             // Set full response message
             $aiServiceResponse->setMessage([
                 'role' => 'assistant',
-                'content' => $responseContent_before . $responseContent_injectedSystemData . $responseContent_after // TODO tutu debug
+                'content' => $responseContent_before . $responseContent_after
             ]);
 
             $response = $aiServiceResponse;
         }
         return $response;
-    }
-
-    /**
-     * Filter out injected system data from messages
-     */
-    public function filterInjectedSystemData(array $messages): array
-    {
-        $filteredMessages = [];
-        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-        $filterRegex = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div><!-- injected system FE data end -->\n/s';
-        $filterRegex_2 = '/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div><!-- injected system data end -->\n/s';
-
-        foreach ($messages as $message) {
-            $filteredMessage = $message;
-            
-            if (($message['role'] == 'user' || $message['role'] == 'assistant') && isset($message['content'])) {
-
-                $filteredContent = $message['content'];
-
-                // simple string message content
-                if (is_string($filteredContent)) {
-                    $filteredContent = preg_replace($filterRegex, '', $filteredContent);
-                    $filteredContent = preg_replace($filterRegex_2, '', $filteredContent);
-                    // do not execute next line, it's actually usefull to hallucination detection to keep it (and keep this comment too)
-                    //$filteredContent = preg_replace('/\n<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div>\n/s', '', $filteredContent);
-                    $filteredMessage['content'] = $filteredContent;
-                } 
-                // complex message content (array of objects), text + images..
-                elseif (is_array($filteredContent)) {
-                    for ($i = 0; $i < count($filteredContent); $i++) {
-                        // we are only interested in text content for now filtering
-                        if (isset($filteredContent[$i]['type']) && $filteredContent[$i]['type'] == 'text' && isset($filteredContent[$i]['text'])) {
-                            $filteredContent[$i]['text'] = preg_replace($filterRegex, '', $filteredContent[$i]['text']);
-                            $filteredContent[$i]['text'] = preg_replace($filterRegex_2, '', $filteredContent[$i]['text']);
-                        }
-                    }
-                    $filteredMessage['content'] = $filteredContent;
-                }
-            }
-
-            unset($filteredMessage['frontendData']);
-
-            $filteredMessages[] = $filteredMessage;
-        }
-
-        return $filteredMessages;
     }
 
     /**
@@ -351,21 +275,6 @@ class CQAIGateway implements AiGatewayInterface
             }
         }
         unset($message);
-    }
-
-    /**
-     * Detect injected system data in AI response message and mark it as hallucination
-     */
-    public function detectAndMarkInjectedSystemDataAsHallucination(string $messageContent): string
-    {
-        // TODO: this need FIX, if there will be `</div>` in $injectedSystemDataItems, it will break(aka fuck up) the message
-        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_frontend_data\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded d-block w-100\'>.*?<\/div><!-- injected system FE data end -->/s', 
-            '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls frontend data generated)</div>', $messageContent);
-        
-        $messageContent = preg_replace('/<div data-src=\'injected system data\' data-type=\'tool_calls_response\' data-ai-generated=\'false\' class=\'bg-dark p-2 mb-2 rounded\'>.*?<\/div><!-- injected system data end -->/s', 
-            '<div class=\'alert alert-danger\'>Hallucination detected (system tool calls response generated)</div>', $messageContent);
-        
-        return $messageContent;
     }
 
     /**

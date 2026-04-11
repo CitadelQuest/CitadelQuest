@@ -2564,7 +2564,7 @@ class SpiritConversationService
             if (!$gateway) {
                 throw new \Exception('CQ AI Gateway not found');
             }
-            $model = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            $model = $this->aiServiceModelService->findByModelSlug($this->settingsService->getSettingValue('subconsciousness_agent_ai_model', 'citadelquest/kael'), $gateway->getId());
             if (!$model) {
                 $model = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
             }
@@ -2608,7 +2608,8 @@ class SpiritConversationService
                 $aiServiceRequest,
                 'CQ Memory Subconsciousness Sub-Agent',
                 $userLocale['lang'],
-                'general'
+                'general',
+                false  // Don't handle tool calls
             );
             
             // Get usage data for sub-agent call

@@ -354,7 +354,7 @@ class AiGatewayService
         
         // Handle tool calls by gateway implementation (only if handleToolCalls is true)
         // In async mode (handleToolCalls = false), we return immediately and let the frontend handle tool execution
-        if ($handleToolCalls) {
+        if ($handleToolCalls && $response->getFinishReason() === 'tool_calls') {
             $response = $gatewayImplementation->handleToolCalls($request, $response, $lang);
         }
 
@@ -420,15 +420,6 @@ class AiGatewayService
             $useLog->getOutputPrice(),
             $useLog->getTotalPrice()
         );
-    }
-
-    public function filterInjectedSystemData(array $messages): array
-    {
-        $implementation = $this->getGatewayImplementation('cq_ai_gateway');
-        if (!$implementation) {
-            throw new \Exception('No implementation found for gateway type: cq_ai_gateway');
-        }
-        return $implementation->filterInjectedSystemData($messages);
     }
 
     public function getDefaultCqAiGatewayApiKey(): ?string
