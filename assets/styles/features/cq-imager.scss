@@ -1,0 +1,264 @@
+// CQ Imager — 3-column GUI feature styles
+// See /docs/features/CQ-IMAGER.md
+@use '../mixins' as mix;
+@use '../colors' as colors;
+@use '../variables' as vars;
+
+.cq-imager-page {
+    /* .cq-imager-shell {
+        min-height: calc(100vh - 110px);
+    } */
+
+    .cq-imager-shell .col-12 .glass-panel {
+        max-height: calc(100vh - 115px);
+
+        overflow-y: auto;
+        @include mix.cyber-scrollbar;
+    }
+
+    .glass-panel {
+        overflow: hidden;
+    }
+}
+
+/* ================== Control Panel (left) ================== */
+
+.imager-panel-section {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.imager-model-picker {
+    max-height: 28vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 4px;
+
+    @include mix.cyber-scrollbar;
+}
+
+.imager-model-caps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 2px;
+}
+
+.imager-selected-header {
+    padding: 6px 8px;
+    background: var(--surface-dark);
+    border-left: 2px solid var(--cyber);
+}
+
+/* ================== Dynamic Form ================== */
+
+.imager-form-group {
+    border-top: 1px solid rgba(var(--cyber-rgb), 0.08);
+    padding-top: 6px;
+}
+
+.imager-form-group-header {
+    padding: 4px 2px;
+    font-size: 0.75rem;
+    user-select: none;
+
+    &:hover .imager-group-caret {
+        color: var(--cyber);
+    }
+}
+
+.imager-form-field {
+    .form-control,
+    .form-select {
+        background: var(--surface-dark);
+        border-color: var(--border-color);
+        color: var(--emphasis-color);
+        font-size: 0.85rem;
+
+        &:focus {
+            border-color: rgba(var(--cyber-rgb), 0.5);
+            box-shadow: 0 0 0 0.15rem rgba(var(--cyber-rgb), 0.15);
+            background: var(--surface-dark);
+            color: var(--emphasis-color);
+        }
+    }
+}
+
+.btn-cyber {
+    background: rgba(var(--cyber-rgb), 0.15);
+    border: 1px solid var(--cyber);
+    color: var(--cyber);
+    font-weight: 500;
+    transition: all .15s ease;
+
+    &:hover:not(:disabled) {
+        background: rgba(var(--cyber-rgb), 0.25);
+        color: var(--cyber);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+/* ================== Canvas (center) ================== */
+
+#cq-imager-canvas {
+    min-height: 50vh;
+    display: flex !important;
+    align-items: top;
+    justify-content: center;
+    overflow: auto;
+}
+
+.imager-canvas-result {
+    width: 100%;
+}
+
+.imager-canvas-images {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.imager-canvas-image-wrap {
+    max-width: 100%;
+    text-align: center;
+}
+
+.imager-canvas-image {
+    max-width: 100%;
+    max-height: 70vh;
+    display: block;
+    margin: 0 auto;
+}
+
+.imager-canvas-image-caption {
+    margin-top: 4px;
+}
+
+/* ================== History (right) ================== */
+
+.imager-history-list {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    @include mix.cyber-scrollbar;
+}
+
+.imager-history-item {
+    border: none;
+    color: var(--body-color);
+}
+
+.imager-history-thumb {
+    width: 72px;
+    height: 96px;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: cover;
+}
+
+.imager-history-meta {
+    flex: 1;
+    min-width: 0;
+}
+
+.imager-history-meta-date {
+    font-size: 0.6rem;
+}
+
+.imager-history-row {
+    margin-bottom: 6px;
+
+    .imager-history-item {
+        width: 100%;
+    }
+
+    .imager-history-delete {
+        opacity: 0;
+        transition: opacity .15s ease;
+        z-index: 2;
+        padding: 0.1rem 0.3rem !important;
+
+        &:hover, &:focus {
+            opacity: 1;
+        }
+    }
+
+    &:hover .imager-history-delete {
+        opacity: 1;
+    }
+}
+
+/* ================== Generation params block (below canvas image) ================== */
+
+.imager-param-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.imager-param-row {
+    align-items: flex-start;
+}
+
+.imager-param-key {
+    min-width: 140px;
+    flex-shrink: 0;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.75rem;
+    padding-top: 2px;
+}
+
+.imager-param-val {
+    word-break: break-word;
+    min-width: 0;
+}
+
+.imager-param-thumb {
+    img {
+        width: 64px;
+        height: 64px;
+        object-fit: cover;
+    }
+}
+
+/* ================== Selected-model card (under <select>) ================== */
+
+.imager-selected-cover {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.imager-selected-cover-placeholder {
+    background: var(--tertiary-bg);
+    font-size: 1.5rem;
+}
+.imager-selected-info {
+    min-width: 0;
+}
+.imager-selected-desc {
+    white-space: pre-line;
+}
+
+/* ================== File Browser attach button ================== */
+
+.imager-image-field {
+    .imager-image-attach {
+        white-space: nowrap;
+    }
+    .imager-image-file-hint {
+        margin-top: 2px;
+        word-break: break-all;
+    }
+}

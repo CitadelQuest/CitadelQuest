@@ -52,6 +52,12 @@
                         </a>
                     </li>
                     <li>
+                        <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_imager') }}">
+                            <i class="mdi mdi-image-auto-adjust me-3{% if app.request.pathInfo == path('app_cq_imager') %} text-cyber{% else %} text-cyber{% endif %}"></i>
+                            {{ 'cq_imager.page_title'|trans }}
+                        </a>
+                    </li>
+                    <li>
                         <a class="dropdown-item nav-link ps-3" href="{{ path('app_cq_share_index') }}">
                             <i class="mdi mdi-share-variant me-3{% if app.request.pathInfo == path('app_cq_share_index') %} text-cyber{% else %} text-success opacity-75{% endif %}"></i>
                             {{ 'cq_share.page_title'|trans }}

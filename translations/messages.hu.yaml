@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Memória'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Képek generálása és szerkesztése AI-val'
+    controls:
+        title: 'Vezérlés'
+        generate: 'Generálás'
+        generating: 'Generálás…'
+        no_models: 'Jelenleg nincs elérhető képdiffúziós modell a kapudon.'
+        load_failed: 'A modellek betöltése sikertelen'
+        invalid_params: 'Érvénytelen paraméterek'
+    canvas:
+        placeholder: 'A generált képek itt fognak megjelenni.'
+        busy: 'Generálás… akár egy percig is eltarthat.'
+        busy_short: 'Generálás…'
+        no_images: 'A generálás nem adott vissza képet.'
+        error_default: 'A generálás sikertelen'
+        fullscreen: 'Teljes képernyő'
+        download: 'Letöltés'
+        seed: 'seed'
+        balance: 'egyenleg'
+        use_as_input: 'Használd bemenetként'
+        use_as_input_title: 'Használd ezt a képet referenciabemenetként'
+        reuse_params: 'Paraméterek újrafelhasználása'
+        reuse_params_title: 'Használd újra ezeket a paramétereket: ugyanaz a modell és űrlap kitöltése'
+        params_used: 'Használt generálási paraméterek'
+    history:
+        title: 'Előzmények'
+        refresh: 'Frissítés'
+        loading: 'Betöltés…'
+        load_failed: 'A betöltés sikertelen'
+        empty: 'Még nincs generálás.'
+        no_prompt: '(nincs prompt)'
+        delete: 'Törlés az előzményekből'
+        delete_confirm: 'Törölni szeretnéd ezt a generálást és a képfájlját a Fájlkezelőből? Ez nem vonható vissza.'
+        delete_success: 'Előzmény elem törölve'
+        delete_failed: 'A törlés sikertelen'
+        credits_tooltip: 'Kreditek'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Bemenet'
+            dimensions: 'Méretek'
+            output: 'Kimenet'
+            advanced: 'Haladó'
+        no_params: 'Ennek a modellnek nincsenek konfigurálható paraméterei.'
+        on: 'be'
+        off: 'ki'
+        image_placeholder: 'Kép URL, data URI, vagy kattints a + gombra'
+        image_array_placeholder: 'Egy kép URL / UUID / data URI / cqfile://… soronként'
+        pick_file: 'Választás a Fájlkezelőből'
+        add_image: 'Kép hozzáadása'
+        select_image_file: 'Kérlek, válassz egy képfájlt.'
+        required_suffix: 'kötelező'
+    toasts:
+        generated: '{count} kép generálva — {cost} kredit'
+        use_as_input_ok: 'A kép hozzáadva referenciabemenetként.'
+        use_as_input_no_field: 'Az aktuális modellnek nincs képbemeneti mezője.'
+        use_as_input_no_file: 'Ehhez a képhez még nincs saját projektfájl.'
+        use_as_input_no_model: 'Először válassz modellt.'
+        reuse_ok: 'Paraméterek betöltve — igazítsd és generálj.'
+
 settings:
     page_title: 'Felhasználói beállítások'
     nav:

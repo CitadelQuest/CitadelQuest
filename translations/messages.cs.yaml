@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Paměť'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Generujte a upravujte obrázky pomocí AI'
+    controls:
+        title: 'Ovládání'
+        generate: 'Generovat'
+        generating: 'Generuji…'
+        no_models: 'Na vaší bráně nejsou momentálně dostupné žádné modely pro difuzi obrázků.'
+        load_failed: 'Nepodařilo se načíst modely'
+        invalid_params: 'Neplatné parametry'
+    canvas:
+        placeholder: 'Vygenerované obrázky se zobrazí zde.'
+        busy: 'Generuji… může to trvat až minutu.'
+        busy_short: 'Generuji…'
+        no_images: 'Generování nevrátilo žádné obrázky.'
+        error_default: 'Generování selhalo'
+        fullscreen: 'Celá obrazovka'
+        download: 'Stáhnout'
+        seed: 'seed'
+        balance: 'zůstatek'
+        use_as_input: 'Použít jako vstup'
+        use_as_input_title: 'Použít tento obrázek jako referenční vstup'
+        reuse_params: 'Znovu použít parametry'
+        reuse_params_title: 'Znovu použít tyto parametry: vybrat stejný model a vyplnit formulář'
+        params_used: 'Použité parametry generování'
+    history:
+        title: 'Historie'
+        refresh: 'Obnovit'
+        loading: 'Načítám…'
+        load_failed: 'Načtení selhalo'
+        empty: 'Zatím žádná generování.'
+        no_prompt: '(bez promptu)'
+        delete: 'Odstranit z historie'
+        delete_confirm: 'Odstranit toto generování a jeho obrázek ze Správce souborů? Tuto akci nelze vrátit zpět.'
+        delete_success: 'Položka historie byla odstraněna'
+        delete_failed: 'Odstranění selhalo'
+        credits_tooltip: 'Kredity'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Vstup'
+            dimensions: 'Rozměry'
+            output: 'Výstup'
+            advanced: 'Pokročilé'
+        no_params: 'Tento model nemá žádné konfigurovatelné parametry.'
+        on: 'zap'
+        off: 'vyp'
+        image_placeholder: 'URL obrázku, data URI, nebo klikněte na +'
+        image_array_placeholder: 'Jedna URL obrázku / UUID / data URI / cqfile://… na řádek'
+        pick_file: 'Vybrat ze Správce souborů'
+        add_image: 'Přidat obrázek'
+        select_image_file: 'Prosím, vyberte obrázkový soubor.'
+        required_suffix: 'je povinné'
+    toasts:
+        generated: 'Vygenerováno {count} obrázků — {cost} kreditů'
+        use_as_input_ok: 'Obrázek přidán jako referenční vstup.'
+        use_as_input_no_field: 'Aktuální model nemá pole pro obrázek, do kterého by bylo možné přidat.'
+        use_as_input_no_file: 'Pro tento obrázek zatím není vlastní soubor v projektu.'
+        use_as_input_no_model: 'Nejprve vyberte model.'
+        reuse_ok: 'Parametry načteny — uprav a generuj.'
+
 settings:
     page_title: 'Nastavení'
     nav:

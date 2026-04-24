@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Pamięć'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Generuj i edytuj obrazy za pomocą AI'
+    controls:
+        title: 'Sterowanie'
+        generate: 'Generuj'
+        generating: 'Generowanie…'
+        no_models: 'W Twojej bramie nie są obecnie dostępne żadne modele dyfuzji obrazów.'
+        load_failed: 'Nie udało się załadować modeli'
+        invalid_params: 'Nieprawidłowe parametry'
+    canvas:
+        placeholder: 'Wygenerowane obrazy pojawią się tutaj.'
+        busy: 'Generowanie… może to zająć do minuty.'
+        busy_short: 'Generowanie…'
+        no_images: 'Generowanie nie zwróciło żadnych obrazów.'
+        error_default: 'Generowanie nie powiodło się'
+        fullscreen: 'Pełny ekran'
+        download: 'Pobierz'
+        seed: 'seed'
+        balance: 'saldo'
+        use_as_input: 'Użyj jako wejście'
+        use_as_input_title: 'Użyj tego obrazu jako wejścia referencyjnego'
+        reuse_params: 'Użyj parametrów ponownie'
+        reuse_params_title: 'Użyj tych parametrów ponownie: wybierz ten sam model i wypełnij formularz'
+        params_used: 'Użyte parametry generowania'
+    history:
+        title: 'Historia'
+        refresh: 'Odśwież'
+        loading: 'Ładowanie…'
+        load_failed: 'Ładowanie nie powiodło się'
+        empty: 'Brak generowań.'
+        no_prompt: '(brak promptu)'
+        delete: 'Usuń z historii'
+        delete_confirm: 'Usunąć to generowanie i jego plik obrazu z Menedżera plików? Nie można tego cofnąć.'
+        delete_success: 'Pozycja historii usunięta'
+        delete_failed: 'Usunięcie nie powiodło się'
+        credits_tooltip: 'Kredyty'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Wejście'
+            dimensions: 'Wymiary'
+            output: 'Wyjście'
+            advanced: 'Zaawansowane'
+        no_params: 'Ten model nie ma konfigurowalnych parametrów.'
+        on: 'wł'
+        off: 'wył'
+        image_placeholder: 'URL obrazu, data URI, lub kliknij +'
+        image_array_placeholder: 'Jeden URL obrazu / UUID / data URI / cqfile://… na linię'
+        pick_file: 'Wybierz z Menedżera plików'
+        add_image: 'Dodaj obraz'
+        select_image_file: 'Proszę wybrać plik obrazu.'
+        required_suffix: 'jest wymagane'
+    toasts:
+        generated: 'Wygenerowano {count} obrazów — {cost} kredytów'
+        use_as_input_ok: 'Obraz dodany jako wejście referencyjne.'
+        use_as_input_no_field: 'Bieżący model nie ma pola dla obrazu, do którego można dodać.'
+        use_as_input_no_file: 'Dla tego obrazu nie ma jeszcze własnego pliku projektu.'
+        use_as_input_no_model: 'Najpierw wybierz model.'
+        reuse_ok: 'Parametry załadowane — dopracuj i generuj.'
+
 settings:
     page_title: 'Ustawienia użytkownika'
     nav:

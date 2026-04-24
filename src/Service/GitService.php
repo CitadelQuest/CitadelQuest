@@ -75,7 +75,7 @@ class GitService
             ];
         }
         
-        $command = ['git', 'pull'];
+        $command = ['git', 'pull', '--no-rebase', '--allow-unrelated-histories'];
         
         if ($remote) {
             $command[] = $remote;
@@ -278,7 +278,7 @@ class GitService
             ];
         }
         
-        $command = ['git', 'push'];
+        $command = ['git', 'push', '--set-upstream', 'origin', 'main'];
         
         if ($remote) {
             $command[] = $remote;
@@ -437,7 +437,7 @@ BASH;
         $this->runGitCommand(['git', 'config', 'user.email', $userEmail], $repoDir);
     }
 
-    private function getLastCommitHash(string $repoDir): string
+    public function getLastCommitHash(string $repoDir): string
     {
         try {
             $result = $this->runGitCommand(['git', 'rev-parse', 'HEAD'], $repoDir);

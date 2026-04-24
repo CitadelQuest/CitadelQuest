@@ -214,13 +214,14 @@ class AIToolGitService
         $filesToAdd = $files === 'all' ? ['.'] : array_map('trim', explode(',', $files));
         
         $addResult = $this->gitService->add($projectDir, $filesToAdd);
-        if (!$addResult['success']) {
+        /* if (!$addResult['success']) {
             return $addResult;
-        }
+        } */
         
         $commitResult = $this->gitService->commit($projectDir, $message, $projectId);
         if (!$commitResult['success']) {
-            return $commitResult;
+            //return $commitResult;
+            $commitResult['hash'] = $this->gitService->getLastCommitHash($projectDir);
         }
         
         $pushResult = null;

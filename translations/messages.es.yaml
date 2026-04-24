@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Memoria'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Genera y edita imágenes con IA'
+    controls:
+        title: 'Controles'
+        generate: 'Generar'
+        generating: 'Generando…'
+        no_models: 'Actualmente no hay modelos de difusión de imágenes disponibles en tu gateway.'
+        load_failed: 'Error al cargar modelos'
+        invalid_params: 'Parámetros no válidos'
+    canvas:
+        placeholder: 'Las imágenes generadas aparecerán aquí.'
+        busy: 'Generando… esto puede tardar hasta un minuto.'
+        busy_short: 'Generando…'
+        no_images: 'La generación no devolvió ninguna imagen.'
+        error_default: 'Error en la generación'
+        fullscreen: 'Pantalla completa'
+        download: 'Descargar'
+        seed: 'seed'
+        balance: 'saldo'
+        use_as_input: 'Usar como entrada'
+        use_as_input_title: 'Usar esta imagen como entrada de referencia'
+        reuse_params: 'Reutilizar parámetros'
+        reuse_params_title: 'Reutilizar estos parámetros: seleccionar el mismo modelo y rellenar el formulario'
+        params_used: 'Parámetros de generación usados'
+    history:
+        title: 'Historial'
+        refresh: 'Actualizar'
+        loading: 'Cargando…'
+        load_failed: 'Error al cargar'
+        empty: 'Aún no hay generaciones.'
+        no_prompt: '(sin prompt)'
+        delete: 'Eliminar del historial'
+        delete_confirm: '¿Eliminar esta generación y su archivo de imagen del Explorador de archivos? Esta acción no se puede deshacer.'
+        delete_success: 'Elemento del historial eliminado'
+        delete_failed: 'Error al eliminar'
+        credits_tooltip: 'Créditos'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Entrada'
+            dimensions: 'Dimensiones'
+            output: 'Salida'
+            advanced: 'Avanzado'
+        no_params: 'Este modelo no tiene parámetros configurables.'
+        on: 'sí'
+        off: 'no'
+        image_placeholder: 'URL de imagen, data URI, o clic en +'
+        image_array_placeholder: 'Una URL / UUID / data URI / cqfile://… por línea'
+        pick_file: 'Elegir del Explorador de archivos'
+        add_image: 'Añadir imagen'
+        select_image_file: 'Por favor, selecciona un archivo de imagen.'
+        required_suffix: 'es obligatorio'
+    toasts:
+        generated: 'Generadas {count} imágenes — {cost} créditos'
+        use_as_input_ok: 'Imagen añadida como entrada de referencia.'
+        use_as_input_no_field: 'El modelo actual no tiene ningún campo de imagen al que añadir.'
+        use_as_input_no_file: 'Aún no hay un archivo propio del proyecto para esta imagen.'
+        use_as_input_no_model: 'Primero selecciona un modelo.'
+        reuse_ok: 'Parámetros cargados — ajusta y genera.'
+
 settings:
     page_title: 'Configuración del usuario'
     nav:

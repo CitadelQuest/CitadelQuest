@@ -402,9 +402,10 @@ PROMPT;
                 'headers' => [
                     'Authorization' => 'Bearer ' . $apiKey,
                     'Content-Type' => 'application/json',
+                    // add new CQ header
                 ],
                 'json' => $params,
-                'timeout' => 180, // 3 minutes for image generation
+                'timeout' => 300, // 5 minutes for image generation
             ]);
             
             $data = json_decode($response->getContent(), true);

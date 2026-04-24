@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Minne'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Generer og rediger bilder med KI'
+    controls:
+        title: 'Kontroller'
+        generate: 'Generer'
+        generating: 'Genererer…'
+        no_models: 'Ingen bildediffusjonsmodeller er tilgjengelige på gatewayen din akkurat nå.'
+        load_failed: 'Kunne ikke laste modeller'
+        invalid_params: 'Ugyldige parametre'
+    canvas:
+        placeholder: 'Genererte bilder vises her.'
+        busy: 'Genererer… kan ta opptil ett minutt.'
+        busy_short: 'Genererer…'
+        no_images: 'Genereringen returnerte ingen bilder.'
+        error_default: 'Genereringen mislyktes'
+        fullscreen: 'Fullskjerm'
+        download: 'Last ned'
+        seed: 'seed'
+        balance: 'saldo'
+        use_as_input: 'Bruk som inndata'
+        use_as_input_title: 'Bruk dette bildet som referanseinndata'
+        reuse_params: 'Gjenbruk parametre'
+        reuse_params_title: 'Gjenbruk disse parametrene: velg samme modell og fyll ut skjemaet'
+        params_used: 'Brukte genereringsparametre'
+    history:
+        title: 'Historikk'
+        refresh: 'Oppdater'
+        loading: 'Laster…'
+        load_failed: 'Lasting mislyktes'
+        empty: 'Ingen genereringer ennå.'
+        no_prompt: '(ingen prompt)'
+        delete: 'Slett fra historikk'
+        delete_confirm: 'Slette denne genereringen og bildefilen fra Filutforskeren? Dette kan ikke angres.'
+        delete_success: 'Historikkelement slettet'
+        delete_failed: 'Sletting mislyktes'
+        credits_tooltip: 'Kreditter'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Inndata'
+            dimensions: 'Dimensjoner'
+            output: 'Utdata'
+            advanced: 'Avansert'
+        no_params: 'Denne modellen har ingen konfigurerbare parametre.'
+        on: 'på'
+        off: 'av'
+        image_placeholder: 'Bilde-URL, data URI, eller klikk +'
+        image_array_placeholder: 'Én bilde-URL / UUID / data URI / cqfile://… per linje'
+        pick_file: 'Velg fra Filutforsker'
+        add_image: 'Legg til bilde'
+        select_image_file: 'Vennligst velg en bildefil.'
+        required_suffix: 'er påkrevd'
+    toasts:
+        generated: 'Genererte {count} bilder — {cost} kreditter'
+        use_as_input_ok: 'Bilde lagt til som referanseinndata.'
+        use_as_input_no_field: 'Gjeldende modell har ingen bildefelt å legge til i.'
+        use_as_input_no_file: 'Det finnes ennå ingen egen prosjektfil for dette bildet.'
+        use_as_input_no_model: 'Velg en modell først.'
+        reuse_ok: 'Parametre lastet — juster og generer.'
+
 settings:
     page_title: 'Brukerinnstillinger'
     nav:

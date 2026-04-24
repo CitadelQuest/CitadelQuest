@@ -140,7 +140,8 @@ class AIToolFileService
      * - Directory operations: createDirectory, list, tree
      * 
      * Simplified flat parameters for better LLM compatibility:
-     * - sourcePath, sourceName: for copy, read, rename_move, delete, list, tree
+     * - sourcePath, sourceName: for copy, read, rename_move, delete, list, 
+     * tree - disablet, too much content
      * - destPath, destName: for create, copy, rename_move, createDirectory
      * - content: for create operation
      * - withLineNumbers: for read operation
@@ -168,8 +169,8 @@ class AIToolFileService
                 case 'list':
                     return $this->handleListFiles($projectId, $path, $arguments);
                     
-                case 'tree':
-                    return $this->handleGetProjectTree($projectId, $arguments);
+                //case 'tree':
+                //    return $this->handleGetProjectTree($projectId, $arguments);
                     
                 case 'read':
                     return $this->handleReadFile($projectId, $path, $name, $arguments);
@@ -181,7 +182,7 @@ class AIToolFileService
                     return $this->handleFileOperations($projectId, $operation, $arguments);
                     
                 default:
-                    throw new \InvalidArgumentException('Invalid operation: ' . $operation . '. Supported: create, copy, rename_move, delete, createDirectory, list, tree, read');
+                    throw new \InvalidArgumentException('Invalid operation: ' . $operation . '. Supported: create, copy, rename_move, delete, createDirectory, list, read');
             }
 
         } catch (\Exception $e) {

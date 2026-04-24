@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Memory'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Generate and edit images with AI'
+    controls:
+        title: 'Controls'
+        generate: 'Generate'
+        generating: 'Generating…'
+        no_models: 'No image-diffusion models are currently available on your gateway.'
+        load_failed: 'Failed to load models'
+        invalid_params: 'Invalid params'
+    canvas:
+        placeholder: 'Generated images will appear here.'
+        busy: 'Generating… this may take up to a minute.'
+        busy_short: 'Generating…'
+        no_images: 'Generation returned no images.'
+        error_default: 'Generation failed'
+        fullscreen: 'Fullscreen'
+        download: 'Download'
+        seed: 'seed'
+        balance: 'balance'
+        use_as_input: 'Use as input'
+        use_as_input_title: 'Use this image as reference input'
+        reuse_params: 'Re-Use Params'
+        reuse_params_title: 'Re-use these params: select the same model and fill the form'
+        params_used: 'Generation params used'
+    history:
+        title: 'History'
+        refresh: 'Refresh'
+        loading: 'Loading…'
+        load_failed: 'Failed to load'
+        empty: 'No generations yet.'
+        no_prompt: '(no prompt)'
+        delete: 'Delete from history'
+        delete_confirm: 'Delete this generation and its image file from your File Browser? This cannot be undone.'
+        delete_success: 'History item deleted'
+        delete_failed: 'Delete failed'
+        credits_tooltip: 'Credits'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Input'
+            dimensions: 'Dimensions'
+            output: 'Output'
+            advanced: 'Advanced'
+        no_params: 'This model has no configurable parameters.'
+        on: 'on'
+        off: 'off'
+        image_placeholder: 'Image URL, data URI, or click +'
+        image_array_placeholder: 'One image URL / UUID / data URI / cqfile://… per line'
+        pick_file: 'Pick from File Browser'
+        add_image: 'Add image'
+        select_image_file: 'Please select an image file.'
+        required_suffix: 'is required'
+    toasts:
+        generated: 'Generated {count} image(s) — {cost} credits'
+        use_as_input_ok: 'Image added as reference input.'
+        use_as_input_no_field: 'Current model has no image input field to append to.'
+        use_as_input_no_file: 'No owned project file for this image yet.'
+        use_as_input_no_model: 'Select a model first.'
+        reuse_ok: 'Params loaded — tweak and Generate.'
+
 settings:
     page_title: 'User Settings'
     nav:

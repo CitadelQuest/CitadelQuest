@@ -1,0 +1,148 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'cq_imager.page_title'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('cq-imager') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+
+    {#
+       Translations for the CQ Imager JS components. Same pattern as
+       CQ Memory Explorer: we attach a tree to `window.cqImagerTranslations`,
+       and each component reads it via a tiny `_t('path', 'fallback')` helper.
+    #}
+    <script>
+        window.cqImagerTranslations = {
+            app_name: '{{ 'cq_imager.page_title'|trans|e('js') }}',
+            controls: {
+                title:          '{{ 'cq_imager.controls.title'|trans|e('js') }}',
+                generate:       '{{ 'cq_imager.controls.generate'|trans|e('js') }}',
+                generating:     '{{ 'cq_imager.controls.generating'|trans|e('js') }}',
+                no_models:      '{{ 'cq_imager.controls.no_models'|trans|e('js') }}',
+                load_failed:    '{{ 'cq_imager.controls.load_failed'|trans|e('js') }}',
+                invalid_params: '{{ 'cq_imager.controls.invalid_params'|trans|e('js') }}'
+            },
+            canvas: {
+                placeholder:        '{{ 'cq_imager.canvas.placeholder'|trans|e('js') }}',
+                busy:               '{{ 'cq_imager.canvas.busy'|trans|e('js') }}',
+                busy_short:         '{{ 'cq_imager.canvas.busy_short'|trans|e('js') }}',
+                no_images:          '{{ 'cq_imager.canvas.no_images'|trans|e('js') }}',
+                error_default:      '{{ 'cq_imager.canvas.error_default'|trans|e('js') }}',
+                fullscreen:         '{{ 'cq_imager.canvas.fullscreen'|trans|e('js') }}',
+                download:           '{{ 'cq_imager.canvas.download'|trans|e('js') }}',
+                seed:               '{{ 'cq_imager.canvas.seed'|trans|e('js') }}',
+                balance:            '{{ 'cq_imager.canvas.balance'|trans|e('js') }}',
+                use_as_input:       '{{ 'cq_imager.canvas.use_as_input'|trans|e('js') }}',
+                use_as_input_title: '{{ 'cq_imager.canvas.use_as_input_title'|trans|e('js') }}',
+                reuse_params:       '{{ 'cq_imager.canvas.reuse_params'|trans|e('js') }}',
+                reuse_params_title: '{{ 'cq_imager.canvas.reuse_params_title'|trans|e('js') }}',
+                params_used:        '{{ 'cq_imager.canvas.params_used'|trans|e('js') }}'
+            },
+            history: {
+                title:            '{{ 'cq_imager.history.title'|trans|e('js') }}',
+                refresh:          '{{ 'cq_imager.history.refresh'|trans|e('js') }}',
+                loading:          '{{ 'cq_imager.history.loading'|trans|e('js') }}',
+                load_failed:      '{{ 'cq_imager.history.load_failed'|trans|e('js') }}',
+                empty:            '{{ 'cq_imager.history.empty'|trans|e('js') }}',
+                no_prompt:        '{{ 'cq_imager.history.no_prompt'|trans|e('js') }}',
+                delete:           '{{ 'cq_imager.history.delete'|trans|e('js') }}',
+                delete_confirm:   '{{ 'cq_imager.history.delete_confirm'|trans|e('js') }}',
+                delete_success:   '{{ 'cq_imager.history.delete_success'|trans|e('js') }}',
+                delete_failed:    '{{ 'cq_imager.history.delete_failed'|trans|e('js') }}',
+                credits_tooltip:  '{{ 'cq_imager.history.credits_tooltip'|trans|e('js') }}'
+            },
+            form: {
+                groups: {
+                    prompt:     '{{ 'cq_imager.form.groups.prompt'|trans|e('js') }}',
+                    input:      '{{ 'cq_imager.form.groups.input'|trans|e('js') }}',
+                    dimensions: '{{ 'cq_imager.form.groups.dimensions'|trans|e('js') }}',
+                    output:     '{{ 'cq_imager.form.groups.output'|trans|e('js') }}',
+                    advanced:   '{{ 'cq_imager.form.groups.advanced'|trans|e('js') }}'
+                },
+                no_params:               '{{ 'cq_imager.form.no_params'|trans|e('js') }}',
+                on:                      '{{ 'cq_imager.form.on'|trans|e('js') }}',
+                off:                     '{{ 'cq_imager.form.off'|trans|e('js') }}',
+                image_placeholder:       '{{ 'cq_imager.form.image_placeholder'|trans|e('js') }}',
+                image_array_placeholder: '{{ 'cq_imager.form.image_array_placeholder'|trans|e('js') }}',
+                pick_file:               '{{ 'cq_imager.form.pick_file'|trans|e('js') }}',
+                add_image:               '{{ 'cq_imager.form.add_image'|trans|e('js') }}',
+                select_image_file:       '{{ 'cq_imager.form.select_image_file'|trans|e('js') }}',
+                required_suffix:         '{{ 'cq_imager.form.required_suffix'|trans|e('js') }}'
+            },
+            toasts: {
+                generated:             '{{ 'cq_imager.toasts.generated'|trans|e('js') }}',
+                use_as_input_ok:       '{{ 'cq_imager.toasts.use_as_input_ok'|trans|e('js') }}',
+                use_as_input_no_field: '{{ 'cq_imager.toasts.use_as_input_no_field'|trans|e('js') }}',
+                use_as_input_no_file:  '{{ 'cq_imager.toasts.use_as_input_no_file'|trans|e('js') }}',
+                use_as_input_no_model: '{{ 'cq_imager.toasts.use_as_input_no_model'|trans|e('js') }}',
+                reuse_ok:              '{{ 'cq_imager.toasts.reuse_ok'|trans|e('js') }}'
+            }
+        };
+    </script>
+
+    {{ encore_entry_script_tags('cq-imager') }}
+{% endblock %}
+
+{#
+    CQ Imager — 3-column GUI shell.
+
+    Bootstraps the `cq-imager` entry point, which hydrates the three
+    panels (Controls | Canvas | History) around /api/imager/*.
+
+    @see /docs/features/CQ-IMAGER.md
+#}
+
+{% block body %}
+<div class="container-fluid cq-imager-page">
+    {% if preselectedModel %}
+        <input type="hidden" id="cq-imager-preselected-model" value="{{ preselectedModel }}">
+    {% endif %}
+    {% if preselectedDir %}
+        <input type="hidden" id="cq-imager-preselected-dir" value="{{ preselectedDir }}">
+    {% endif %}
+    <input type="hidden" id="cq-imager-project-id" value="{{ preselectedProjectId }}">
+
+    {# <div class="glass-panel mb-2">
+        <div class="d-flex justify-content-between align-items-center p-2">
+            <div class="d-flex align-items-center">
+                <a href="{{ path('app_dashboard') }}" class="link-secondary me-3">
+                    <i class="mdi mdi-arrow-left"></i>
+                </a>
+                <div class="mb-0">
+                    <i class="mdi mdi-image-multiple-outline text-cyber me-2"></i>
+                    <span class="d-none d-md-inline">{{ 'cq_imager.page_title'|trans }}</span>
+                </div>
+            </div>
+        </div>
+    </div> #}
+
+    <div class="row g-2 cq-imager-shell">
+        {# Left: Controls — hydrated by ImagerControlPanel #}
+        <div class="col-12 col-sm-3 col-md-3">
+            <div class="glass-panel p-3 pt-2" id="cq-imager-controls">
+                <div class="text-center text-muted small py-4">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            </div>
+        </div>
+
+        {# Center: Canvas — hydrated by ImagerCanvas #}
+        <div class="col-12 col-sm-7 col-md-6">
+            <div class="glass-panel p-3 h-100" id="cq-imager-canvas"></div>
+        </div>
+
+        {# Right: History — hydrated by ImagerHistoryPanel #}
+        <div class="col-12 col-sm-2 col-md-3">
+            <div class="glass-panel p-3 pt-2 h-100" id="cq-imager-history">
+                <div class="text-center text-muted small py-4">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

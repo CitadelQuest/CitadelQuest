@@ -27,7 +27,8 @@ class AIToolCallService
         private readonly AIToolWebService $aiToolWebService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly AIToolProfileService $aiToolProfileService,
-        private readonly AIToolGitService $aiToolGitService
+        private readonly AIToolGitService $aiToolGitService,
+        private readonly AIToolCommandService $aiToolCommandService
     ) {
     }
     
@@ -87,6 +88,11 @@ class AIToolCallService
             // For git tools, delegate to AIToolGitService
             if (in_array($toolName, ['gitOperation', 'gitSetCredentials'])) {
                 return $this->aiToolGitService->{$toolName}($arguments);
+            }
+
+            // For shell command tool, delegate to AIToolCommandService
+            if ($toolName === 'runCommand') {
+                return $this->aiToolCommandService->runCommand($arguments);
             }
 
             // createSepaEuroPaymentQrCode

@@ -619,6 +619,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Pamäť'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Generujte a upravujte obrázky pomocou AI'
+    controls:
+        title: 'Ovládanie'
+        generate: 'Generovať'
+        generating: 'Generujem…'
+        no_models: 'Na vašej bráne nie sú momentálne dostupné žiadne modely pre difúziu obrázkov.'
+        load_failed: 'Nepodarilo sa načítať modely'
+        invalid_params: 'Neplatné parametre'
+    canvas:
+        placeholder: 'Vygenerované obrázky sa zobrazia tu.'
+        busy: 'Generujem… môže to trvať až minútu.'
+        busy_short: 'Generujem…'
+        no_images: 'Generovanie nevrátilo žiadne obrázky.'
+        error_default: 'Generovanie zlyhalo'
+        fullscreen: 'Celá obrazovka'
+        download: 'Stiahnuť'
+        seed: 'seed'
+        balance: 'zostatok'
+        use_as_input: 'Použiť ako vstup'
+        use_as_input_title: 'Použiť tento obrázok ako referenčný vstup'
+        reuse_params: 'Znova použiť parametre'
+        reuse_params_title: 'Znova použiť tieto parametre: vybrať ten istý model a vyplniť formulár'
+        params_used: 'Použité parametre generovania'
+    history:
+        title: 'História'
+        refresh: 'Obnoviť'
+        loading: 'Načítavam…'
+        load_failed: 'Načítanie zlyhalo'
+        empty: 'Zatiaľ žiadne generovania.'
+        no_prompt: '(bez promptu)'
+        delete: 'Odstrániť z histórie'
+        delete_confirm: 'Odstrániť toto generovanie a jeho obrázok zo Správcu súborov? Toto nie je možné vrátiť späť.'
+        delete_success: 'Položka histórie bola odstránená'
+        delete_failed: 'Odstránenie zlyhalo'
+        credits_tooltip: 'Kredity'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Vstup'
+            dimensions: 'Rozmery'
+            output: 'Výstup'
+            advanced: 'Pokročilé'
+        no_params: 'Tento model nemá žiadne konfigurovateľné parametre.'
+        on: 'zap'
+        off: 'vyp'
+        image_placeholder: 'URL obrázka, data URI, alebo kliknite na +'
+        image_array_placeholder: 'Jeden URL obrázka / UUID / data URI / cqfile://… na riadok'
+        pick_file: 'Vybrať zo Správcu súborov'
+        add_image: 'Pridať obrázok'
+        select_image_file: 'Prosím, vyberte obrázkový súbor.'
+        required_suffix: 'je povinné'
+    toasts:
+        generated: 'Vygenerovaných {count} obrázkov — {cost} kreditov'
+        use_as_input_ok: 'Obrázok pridaný ako referenčný vstup.'
+        use_as_input_no_field: 'Aktuálny model nemá pole pre obrázok, do ktorého by sa dalo pridať.'
+        use_as_input_no_file: 'Pre tento obrázok zatiaľ nie je vlastný súbor v projekte.'
+        use_as_input_no_model: 'Najprv vyberte model.'
+        reuse_ok: 'Parametre načítané — uprav a generuj.'
+
 settings:
     page_title: 'Nastavenia'
     nav:

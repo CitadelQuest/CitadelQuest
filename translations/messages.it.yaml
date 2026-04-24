@@ -627,6 +627,67 @@ dashboard:
 cq_memory:
     page_title: 'CQ Memoria'
 
+cq_imager:
+    page_title: 'CQ Imager'
+    description: 'Genera e modifica immagini con IA'
+    controls:
+        title: 'Controlli'
+        generate: 'Genera'
+        generating: 'Generazione…'
+        no_models: 'Al momento non ci sono modelli di diffusione di immagini disponibili nel tuo gateway.'
+        load_failed: 'Impossibile caricare i modelli'
+        invalid_params: 'Parametri non validi'
+    canvas:
+        placeholder: 'Le immagini generate appariranno qui.'
+        busy: 'Generazione in corso… può richiedere fino a un minuto.'
+        busy_short: 'Generazione…'
+        no_images: 'La generazione non ha restituito immagini.'
+        error_default: 'Generazione fallita'
+        fullscreen: 'Schermo intero'
+        download: 'Scarica'
+        seed: 'seed'
+        balance: 'saldo'
+        use_as_input: 'Usa come input'
+        use_as_input_title: 'Usa questa immagine come input di riferimento'
+        reuse_params: 'Riutilizza parametri'
+        reuse_params_title: 'Riutilizza questi parametri: seleziona lo stesso modello e compila il modulo'
+        params_used: 'Parametri di generazione usati'
+    history:
+        title: 'Cronologia'
+        refresh: 'Aggiorna'
+        loading: 'Caricamento…'
+        load_failed: 'Caricamento fallito'
+        empty: 'Ancora nessuna generazione.'
+        no_prompt: '(nessun prompt)'
+        delete: 'Rimuovi dalla cronologia'
+        delete_confirm: 'Rimuovere questa generazione e il suo file immagine dal Gestore file? Questa azione non può essere annullata.'
+        delete_success: 'Voce della cronologia rimossa'
+        delete_failed: 'Rimozione fallita'
+        credits_tooltip: 'Crediti'
+    form:
+        groups:
+            prompt: 'Prompt'
+            input: 'Input'
+            dimensions: 'Dimensioni'
+            output: 'Output'
+            advanced: 'Avanzato'
+        no_params: 'Questo modello non ha parametri configurabili.'
+        on: 'sì'
+        off: 'no'
+        image_placeholder: 'URL immagine, data URI, o clic su +'
+        image_array_placeholder: 'Un URL immagine / UUID / data URI / cqfile://… per riga'
+        pick_file: 'Scegli dal Gestore file'
+        add_image: 'Aggiungi immagine'
+        select_image_file: 'Seleziona un file immagine.'
+        required_suffix: 'è obbligatorio'
+    toasts:
+        generated: 'Generate {count} immagini — {cost} crediti'
+        use_as_input_ok: 'Immagine aggiunta come input di riferimento.'
+        use_as_input_no_field: 'Il modello attuale non ha un campo immagine a cui aggiungere.'
+        use_as_input_no_file: 'Per questa immagine non esiste ancora un file proprio nel progetto.'
+        use_as_input_no_model: 'Seleziona prima un modello.'
+        reuse_ok: 'Parametri caricati — modifica e genera.'
+
 settings:
     page_title: 'Impostazioni utente'
     nav:
