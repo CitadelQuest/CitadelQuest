@@ -33,10 +33,10 @@ class AIToolFileService
      */
     public function fileUpdate(array $arguments): array
     {
-        $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
-        $this->validateSpiritAccess($arguments);
-        
         try {
+            $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
+            $this->validateSpiritAccess($arguments);
+
             $file = $this->projectFileService->findByPathAndName(
                 $arguments['projectId'],
                 $arguments['path'],
@@ -46,7 +46,8 @@ class AIToolFileService
             if (!$file) {
                 return [
                     'success' => false,
-                    'error' => 'File not found'
+                    'error' => 'File not found',
+                    '_frontendData' => $this->buildUpdateErrorFrontendData($arguments, 'File not found')
                 ];
             }
             
@@ -88,12 +89,14 @@ class AIToolFileService
             return [
                 'success' => true,
                 'file' => $updatedFile->jsonSerialize(),
-                'operations_applied' => count($updates)
+                'operations_applied' => count($updates),
+                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates)
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                '_frontendData' => $this->buildUpdateErrorFrontendData($arguments, $e->getMessage())
             ];
         }
     }
@@ -116,14 +119,16 @@ class AIToolFileService
                     'success' => true,
                     'files' => [],
                     'count' => 0,
-                    'message' => 'No files found matching "' . $arguments['query'] . '"'
+                    'message' => 'No files found matching "' . $arguments['query'] . '"',
+                    '_frontendData' => $this->buildSearchFrontendData($arguments['query'], [])
                 ];
             }
             
             return [
                 'success' => true,
                 'files' => array_map(fn($f) => $f->jsonSerialize(), $files),
-                'count' => count($files)
+                'count' => count($files),
+                '_frontendData' => $this->buildSearchFrontendData($arguments['query'], $files)
             ];
         } catch (\Exception $e) {
             return [
@@ -186,10 +191,19 @@ class AIToolFileService
             }
 
         } catch (\Exception $e) {
+            $opName = $arguments['operation'] ?? 'unknown';
+            $sourceDisplay = isset($arguments['sourcePath']) && isset($arguments['sourceName'])
+                ? rtrim($arguments['sourcePath'], '/') . '/' . $arguments['sourceName']
+                : null;
+            $destDisplay = isset($arguments['destPath']) && isset($arguments['destName'])
+                ? rtrim($arguments['destPath'], '/') . '/' . $arguments['destName']
+                : null;
+            $target = $destDisplay ?? $sourceDisplay ?? '';
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                'operation' => $arguments['operation'] ?? 'unknown'
+                'operation' => $opName,
+                '_frontendData' => $this->buildManageErrorFrontendData($opName, $target, $e->getMessage())
             ];
         }
     }
@@ -207,10 +221,15 @@ class AIToolFileService
             return [
                 'success' => true,
                 'operation' => 'createDirectory',
-                'directory' => $directory->jsonSerialize()
+                'directory' => $directory->jsonSerialize(),
+                '_frontendData' => $this->buildDirectoryFrontendData($path, $name)
             ];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                '_frontendData' => $this->buildManageErrorFrontendData('createDirectory', rtrim($path, '/') . '/' . $name, $e->getMessage())
+            ];
         }
     }
     
@@ -228,10 +247,15 @@ class AIToolFileService
                 'success' => true,
                 'operation' => 'list',
                 'path' => $path,
-                'files' => array_map(fn($file) => $file->jsonSerialize(), $files)
+                'files' => array_map(fn($file) => $file->jsonSerialize(), $files),
+                '_frontendData' => $this->buildListFrontendData($path, $files)
             ];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                '_frontendData' => $this->buildManageErrorFrontendData('list', $path, $e->getMessage())
+            ];
         }
     }
     
@@ -269,12 +293,21 @@ class AIToolFileService
                 $file = $this->projectFileService->findById($arguments['fileId']);
             }
             
+            $fileDisplay = rtrim($path, '/') . '/' . $name;
             if (!$file) {
-                return ['success' => false, 'error' => 'File not found'];
+                return [
+                    'success' => false,
+                    'error' => 'File not found',
+                    '_frontendData' => $this->buildManageErrorFrontendData('read', $fileDisplay, 'File not found')
+                ];
             }
             
             if ($file->isDirectory()) {
-                return ['success' => false, 'error' => 'Cannot get content of a directory'];
+                return [
+                    'success' => false,
+                    'error' => 'Cannot get content of a directory',
+                    '_frontendData' => $this->buildManageErrorFrontendData('read', $fileDisplay, 'Cannot get content of a directory')
+                ];
             }
             
             $withLineNumbers = $arguments['withLineNumbers'] ?? false;
@@ -319,7 +352,11 @@ class AIToolFileService
                 '_frontendData' => $contentFrontendData
             ];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                '_frontendData' => $this->buildManageErrorFrontendData('read', rtrim($path, '/') . '/' . $name, $e->getMessage())
+            ];
         }
     }
     
@@ -328,7 +365,24 @@ class AIToolFileService
      */
     private function buildContentFrontendData($file, string $content, bool $usedAnnotations, string $projectId): string
     {
-        $contentFrontendData = '<pre>' . htmlspecialchars($content) . '</pre>';
+        $headerName = htmlspecialchars($file->getName());
+        $headerPath = htmlspecialchars($file->getPath());
+        $mimeType = htmlspecialchars($file->getMimeType() ?? 'application/octet-stream');
+        $size = is_string($content) ? mb_strlen($content) : 0;
+
+        $header = <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2 mb-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-document-outline text-cyber me-2"></i>
+        <strong>File read</strong>
+        <span class="ms-2 text-muted">$size chars</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code></div>
+    <div class="small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$mimeType</div>
+</div>
+HTML;
+
+        $contentFrontendData = $header . '<pre>' . htmlspecialchars($content) . '</pre>';
         
         // Image data
         if (strpos($file->getMimeType(), 'image/') === 0) {
@@ -363,6 +417,378 @@ class AIToolFileService
         return $contentFrontendData;
     }
     
+    /**
+     * Build frontend data for fileSearch results
+     */
+    private function buildSearchFrontendData(string $query, array $files): string
+    {
+        $displayQuery = htmlspecialchars($query);
+        $count = count($files);
+
+        if ($count === 0) {
+            return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-search text-cyber me-2"></i>
+        <strong>fileSearch</strong>
+        <span class="ms-2 text-muted"><i class="mdi mdi-information-outline me-1"></i>No matches</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
+</div>
+HTML;
+        }
+
+        $items = '';
+        $shown = array_slice($files, 0, 8);
+        foreach ($shown as $f) {
+            $name = htmlspecialchars($f->getName());
+            $path = htmlspecialchars($f->getPath());
+            $icon = $f->isDirectory() ? 'mdi-folder-outline' : 'mdi-file-outline';
+            $items .= "<div class='small text-muted'><i class='mdi $icon me-1'></i><code>$path/$name</code></div>";
+        }
+        $more = $count > 8 ? '<div class="small text-muted mt-1">… and ' . ($count - 8) . ' more</div>' : '';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-search text-cyber me-2"></i>
+        <strong>fileSearch</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>$count match(es)</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
+    <div class="mt-2">$items$more</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for fileUpdate results
+     */
+    private function buildUpdateFrontendData($file, array $updates): string
+    {
+        $name = htmlspecialchars($file->getName());
+        $path = htmlspecialchars($file->getPath());
+        $count = count($updates);
+
+        $details = [];
+        foreach ($updates as $u) {
+            $op = $u['operation'] ?? 'unknown';
+            switch ($op) {
+                case 'replace':
+                    $findLen = isset($u['find']) ? mb_strlen((string) $u['find']) : 0;
+                    $replLen = isset($u['replace']) ? mb_strlen((string) $u['replace']) : 0;
+                    $summary = "<i class='mdi mdi-find-replace me-1'></i><strong>replace</strong> <span class='text-warning'>-{$findLen}</span> <span class='text-success'>+{$replLen}</span> chars";
+                    $body = $this->renderDiffBlock(
+                        $u['find'] ?? '',
+                        $u['replace'] ?? ''
+                    );
+                    $details[] = $this->renderCollapsible($summary, $body);
+                    break;
+                case 'lineRange':
+                    $sl = $u['startLine'] ?? '?';
+                    $el = $u['endLine'] ?? '?';
+                    $newLen = isset($u['content']) ? mb_strlen((string) $u['content']) : 0;
+                    $summary = "<i class='mdi mdi-format-line-spacing me-1'></i><strong>lineRange</strong> lines <span class='text-cyber'>{$sl}–{$el}</span> <span class='text-success'>+{$newLen}</span> chars";
+                    $body = $this->renderContentBlock($u['content'] ?? '', 'success', 'mdi-plus-box');
+                    $details[] = $this->renderCollapsible($summary, $body);
+                    break;
+                case 'append':
+                    $len = isset($u['content']) ? mb_strlen((string) $u['content']) : 0;
+                    $summary = "<i class='mdi mdi-arrow-down-bold me-1'></i><strong>append</strong> <span class='text-success'>+{$len}</span> chars";
+                    $body = $this->renderContentBlock($u['content'] ?? '', 'success', 'mdi-plus-box');
+                    $details[] = $this->renderCollapsible($summary, $body);
+                    break;
+                case 'prepend':
+                    $len = isset($u['content']) ? mb_strlen((string) $u['content']) : 0;
+                    $summary = "<i class='mdi mdi-arrow-up-bold me-1'></i><strong>prepend</strong> <span class='text-success'>+{$len}</span> chars";
+                    $body = $this->renderContentBlock($u['content'] ?? '', 'success', 'mdi-plus-box');
+                    $details[] = $this->renderCollapsible($summary, $body);
+                    break;
+                case 'insertAtLine':
+                    $line = $u['line'] ?? '?';
+                    $len = isset($u['content']) ? mb_strlen((string) $u['content']) : 0;
+                    $summary = "<i class='mdi mdi-text-box-plus-outline me-1'></i><strong>insertAtLine</strong> @ line <span class='text-cyber'>$line</span> <span class='text-success'>+{$len}</span> chars";
+                    $body = $this->renderContentBlock($u['content'] ?? '', 'success', 'mdi-plus-box');
+                    $details[] = $this->renderCollapsible($summary, $body);
+                    break;
+                default:
+                    $opEsc = htmlspecialchars($op);
+                    $details[] = "<div class='small text-muted'><i class='mdi mdi-pencil me-1'></i><strong>$opEsc</strong></div>";
+            }
+        }
+        $detailsHtml = implode('', $details);
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-edit-outline text-cyber me-2"></i>
+        <strong>fileUpdate</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>$count op(s) applied</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code></div>
+    <div class="mt-2">$detailsHtml</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for fileUpdate failure
+     */
+    private function buildUpdateErrorFrontendData(array $arguments, string $error): string
+    {
+        $op = htmlspecialchars($arguments['operation'] ?? 'unknown');
+        $path = htmlspecialchars($arguments['path'] ?? '');
+        $name = htmlspecialchars($arguments['name'] ?? '');
+        $fileDisplay = trim($path . '/' . $name, '/');
+        $errorMsg = htmlspecialchars($error);
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-edit-outline text-cyber me-2"></i>
+        <strong>fileUpdate</strong>
+        <span class="ms-2 text-danger"><i class="mdi mdi-alert-circle me-1"></i>Failed</span>
+        <span class="ms-2 text-muted">$op</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$fileDisplay</code></div>
+    <div class="small text-danger mt-1"><i class="mdi mdi-alert-outline me-1"></i>$errorMsg</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for failed fileManage operations
+     */
+    private function buildManageErrorFrontendData(string $operation, string $target, string $error): string
+    {
+        $opEsc = htmlspecialchars($operation);
+        $targetEsc = htmlspecialchars($target);
+        $errorMsg = htmlspecialchars($error);
+
+        $iconMap = [
+            'read'            => 'mdi-file-document-outline',
+            'list'            => 'mdi-folder-open-outline',
+            'createDirectory' => 'mdi-folder-plus',
+            'create'          => 'mdi-file-plus-outline',
+            'copy'            => 'mdi-content-copy',
+            'rename_move'     => 'mdi-file-move-outline',
+            'delete'          => 'mdi-delete-outline',
+        ];
+        $icon = $iconMap[$operation] ?? 'mdi-file-cog-outline';
+
+        $targetLine = $target !== ''
+            ? "<div class='small text-muted mt-1'><i class='mdi mdi-file-outline me-1'></i><code>$targetEsc</code></div>"
+            : '';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi $icon text-cyber me-2"></i>
+        <strong>fileManage</strong>
+        <span class="ms-2 text-danger"><i class="mdi mdi-alert-circle me-1"></i>Failed</span>
+        <span class="ms-2 text-muted">$opEsc</span>
+    </div>
+    $targetLine
+    <div class="small text-danger mt-1"><i class="mdi mdi-alert-outline me-1"></i>$errorMsg</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Render a collapsible row: clickable summary + hidden body that toggles on click.
+     * Uses the same vanilla JS pattern as the PDF preview block already in this service.
+     */
+    private function renderCollapsible(string $summaryHtml, string $bodyHtml): string
+    {
+        return <<<HTML
+<div class="cq-collapsible mt-1">
+    <div class="small text-muted cursor-pointer d-flex align-items-center"
+         onclick="this.querySelector('.cq-chev').classList.toggle('mdi-chevron-down');this.querySelector('.cq-chev').classList.toggle('mdi-chevron-right');this.nextElementSibling.classList.toggle('d-none');">
+        <i class="mdi mdi-chevron-right cq-chev me-1"></i>
+        <span>$summaryHtml</span>
+    </div>
+    <div class="d-none mt-1 ps-3">$bodyHtml</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Render a diff-style block: removed (red) + added (green) content side by side.
+     */
+    private function renderDiffBlock(string $removed, string $added): string
+    {
+        $removedBlock = $removed !== ''
+            ? $this->renderContentBlock($removed, 'danger', 'mdi-minus-box')
+            : '';
+        $addedBlock = $added !== ''
+            ? $this->renderContentBlock($added, 'success', 'mdi-plus-box')
+            : '';
+        return $removedBlock . $addedBlock;
+    }
+
+    /**
+     * Render a single content block with label icon + colored bordered <pre>.
+     * Truncates very long content to keep the UI responsive.
+     */
+    private function renderContentBlock(string $content, string $variant, string $icon): string
+    {
+        $maxChars = 4000;
+        $original = $content;
+        $truncated = false;
+        if (mb_strlen($content) > $maxChars) {
+            $content = mb_substr($content, 0, $maxChars);
+            $truncated = true;
+        }
+        $escaped = htmlspecialchars($content);
+        $note = $truncated
+            ? '<div class="small text-muted mt-1"><i class="mdi mdi-dots-horizontal me-1"></i>truncated, ' . (mb_strlen($original) - $maxChars) . ' more chars</div>'
+            : '';
+
+        // variant: 'success' (green/added), 'danger' (red/removed)
+        $borderClass = $variant === 'danger' ? 'border-danger' : 'border-success';
+        $textClass = $variant === 'danger' ? 'text-danger' : 'text-success';
+
+        return <<<HTML
+<div class="mt-1">
+    <div class="small $textClass mb-1"><i class="mdi $icon me-1"></i></div>
+    <pre class="bg-dark bg-opacity-50 rounded p-2 border-start border-3 $borderClass small mb-1" style="white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto;">$escaped</pre>
+    $note
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for createDirectory
+     */
+    private function buildDirectoryFrontendData(string $path, string $name): string
+    {
+        $displayPath = htmlspecialchars(rtrim($path, '/') . '/' . $name);
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-folder-plus text-cyber me-2"></i>
+        <strong>Directory created</strong>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for list operation
+     */
+    private function buildListFrontendData(string $path, array $files): string
+    {
+        $displayPath = htmlspecialchars($path);
+        $count = count($files);
+
+        $dirs = 0;
+        $regular = 0;
+        foreach ($files as $f) {
+            if ($f->isDirectory()) {
+                $dirs++;
+            } else {
+                $regular++;
+            }
+        }
+
+        $items = '';
+        $shown = array_slice($files, 0, 12);
+        foreach ($shown as $f) {
+            $n = htmlspecialchars($f->getName());
+            $icon = $f->isDirectory() ? 'mdi-folder-outline' : 'mdi-file-outline';
+            $items .= "<div class='small text-muted'><i class='mdi $icon me-1'></i><code>$n</code></div>";
+        }
+        $more = $count > 12 ? '<div class="small text-muted mt-1">… and ' . ($count - 12) . ' more</div>' : '';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-folder-open-outline text-cyber me-2"></i>
+        <strong>list</strong>
+        <span class="ms-2 text-muted">$count item(s)</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
+    <div class="small mt-1">
+        <span class="text-info"><i class="mdi mdi-folder me-1"></i>$dirs dirs</span>
+        <span class="text-success ms-2"><i class="mdi mdi-file me-1"></i>$regular files</span>
+    </div>
+    <div class="mt-2">$items$more</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend data for create/copy/rename_move/delete operations
+     */
+    private function buildFileOperationFrontendData(string $operation, array $params): string
+    {
+        $source = $params['source'] ?? null;
+        $dest = $params['destination'] ?? null;
+
+        $sourceDisplay = $source ? htmlspecialchars(rtrim($source['path'], '/') . '/' . $source['name']) : '';
+        $destDisplay = $dest ? htmlspecialchars(rtrim($dest['path'], '/') . '/' . $dest['name']) : '';
+
+        switch ($operation) {
+            case 'create':
+                $contentLen = isset($params['content']) ? mb_strlen((string) $params['content']) : 0;
+                return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-plus-outline text-cyber me-2"></i>
+        <strong>File created</strong>
+        <span class="ms-2 text-success">+$contentLen chars</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code></div>
+</div>
+HTML;
+
+            case 'copy':
+                return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-content-copy text-cyber me-2"></i>
+        <strong>File copied</strong>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+    <div class="small text-muted"><i class="mdi mdi-arrow-right me-1"></i><code>$destDisplay</code></div>
+</div>
+HTML;
+
+            case 'rename_move':
+                return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-move-outline text-cyber me-2"></i>
+        <strong>File renamed/moved</strong>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+    <div class="small text-muted"><i class="mdi mdi-arrow-right me-1"></i><code>$destDisplay</code></div>
+</div>
+HTML;
+
+            case 'delete':
+                return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-delete-outline text-danger me-2"></i>
+        <strong>File deleted</strong>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+</div>
+HTML;
+
+            default:
+                $opEsc = htmlspecialchars($operation);
+                return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <i class="mdi mdi-file-cog-outline text-cyber me-1"></i><strong>$opEsc</strong>
+</div>
+HTML;
+        }
+    }
+
     /**
      * Handle file operations (create, copy, rename_move, delete)
      */
@@ -428,7 +854,8 @@ class AIToolFileService
         return [
             'success' => true,
             'operation' => $operation,
-            'result' => $result
+            'result' => $result,
+            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params)
         ];
     }
 
