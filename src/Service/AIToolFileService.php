@@ -382,8 +382,15 @@ class AIToolFileService
 </div>
 HTML;
 
-        $contentFrontendData = $header . '<pre>' . htmlspecialchars($content) . '</pre>';
-        
+        // Text content — wrap in a collapsible (chevron toggle) so the
+        // chat feed stays clean, matching the `fileUpdate` operation UI.
+        // Media (image/video/audio) and PDF-with-annotations keep their
+        // existing bespoke display below.
+        $previewBody = '<pre class="bg-dark bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;">'
+            . htmlspecialchars($content) . '</pre>';
+        $previewSummary = "<i class='mdi mdi-text-box-outline me-1'></i><strong>content</strong> <span class='text-muted'>({$size} chars)</span>";
+        $contentFrontendData = $header . $this->renderCollapsible($previewSummary, $previewBody);
+
         // Image data
         if (strpos($file->getMimeType(), 'image/') === 0) {
             $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
