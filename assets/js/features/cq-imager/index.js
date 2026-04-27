@@ -156,7 +156,9 @@ class CQImagerApp {
     _handleReuseParams({ model, params }) {
         if (!this.controls) return;
         if (model) {
-            this.controls.selectModel(model);
+            // skipRestore: re-use values must take precedence over the
+            // localStorage snapshot for that model.
+            this.controls.selectModel(model, { skipRestore: true });
         }
         // selectModel re-creates the DynamicParamsForm synchronously, so
         // paramsForm is ready on the very next line.

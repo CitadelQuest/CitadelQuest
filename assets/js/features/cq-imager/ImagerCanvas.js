@@ -225,7 +225,7 @@ export class ImagerCanvas {
         }
 
         // Long strings: truncate in-line
-        const display = value.length > 200 ? value.slice(0, 200) + '…' : value;
+        const display = value.length > 20000 ? value.slice(0, 20000) + '…' : value;
         return `<span class="text-light">${this._esc(display)}</span>`;
     }
 

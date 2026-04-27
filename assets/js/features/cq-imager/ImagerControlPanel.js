@@ -82,9 +82,27 @@ export class ImagerControlPanel {
         }
     }
 
-    selectModel(airId) {
+    /**
+     * Switch the active model and re-render the dynamic params form.
+     *
+     * Param values for the currently selected model are snapshotted into
+     * localStorage *before* swapping, and the saved snapshot for the
+     * incoming model is restored *after* the new form is built. This way
+     * users can experiment across models without losing their work.
+     *
+     * @param {string} airId
+     * @param {object} [opts]
+     *   - skipRestore: bool — don't auto-restore from localStorage
+     *     (used by "Re-Use Params" so its values aren't clobbered)
+     */
+    selectModel(airId, opts = {}) {
         const m = this.models.find(x => x.id === airId);
         if (!m) return;
+
+        // Snapshot outgoing model's params before re-rendering
+        if (this.selectedModel && this.paramsForm && this.selectedModel.id !== airId) {
+            this._savePersistedParams(this.selectedModel.id, this.paramsForm);
+        }
 
         this.selectedModel = m;
         if (this.$modelSelect && this.$modelSelect.value !== airId) {
@@ -123,7 +141,48 @@ export class ImagerControlPanel {
 
         // Render dynamic form
         this.paramsForm = new DynamicParamsForm(this.$form, m);
+
+        // Restore persisted params for the incoming model (unless caller
+        // intentionally suppresses it — e.g. Re-Use Params would override
+        // these values right after).
+        if (!opts.skipRestore) {
+            this._restorePersistedParams(m.id, this.paramsForm);
+        }
+
         this.$generate.disabled = false;
+    }
+
+    /**
+     * localStorage key for the persisted params snapshot.
+     *
+     * Single GLOBAL key (not per-model) — when the user switches models we
+     * want the prompt / quality / number-of-results / etc. to carry over so
+     * the same prompt can be tried against different models. Keys that don't
+     * exist on the new model are silently skipped by `setValues()`.
+     */
+    static _PERSIST_KEY = 'cq-imager-params';
+
+    _savePersistedParams(_modelId, form) {
+        try {
+            const values = typeof form.getRawValues === 'function'
+                ? form.getRawValues()
+                : (form.collect()?.params || {});
+            localStorage.setItem(
+                ImagerControlPanel._PERSIST_KEY,
+                JSON.stringify(values)
+            );
+        } catch (_) { /* quota / private mode — silently ignore */ }
+    }
+
+    _restorePersistedParams(_modelId, form) {
+        try {
+            const raw = localStorage.getItem(ImagerControlPanel._PERSIST_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (saved && typeof saved === 'object') {
+                form.setValues(saved);
+            }
+        } catch (_) { /* corrupt entry — ignore */ }
     }
 
     async _handleGenerate() {
