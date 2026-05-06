@@ -270,13 +270,21 @@ class AIToolFileService
         try {
             $tree = $this->projectFileService->showProjectTree($projectId, true);
             $text = $this->formatAsciiTree($tree);
+            $counts = $this->countTreeItems($tree);
             return [
-                'success'   => true,
-                'operation' => 'tree',
-                'tree'      => $text,
+                'success'       => true,
+                'operation'     => 'tree',
+                'tree'          => $text,
+                'dirCount'      => $counts['dirs'],
+                'fileCount'     => $counts['files'],
+                '_frontendData' => $this->buildTreeFrontendData($projectId, $text, $counts),
             ];
         } catch (\Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            return [
+                'success'       => false,
+                'error'         => $e->getMessage(),
+                '_frontendData' => $this->buildManageErrorFrontendData('tree', $projectId, $e->getMessage()),
+            ];
         }
     }
 
@@ -377,7 +385,54 @@ class AIToolFileService
         }
         return $bytes . 'B';
     }
-    
+
+    /**
+     * Recursively count directories and files in a tree node.
+     *
+     * @return array{dirs: int, files: int}
+     */
+    private function countTreeItems(array $node): array
+    {
+        $dirs  = 0;
+        $files = 0;
+
+        foreach ($node['children'] ?? [] as $child) {
+            if (($child['type'] ?? '') === 'directory') {
+                $dirs++;
+                $sub = $this->countTreeItems($child);
+                $dirs  += $sub['dirs'];
+                $files += $sub['files'];
+            } else {
+                $files++;
+            }
+        }
+
+        return ['dirs' => $dirs, 'files' => $files];
+    }
+
+    /**
+     * Build frontend HTML card for the tree operation.
+     */
+    private function buildTreeFrontendData(string $projectId, string $text, array $counts): string
+    {
+        $projectEsc = htmlspecialchars($projectId);
+        $dirCount   = $counts['dirs'];
+        $fileCount  = $counts['files'];
+        $treeEsc    = htmlspecialchars($text);
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-file-tree text-cyber me-2"></i>
+        <strong>tree</strong>
+        <span class="ms-2 text-muted">$dirCount dirs, $fileCount files</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$projectEsc</code></div>
+    <pre class="small text-light bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0" style="max-height:300px; overflow-y:auto; line-height:1.4;">$treeEsc</pre>
+</div>
+HTML;
+    }
+
     /**
      * Handle read operation (get file content)
      */
