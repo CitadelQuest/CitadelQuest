@@ -6,6 +6,50 @@ export class SpiritChatApiService {
     constructor() {
         this.baseUrl = '/api/spirit-conversation';
     }
+
+    /**
+     * Parse a fetch Response safely. Handles long-running AI requests where
+     * a reverse proxy (Apache/Cloudflare/Traefik) returns 504/502/408 with
+     * HTML while PHP keeps running and persists the message in the DB.
+     *
+     * Throws a user-friendly Error in those cases instead of leaking
+     * `Unexpected token '<'` from JSON.parse on an HTML body.
+     */
+    async _parseResponse(response, defaultErrorMsg = 'Request failed') {
+        // Gateway / proxy timeout — backend may still be processing
+        if (response.status === 504 || response.status === 502 || response.status === 408) {
+            throw new Error(
+                'AI is still processing your request. Refresh in a moment to see the response.'
+            );
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+
+        if (!response.ok) {
+            if (isJson) {
+                try {
+                    const err = await response.json();
+                    throw new Error(err?.error || defaultErrorMsg);
+                } catch (e) {
+                    if (e instanceof SyntaxError) {
+                        throw new Error(`${defaultErrorMsg} (HTTP ${response.status})`);
+                    }
+                    throw e;
+                }
+            }
+            // Non-JSON error body (HTML error page, plain text, …)
+            throw new Error(`${defaultErrorMsg} (HTTP ${response.status})`);
+        }
+
+        if (!isJson) {
+            throw new Error(
+                'AI is still processing your request. Refresh in a moment to see the response.'
+            );
+        }
+
+        return await response.json();
+    }
     
     /**
      * Get all conversations for a spirit
@@ -172,13 +216,7 @@ export class SpiritChatApiService {
                 credentials: 'include',
                 body: JSON.stringify({ message: messageText })
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error?.error || 'Pre-send failed');
-            }
-            
-            return await response.json();
+            return await this._parseResponse(response, 'Pre-send failed');
         } catch (error) {
             console.error('Error in pre-send:', error);
             throw error;
@@ -200,13 +238,7 @@ export class SpiritChatApiService {
                 },
                 credentials: 'include'
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error?.error || 'Sub-agent recall failed');
-            }
-            
-            return await response.json();
+            return await this._parseResponse(response, 'Sub-agent recall failed');
         } catch (error) {
             console.error('Error in sub-agent recall:', error);
             throw error;
@@ -234,13 +266,7 @@ export class SpiritChatApiService {
                     temperature
                 })
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error?.error || 'Failed to send message');
-            }
-            
-            return await response.json();
+            return await this._parseResponse(response, 'Failed to send message');
         } catch (error) {
             console.error('Error sending message async:', error);
             throw error;
@@ -269,13 +295,7 @@ export class SpiritChatApiService {
                     temperature
                 })
             });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error?.error || 'Failed to execute tools');
-            }
-            
-            return await response.json();
+            return await this._parseResponse(response, 'Failed to execute tools');
         } catch (error) {
             console.error('Error executing tools:', error);
             throw error;

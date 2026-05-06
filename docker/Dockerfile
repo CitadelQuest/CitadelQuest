@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     sqlite3 \
     wget \
     git \
+    gnupg \
+    ca-certificates \
     libsqlite3-dev \
     libpng-dev \
     libjpeg62-turbo-dev \
@@ -22,18 +24,25 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 20.x + npm (NodeSource) — needed for Spirit runCommand (npm install, build, …)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Enable Apache modules
 RUN a2enmod rewrite headers
 
-# Configure PHP for large file uploads (backups up to 1GB)
+# Configure PHP for large file uploads (backups up to 1GB) and long AI requests
 RUN echo "upload_max_filesize = 1024M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 1100M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "memory_limit = 1024M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "max_execution_time = 900" >> /usr/local/etc/php/conf.d/uploads.ini \
-    && echo "max_input_time = 600" >> /usr/local/etc/php/conf.d/uploads.ini
+    && echo "max_input_time = 900" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "default_socket_timeout = 900" >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Set global ServerName to prevent warnings
 RUN echo "ServerName citadelquest.local" >> /etc/apache2/apache2.conf
