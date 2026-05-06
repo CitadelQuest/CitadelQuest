@@ -26,13 +26,18 @@ class AIToolCommandService
     ) {
     }
 
+    private const READ_ONLY_COMMANDS = [
+        'ls', 'cat', 'grep', 'egrep', 'fgrep', 'find', 'head', 'tail',
+        'wc', 'file', 'stat', 'du', 'df', 'echo', 'printf',
+        'which', 'whereis', 'type', 'pwd', 'whoami', 'id',
+        'uname', 'hostname', 'date', 'env', 'printenv',
+    ];
+
     public function runCommand(array $arguments): array
     {
         $projectId = $arguments['projectId'] ?? 'general';
         $command   = $arguments['command']   ?? null;
-        $cwdArg    = $arguments['cwd']       ?? '/';
         $timeout   = isset($arguments['timeout']) ? (int) $arguments['timeout'] : null;
-        $syncFiles = array_key_exists('syncFiles', $arguments) ? (bool) $arguments['syncFiles'] : true;
 
         if (!$command || !is_string($command) || trim($command) === '') {
             return [
@@ -54,18 +59,27 @@ class AIToolCommandService
             @mkdir($projectDir, 0755, true);
         }
 
-        // Resolve cwd relative to project root and validate it stays inside.
-        $cwdResolved = $this->resolveCwd($projectDir, $cwdArg);
-        if ($cwdResolved === null) {
+        // Security: scan command for absolute paths that escape the project root
+        $securityError = $this->validateCommandPaths($command, $projectDir);
+        if ($securityError !== null) {
+            $this->logger->warning('runCommand blocked: absolute path escape attempt', [
+                'projectId' => $projectId,
+                'command' => $command,
+                'reason' => $securityError,
+            ]);
             return [
                 'success' => false,
-                'error' => 'Invalid cwd: must be a path within the project directory'
+                'error' => 'Security blocked: ' . $securityError
             ];
         }
 
+        // Always run in project root — no cwd parameter
+        $cwdResolved = $projectDir;
+
         $result = $this->commandService->runShell($command, $cwdResolved, $timeout);
 
-        // Sync newly created/modified files into ProjectFileService DB
+        // Auto-detect read-only commands to skip file sync
+        $syncFiles = $this->isMutatingCommand($command);
         $syncStats = ['registered' => 0, 'updated' => 0];
         if ($syncFiles && !$result['timedOut']) {
             try {
@@ -78,12 +92,6 @@ class AIToolCommandService
             }
         }
 
-        // Display-friendly cwd (relative to project)
-        $cwdDisplay = '/' . ltrim(str_replace($projectDir, '', $cwdResolved), '/');
-        if ($cwdDisplay === '/') {
-            $cwdDisplay = '/';
-        }
-
         return [
             'success'         => $result['success'],
             'exitCode'        => $result['exitCode'],
@@ -94,61 +102,75 @@ class AIToolCommandService
             'durationMs'      => $result['durationMs'],
             'timedOut'        => $result['timedOut'],
             'command'         => $command,
-            'cwd'             => $cwdDisplay,
+            'cwd'             => '/',
             'projectId'       => $projectId,
             'filesRegistered' => $syncStats['registered'],
             'filesUpdated'    => $syncStats['updated'],
             'error'           => $result['error'] ?? null,
-            '_frontendData'   => $this->buildFrontendData($command, $cwdDisplay, $result),
+            '_frontendData'   => $this->buildFrontendData($command, '/', $result),
         ];
     }
 
     /**
-     * Resolve and safely bound the cwd inside the project directory.
-     * Returns absolute path or null if outside project root.
+     * Scan command for absolute paths and ".." traversal that escape project root.
+     * Returns error message if a violation is found, null if safe.
      */
-    private function resolveCwd(string $projectDir, string $cwdArg): ?string
+    private function validateCommandPaths(string $command, string $projectDir): ?string
     {
-        $cwdArg = trim($cwdArg);
-        if ($cwdArg === '' || $cwdArg === '/') {
-            return $projectDir;
-        }
-
-        // Strip leading slash — cwd is always relative to project root
-        $relative = ltrim($cwdArg, '/');
-        $candidate = $projectDir . '/' . $relative;
-
-        // Ensure directory exists so realpath works; if not, still validate textually
-        $real = is_dir($candidate) ? realpath($candidate) : null;
         $projectReal = realpath($projectDir) ?: $projectDir;
 
-        if ($real !== null) {
-            // Must be inside project root
-            if (!str_starts_with($real . '/', rtrim($projectReal, '/') . '/')) {
-                return null;
-            }
-            return $real;
+        // 1) Block ".." path segments — since cwd is project root, any ".." escapes.
+        //    Matches: "cd ..", "cd ../..", "cat ../file", "ls ../../foo"
+        //    Does NOT match: "..." (ellipsis), "file..txt", "--option" (no dots)
+        if (preg_match('#(?:^|[\s=:\'"`(])\.\.(?:[/\s\'"`;|&)]|$)#', $command)) {
+            return 'Path traversal ".." is not allowed (escapes project root)';
         }
 
-        // Fallback textual check — normalize . and .. and ensure no escape
-        $parts = [];
-        foreach (explode('/', $relative) as $segment) {
-            if ($segment === '' || $segment === '.') {
-                continue;
-            }
-            if ($segment === '..') {
-                if (empty($parts)) {
-                    return null; // escapes project root
+        // 2) Block tilde expansion (~ resolves to user home, outside project)
+        if (preg_match('#(?:^|[\s=:\'"`(])~(?:[/\s\'"`;|&)]|$)#', $command)) {
+            return 'Tilde "~" expansion is not allowed (escapes project root)';
+        }
+
+        // 3) Match absolute paths: /foo/bar, /repo/file.txt, /var/www/...
+        //    Excludes: flags like --path=/foo, env vars like $HOME/path
+        //    Special-case: /dev/null, /dev/stdin, /dev/stdout, /dev/stderr (safe redirects)
+        if (preg_match_all('#(?<![-\w/.])(/[^\s;|&<>`$(){}[\]\'"]+)#', $command, $matches)) {
+            foreach ($matches[1] as $absPath) {
+                // Allow common safe device paths used in shell redirects
+                if (preg_match('#^/dev/(null|stdin|stdout|stderr|tty|zero|random|urandom)$#', $absPath)) {
+                    continue;
                 }
-                array_pop($parts);
-                continue;
-            }
-            $parts[] = $segment;
-        }
-        $normalized = $projectReal . (empty($parts) ? '' : '/' . implode('/', $parts));
 
-        // If it still doesn't exist, use project root as cwd (command may be `mkdir ...`)
-        return is_dir($normalized) ? $normalized : $projectReal;
+                // Resolve the path if it exists
+                $real = file_exists($absPath) ? realpath($absPath) : null;
+                $check = $real ?? $absPath;
+
+                // Must start with project root
+                if (!str_starts_with($check . '/', rtrim($projectReal, '/') . '/')) {
+                    return 'Absolute path "' . $absPath . '" escapes the project directory';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine whether a command is likely to mutate the filesystem.
+     * Returns true for mutating commands (sync needed), false for read-only.
+     */
+    private function isMutatingCommand(string $command): bool
+    {
+        // Extract the base command name from the first segment
+        // Handles: "ls -la", "cd repo && npm install", "git status"
+        $segments = preg_split('/\s*\|\||\s*&&\s*|\s*;\s*|\s*\|\s*/', $command);
+        $firstSegment = trim($segments[0]);
+
+        // Get the first word (command name), stripping path prefixes like /usr/bin/ls
+        $parts = explode(' ', trim($firstSegment));
+        $cmdName = basename($parts[0]);
+
+        return !in_array($cmdName, self::READ_ONLY_COMMANDS, true);
     }
 
     /**
