@@ -339,19 +339,37 @@ class CQMemoryLibraryService
     
     public function findPackFilesInDirectory(string $projectId, string $path, bool $recursive = true): array
     {
+        // Hot path (called every /api/updates poll). Use a single indexed SQL query
+        // returning only matching .cqmpack rows as lightweight arrays — instead of
+        // recursing through every directory and hydrating every file into an entity
+        // (which caused OOM on large project trees, e.g. cloned repos with node_modules).
+        if ($recursive) {
+            $rows = $this->projectFileService->findFilesByExtension(
+                $projectId,
+                CQMemoryPackService::FILE_EXTENSION,
+                $path
+            );
+
+            $packFiles = [];
+            foreach ($rows as $row) {
+                $packFiles[] = [
+                    'path'   => $row['path'],
+                    'name'   => $row['name'],
+                    'fileId' => $row['id'],
+                ];
+            }
+            return $packFiles;
+        }
+
+        // Non-recursive: list this directory only (rare)
         $packFiles = [];
-
-        $files = $this->projectFileService->listFiles($projectId, $path);
-
-        foreach ($files as $file) {
-            if ($file->isDirectory() && $recursive) {
-                $subPath = rtrim($path, '/') . '/' . $file->getName();
-                $packFiles = array_merge($packFiles, $this->findPackFilesInDirectory($projectId, $subPath, true));
-            } elseif (!$file->isDirectory() && pathinfo($file->getName(), PATHINFO_EXTENSION) === CQMemoryPackService::FILE_EXTENSION) {
+        foreach ($this->projectFileService->listFiles($projectId, $path) as $file) {
+            if (!$file->isDirectory()
+                && pathinfo($file->getName(), PATHINFO_EXTENSION) === CQMemoryPackService::FILE_EXTENSION
+            ) {
                 $packFiles[] = ['path' => $path, 'name' => $file->getName(), 'fileId' => $file->getId()];
             }
         }
-
         return $packFiles;
     }
 

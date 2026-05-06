@@ -708,6 +708,46 @@ class ProjectFileService
     }
     
     /**
+     * Find files by extension within a project, optionally scoped to a path prefix.
+     *
+     * Returns lightweight arrays (no entity hydration) — `[ ['id','path','name'], … ]`.
+     * Use this for hot paths (polling, large trees) instead of `listFiles()` +
+     * recursive walks, which hydrate every row into a `ProjectFile` entity.
+     *
+     * @param string      $projectId  Project ID
+     * @param string      $extension  Extension WITHOUT leading dot (e.g. 'cqmpack')
+     * @param string|null $pathPrefix Restrict to this directory and its subdirs
+     *                                (e.g. '/memory'). Null = whole project.
+     * @return array<int, array{id:string, path:string, name:string}>
+     */
+    public function findFilesByExtension(string $projectId, string $extension, ?string $pathPrefix = null): array
+    {
+        $userDb = $this->getUserDb();
+        $extLike = '%.' . $extension;
+
+        if ($pathPrefix === null || $pathPrefix === '' || $pathPrefix === '/') {
+            $rows = $userDb->executeQuery(
+                'SELECT id, path, name FROM project_file
+                 WHERE project_id = ? AND is_directory = 0 AND name LIKE ?
+                 ORDER BY path ASC, name ASC',
+                [$projectId, $extLike]
+            )->fetchAllAssociative();
+        } else {
+            $prefix = '/' . trim($pathPrefix, '/');
+            $prefixLike = $prefix . '/%';
+            $rows = $userDb->executeQuery(
+                'SELECT id, path, name FROM project_file
+                 WHERE project_id = ? AND is_directory = 0 AND name LIKE ?
+                   AND (path = ? OR path LIKE ?)
+                 ORDER BY path ASC, name ASC',
+                [$projectId, $extLike, $prefix, $prefixLike]
+            )->fetchAllAssociative();
+        }
+
+        return $rows;
+    }
+
+    /**
      * Search files by query string matching against path and name
      */
     public function searchFiles(string $projectId, string $query): array
