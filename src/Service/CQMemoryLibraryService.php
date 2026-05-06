@@ -420,39 +420,69 @@ class CQMemoryLibraryService
      */
     public function findLibrariesInDirectory(string $projectId, string $path, bool $recursive = true): array
     {
+        // Hot path (called by memory explorer UI). Use a single indexed SQL query
+        // returning only matching .cqmlib rows as lightweight arrays — instead of
+        // recursing through every directory and hydrating every file into an entity
+        // (same OOM vector as findPackFilesInDirectory before the fix).
+        if ($recursive) {
+            $rows = $this->projectFileService->findFilesByExtension(
+                $projectId,
+                self::FILE_EXTENSION,
+                $path
+            );
+
+            $libraries = [];
+            foreach ($rows as $row) {
+                try {
+                    $library = $this->loadLibrary($projectId, $row['path'], $row['name']);
+                    $libraries[] = [
+                        'path'              => $row['path'],
+                        'name'              => $row['name'],
+                        'displayName'       => $library['name'],
+                        'description'       => $library['description'],
+                        'packCount'         => count($library['packs']),
+                        'totalNodes'        => $library['metadata']['total_nodes'] ?? 0,
+                        'totalRelationships'=> $library['metadata']['total_relationships'] ?? 0,
+                        'updatedAt'         => $library['updated_at'],
+                    ];
+                } catch (\Exception $e) {
+                    $this->logger->warning('Invalid library file', [
+                        'path' => $row['path'],
+                        'name' => $row['name'],
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            return $libraries;
+        }
+
+        // Non-recursive: list this directory only (rare)
         $libraries = [];
-        
-        // Get all files in directory from database
-        $files = $this->projectFileService->listFiles($projectId, $path);
-        
-        foreach ($files as $file) {
-            if ($file->isDirectory() && $recursive) {
-                // Recursively search subdirectories
-                $subPath = rtrim($path, '/') . '/' . $file->getName();
-                $libraries = array_merge($libraries, $this->findLibrariesInDirectory($projectId, $subPath, true));
-            } elseif (!$file->isDirectory() && pathinfo($file->getName(), PATHINFO_EXTENSION) === self::FILE_EXTENSION) {
+        foreach ($this->projectFileService->listFiles($projectId, $path) as $file) {
+            if (!$file->isDirectory()
+                && pathinfo($file->getName(), PATHINFO_EXTENSION) === self::FILE_EXTENSION
+            ) {
                 try {
                     $library = $this->loadLibrary($projectId, $path, $file->getName());
                     $libraries[] = [
-                        'path' => $path,
-                        'name' => $file->getName(),
-                        'displayName' => $library['name'],
-                        'description' => $library['description'],
-                        'packCount' => count($library['packs']),
-                        'totalNodes' => $library['metadata']['total_nodes'] ?? 0,
-                        'totalRelationships' => $library['metadata']['total_relationships'] ?? 0,
-                        'updatedAt' => $library['updated_at']
+                        'path'              => $path,
+                        'name'              => $file->getName(),
+                        'displayName'       => $library['name'],
+                        'description'       => $library['description'],
+                        'packCount'         => count($library['packs']),
+                        'totalNodes'        => $library['metadata']['total_nodes'] ?? 0,
+                        'totalRelationships'=> $library['metadata']['total_relationships'] ?? 0,
+                        'updatedAt'         => $library['updated_at'],
                     ];
                 } catch (\Exception $e) {
                     $this->logger->warning('Invalid library file', [
                         'path' => $path,
                         'name' => $file->getName(),
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
         }
-        
         return $libraries;
     }
     
