@@ -76,7 +76,10 @@ class AIToolCommandService
         // Always run in project root — no cwd parameter
         $cwdResolved = $projectDir;
 
-        $result = $this->commandService->runShell($command, $cwdResolved, $timeout);
+        // Minimal env — strip Symfony/app secrets, keep only what shell tools need
+        $minimalEnv = $this->buildMinimalEnv($projectDir);
+
+        $result = $this->commandService->runShell($command, $cwdResolved, $timeout, $minimalEnv);
 
         // Auto-detect read-only commands to skip file sync
         $syncFiles = $this->isMutatingCommand($command);
@@ -242,10 +245,51 @@ class AIToolCommandService
         return $userDataDir . '/' . $user->getId() . '/p/' . $projectId;
     }
 
+    /**
+     * Build a minimal, isolated environment for the child process.
+     *
+     * Strips Symfony/app secrets (APP_SECRET, DATABASE_URL, OPENROUTER_API_KEY,
+     * STRIPE_*, CQ_AI_GATEWAY_API_KEY, …) by allowlisting only the env vars
+     * shell tools genuinely need. Symfony Process treats `false` values as
+     * "unset this variable", so anything not in the allowlist is removed.
+     *
+     * HOME is pinned to the project directory so tool caches (composer, npm)
+     * stay scoped to the project and visible in the File Browser.
+     */
+    private function buildMinimalEnv(string $projectDir): array
+    {
+        $allowed = [
+            'PATH', 'LANG', 'LANGUAGE', 'LC_ALL', 'LC_CTYPE', 'LC_MESSAGES',
+            'TZ', 'TERM', 'SHELL', 'USER', 'LOGNAME',
+        ];
+
+        $env = [];
+        foreach (($_ENV + $_SERVER) as $key => $value) {
+            if (!is_string($key) || !is_scalar($value)) {
+                continue;
+            }
+            if (in_array($key, $allowed, true)) {
+                $env[$key] = (string) $value;
+            } else {
+                // false → Symfony Process removes the variable from child env
+                $env[$key] = false;
+            }
+        }
+
+        // Pin HOME to project dir — keeps composer/npm caches project-scoped
+        $env['HOME'] = $projectDir;
+
+        // Ensure PATH always set (some shells choke without it)
+        if (!isset($env['PATH']) || $env['PATH'] === false) {
+            $env['PATH'] = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+        }
+
+        return $env;
+    }
+
     private function buildFrontendData(string $command, string $cwd, array $result): string
     {
-        $displayCmd = htmlspecialchars(mb_strimwidth($command, 0, 100, '…'));
-        $displayCwd = htmlspecialchars($cwd);
+        $displayCmd = htmlspecialchars(mb_strimwidth($command, 0, 200, '…'));
         $exitCode = $result['exitCode'];
         $duration = $result['durationMs'];
 
@@ -263,17 +307,79 @@ class AIToolCommandService
             $status = "Failed (exit {$exitCode})";
         }
 
+        $stdoutBlock = $this->buildOutputBlock(
+            'stdout',
+            $result['stdout'] ?? '',
+            $result['stdoutTruncated'] ?? false,
+            'mdi-text-box-outline',
+            'text-info'
+        );
+        $stderrBlock = $this->buildOutputBlock(
+            'stderr',
+            $result['stderr'] ?? '',
+            $result['stderrTruncated'] ?? false,
+            'mdi-alert-outline',
+            'text-warning'
+        );
+
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
-    <div class="d-flex align-items-center">
+    <div class="d-flex align-items-center flex-wrap">
         <i class="mdi mdi-console-line text-cyber me-2"></i>
         <strong>runCommand</strong>
         <span class="ms-2 $color"><i class="mdi $icon me-1"></i>$status</span>
+        <span class="ms-auto small text-muted">{$duration}ms</span>
     </div>
     <div class="small text-muted mt-1">
         <div><i class="mdi mdi-chevron-right me-1"></i><code>$displayCmd</code></div>
-        <div><i class="mdi mdi-folder-outline me-1"></i>$displayCwd <span class="ms-2">{$duration}ms</span></div>
     </div>
+    $stdoutBlock
+    $stderrBlock
+</div>
+HTML;
+    }
+
+    /**
+     * Build a compact preview block for stdout/stderr (first ~10 lines, max ~500 chars).
+     * Returns empty string if there's nothing to show.
+     */
+    private function buildOutputBlock(string $label, string $content, bool $truncated, string $icon, string $colorClass): string
+    {
+        if ($content === '') {
+            return '';
+        }
+
+        $maxChars = 500;
+        $maxLines = 10;
+        $preview = $content;
+
+        // Trim to max lines first
+        $lines = preg_split("/\r\n|\n|\r/", $preview);
+        $lineCutInfo = '';
+        if (count($lines) > $maxLines) {
+            $remaining = count($lines) - $maxLines;
+            $preview = implode("\n", array_slice($lines, 0, $maxLines));
+            $lineCutInfo = " (+{$remaining} more lines)";
+        }
+
+        // Then trim to max chars
+        $charCutInfo = '';
+        if (mb_strlen($preview) > $maxChars) {
+            $preview = mb_substr($preview, 0, $maxChars);
+            $charCutInfo = ' …';
+        }
+
+        $escaped = htmlspecialchars($preview);
+        $truncatedNote = $truncated ? ' <span class="badge bg-secondary">truncated</span>' : '';
+        $cutNote = ($lineCutInfo !== '' || $charCutInfo !== '')
+            ? '<div class="small text-muted fst-italic">' . htmlspecialchars($lineCutInfo . $charCutInfo) . '</div>'
+            : '';
+
+        return <<<HTML
+<div class="mt-2">
+    <div class="small $colorClass mb-1"><i class="mdi $icon me-1"></i>$label$truncatedNote</div>
+    <pre class="bg-black bg-opacity-50 rounded p-2 mb-0 small text-light" style="max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word;">$escaped</pre>
+    $cutNote
 </div>
 HTML;
     }
