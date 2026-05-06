@@ -174,8 +174,8 @@ class AIToolFileService
                 case 'list':
                     return $this->handleListFiles($projectId, $path, $arguments);
                     
-                //case 'tree':
-                //    return $this->handleGetProjectTree($projectId, $arguments);
+                case 'tree':
+                   return $this->handleGetProjectTree($projectId, $arguments);
                     
                 case 'read':
                     return $this->handleReadFile($projectId, $path, $name, $arguments);
@@ -261,21 +261,121 @@ class AIToolFileService
     
     /**
      * Handle tree operation (get project tree)
+     *
+     * Returns a compact human-readable ASCII tree instead of raw JSON —
+     * much smaller token footprint for the AI model to process.
      */
     private function handleGetProjectTree(string $projectId, array $arguments): array
     {
-        // Note: getProjectTree shows full structure, access control is enforced on individual file operations
-        
         try {
             $tree = $this->projectFileService->showProjectTree($projectId, true);
+            $text = $this->formatAsciiTree($tree);
             return [
-                'success' => true,
+                'success'   => true,
                 'operation' => 'tree',
-                'tree' => $tree
+                'tree'      => $text,
             ];
         } catch (\Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Recursively format a project tree node as a compact ASCII tree string.
+     *
+     * Directory-only children are grouped onto single lines (up to ~4 per line)
+     * to keep the output short. Files show name + human-readable size.
+     *
+     * @param int $depth 0 = root, 1 = root's children, 2+ = compact eligible
+     */
+    private function formatAsciiTree(array $node, string $prefix = '', bool $isLast = true, bool $isRoot = true, int $depth = 0): string
+    {
+        $lines = [];
+
+        if ($isRoot) {
+            $lines[] = $node['name'] . ' (project root)';
+        } else {
+            $connector = $isLast ? '└── ' : '├── ';
+            $display   = $node['type'] === 'directory' ? $node['name'] . '/' : $node['name'];
+            if (($node['size'] ?? 0) > 0) {
+                $display .= ' (' . $this->formatSize($node['size']) . ')';
+            }
+            $lines[] = $prefix . $connector . $display;
+        }
+
+        $children = $node['children'] ?? [];
+        if (empty($children)) {
+            return implode("\n", $lines);
+        }
+
+        // Separate directories and files
+        $dirs  = [];
+        $files = [];
+        foreach ($children as $child) {
+            if (($child['type'] ?? '') === 'directory') {
+                $dirs[] = $child;
+            } else {
+                $files[] = $child;
+            }
+        }
+
+        $childPrefix = $isRoot ? '' : ($prefix . ($isLast ? '    ' : '│   '));
+        $nextDepth   = $depth + 1;
+
+        // Depth ≥ 2: compact directory groups. Top levels always expand for readability.
+        if ($depth >= 2) {
+            $groupSize = 4;
+            $dirGroups = array_chunk($dirs, $groupSize);
+            $totalGroups = count($dirGroups);
+            $totalFileItems = count($files);
+
+            foreach ($dirGroups as $gi => $group) {
+                $isLastGroup = ($gi === $totalGroups - 1) && $totalFileItems === 0;
+
+                if (count($group) === 1) {
+                    $lines[] = $this->formatAsciiTree($group[0], $childPrefix, $isLastGroup, false, $nextDepth);
+                } else {
+                    $connector = $isLastGroup ? '└── ' : '├── ';
+                    $names = array_map(fn($d) => $d['name'] . '/', $group);
+                    $lines[] = $childPrefix . $connector . implode(', ', $names);
+                }
+            }
+
+            foreach ($files as $fi => $file) {
+                $isLastFile = ($fi === $totalFileItems - 1);
+                $connector = $isLastFile ? '└── ' : '├── ';
+                $display = $file['name'];
+                if (($file['size'] ?? 0) > 0) {
+                    $display .= ' (' . $this->formatSize($file['size']) . ')';
+                }
+                $lines[] = $childPrefix . $connector . $display;
+            }
+        } else {
+            // Depth 0–1: expand everything individually
+            $allChildren = array_merge($dirs, $files);
+            $totalChildren = count($allChildren);
+
+            foreach ($allChildren as $ci => $child) {
+                $isLastChild = ($ci === $totalChildren - 1);
+                $lines[] = $this->formatAsciiTree($child, $childPrefix, $isLastChild, false, $nextDepth);
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Format a byte size into a human-readable string.
+     */
+    private function formatSize(int $bytes): string
+    {
+        if ($bytes >= 1_000_000) {
+            return round($bytes / 1_000_000, 1) . 'MB';
+        }
+        if ($bytes >= 1_000) {
+            return round($bytes / 1_000, 1) . 'KB';
+        }
+        return $bytes . 'B';
     }
     
     /**
