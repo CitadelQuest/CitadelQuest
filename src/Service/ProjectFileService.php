@@ -789,9 +789,15 @@ class ProjectFileService
     {
         $userDb = $this->getUserDb();
         
-        // Get all files and directories for this project
+        // Get all files and directories for this project.
+        // Exclude vendor trees — they contain thousands of dependency files
+        // that bloat the response (OOM risk) and are never useful in the UI.
         $allItems = $userDb->executeQuery(
-            'SELECT * FROM project_file WHERE project_id = ? ORDER BY path ASC, is_directory DESC, name ASC',
+            'SELECT * FROM project_file
+             WHERE project_id = ?
+               AND path NOT LIKE \'/vendor%\'
+               AND path NOT LIKE \'%/vendor%\'
+             ORDER BY path ASC, is_directory DESC, name ASC',
             [$projectId]
         )->fetchAllAssociative();
         
