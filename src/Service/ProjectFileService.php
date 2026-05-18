@@ -41,6 +41,40 @@ class ProjectFileService
     ];
     
     private const MAX_FILE_SIZE = 209715200; // 200MB
+
+    /**
+     * File extensions (lowercase, without leading dot) that are treated as
+     * plain-text source/config files — previewable & editable in File Browser.
+     * Also used by getFileContent() to return raw text instead of base64.
+     */
+    public const TEXT_EXTENSIONS = [
+        // Generic text & docs
+        'txt', 'md', 'markdown', 'rst', 'log', 'csv', 'tsv', 'tex',
+        // Web markup
+        'html', 'htm', 'xml', 'svg', 'rss', 'atom',
+        // Styles
+        'css', 'scss', 'sass', 'less', 'styl',
+        // Scripts / source code
+        'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'vue', 'svelte',
+        'php', 'phtml', 'twig',
+        'py', 'rb', 'go', 'rs', 'java', 'kt', 'kts', 'swift',
+        'c', 'h', 'cpp', 'hpp', 'cc', 'hh', 'cs', 'm', 'mm',
+        'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+        'sql', 'graphql', 'gql', 'r', 'lua', 'pl', 'pm',
+        // Data / config
+        'json', 'json5', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'cfg',
+        'conf', 'config', 'properties', 'env', 'lock', 'anno',
+        // Dotfile-style extensions (after split('.').pop())
+        'htaccess', 'gitignore', 'gitattributes', 'gitmodules', 'gitkeep',
+        'editorconfig', 'dockerignore', 'npmrc', 'yarnrc', 'nvmrc',
+        'babelrc', 'eslintrc', 'prettierrc', 'browserslistrc',
+        'dev', 'prod', 'test', 'local', 'example', 'sample', 'dist',
+        // Build / project files (used when no extension present)
+        'dockerfile', 'makefile', 'rakefile', 'gemfile', 'procfile',
+        'gradle', 'cmake', 'ninja',
+        // Subtitle / misc plain text
+        'srt', 'vtt', 'ass', 'ssa',
+    ];
     
     /**
      * @var string
@@ -925,20 +959,8 @@ class ProjectFileService
         }
 
         // return content in correct encoding for different formats
-        // txt, json, csv, xml, html, php, js, css, md
-        if ($file->getMimeType() === 'text/plain' || 
-            strpos($file->getMimeType(), 'text/') === 0 || 
-            $file->getMimeType() === 'application/json' ||
-            $file->getMimeType() === 'application/xml' ||
-            $file->getType() === 'txt' || 
-            $file->getType() === 'json' || 
-            $file->getType() === 'csv' || 
-            $file->getType() === 'xml' || 
-            $file->getType() === 'html' || 
-            $file->getType() === 'php' || 
-            $file->getType() === 'js' || 
-            $file->getType() === 'css' || 
-            $file->getType() === 'md') {
+        // text & source/config files (see TEXT_EXTENSIONS for full list)
+        if ($this->isTextFile($file->getName(), $file->getMimeType(), $file->getType())) {
             $content = file_get_contents($filePath);
             
             // Add line numbers if requested
@@ -1770,6 +1792,52 @@ class ProjectFileService
     {
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         return in_array($extension, self::THUMBNAIL_EXTENSIONS);
+    }
+
+    /**
+     * Check if a file should be treated as plain text (previewable & editable).
+     *
+     * Resolution order:
+     *  1. Known text extension (from filename, lowercased; handles `.env.dev`, `.gitignore`, etc.)
+     *  2. Extensionless build files matched by lowercased basename (Dockerfile, Makefile, …)
+     *  3. mime type starts with `text/`
+     *  4. selected `application/*` text-ish mime types (json, xml, yaml, toml, javascript, x-sh, …)
+     */
+    public function isTextFile(string $filename, ?string $mimeType = null, ?string $type = null): bool
+    {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if ($ext !== '' && in_array($ext, self::TEXT_EXTENSIONS, true)) {
+            return true;
+        }
+
+        // Extensionless files (e.g. `Dockerfile`, `Makefile`, `Rakefile`)
+        $base = strtolower($filename);
+        if ($ext === '' && in_array($base, self::TEXT_EXTENSIONS, true)) {
+            return true;
+        }
+
+        // Stored type may already carry the extension (createFile sets it)
+        if ($type !== null && in_array(strtolower($type), self::TEXT_EXTENSIONS, true)) {
+            return true;
+        }
+
+        if ($mimeType === null || $mimeType === '') {
+            return false;
+        }
+
+        if (str_starts_with($mimeType, 'text/')) {
+            return true;
+        }
+
+        $textApplicationMimes = [
+            'application/json', 'application/ld+json', 'application/xml',
+            'application/javascript', 'application/ecmascript',
+            'application/x-yaml', 'application/yaml', 'application/toml',
+            'application/x-sh', 'application/x-shellscript', 'application/x-httpd-php',
+            'application/x-perl', 'application/x-python', 'application/x-ruby',
+            'application/sql', 'application/graphql',
+        ];
+        return in_array($mimeType, $textApplicationMimes, true);
     }
     
     /**

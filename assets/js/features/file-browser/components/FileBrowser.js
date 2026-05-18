@@ -16,6 +16,41 @@ import { formatDate, formatTime } from '../../../shared/date-utils';
  */
 export class FileBrowser {
     /**
+     * Text / source / config file extensions that are previewable & editable.
+     * Mirrors ProjectFileService::TEXT_EXTENSIONS on the backend.
+     * Lowercase, no leading dot. Also matches extensionless basenames
+     * (e.g. `dockerfile`, `makefile`) for dotless files.
+     */
+    static TEXT_EXTENSIONS = new Set([
+        // Generic text & docs
+        'txt', 'md', 'markdown', 'rst', 'log', 'csv', 'tsv', 'tex',
+        // Web markup
+        'html', 'htm', 'xml', 'svg', 'rss', 'atom',
+        // Styles
+        'css', 'scss', 'sass', 'less', 'styl',
+        // Scripts / source code
+        'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'vue', 'svelte',
+        'php', 'phtml', 'twig',
+        'py', 'rb', 'go', 'rs', 'java', 'kt', 'kts', 'swift',
+        'c', 'h', 'cpp', 'hpp', 'cc', 'hh', 'cs', 'm', 'mm',
+        'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+        'sql', 'graphql', 'gql', 'r', 'lua', 'pl', 'pm',
+        // Data / config
+        'json', 'json5', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'cfg',
+        'conf', 'config', 'properties', 'env', 'lock', 'anno',
+        // Dotfile-style extensions (after split('.').pop())
+        'htaccess', 'gitignore', 'gitattributes', 'gitmodules', 'gitkeep',
+        'editorconfig', 'dockerignore', 'npmrc', 'yarnrc', 'nvmrc',
+        'babelrc', 'eslintrc', 'prettierrc', 'browserslistrc',
+        'dev', 'prod', 'test', 'local', 'example', 'sample', 'dist',
+        // Extensionless build/project files (matched as full basename)
+        'dockerfile', 'makefile', 'rakefile', 'gemfile', 'procfile',
+        'gradle', 'cmake', 'ninja',
+        // Subtitle / misc plain text
+        'srt', 'vtt', 'ass', 'ssa',
+    ]);
+
+    /**
      * @param {Object} options - Configuration options
      * @param {string} options.containerId - ID of the container element
      * @param {string} options.projectId - ID of the project
@@ -431,9 +466,13 @@ export class FileBrowser {
      * @param {string} extension - File extension
      * @returns {boolean}
      */
-    isTextFile(extension) {
-        const textExtensions = ['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql', 'sh', 'yml', 'yaml', 'ini', 'conf', 'env', 'htaccess', 'gitignore'];
-        return textExtensions.includes(extension.toLowerCase());
+    isTextFile(extension, fileName = '') {
+        const ext = (extension || '').toLowerCase();
+        if (ext && FileBrowser.TEXT_EXTENSIONS.has(ext)) return true;
+        // Extensionless build/config files (Dockerfile, Makefile, Rakefile, …)
+        const base = (fileName || '').toLowerCase();
+        if (base && FileBrowser.TEXT_EXTENSIONS.has(base)) return true;
+        return false;
     }
     
     /**
@@ -938,7 +977,7 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small ms-1">${this.translations.shared_edit || 'Shared - edit'}</span>
                     </button>` : ''}
-                    ${!isRemote && this.isTextFile(extension) ? `
+                    ${!isRemote && this.isTextFile(extension, file.name) ? `
                     <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small ms-1">${this.translations.edit || 'Edit'}</span>
@@ -964,7 +1003,7 @@ export class FileBrowser {
             `;
         }
         // Text/code files
-        else if (['txt', 'md', 'html', 'css', 'js', 'php', 'py', 'java', 'c', 'cpp', 'h', 'json', 'xml', 'anno', 'sql'].includes(extension)) {
+        else if (this.isTextFile(extension, file.name)) {
             if (extension === 'md' || extension === 'anno') {
                 let md = new MarkdownIt({
                     html: true,  // ← This enables HTML parsing
