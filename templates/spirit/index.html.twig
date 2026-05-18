@@ -57,7 +57,7 @@
                                     <h5 class="mb-0">
                                         <i class="mdi mdi-graph text-cyber me-2"></i>{{ 'spirit.memory.title'|trans }}
                                     </h5>
-                                    <a href="{{ path('cq_memory_explorer', {spirit: spiritId}) }}" class="btn btn-sm btn-outline-cyber" id="btn-open-memory-explorer">
+                                    <a href="{{ path('cq_memory_explorer', {spirit: spiritId}) }}" class="btn btn-sm btn-outline-primary" id="btn-open-memory-explorer">
                                         <i class="mdi mdi-arrow-expand-all me-1"></i>{{ 'spirit.memory.explore'|trans }}
                                     </a>
                                 </div>
@@ -105,7 +105,7 @@
                                 <div class="form-group mb-3">
                                     <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-robot-outline me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
                                     <input type="hidden" id="spirit-ai-model" value="{{ spirit.settings.aiModel ?? '' }}">
-                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
+                                    <button type="button" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
                                         <span id="spirit-ai-model-display">
                                             {% if spirit.settings.aiModel is defined and spirit.settings.aiModel %}
                                                 {% for model in aiModels %}
@@ -123,9 +123,18 @@
                                 </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
-                                    <textarea id="spirit-system-prompt" class="form-control" rows="13" 
-                                        placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}" 
-                                        oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
+                                    <div class="position-relative">
+                                        <textarea id="spirit-system-prompt" class="form-control" rows="13"
+                                            placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}"
+                                            oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
+                                        <button type="button" id="spirit-system-prompt-add-file"
+                                            class="btn btn-sm btn-outline-primary position-absolute"
+                                            style="bottom: 8px; right: 8px;"
+                                            title="{{ 'spirit.settings.add_file_hint'|trans|default('Pick from File Browser — file content will be injected into the system prompt') }}">
+                                            <i class="mdi mdi-file-plus-outline"></i>
+                                            <span class="d-none d-md-inline ms-1">{{ 'spirit.settings.add_file'|trans|default('Add file') }}</span>
+                                        </button>
+                                    </div>
                                     <div class="form-text text-muted p-2">{{ 'spirit.settings.system_prompt_help'|trans|default('Define your Spirit\'s character, personality, and areas of expertise.') }}</div>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center me-2 mt-2">

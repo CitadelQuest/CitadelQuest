@@ -23,13 +23,13 @@
                     {# View mode toggle #}
                     <div class="btn-group mb-4" role="group" aria-label="{{ 'spirit.prompt_builder.view_mode'|trans }}">
                         <input type="radio" class="btn-check" name="promptViewMode" id="viewStructured" value="structured" checked>
-                        <label class="btn btn-outline-cyber" for="viewStructured">
+                        <label class="btn btn-outline-primary" for="viewStructured">
                             <i class="mdi mdi-format-list-bulleted me-1"></i>
                             {{ 'spirit.prompt_builder.structured_view'|trans }}
                         </label>
                         
                         <input type="radio" class="btn-check" name="promptViewMode" id="viewFinal" value="final">
-                        <label class="btn btn-outline-cyber" for="viewFinal">
+                        <label class="btn btn-outline-primary" for="viewFinal">
                             <i class="mdi mdi-code-tags me-1"></i>
                             {{ 'spirit.prompt_builder.final_output'|trans }}
                         </label>
@@ -61,8 +61,17 @@
                                 <span class="badge bg-dark bg-opacity-25 text-dark">{{ 'spirit.prompt_builder.editable'|trans }}</span>
                             </div>
                             <div class="card-body">
-                                <textarea id="sectionCustomPrompt" class="form-control" rows="4" 
-                                    placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans }}"></textarea>
+                                <div class="position-relative">
+                                    <textarea id="sectionCustomPrompt" class="form-control" rows="4"
+                                        placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans }}"></textarea>
+                                    <button type="button" id="sectionCustomPrompt-add-file"
+                                        class="btn btn-sm btn-outline-primary position-absolute"
+                                        style="bottom: 8px; right: 8px;"
+                                        title="{{ 'spirit.settings.add_file_hint'|trans|default('Pick from File Browser — file content will be injected into the system prompt') }}">
+                                        <i class="mdi mdi-file-plus-outline"></i>
+                                        <span class="d-none d-md-inline ms-1">{{ 'spirit.settings.add_file'|trans|default('Add file') }}</span>
+                                    </button>
+                                </div>
                                 <div class="form-text text-muted mt-2">
                                     <i class="mdi mdi-information-outline me-1"></i>
                                     {{ 'spirit.settings.system_prompt_help'|trans }}
@@ -174,7 +183,7 @@
                                 <span class="text-muted">{{ 'spirit.prompt_builder.estimated_tokens'|trans }}:</span>
                                 <strong class="text-cyber ms-2" id="tokenCount">0</strong>
                             </div>
-                            <button class="btn btn-sm btn-outline-cyber" id="copyPromptBtn" type="button">
+                            <button class="btn btn-sm btn-outline-primary" id="copyPromptBtn" type="button">
                                 <i class="mdi mdi-content-copy me-1"></i>
                                 {{ 'ui.copy'|trans }}
                             </button>

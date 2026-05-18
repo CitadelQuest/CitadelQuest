@@ -1417,12 +1417,76 @@ class SpiritConversationService
         }
         
         $customPrompt = $this->spiritService->getSpiritSetting($spirit->getId(), 'systemPrompt', '');
-        
+
+        // Expand File Browser references — `cqfile://<id>[#filename]` — to
+        // the referenced file's actual content. Lets users curate Spirit
+        // knowledge from project files (notes, rule-sets, code, …) instead
+        // of pasting walls of text into the prompt.
+        $customPrompt = $this->expandCqFileTokens($customPrompt);
+
         return "
             You are {$spirit->getName()}, {$guideText} 
             {$customPrompt}
             
             (internal note: Your level is {$spiritLevel}.)";
+    }
+
+    /**
+     * Replace each `cqfile://<id>[#filename]` token in $text with the
+     * referenced file's content, wrapped in a `<file …>…</file>` block so
+     * the LLM can clearly see where each attached file starts/ends.
+     *
+     * Behavior:
+     *  - Text-like files → raw content inlined.
+     *  - Images / binary (data: URI returned by ProjectFileService) →
+     *    a short `[binary file: <name>]` placeholder (we don't bloat the
+     *    system prompt with base64).
+     *  - Missing / unreadable files → `[file not available: <id>]`.
+     *  - Non-token text is returned unchanged.
+     */
+    private function expandCqFileTokens(string $text): string
+    {
+        if ($text === '' || strpos($text, 'cqfile://') === false) {
+            return $text;
+        }
+
+        // Match `cqfile://<id>` with an optional `#filename` fragment.
+        // <id> = anything until whitespace, `#`, or common punctuation.
+        // NOTE: use `~` as delimiter so the literal `#` inside the
+        // character class doesn't accidentally close the pattern.
+        $pattern = '~cqfile://([^\s#<>"\'`]+)(?:#([^\s<>"\'`]+))?~';
+
+        return preg_replace_callback($pattern, function (array $m): string {
+            $fileId = trim($m[1]);
+            $hintedName = isset($m[2]) ? trim($m[2]) : '';
+            if ($fileId === '') {
+                return $m[0];
+            }
+
+            try {
+                $file = $this->projectFileService->findById($fileId);
+                if (!$file || $file->isDirectory()) {
+                    return "[file not available: {$fileId}]";
+                }
+
+                $name = $file->getName();
+                // `path` = parent directory only ("/" for project root).
+                $path = $file->getPath() ?: '/';
+                $content = $this->projectFileService->getFileContent($fileId);
+
+                // ProjectFileService wraps non-text content in a data: URI.
+                if (is_string($content) && str_starts_with($content, 'data:')) {
+                    return "[binary file: {$name} (id: {$fileId})]";
+                }
+
+                $contentStr = is_string($content) ? $content : '';
+                return "\n<file id=\"{$fileId}\" name=\"{$name}\" path=\"{$path}\">\n{$contentStr}\n</file>\n";
+            } catch (\Throwable $e) {
+                $this->logger->warning('expandCqFileTokens failed for ' . $fileId . ': ' . $e->getMessage());
+                $label = $hintedName !== '' ? $hintedName : $fileId;
+                return "[file not available: {$label}]";
+            }
+        }, $text) ?? $text;
     }
     
     /**

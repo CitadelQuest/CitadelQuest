@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Prompt di sistema'
         system_prompt_placeholder: 'Definisci come il tuo Spirito dovrebbe comportarsi e quali conoscenze dovrebbe avere...'
         system_prompt_help: "Definisci il carattere, la personalità e le aree di competenza del tuo Spirito."
+        add_file: 'Aggiungi file'
+        add_file_hint: 'Scegli dal File Browser — il contenuto del file sarà inserito nel prompt di sistema'
         price_hint: 'nome modello [finestra contesto] (prezzo input / prezzo output) in Crediti per milione di token'
         saved: 'Impostazioni Spirito salvate con successo'
         save_error: 'Impossibile salvare le impostazioni dello Spirito'

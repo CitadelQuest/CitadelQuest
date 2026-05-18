@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Rendszer prompt'
         system_prompt_placeholder: 'Határozd meg, hogyan viselkedjen a Szellemed és milyen tudással rendelkezzen...'
         system_prompt_help: 'Határozd meg a Szellemed karakterét, személyiségét és szakterületeit.'
+        add_file: 'Fájl hozzáadása'
+        add_file_hint: 'Válassz a Fájlböngészőből — a fájl tartalma beillesztésre kerül a rendszer promptba'
         price_hint: 'modell neve [kontextus ablak] (bemeneti ár / kimeneti ár) Kreditben millió tokenenként'
         saved: 'Szellem beállítások sikeresen mentve'
         save_error: 'Nem sikerült menteni a szellem beállításait'

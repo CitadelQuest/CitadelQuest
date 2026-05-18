@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Prompt systemowy'
         system_prompt_placeholder: 'Zdefiniuj, jak Twój Duch powinien się zachowywać i jaką wiedzę powinien posiadać...'
         system_prompt_help: 'Zdefiniuj charakter, osobowość i obszary wiedzy swojego Ducha.'
+        add_file: 'Dodaj plik'
+        add_file_hint: 'Wybierz z Przeglądarki plików — zawartość pliku zostanie wstrzyknięta do promptu systemowego'
         price_hint: 'nazwa modelu [okno kontekstu] (cena wejścia / cena wyjścia) w Kredytach za milion tokenów'
         saved: 'Ustawienia Ducha zapisane pomyślnie'
         save_error: 'Nie udało się zapisać ustawień ducha'

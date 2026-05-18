@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Systémový prompt'
         system_prompt_placeholder: 'Definujte, ako sa má váš Spirit správať a aké znalosti by mal mať...'
         system_prompt_help: "Definujte charakter, osobnosť a oblasti expertízy vášho Spirita."
+        add_file: 'Pridať súbor'
+        add_file_hint: 'Vyberte zo Správcu súborov — obsah súboru bude vložený do systémového promptu'
         price_hint: 'názov modelu [kontextové okno] (cena vstupu / cena výstupu) v Kreditoch za milión tokenov'
         saved: 'Nastavenia Spirita úspešne uložené'
         save_error: 'Nepodarilo sa uložiť nastavenia Spirita'

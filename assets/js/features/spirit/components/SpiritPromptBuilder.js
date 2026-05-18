@@ -1,5 +1,6 @@
 import * as bootstrap from 'bootstrap';
 import { getCitadelLocale } from '../../../shared/date-utils';
+import { attachCqFileButton } from '../../../shared/cqfile-attach.js';
 /**
  * SpiritPromptBuilder - Manages the Spirit System Prompt Builder modal
  * Provides transparency and control over Spirit's system prompt structure
@@ -93,6 +94,19 @@ export class SpiritPromptBuilder {
         const customPromptTextarea = document.getElementById('sectionCustomPrompt');
         if (customPromptTextarea) {
             customPromptTextarea.addEventListener('input', () => this.markAsChanged());
+
+            // "Add file" button — inserts a `cqfile://<id>#<name>` token at
+            // the cursor; backend expands tokens to file content when
+            // building the system prompt.
+            const addFileBtn = document.getElementById('sectionCustomPrompt-add-file');
+            if (addFileBtn) {
+                attachCqFileButton({
+                    textarea: customPromptTextarea,
+                    button: addFileBtn,
+                    translations: this.translations,
+                    onInserted: () => this.markAsChanged(),
+                });
+            }
         }
         
         // Save button

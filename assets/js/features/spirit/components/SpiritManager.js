@@ -4,6 +4,7 @@
 //import * as THREE from 'three';
 import { ProfileMemoryGraph } from './ProfileMemoryGraph.js';
 import * as bootstrap from 'bootstrap';
+import { attachCqFileButton } from '../../../shared/cqfile-attach.js';
 
 export class SpiritManager {
     constructor(config) {
@@ -42,6 +43,19 @@ export class SpiritManager {
         if (this.updateSettingsBtn) {
             this.updateSettingsBtn.addEventListener('click', () => {
                 this.updateSpiritSettings();
+            });
+        }
+
+        // "Add file" button next to the system-prompt textarea
+        // Inserts a `cqfile://<id>#<name>` token at the cursor; backend
+        // (SpiritConversationService::buildSpiritIdentity) expands tokens
+        // to file content when building the system prompt.
+        const addFileBtn = document.getElementById('spirit-system-prompt-add-file');
+        if (addFileBtn && this.systemPromptInput) {
+            attachCqFileButton({
+                textarea: this.systemPromptInput,
+                button: addFileBtn,
+                translations: this.translations,
             });
         }
         

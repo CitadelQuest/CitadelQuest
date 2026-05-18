@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Systemprompt'
         system_prompt_placeholder: 'Definer hvordan din Ånd skal oppføre seg og hvilken kunnskap den skal ha...'
         system_prompt_help: "Definer din Ånds karakter, personlighet og kompetanseområder."
+        add_file: 'Legg til fil'
+        add_file_hint: 'Velg fra Filutforskeren — filinnholdet vil bli satt inn i systempromptet'
         price_hint: 'modellnavn [kontekstvindu] (inngangspris / utgangspris) i Kreditter per million tokens'
         saved: 'Åndinnstillinger lagret'
         save_error: 'Kunne ikke lagre åndinnstillinger'

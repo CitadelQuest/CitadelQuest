@@ -187,6 +187,8 @@ spirit:
         system_prompt: 'Prompt del sistema'
         system_prompt_placeholder: 'Define cómo debe comportarse tu Espíritu y qué conocimientos debe tener...'
         system_prompt_help: 'Define el carácter, personalidad y áreas de experiencia de tu Espíritu.'
+        add_file: 'Añadir archivo'
+        add_file_hint: 'Selecciona desde el Explorador de archivos — el contenido del archivo se inyectará en el prompt del sistema'
         price_hint: 'nombre del modelo [ventana de contexto] (precio entrada / precio salida) en Créditos por millón de tokens'
         saved: 'Configuración del Espíritu guardada exitosamente'
         save_error: 'Error al guardar la configuración del espíritu'
