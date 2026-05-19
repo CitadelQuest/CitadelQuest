@@ -94,7 +94,7 @@ class AIToolWebService
                     'success' => true,
                     'url' => $finalUrl,
                     'title' => $title,
-                    'content' => $fetchResult['content'],
+                    'content' => $this->truncateContent($fetchResult['content'], $maxLength),
                     'cached' => false,
                     'resultFormat' => 'raw-html-code',
                     'fetched_at' => (new \DateTime())->format('c'),

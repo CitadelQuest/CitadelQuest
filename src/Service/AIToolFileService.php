@@ -163,7 +163,7 @@ class AIToolFileService
             $operation = $arguments['operation'];
             
             // Get path/name from various parameter combinations
-            $path = $arguments['destPath'] ?? $arguments['sourcePath'] ?? '/';
+            $path = $arguments['path'] ?? $arguments['destPath'] ?? $arguments['sourcePath'] ?? '/';
             $name = $arguments['destName'] ?? $arguments['sourceName'] ?? '';
 
             // Handle consolidated directory and read operations
@@ -269,11 +269,39 @@ class AIToolFileService
     {
         try {
             $tree = $this->projectFileService->showProjectTree($projectId, true);
+
+            // Respect the path parameter: filter to a subtree when path is provided
+            $path = $arguments['path'] ?? $arguments['sourcePath'] ?? $arguments['destPath'] ?? '/';
+            $path = '/' . ltrim($path, '/');
+            $path = rtrim($path, '/');
+            if ($path === '') {
+                $path = '/';
+            }
+
+            if ($path !== '/') {
+                $subtree = $this->findSubtreeNode($tree['children'] ?? [], $path);
+                if ($subtree === null) {
+                    return [
+                        'success'       => false,
+                        'error'         => "Path not found: {$path}",
+                        '_frontendData' => $this->buildManageErrorFrontendData('tree', $path, "Path not found: {$path}"),
+                    ];
+                }
+                // Treat the found directory as a new root for display
+                $tree = [
+                    'name'     => $path,
+                    'path'     => '',
+                    'type'     => 'projectRootDirectory',
+                    'children' => $subtree['children'] ?? [],
+                ];
+            }
+
             $text = $this->formatAsciiTree($tree);
             $counts = $this->countTreeItems($tree);
             return [
                 'success'       => true,
                 'operation'     => 'tree',
+                'path'          => $path,
                 'tree'          => $text,
                 'dirCount'      => $counts['dirs'],
                 'fileCount'     => $counts['files'],
@@ -289,6 +317,32 @@ class AIToolFileService
     }
 
     /**
+     * Recursively find a directory node by its full path in the tree.
+     */
+    private function findSubtreeNode(array $children, string $targetPath): ?array
+    {
+        foreach ($children as $child) {
+            $childPath = ($child['path'] ?? '') === '/'
+                ? '/' . $child['name']
+                : rtrim($child['path'] ?? '', '/') . '/' . $child['name'];
+            $childPath = str_replace('//', '/', $childPath);
+
+            if ($childPath === $targetPath && ($child['type'] ?? '') === 'directory') {
+                return $child;
+            }
+
+            if (($child['type'] ?? '') === 'directory' && !empty($child['children'])) {
+                $result = $this->findSubtreeNode($child['children'], $targetPath);
+                if ($result !== null) {
+                    return $result;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Recursively format a project tree node as a compact ASCII tree string.
      *
      * Directory-only children are grouped onto single lines (up to ~4 per line)
@@ -301,7 +355,7 @@ class AIToolFileService
         $lines = [];
 
         if ($isRoot) {
-            $lines[] = $node['name'] . ' (project root)';
+            $lines[] = $node['name'];// . ' (project root)';
         } else {
             $connector = $isLast ? '└── ' : '├── ';
             $display   = $node['type'] === 'directory' ? $node['name'] . '/' : $node['name'];
