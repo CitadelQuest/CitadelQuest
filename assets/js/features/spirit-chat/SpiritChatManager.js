@@ -77,6 +77,7 @@ export class SpiritChatManager {
         this.chatSettingsMemoryType = document.getElementById('chatSettingsMemoryType');
         this.chatSettingsMemoryTypeInfo = document.getElementById('chatSettingsMemoryTypeInfo');
         this.chatSettingsIncludeTools = document.getElementById('chatSettingsIncludeTools');
+        this.chatSettingsAiToolsDataOptimization = document.getElementById('chatSettingsAiToolsDataOptimization');
         this.chatSettingsToolsData = []; // Loaded tools with toggle state
         this.spiritChatToolsAndConversationsToggle = document.getElementById('spiritChatToolsAndConversationsToggle');
         this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
@@ -631,6 +632,11 @@ export class SpiritChatManager {
                     };
                 }
 
+                // AI Tools Data Optimization toggle
+                if (this.chatSettingsAiToolsDataOptimization) {
+                    this.chatSettingsAiToolsDataOptimization.checked = !!config.aiToolsDataOptimization;
+                }
+
                 // includeTools toggle
                 const includeTools = config.includeTools ?? true;
                 if (this.chatSettingsIncludeTools) {
@@ -787,6 +793,9 @@ export class SpiritChatManager {
         // Gather includeTools
         const includeTools = this.chatSettingsIncludeTools ? this.chatSettingsIncludeTools.checked : true;
 
+        // Gather AI Tools Data Optimization
+        const aiToolsDataOptimization = this.chatSettingsAiToolsDataOptimization ? this.chatSettingsAiToolsDataOptimization.checked : false;
+
         // Save per-spirit active tools
         const activeToolIds = this.chatSettingsToolsData
             .filter(t => t.isActiveForSpirit)
@@ -803,7 +812,7 @@ export class SpiritChatManager {
             await fetch(`/api/spirit/${this.currentSpiritId}/system-prompt-config`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ includeMemory, memoryType, includeTools })
+                body: JSON.stringify({ includeMemory, memoryType, includeTools, aiToolsDataOptimization })
             });
 
             // Save per-spirit active tools

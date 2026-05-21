@@ -1129,7 +1129,104 @@ class SpiritConversationService
             }
         }
         
+        // Apply AI Tools Data Optimization if enabled — replaces outdated tool call
+        // arguments and tool result contents from previous turns with `<outdated_content>`
+        // placeholder, while preserving message structure (tool_call_id, names, types).
+        // This drastically reduces context tokens when Spirit reads/updates files
+        // across multiple turns.
+        $optConfig = $this->getPromptConfig($spirit->getId());
+        if (!empty($optConfig['aiToolsDataOptimization'])) {
+            $aiMessages = $this->applyAiToolsDataOptimization($aiMessages);
+        }
+        
         return $aiMessages;
+    }
+    
+    /**
+     * Strip outdated tool call traffic (assistant tool_calls + tool results) from
+     * the context for all messages BEFORE the most recent user message. Pairs are
+     * removed together so OpenAI's strict tool_call_id chaining stays valid.
+     *
+     * Why removal instead of placeholder substitution: tested placeholders
+     * (`<outdated_content>`, `{}`) leak into the model's fresh tool calls — it
+     * mimics the malformed/empty argument pattern it sees in prior turns and
+     * produces broken calls (e.g. `fileManage` with no `projectId`/`operation`).
+     * Removing prior tool traffic entirely eliminates that contamination.
+     *
+     * Plain text content on assistant messages (often a per-turn summary written
+     * AFTER tool execution) is preserved — that is what carries the relevant
+     * context forward across turns.
+     *
+     * The current request chain (everything from the last user message onward)
+     * is left untouched so the in-flight tool_use → tool_result loop stays intact.
+     */
+    private function applyAiToolsDataOptimization(array $aiMessages): array
+    {
+        // Find index of the most recent 'user' message
+        $lastUserIdx = -1;
+        foreach ($aiMessages as $idx => $msg) {
+            if (($msg['role'] ?? '') === 'user') {
+                $lastUserIdx = $idx;
+            }
+        }
+        
+        if ($lastUserIdx <= 0) {
+            return $aiMessages;
+        }
+        
+        $cleaned = [];
+        foreach ($aiMessages as $idx => $msg) {
+            // Keep everything from the last user message onward — that is the
+            // current request chain and must stay intact.
+            if ($idx >= $lastUserIdx) {
+                $cleaned[] = $msg;
+                continue;
+            }
+            
+            $role = $msg['role'] ?? '';
+            
+            // Drop OpenAI-style tool result messages
+            if ($role === 'tool') {
+                continue;
+            }
+            
+            if ($role === 'assistant') {
+                $hasOpenAiToolCalls = !empty($msg['tool_calls']);
+                $content = $msg['content'] ?? null;
+                
+                // Strip Anthropic-style tool_use / tool_result blocks from content
+                if (is_array($content)) {
+                    $content = array_values(array_filter($content, function ($block) {
+                        if (!is_array($block)) {
+                            return true;
+                        }
+                        $t = $block['type'] ?? '';
+                        return $t !== 'tool_use' && $t !== 'tool_result';
+                    }));
+                }
+                
+                if ($hasOpenAiToolCalls) {
+                    // Strip tool_calls field — keep only plain text content if any
+                    unset($msg['tool_calls']);
+                }
+                
+                // If after stripping, the assistant message has no meaningful
+                // content (no text, no remaining blocks), drop it entirely.
+                $isEmpty = ($content === null)
+                    || (is_string($content) && trim($content) === '')
+                    || (is_array($content) && count($content) === 0);
+                
+                if ($isEmpty) {
+                    continue;
+                }
+                
+                $msg['content'] = $content;
+            }
+            
+            $cleaned[] = $msg;
+        }
+        
+        return $cleaned;
     }
     
     /**
@@ -1359,6 +1456,11 @@ class SpiritConversationService
                 'systemPrompt.config.memoryType', 
                 '2'
             ),
+            'aiToolsDataOptimization' => $this->spiritService->getSpiritSetting(
+                $spiritId,
+                'conversation.ai_tools_data_optimization',
+                '0'
+            ) === '1',
         ];
     }
     
@@ -1400,6 +1502,13 @@ class SpiritConversationService
                 $spiritId,
                 'systemPrompt.config.memoryType',
                 (string) $config['memoryType']
+            );
+        }
+        if (isset($config['aiToolsDataOptimization'])) {
+            $this->spiritService->setSpiritSetting(
+                $spiritId,
+                'conversation.ai_tools_data_optimization',
+                $config['aiToolsDataOptimization'] ? '1' : '0'
             );
         }
     }

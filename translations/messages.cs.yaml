@@ -269,6 +269,8 @@ spirit:
         conversation_closed: 'Konverzace uzavřena — paměť extrahována'
         settings: 'Nastavení chatu'
         ai_tools: 'AI Nástroje'
+        ai_tools_data_optimization: 'Optimalizace dat AI Nástrojů'
+        ai_tools_data_optimization_info: 'Nahradí zastaralá data volání nástrojů z předchozích kol placeholder-em před odesláním do AI. Zachová strukturu tool-call neporušenou. Snižuje počet tokenů a šum v kontextu, když Spirit opakovaně čte/upravuje soubory.'
         temperature_precise: 'Přesné'
         temperature_creative: 'Kreativní'
     prompt_builder:

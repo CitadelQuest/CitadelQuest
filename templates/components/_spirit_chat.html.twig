@@ -260,6 +260,22 @@
                     <div id="chatSettingsMemoryTypeInfo" class="mt-2 mx-4 small text-secondary"></div>
                 </div>
 
+                {# AI Tools Data Optimization toggle #}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label for="chatSettingsAiToolsDataOptimization" class="form-label mb-0">
+                            <i class="mdi mdi-broom text-cyber me-1"></i> {{ 'spirit.chat.ai_tools_data_optimization'|trans|default('AI Tools Data Optimization') }}
+                        </label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="chatSettingsAiToolsDataOptimization">
+                        </div>
+                    </div>
+                    <div class="mt-2 mx-4 small text-secondary">
+                        <i class="mdi mdi-information-outline me-1"></i>
+                        {{ 'spirit.chat.ai_tools_data_optimization_info'|trans|default('Replaces outdated tool call data from previous turns with a placeholder before sending to AI. Keeps tool-call structure intact. Reduces tokens & context noise when Spirit re-reads/updates files.') }}
+                    </div>
+                </div>
+                
                 {# AI Tools toggle + list #}
                 <div>
                     <div class="d-flex align-items-center justify-content-between mb-2">
