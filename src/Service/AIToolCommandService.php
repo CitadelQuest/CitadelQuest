@@ -202,6 +202,11 @@ class AIToolCommandService
                 continue;
             }
 
+            // Skip image .icon/.thumbnail files
+            if (preg_match('#\.(icon|thumbnail)$#i', $relativePath)) {
+                continue;
+            }
+
             $pathParts = explode('/', trim($relativePath, '/'));
             $name = array_pop($pathParts);
             $path = '/' . implode('/', $pathParts);

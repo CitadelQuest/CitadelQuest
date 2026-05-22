@@ -1143,19 +1143,15 @@ class SpiritConversationService
     }
     
     /**
-     * Strip outdated tool call traffic (assistant tool_calls + tool results) from
-     * the context for all messages BEFORE the most recent user message. Pairs are
-     * removed together so OpenAI's strict tool_call_id chaining stays valid.
+     * Replace outdated tool call arguments and tool result contents with a
+     * descriptive placeholder, for all messages BEFORE the most recent user
+     * message. The tool-call STRUCTURE (role, name, tool_call_id, function.name,
+     * type, index) is preserved so the AI continues to recognize the
+     * conversation as tool-using and chains stay schema-valid.
      *
-     * Why removal instead of placeholder substitution: tested placeholders
-     * (`<outdated_content>`, `{}`) leak into the model's fresh tool calls — it
-     * mimics the malformed/empty argument pattern it sees in prior turns and
-     * produces broken calls (e.g. `fileManage` with no `projectId`/`operation`).
-     * Removing prior tool traffic entirely eliminates that contamination.
-     *
-     * Plain text content on assistant messages (often a per-turn summary written
-     * AFTER tool execution) is preserved — that is what carries the relevant
-     * context forward across turns.
+     * Only payloads larger than SIZE_THRESHOLD chars get replaced — small/cheap
+     * arguments stay verbatim so the model retains useful examples of how the
+     * tools have been called in this conversation.
      *
      * The current request chain (everything from the last user message onward)
      * is left untouched so the in-flight tool_use → tool_result loop stays intact.
@@ -1174,59 +1170,60 @@ class SpiritConversationService
             return $aiMessages;
         }
         
-        $cleaned = [];
-        foreach ($aiMessages as $idx => $msg) {
-            // Keep everything from the last user message onward — that is the
-            // current request chain and must stay intact.
-            if ($idx >= $lastUserIdx) {
-                $cleaned[] = $msg;
-                continue;
-            }
+        // Only outdate payloads bigger than this many chars; smaller ones are
+        // kept verbatim (cheap, useful as tool-usage examples for the model).
+        $sizeThreshold = 500;
+        
+        // Descriptive placeholder so the model understands the substitution
+        // (not a bug, not an empty/malformed payload to mimic).
+        $placeholder = '<outdated_content>Content auto-removed by system. Use new tool call with proper arguments if needed.</outdated_content>';
+        // Anthropic tool_use.input must be a JSON object — wrap the marker.
+        $placeholderInput = ['_outdated' => $placeholder];
+        
+        for ($i = 0; $i < $lastUserIdx; $i++) {
+            $role = $aiMessages[$i]['role'] ?? '';
             
-            $role = $msg['role'] ?? '';
-            
-            // Drop OpenAI-style tool result messages
             if ($role === 'tool') {
-                continue;
-            }
-            
-            if ($role === 'assistant') {
-                $hasOpenAiToolCalls = !empty($msg['tool_calls']);
-                $content = $msg['content'] ?? null;
-                
-                // Strip Anthropic-style tool_use / tool_result blocks from content
-                if (is_array($content)) {
-                    $content = array_values(array_filter($content, function ($block) {
-                        if (!is_array($block)) {
-                            return true;
+                // OpenAI-style tool result message — replace content if too large
+                $content = $aiMessages[$i]['content'] ?? null;
+                $contentStr = is_string($content) ? $content : (is_array($content) ? json_encode($content) : '');
+                if (strlen((string) $contentStr) > $sizeThreshold) {
+                    $aiMessages[$i]['content'] = $placeholder;
+                }
+            } elseif ($role === 'assistant' && !empty($aiMessages[$i]['tool_calls'])) {
+                // OpenAI-style assistant tool_calls — replace each call's
+                // arguments JSON string if it exceeds threshold. Structure
+                // (id, name, type, index) is kept intact.
+                foreach ($aiMessages[$i]['tool_calls'] as $tcIdx => $tc) {
+                    $args = $tc['function']['arguments'] ?? null;
+                    if (is_string($args) && strlen($args) > $sizeThreshold) {
+                        $aiMessages[$i]['tool_calls'][$tcIdx]['function']['arguments'] = $placeholder;
+                    }
+                }
+            } elseif ($role === 'assistant' && is_array($aiMessages[$i]['content'] ?? null)) {
+                // Anthropic-style content blocks — tool_use.input / tool_result.content
+                foreach ($aiMessages[$i]['content'] as $cIdx => $block) {
+                    if (!is_array($block)) {
+                        continue;
+                    }
+                    $type = $block['type'] ?? '';
+                    if ($type === 'tool_use' && array_key_exists('input', $block)) {
+                        $inputStr = is_string($block['input']) ? $block['input'] : json_encode($block['input']);
+                        if (strlen((string) $inputStr) > $sizeThreshold) {
+                            $aiMessages[$i]['content'][$cIdx]['input'] = $placeholderInput;
                         }
-                        $t = $block['type'] ?? '';
-                        return $t !== 'tool_use' && $t !== 'tool_result';
-                    }));
+                    } elseif ($type === 'tool_result' && array_key_exists('content', $block)) {
+                        $rc = $block['content'];
+                        $rcStr = is_string($rc) ? $rc : json_encode($rc);
+                        if (strlen((string) $rcStr) > $sizeThreshold) {
+                            $aiMessages[$i]['content'][$cIdx]['content'] = $placeholder;
+                        }
+                    }
                 }
-                
-                if ($hasOpenAiToolCalls) {
-                    // Strip tool_calls field — keep only plain text content if any
-                    unset($msg['tool_calls']);
-                }
-                
-                // If after stripping, the assistant message has no meaningful
-                // content (no text, no remaining blocks), drop it entirely.
-                $isEmpty = ($content === null)
-                    || (is_string($content) && trim($content) === '')
-                    || (is_array($content) && count($content) === 0);
-                
-                if ($isEmpty) {
-                    continue;
-                }
-                
-                $msg['content'] = $content;
             }
-            
-            $cleaned[] = $msg;
         }
         
-        return $cleaned;
+        return $aiMessages;
     }
     
     /**
@@ -2739,7 +2736,7 @@ class SpiritConversationService
             }
             $model = $this->aiServiceModelService->findByModelSlug($this->settingsService->getSettingValue('subconsciousness_agent_ai_model', 'citadelquest/kael'), $gateway->getId());
             if (!$model) {
-                $model = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                $model = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
             }
             if (!$model) {
                 throw new \Exception('No AI model available for sub-agent');

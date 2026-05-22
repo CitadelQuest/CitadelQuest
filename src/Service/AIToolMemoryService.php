@@ -1030,7 +1030,7 @@ PROMPT;
             if ($gateway) {
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
                 if (!$aiServiceModel) {
-                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
                 }
             }
             if (!$aiServiceModel) {
@@ -1380,7 +1380,7 @@ PROMPT;
             if ($gateway) {
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
                 if (!$aiServiceModel) {
-                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
                 }
             }
         }
@@ -1868,7 +1868,7 @@ PROMPT;
 
             $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
             if (!$aiServiceModel) {
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
             }
             if (!$aiServiceModel) {
                 $this->logger->error('generatePdfAnnotation: No AI model available');
@@ -2589,7 +2589,7 @@ PROMPT;
         
         $model = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
         if (!$model) {
-            $model = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+            $model = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
         }
         
         return $model;

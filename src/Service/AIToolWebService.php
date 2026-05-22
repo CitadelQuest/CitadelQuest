@@ -522,7 +522,7 @@ class AIToolWebService
         if (!$aiServiceModel) {
             $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
             if ($gateway) {
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/grok-4.1-fast', $gateway->getId());
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
                 if (!$aiServiceModel) {
                     $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
                 }

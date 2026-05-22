@@ -1084,15 +1084,36 @@ class ProjectFileService
                         throw new \InvalidArgumentException('LineRange operation requires "startLine", "endLine", and "content" fields');
                     }
                     
-                    $startLine = (int)$update['startLine'] - 1; // Convert to 0-based index
-                    $endLine = (int)$update['endLine'] - 1;
+                    $startLineRaw = (int)$update['startLine'];
+                    $endLineRaw = (int)$update['endLine'];
+                    $startLine = $startLineRaw - 1; // Convert to 0-based index
+                    $endLine = $endLineRaw - 1;
+                    $lineCount = count($lines);
                     
-                    if ($startLine < 0 || $endLine >= count($lines) || $startLine > $endLine) {
-                        throw new \InvalidArgumentException('Invalid line range specified');
+                    if ($startLineRaw < 1) {
+                        throw new \InvalidArgumentException("Invalid lineRange: startLine ({$startLineRaw}) must be >= 1");
+                    }
+                    if ($endLine >= $lineCount) {
+                        throw new \InvalidArgumentException("Invalid lineRange: endLine ({$endLineRaw}) exceeds file length ({$lineCount} lines)");
+                    }
+                    if ($startLine > $endLine) {
+                        throw new \InvalidArgumentException("Invalid lineRange: startLine ({$startLineRaw}) must be <= endLine ({$endLineRaw})");
+                    }
+                    
+                    // Strip ONE trailing newline from content if present.
+                    // LLMs naturally end snippets with "\n" expecting it to be the
+                    // line terminator; the range itself already defines where the
+                    // content sits between surrounding lines, so a trailing "\n"
+                    // becomes an unintended blank line. AI can still produce a
+                    // trailing blank by ending content with "\n\n" (only one is
+                    // consumed).
+                    $rangeContent = (string) $update['content'];
+                    if (substr($rangeContent, -1) === "\n") {
+                        $rangeContent = substr($rangeContent, 0, -1);
                     }
                     
                     // Replace the specified line range
-                    $newLines = explode("\n", $update['content']);
+                    $newLines = explode("\n", $rangeContent);
                     array_splice($lines, $startLine, $endLine - $startLine + 1, $newLines);
                     break;
 
@@ -1101,12 +1122,23 @@ class ProjectFileService
                         throw new \InvalidArgumentException('InsertAtLine operation requires "line" and "content" fields');
                     }
                     
-                    $insertLine = (int)$update['line'] - 1; // Convert to 0-based index
-                    if ($insertLine < 0 || $insertLine > count($lines)) {
-                        throw new \InvalidArgumentException('Invalid line number for insertion');
+                    $insertLineRaw = (int)$update['line'];
+                    $insertLine = $insertLineRaw - 1; // Convert to 0-based index
+                    $lineCount = count($lines);
+                    if ($insertLineRaw < 1) {
+                        throw new \InvalidArgumentException("Invalid insertAtLine: line ({$insertLineRaw}) must be >= 1");
+                    }
+                    if ($insertLine > $lineCount) {
+                        throw new \InvalidArgumentException("Invalid insertAtLine: line ({$insertLineRaw}) exceeds file length ({$lineCount} lines)");
                     }
                     
-                    $newLines = explode("\n", $update['content']);
+                    // Same trailing-newline normalization as lineRange.
+                    $insertContent = (string) $update['content'];
+                    if (substr($insertContent, -1) === "\n") {
+                        $insertContent = substr($insertContent, 0, -1);
+                    }
+                    
+                    $newLines = explode("\n", $insertContent);
                     array_splice($lines, $insertLine, 0, $newLines);
                     break;
 
