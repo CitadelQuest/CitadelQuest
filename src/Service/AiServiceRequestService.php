@@ -126,4 +126,15 @@ class AiServiceRequestService
 
         return $result > 0;
     }
+
+    public function updateRequestModelId(string $requestId, string $modelId): bool
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeStatement(
+            'UPDATE ai_service_request SET ai_service_model_id = ? WHERE id = ?',
+            [$modelId, $requestId]
+        );
+
+        return $result > 0;
+    }
 }

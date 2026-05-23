@@ -1478,12 +1478,18 @@ export class SpiritChatManager {
         if (message.role === 'assistant' && message.usage) {
             const tokens = message.usage.totalTokensFormatted;
             const price = message.usage.totalPriceFormatted;
+            const modelSlug = message.usage.modelSlug;
+            const modelName = message.usage.modelName || modelSlug || '';
+            const modelHtml = modelSlug
+                ? `<i class="mdi mdi-circle-small opacity-75 me-1"></i><span title="AI model: ${modelName}"><i class="mdi mdi-creation me-1 text-cyber opacity-50"></i>${modelSlug}</span>`
+                : '';
             if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
                     <div class="chat-usage small text-muted opacity-50">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
                         <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                         <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
+                        ${modelHtml}
                     </div>`;
             }
         }
@@ -1507,12 +1513,18 @@ export class SpiritChatManager {
             if (message.usage) {
                 const tokens = message.usage.totalTokensFormatted;
                 const price = message.usage.totalPriceFormatted;
+                const modelSlug = message.usage.modelSlug;
+                const modelName = message.usage.modelName || modelSlug || '';
+                const modelHtml = modelSlug
+                    ? `<i class="mdi mdi-circle-small opacity-75 me-1"></i><i class="mdi mdi-creation me-1 text-warning opacity-50" title="AI model: ${modelName}"></i>${modelSlug}`
+                    : '';
                 if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                     filterUsageHtml = `
                         <span class="small text-muted opacity-50 ms-2">
                             <i class="mdi mdi-tally-mark-5 me-1 text-warning opacity-50" title="Tokens"></i>${tokens}
                             <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                             <i class="mdi mdi-circle-multiple-outline me-1 text-warning opacity-50" title="Credits"></i>${price}
+                            ${modelHtml}
                         </span>`;
                 }
             }
@@ -1549,12 +1561,18 @@ export class SpiritChatManager {
                 if (message.usage) {
                     const tokens = message.usage.totalTokensFormatted;
                     const price = message.usage.totalPriceFormatted;
+                    const modelSlug = message.usage.modelSlug;
+                    const modelName = message.usage.modelName || modelSlug || '';
+                    const modelHtml = modelSlug
+                        ? `<i class="mdi mdi-circle-small opacity-75 me-1"></i><i class="mdi mdi-creation me-1 text-cyber opacity-50" title="AI model: ${modelName}"></i>${modelSlug}`
+                        : '';
                     if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                         toolUsageHtml = `
                             <span class="small text-muted opacity-50 ms-2">
                                 <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens}
                                 <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                                 <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
+                                ${modelHtml}
                             </span>`;
                     }
                 }
@@ -2493,11 +2511,17 @@ export class SpiritChatManager {
                </div>` 
             : '';
         
+        const modelSlug = subAgentUsage?.modelSlug ?? '';
+        const modelName = subAgentUsage?.modelName || modelSlug || '';
+        const modelHtml = modelSlug
+            ? `<i class="mdi mdi-creation me-1 text-cyber opacity-50" title="AI model: ${modelName}"></i>${modelSlug}`
+            : '';
         const usageHtml = subAgentUsage 
             ? `<div class="mt-1 pt-1 border-top border-dark border-opacity-25 d-flex align-items-center gap-2" style="font-size: 0.55rem;">
-                <span class="text-warning opacity-50" title="Subconsciousness Sub-Agent"><i class="mdi mdi-brain me-1"></i>Sub-Agent</span>
+                <span class="text-warning opacity-50" title="Subconsciousness Sub-Agent"><i class="mdi mdi-brain me-1"></i>Subconsciousness Sub-Agent</span>
                 <span class="opacity-50" title="Tokens"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1"></i>${subAgentUsage.totalTokensFormatted || '0'}</span>
                 <span class="opacity-50" title="Credits"><i class="mdi mdi-circle-multiple-outline text-warning opacity-75 me-1"></i>${subAgentUsage.totalPriceFormatted || '0'}</span>
+                <span class="opacity-50 me-2">${modelHtml}</span>
                </div>` 
             : '';
         
@@ -3057,12 +3081,18 @@ export class SpiritChatManager {
         if (message.usage) {
             const tokens = message.usage.totalTokensFormatted;
             const price = message.usage.totalPriceFormatted;
+            const modelSlug = message.usage.modelSlug;
+            const modelName = message.usage.modelName || modelSlug || '';
+            const modelHtml = modelSlug
+                ? `<i class="mdi mdi-circle-small opacity-75 me-1"></i><i class="mdi mdi-creation me-1 text-cyber opacity-50" title="AI model: ${modelName}"></i>${modelSlug}`
+                : '';
             if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
                     <div class="chat-usage small text-muted opacity-50">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
                         <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                         <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
+                        ${modelHtml}
                     </div>`;
             }
         }
@@ -3126,11 +3156,17 @@ export class SpiritChatManager {
                     if (toolUsage) {
                         const tokens = toolUsage.totalTokensFormatted;
                         const price = toolUsage.totalPriceFormatted;
+                        const modelSlug = toolUsage.modelSlug;
+                        const modelName = toolUsage.modelName || modelSlug || '';
+                        const modelHtml = modelSlug
+                            ? `<i class="mdi mdi-circle-small opacity-75 me-1"></i><i class="mdi mdi-creation me-1 text-cyber opacity-50" title="AI model: ${modelName}"></i>${modelSlug}`
+                            : '';
                         if (toolUsage.totalTokens > 0 || toolUsage.totalPrice > 0) {
                             toolUsageHtml = `
                                 <span class="small text-muted opacity-50 ms-2">
                                     <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens} <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                                     <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
+                                    ${modelHtml}
                                 </span>`;
                         }
                     }

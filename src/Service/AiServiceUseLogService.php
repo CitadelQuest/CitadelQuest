@@ -315,16 +315,62 @@ class AiServiceUseLogService
     {
         $userDb = $this->getUserDb();
         $result = $userDb->executeQuery(
-            'SELECT 
+            'SELECT
                 input_tokens, output_tokens, total_tokens,
-                input_price, output_price, total_price
-            FROM ai_service_use_log 
+                input_price, output_price, total_price,
+                ai_service_model_id, ai_service_response_id, ai_gateway_id
+            FROM ai_service_use_log
             WHERE ai_service_request_id = ?',
             [$aiServiceRequestId]
         )->fetchAssociative();
 
         if (!$result) {
             return null;
+        }
+
+        $resolvedModelId = $result['ai_service_model_id'];
+
+        $dbg_txt = '';
+
+        // Detect AI model fallback from response and correct ai_service_request model
+        if (!empty($result['ai_service_response_id'])) {
+            $response = $this->aiServiceResponseService->findById($result['ai_service_response_id']);
+            if ($response) {
+                $fullResponse = $response->getFullResponse();
+                $actualModelSlug = $fullResponse['model'] ?? null;
+                
+                if ($actualModelSlug) {
+                    $originalModel = $this->aiServiceModelService->findById($result['ai_service_model_id']);
+                    $originalSlug = $originalModel ? $originalModel->getModelSlug() : null;
+                    if ($originalSlug !== $actualModelSlug) {
+                        $gatewayId = $result['ai_gateway_id'] ?? null;
+                        if ($gatewayId) {
+                            $actualModel = $this->aiServiceModelService->findByModelSlug($actualModelSlug, $gatewayId, false);
+                            if ($actualModel) {
+                                $resolvedModelId = $actualModel->getId();
+                                $this->aiServiceRequestService->updateRequestModelId($aiServiceRequestId, $resolvedModelId);
+                                $userDb->executeStatement(
+                                    'UPDATE ai_service_use_log SET ai_service_model_id = ? WHERE ai_service_request_id = ?',
+                                    [$resolvedModelId, $aiServiceRequestId]
+                                );
+
+                                $dbg_txt = 'fallback to: ';
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Resolve model name + slug for display in chat UI
+        $modelName = null;
+        $modelSlug = null;
+        if (!empty($resolvedModelId)) {
+            $model = $this->aiServiceModelService->findById($resolvedModelId);
+            if ($model) {
+                $modelName = $model->getModelName();
+                $modelSlug = $dbg_txt . str_replace('citadelquest/', '', $model->getModelSlug());
+            }
         }
 
         return [
@@ -339,7 +385,9 @@ class AiServiceUseLogService
             'totalPrice' => (float) ($result['total_price'] ?? 0),
             'inputPriceFormatted' => number_format($result['input_price'] ?? 0, 2),
             'outputPriceFormatted' => number_format($result['output_price'] ?? 0, 2),
-            'totalPriceFormatted' => number_format($result['total_price'] ?? 0, 2)
+            'totalPriceFormatted' => number_format($result['total_price'] ?? 0, 2),
+            'modelName' => $modelName,
+            'modelSlug' => $modelSlug,
         ];
     }
 }
