@@ -353,11 +353,11 @@ class AiServiceUseLogService
                                     'UPDATE ai_service_use_log SET ai_service_model_id = ? WHERE ai_service_request_id = ?',
                                     [$resolvedModelId, $aiServiceRequestId]
                                 );
-
-                                $dbg_txt = 'fallback to: ';
                             }
                         }
                     }
+
+                    $dbg_txt = ' / '.$actualModelSlug;
                 }
             }
         }
@@ -369,7 +369,7 @@ class AiServiceUseLogService
             $model = $this->aiServiceModelService->findById($resolvedModelId);
             if ($model) {
                 $modelName = $model->getModelName();
-                $modelSlug = $dbg_txt . str_replace('citadelquest/', '', $model->getModelSlug());
+                $modelSlug = str_replace('citadelquest/', '', $model->getModelSlug()) . $dbg_txt;
             }
         }
 

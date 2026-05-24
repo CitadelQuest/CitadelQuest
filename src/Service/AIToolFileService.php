@@ -910,13 +910,13 @@ HTML;
         }
 
         $items = '';
-        $shown = array_slice($files, 0, 12);
+        $shown = array_slice($files, 0, 22);
         foreach ($shown as $f) {
             $n = htmlspecialchars($f->getName());
             $icon = $f->isDirectory() ? 'mdi-folder-outline' : 'mdi-file-outline';
             $items .= "<div class='small text-muted'><i class='mdi $icon me-1'></i><code>$n</code></div>";
         }
-        $more = $count > 12 ? '<div class="small text-muted mt-1">… and ' . ($count - 12) . ' more</div>' : '';
+        $more = $count > 22 ? '<div class="small text-muted mt-1">… and ' . ($count - 22) . ' more</div>' : '';
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -948,8 +948,9 @@ HTML;
 
         switch ($operation) {
             case 'create':
-                $contentLen = isset($params['content']) ? mb_strlen((string) $params['content']) : 0;
-                return <<<HTML
+                $contentStr = (string) ($params['content'] ?? '');
+                $contentLen = mb_strlen($contentStr);
+                $header = <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div class="d-flex align-items-center">
         <i class="mdi mdi-file-plus-outline text-cyber me-2"></i>
@@ -959,6 +960,10 @@ HTML;
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code></div>
 </div>
 HTML;
+                $previewBody = '<pre class="bg-dark bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;">'
+                    . htmlspecialchars($contentStr) . '</pre>';
+                $previewSummary = "<i class='mdi mdi-text-box-outline me-1'></i><strong>content</strong> <span class='text-muted'>({$contentLen} chars)</span>";
+                return $header . $this->renderCollapsible($previewSummary, $previewBody);
 
             case 'copy':
                 return <<<HTML
