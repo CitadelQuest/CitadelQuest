@@ -7,6 +7,7 @@ import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
 import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
 import { formatDate, formatShortDate, formatTime, getCitadelLocale } from '../../shared/date-utils';
+import { getFileEditModal } from '../../shared/file-edit-modal';
 
 /**
  * Spirit Chat Manager

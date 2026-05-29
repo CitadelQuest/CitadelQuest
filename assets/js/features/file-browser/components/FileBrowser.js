@@ -9,6 +9,7 @@ import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 import { ImageShowcase } from '../../../shared/image-showcase';
 import { formatDate, formatTime } from '../../../shared/date-utils';
+import { getFileEditModal } from '../../../shared/file-edit-modal';
 
 /**
  * File Browser component for CitadelQuest
@@ -476,107 +477,18 @@ export class FileBrowser {
     }
     
     /**
-     * Show edit modal for text file
+     * Show edit modal for text file (delegates to the shared FileEditModal).
      * @param {string} fileId - File ID to edit
      */
     async showEditModal(fileId) {
-        try {
-            // Get file metadata and content
-            const metaResponse = await this.apiService.getFileMetadata(fileId);
-            const file = metaResponse.file;
-            const contentResponse = await this.apiService.getFileContent(fileId);
-            const content = contentResponse.content;
-            
-            // Create or get edit modal
-            let modal = document.getElementById('fileEditModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'fileEditModal';
-                modal.className = 'modal fade';
-                modal.tabIndex = -1;
-                modal.innerHTML = `
-                    <div class="modal-dialog modal-fullscreen">
-                        <div class="modal-content bg-dark text-light">
-                            <div class="modal-header border-secondary">
-                                <h5 class="modal-title">
-                                    <i class="mdi mdi-pencil me-2"></i>
-                                    <span id="fileEditModalTitle"></span>
-                                </h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body p-0">
-                                <textarea id="fileEditTextarea" class="form-control bg-dark text-light border-0 h-100 rounded-0" 
-                                    style="resize: none; font-family: monospace; font-size: 14px;"></textarea>
-                            </div>
-                            <div class="modal-footer border-secondary justify-content-between">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                    <i class="mdi mdi-close me-1"></i>${this.translations.cancel || 'Cancel'}
-                                </button>
-                                <button type="button" class="btn btn-cyber" id="fileEditSaveBtn">
-                                    <i class="mdi mdi-content-save me-1"></i>${this.translations.save || 'Save'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
+        await getFileEditModal().open(fileId, {
+            translations: this.translations,
+            onSaved: async (savedFileId) => {
+                // Refresh file preview (behind modal) and project size
+                await this.selectFile(savedFileId);
+                await this.loadProjectSize();
             }
-            
-            // Set modal content
-            modal.querySelector('#fileEditModalTitle').textContent = file.name;
-            modal.querySelector('#fileEditTextarea').value = content;
-            
-            // Store file info for save
-            modal.dataset.fileId = fileId;
-            modal.dataset.filePath = file.path;
-            modal.dataset.fileName = file.name;
-            
-            // Setup save button handler
-            const saveBtn = modal.querySelector('#fileEditSaveBtn');
-            const newSaveBtn = saveBtn.cloneNode(true);
-            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-            
-            newSaveBtn.addEventListener('click', async () => {
-                await this.saveEditedFile(modal);
-            });
-            
-            // Show modal
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
-            
-            // Focus textarea
-            modal.addEventListener('shown.bs.modal', () => {
-                modal.querySelector('#fileEditTextarea').focus();
-            }, { once: true });
-            
-        } catch (error) {
-            console.error('Error opening edit modal:', error);
-            window.toast.error(error.message);
-        }
-    }
-    
-    /**
-     * Save edited file content
-     * @param {HTMLElement} modal - The edit modal element
-     */
-    async saveEditedFile(modal) {
-        const fileId = modal.dataset.fileId;
-        const content = modal.querySelector('#fileEditTextarea').value;
-        
-        try {
-            await this.apiService.updateFile(fileId, content);
-            
-            // Refresh file preview (behind modal)
-            await this.selectFile(fileId);
-            
-            // Refresh project size
-            await this.loadProjectSize();
-            
-            window.toast.success(this.translations.file_saved || 'File saved successfully');
-        } catch (error) {
-            console.error('Error saving file:', error);
-            window.toast.error(error.message);
-        }
+        });
     }
     
     /**

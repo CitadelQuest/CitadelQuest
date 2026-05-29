@@ -624,6 +624,7 @@ HTML;
         $headerPath = htmlspecialchars($file->getPath());
         $mimeType = htmlspecialchars($file->getMimeType() ?? 'application/octet-stream');
         $size = is_string($content) ? mb_strlen($content) : 0;
+        $editLink = $this->buildFileEditLink($file);
 
         $header = <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2 mb-2">
@@ -632,7 +633,7 @@ HTML;
         <strong>File read</strong>
         <span class="ms-2 text-muted">$size chars</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code></div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code>$editLink</div>
     <div class="small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$mimeType</div>
 </div>
 HTML;
@@ -780,6 +781,7 @@ HTML;
         }
         $detailsHtml = implode('', $details);
         $syntaxHtml = $this->buildPhpSyntaxCheckHtml($phpSyntaxCheck);
+        $editLink = $this->buildFileEditLink($file);
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -788,7 +790,7 @@ HTML;
         <strong>fileUpdate</strong>
         <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>$count op(s) applied</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code></div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code>$editLink</div>
     <div class="mt-2">$detailsHtml</div>
     $syntaxHtml
 </div>
@@ -881,6 +883,26 @@ HTML;
     <div class="small text-danger mt-1"><i class="mdi mdi-alert-outline me-1"></i>$errorMsg</div>
 </div>
 HTML;
+    }
+
+    /**
+     * Build a clickable "edit file" link for text/code files, wired to the shared
+     * FileEditModal via the global `data-action="cq-edit-file"` delegated listener.
+     * Returns empty string for non-text files or when the file has no id.
+     */
+    private function buildFileEditLink($file): string
+    {
+        if (!$file || !method_exists($file, 'getId') || !$file->getId()) {
+            return '';
+        }
+        $name = $file->getName();
+        $mime = method_exists($file, 'getMimeType') ? $file->getMimeType() : null;
+        $type = method_exists($file, 'getType') ? $file->getType() : null;
+        if (!$this->projectFileService->isTextFile($name, $mime, $type)) {
+            return '';
+        }
+        $id = htmlspecialchars($file->getId());
+        return " <a href='#' class='cq-file-edit-link text-warning ms-1' data-action='cq-edit-file' data-file-id='{$id}' title='Edit file'><i class='mdi mdi-file-edit'></i></a>";
     }
 
     /**
@@ -1011,7 +1033,7 @@ HTML;
     /**
      * Build frontend data for create/copy/rename_move/delete operations
      */
-    private function buildFileOperationFrontendData(string $operation, array $params): string
+    private function buildFileOperationFrontendData(string $operation, array $params, ?array $result = null): string
     {
         $source = $params['source'] ?? null;
         $dest = $params['destination'] ?? null;
@@ -1023,6 +1045,18 @@ HTML;
             case 'create':
                 $contentStr = (string) ($params['content'] ?? '');
                 $contentLen = mb_strlen($contentStr);
+                
+                $editLink = '';
+                if ($result && isset($result['file'])) {
+                    $name = $result['file']['name'] ?? '';
+                    $mime = $result['file']['mimeType'] ?? null;
+                    $type = $result['file']['type'] ?? null;
+                    if ($this->projectFileService->isTextFile($name, $mime, $type)) {
+                        $id = htmlspecialchars($result['file']['id']);
+                        $editLink = " <a href='#' class='cq-file-edit-link text-warning ms-1' data-action='cq-edit-file' data-file-id='{$id}' title='Edit file'><i class='mdi mdi-file-edit'></i></a>";
+                    }
+                }
+
                 $header = <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div class="d-flex align-items-center">
@@ -1030,7 +1064,7 @@ HTML;
         <strong>File created</strong>
         <span class="ms-2 text-success">+$contentLen chars</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code></div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code>$editLink</div>
 </div>
 HTML;
                 $previewBody = '<pre class="bg-dark bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;">'
@@ -1149,7 +1183,7 @@ HTML;
             'success' => true,
             'operation' => $operation,
             'result' => $result,
-            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params)
+            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params, $result)
         ];
     }
 
