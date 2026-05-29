@@ -13,7 +13,8 @@ class AIToolFileService
     public function __construct(
         private readonly ProjectFileService $projectFileService,
         private readonly Security $security,
-        private readonly AnnoService $annoService
+        private readonly AnnoService $annoService,
+        private readonly CommandService $commandService
     ) {
     }
 
@@ -86,12 +87,22 @@ class AIToolFileService
                 $updates
             );
             
-            return [
+            // Auto-run PHP syntax check (php -l) for .php files so the Spirit
+            // immediately knows if the edit broke the file — saves a runCommand round-trip.
+            $phpSyntaxCheck = $this->runPhpSyntaxCheck($updatedFile);
+            
+            $result = [
                 'success' => true,
                 'file' => $updatedFile->jsonSerialize(),
                 'operations_applied' => count($updates),
-                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates)
+                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates, $phpSyntaxCheck)
             ];
+            
+            if ($phpSyntaxCheck !== null) {
+                $result['phpSyntaxCheck'] = $phpSyntaxCheck;
+            }
+            
+            return $result;
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -101,6 +112,41 @@ class AIToolFileService
         }
     }
     
+    /**
+     * Run `php -l` (lint) on a freshly-updated file when it's a PHP source file.
+     *
+     * Returns null for non-PHP files (no check performed). For PHP files returns
+     * a structured result so the AI Spirit knows whether the edit is syntactically
+     * valid — eliminating the need for a separate runCommand `php -l` call.
+     *
+     * @return array{checked: bool, valid: bool, output: string}|null
+     */
+    private function runPhpSyntaxCheck($file): ?array
+    {
+        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+        if ($extension !== 'php') {
+            return null;
+        }
+
+        $absolutePath = $this->projectFileService->getFileAbsolutePath($file->getId());
+        if (!$absolutePath || !is_file($absolutePath)) {
+            return null;
+        }
+
+        $command = 'php -l ' . escapeshellarg($absolutePath);
+        $result = $this->commandService->runShell($command, dirname($absolutePath), 15);
+
+        $output = trim(($result['stdout'] ?? '') . "\n" . ($result['stderr'] ?? ''));
+        // Strip the absolute path from output to avoid leaking server filesystem layout.
+        $output = str_replace($absolutePath, $file->getPath() . '/' . $file->getName(), $output);
+
+        return [
+            'checked' => true,
+            'valid' => (bool) ($result['success'] ?? false),
+            'output' => $output !== '' ? $output : 'No output',
+        ];
+    }
+
     /**
      * Search files by query string matching against path and name
      */
@@ -680,7 +726,7 @@ HTML;
     /**
      * Build frontend data for fileUpdate results
      */
-    private function buildUpdateFrontendData($file, array $updates): string
+    private function buildUpdateFrontendData($file, array $updates, ?array $phpSyntaxCheck = null): string
     {
         $name = htmlspecialchars($file->getName());
         $path = htmlspecialchars($file->getPath());
@@ -733,6 +779,7 @@ HTML;
             }
         }
         $detailsHtml = implode('', $details);
+        $syntaxHtml = $this->buildPhpSyntaxCheckHtml($phpSyntaxCheck);
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -743,6 +790,32 @@ HTML;
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code></div>
     <div class="mt-2">$detailsHtml</div>
+    $syntaxHtml
+</div>
+HTML;
+    }
+
+    /**
+     * Build a compact PHP syntax-check badge for the fileUpdate frontend card.
+     * Returns empty string when no check was performed (non-PHP files).
+     */
+    private function buildPhpSyntaxCheckHtml(?array $phpSyntaxCheck): string
+    {
+        if ($phpSyntaxCheck === null) {
+            return '';
+        }
+
+        if ($phpSyntaxCheck['valid']) {
+            return <<<HTML
+<div class="small text-success mt-2"><i class="mdi mdi-language-php me-1"></i><i class="mdi mdi-check-circle me-1"></i>PHP syntax OK</div>
+HTML;
+        }
+
+        $errorEsc = htmlspecialchars($phpSyntaxCheck['output']);
+        return <<<HTML
+<div class="mt-2">
+    <div class="small text-danger"><i class="mdi mdi-language-php me-1"></i><i class="mdi mdi-alert-circle me-1"></i>PHP syntax error</div>
+    <pre class="bg-black bg-opacity-50 rounded p-2 mb-0 small text-danger" style="max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-word;">$errorEsc</pre>
 </div>
 HTML;
     }

@@ -305,7 +305,7 @@ class AIToolGitService
             'file' => $file ?? 'all changes',
             'staged' => $staged,
             'diffLines' => $diffLines,
-            '_frontendData' => $this->buildDiffFrontendData($file, $staged, $diffLines)
+            '_frontendData' => $this->buildDiffFrontendData($file, $staged, $diffLines, $result['diff'])
         ];
     }
 
@@ -559,18 +559,50 @@ HTML;
         
         $statusDisplay = implode(' ', $parts);
         
+        $sections = '';
+        $sections .= $this->renderStatusSection('staged', $status['staged'], 'text-success', 'mdi-check');
+        $sections .= $this->renderStatusSection('modified', $status['modified'], 'text-warning', 'mdi-pencil');
+        $sections .= $this->renderStatusSection('untracked', $status['untracked'], 'text-info', 'mdi-file-question');
+        $sections .= $this->renderStatusSection('deleted', $status['deleted'], 'text-danger', 'mdi-delete');
+        
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div><i class="mdi mdi-source-branch text-cyber me-1"></i><strong>$branch</strong></div>
     <div class="small mt-1">$statusDisplay</div>
+    <div class="mt-2">$sections</div>
 </div>
 HTML;
     }
 
-    private function buildDiffFrontendData(?string $file, bool $staged, int $diffLines): string
+    /**
+     * Render a status category as a collapsible list of filenames.
+     * Returns empty string when the category has no files.
+     */
+    private function renderStatusSection(string $label, array $files, string $colorClass, string $icon): string
+    {
+        if (empty($files)) {
+            return '';
+        }
+        
+        $count = count($files);
+        $items = '';
+        foreach ($files as $f) {
+            $name = htmlspecialchars((string) $f);
+            $items .= "<div class='small text-muted'><i class='mdi mdi-file-outline me-1'></i><code>$name</code></div>";
+        }
+        
+        $summary = "<span class='$colorClass'><i class='mdi $icon me-1'></i><strong>$label</strong> ($count)</span>";
+        return $this->renderCollapsible($summary, $items, true);
+    }
+
+    private function buildDiffFrontendData(?string $file, bool $staged, int $diffLines, string $diff = ''): string
     {
         $fileDisplay = $file ? htmlspecialchars($file) : 'all changes';
         $stagedText = $staged ? ' (staged)' : '';
+        
+        $diffBody = $this->renderColorizedDiff($diff);
+        $summary = "<i class='mdi mdi-file-compare me-1'></i><strong>diff</strong> <span class='text-muted'>($diffLines lines)</span>";
+        $collapsible = $diff !== '' ? $this->renderCollapsible($summary, $diffBody, true) : '';
         
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -579,6 +611,99 @@ HTML;
         <strong>Diff: $fileDisplay</strong>$stagedText
     </div>
     <div class="small text-muted mt-1">$diffLines lines</div>
+    <div class="mt-2">$collapsible</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Render a unified git diff with per-line colorization:
+     * added (green), removed (red), hunk headers (cyan), file headers (muted).
+     * Truncates very long diffs to keep the chat feed responsive.
+     */
+    private function renderColorizedDiff(string $diff): string
+    {
+        $maxChars = 8000;
+        $truncated = false;
+        if (mb_strlen($diff) > $maxChars) {
+            $diff = mb_substr($diff, 0, $maxChars);
+            $truncated = true;
+        }
+        
+        $lines = preg_split("/\r\n|\n|\r/", $diff);
+        $rendered = [];
+        $fileCount = 0;
+        foreach ($lines as $line) {
+            if ($line === '') {
+                $rendered[] = '';
+                continue;
+            }
+            $first = $line[0];
+
+            // "diff --git a/path b/path" → show just the filename in yellow,
+            // with one empty line separating consecutive files.
+            if (str_starts_with($line, 'diff --git')) {
+                if (preg_match('#^diff --git a/.* b/(.+)$#', $line, $m)) {
+                    $filename = $m[1];
+                } else {
+                    $filename = trim(substr($line, strlen('diff --git')));
+                }
+                if ($fileCount > 0) {
+                    $rendered[] = '';
+                }
+                $fileCount++;
+                $nameEsc = htmlspecialchars($filename);
+                $rendered[] = "<span class='text-warning'><i class='mdi mdi-file-outline me-1'></i>$nameEsc</span>";
+                continue;
+            }
+
+            // Drop the noisy git metadata lines — the yellow filename replaces them.
+            if (str_starts_with($line, 'index ') || str_starts_with($line, '--- ') || str_starts_with($line, '+++ ')
+                || str_starts_with($line, 'new file') || str_starts_with($line, 'deleted file')
+                || str_starts_with($line, 'rename ') || str_starts_with($line, 'similarity ')
+                || str_starts_with($line, 'old mode') || str_starts_with($line, 'new mode')) {
+                continue;
+            }
+
+            $escaped = htmlspecialchars($line);
+            if ($first === '@') {
+                $color = 'text-info';
+            } elseif ($first === '+') {
+                $color = 'text-success';
+            } elseif ($first === '-') {
+                $color = 'text-danger';
+            } else {
+                $color = 'text-light';
+            }
+            $rendered[] = "<span class='$color'>$escaped</span>";
+        }
+        
+        $body = implode("\n", $rendered);
+        $note = $truncated
+            ? '<div class="small text-muted mt-1"><i class="mdi mdi-dots-horizontal me-1"></i>diff truncated</div>'
+            : '';
+        
+        return '<pre class="bg-black bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 420px; overflow: auto; line-height: 1.4;">'
+            . $body . '</pre>' . $note;
+    }
+
+    /**
+     * Render a collapsible row: clickable summary + body that toggles on click.
+     * Mirrors the AIToolFileService collapsible used by fileManage read/fileUpdate.
+     * Pass $expanded = true to render the body open by default.
+     */
+    private function renderCollapsible(string $summaryHtml, string $bodyHtml, bool $expanded = false): string
+    {
+        $chevClass = $expanded ? 'mdi-chevron-down' : 'mdi-chevron-right';
+        $bodyHidden = $expanded ? '' : 'd-none';
+        return <<<HTML
+<div class="cq-collapsible mt-1">
+    <div class="small text-muted cursor-pointer d-flex align-items-center"
+         onclick="this.querySelector('.cq-chev').classList.toggle('mdi-chevron-down');this.querySelector('.cq-chev').classList.toggle('mdi-chevron-right');this.nextElementSibling.classList.toggle('d-none');">
+        <i class="mdi $chevClass cq-chev me-1"></i>
+        <span>$summaryHtml</span>
+    </div>
+    <div class="$bodyHidden mt-1 ps-3">$bodyHtml</div>
 </div>
 HTML;
     }
