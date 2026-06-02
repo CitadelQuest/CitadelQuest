@@ -179,6 +179,25 @@ class ProjectFileService
         
         return $path;
     }
+
+    /**
+     * Split a full pathname (directory + filename) into separate `path` and `name`
+     * components, matching how files are stored in the project_file table.
+     *
+     * Example: "/spirit/Amidamaru/memory/notes.md"
+     *   => ['path' => '/spirit/Amidamaru/memory', 'name' => 'notes.md']
+     *
+     * @return array{path: string, name: string}
+     */
+    public function splitPathname(string $pathname): array
+    {
+        $pathname = $this->normalizePath($pathname);
+
+        return [
+            'path' => $this->normalizePath(dirname($pathname)),
+            'name' => basename($pathname),
+        ];
+    }
     
     /**
      * Create a directory in a project

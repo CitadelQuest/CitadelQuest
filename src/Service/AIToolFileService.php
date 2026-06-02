@@ -35,6 +35,7 @@ class AIToolFileService
     public function fileUpdate(array $arguments): array
     {
         try {
+            $arguments = $this->expandPathnames($arguments);
             $this->validateArguments($arguments, ['projectId', 'path', 'name', 'operation']);
             $this->validateSpiritAccess($arguments);
 
@@ -200,6 +201,8 @@ class AIToolFileService
     public function fileManage(array $arguments): array
     {
         try {
+            $arguments = $this->expandPathnames($arguments);
+
             // Validate required parameters
             if (!isset($arguments['projectId']) || !isset($arguments['operation'])) {
                 throw new \InvalidArgumentException('fileManage requires projectId and operation parameters');
@@ -1185,6 +1188,47 @@ HTML;
             'result' => $result,
             '_frontendData' => $this->buildFileOperationFrontendData($operation, $params, $result)
         ];
+    }
+
+    /**
+     * Expand combined `pathname` style arguments into the separate path/name
+     * components the rest of the file tooling already expects.
+     *
+     * AI Spirits provide a single full path (e.g. "/spirit/X/memory/notes.md")
+     * which is far more natural for an LLM than splitting directory + filename.
+     * This keeps all downstream code untouched and stays backward compatible:
+     * explicitly provided path/name (or sourcePath/destPath etc.) always win.
+     *
+     * - pathname        -> path/name AND sourcePath/sourceName AND destPath/destName
+     *                      (single-target ops: create, read, delete, createDirectory)
+     * - sourcePathname  -> sourcePath/sourceName (copy, rename_move source)
+     * - destPathname    -> destPath/destName     (copy, rename_move destination)
+     */
+    private function expandPathnames(array $arguments): array
+    {
+        if (!empty($arguments['pathname'])) {
+            $split = $this->projectFileService->splitPathname($arguments['pathname']);
+            $arguments['path']       ??= $split['path'];
+            $arguments['name']       ??= $split['name'];
+            $arguments['sourcePath'] ??= $split['path'];
+            $arguments['sourceName'] ??= $split['name'];
+            $arguments['destPath']   ??= $split['path'];
+            $arguments['destName']   ??= $split['name'];
+        }
+
+        if (!empty($arguments['sourcePathname'])) {
+            $split = $this->projectFileService->splitPathname($arguments['sourcePathname']);
+            $arguments['sourcePath'] ??= $split['path'];
+            $arguments['sourceName'] ??= $split['name'];
+        }
+
+        if (!empty($arguments['destPathname'])) {
+            $split = $this->projectFileService->splitPathname($arguments['destPathname']);
+            $arguments['destPath'] ??= $split['path'];
+            $arguments['destName'] ??= $split['name'];
+        }
+
+        return $arguments;
     }
 
     /**
