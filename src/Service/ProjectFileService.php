@@ -1072,7 +1072,7 @@ class ProjectFileService
             switch ($update['operation']) {
                 case 'replace':
                     if (!isset($update['find']) || !isset($update['replace'])) {
-                        throw new \InvalidArgumentException('Replace operation requires "find" and "replace" fields');
+                        throw new \InvalidArgumentException('Replace operation requires "find" and "replaceWith" fields');
                     }
                     $updatedContent = str_replace($update['find'], $update['replace'], $updatedContent);
                     break;

@@ -64,6 +64,8 @@ class AIToolFileService
             }
             if (isset($arguments['replaceWith'])) {
                 $update['replace'] = $arguments['replaceWith'];
+            } elseif (isset($arguments['content'])) {
+                $update['replace'] = $arguments['content'];
             }
             if (isset($arguments['startLine'])) {
                 $update['startLine'] = (int) $arguments['startLine'];
