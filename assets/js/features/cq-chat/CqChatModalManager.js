@@ -139,6 +139,25 @@ export class CqChatModalManager {
                 this.openChat(chatId);
             }
         });
+
+        // Cold-start: open chat if launched from a notification (?openChat=<id>)
+        this._handleOpenChatFromUrl();
+    }
+
+    /**
+     * Open a chat if the page was opened from a notification (?openChat=<id>)
+     */
+    _handleOpenChatFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const chatId = params.get('openChat');
+        if (chatId) {
+            this.openChat(chatId);
+            // Clean the URL so a refresh doesn't reopen it
+            params.delete('openChat');
+            const newSearch = params.toString();
+            const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+            window.history.replaceState({}, '', newUrl);
+        }
     }
     
     /**

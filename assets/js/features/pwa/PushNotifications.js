@@ -9,6 +9,71 @@ export class PushNotificationService {
         this._lastNotifiedMessageIds = new Set(); // Prevent duplicate notifications
         this._maxStoredIds = 100; // Keep the set from growing indefinitely
         this._onNotificationClick = null; // Callback when notification is clicked
+        this._registration = null; // Service worker registration
+        this._registerServiceWorker();
+        this._listenForSwMessages();
+    }
+
+    /**
+     * Register the service worker (required to show notifications on Android)
+     */
+    async _registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+            this._registration = await navigator.serviceWorker.register('/sw.js');
+        } catch (error) {
+            console.warn('Service worker registration failed:', error);
+        }
+    }
+
+    /**
+     * Listen for notification-click messages forwarded from the service worker
+     */
+    _listenForSwMessages() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data?.type === 'cq-chat-notification-click' && this._onNotificationClick) {
+                this._onNotificationClick({ chatId: event.data.chatId });
+            }
+        });
+    }
+
+    /**
+     * Show a notification via the service worker (Android-compatible),
+     * falling back to the Notification constructor on desktop browsers.
+     */
+    async _showNotification(title, options) {
+        // Prefer service worker registration (required on Android)
+        let reg = this._registration;
+        if (!reg && 'serviceWorker' in navigator) {
+            try {
+                reg = await navigator.serviceWorker.ready;
+            } catch (e) { /* ignore */ }
+        }
+
+        if (reg && typeof reg.showNotification === 'function') {
+            try {
+                await reg.showNotification(title, options);
+                return;
+            } catch (e) {
+                console.warn('showNotification failed, falling back:', e);
+            }
+        }
+
+        // Desktop fallback: Notification constructor
+        try {
+            const notification = new Notification(title, options);
+            notification.onclick = () => {
+                notification.close();
+                window.focus();
+                if (this._onNotificationClick) {
+                    this._onNotificationClick(options.data || {});
+                }
+            };
+            setTimeout(() => notification.close(), 8000);
+        } catch (e) {
+            console.warn('Notification not supported:', e);
+        }
     }
 
     /**
@@ -72,27 +137,15 @@ export class PushNotificationService {
         const body = this._truncateMessage(message.content || '', 150);
         const icon = this._getIcon();
 
-        const notification = new Notification(title, {
+        this._showNotification(title, {
             body,
             icon,
             badge: this._getBadge(),
             tag: `cq-chat-${chatId}`, // Group notifications by chat
             renotify: true,
             timestamp: message.createdAt ? new Date(message.createdAt).getTime() : Date.now(),
+            data: { chatId, contactName, contactDomain },
         });
-
-        notification.onclick = () => {
-            notification.close();
-            // Focus the window
-            window.focus();
-            // Call the click handler
-            if (this._onNotificationClick) {
-                this._onNotificationClick({ chatId, contactName, contactDomain });
-            }
-        };
-
-        // Auto-close after 8 seconds
-        setTimeout(() => notification.close(), 8000);
     }
 
     /**
@@ -101,21 +154,14 @@ export class PushNotificationService {
     notify(title, body, options = {}) {
         if (!this.canNotify()) return;
 
-        const notification = new Notification(title, {
+        this._showNotification(title, {
             body,
             icon: options.icon || this._getIcon(),
             badge: this._getBadge(),
             tag: options.tag || 'citadelquest',
             timestamp: Date.now(),
+            data: options.data || {},
         });
-
-        notification.onclick = () => {
-            notification.close();
-            window.focus();
-            if (options.onClick) options.onClick();
-        };
-
-        setTimeout(() => notification.close(), 8000);
     }
 
     /**
