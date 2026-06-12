@@ -6,17 +6,9 @@
 
 export class PushNotificationService {
     constructor() {
-        this.permission = 'default'; // 'default', 'granted', 'denied'
         this._lastNotifiedMessageIds = new Set(); // Prevent duplicate notifications
         this._maxStoredIds = 100; // Keep the set from growing indefinitely
         this._onNotificationClick = null; // Callback when notification is clicked
-        this._initPermission();
-    }
-
-    _initPermission() {
-        if ('Notification' in window) {
-            this.permission = Notification.permission;
-        }
     }
 
     /**
@@ -30,9 +22,7 @@ export class PushNotificationService {
         }
 
         try {
-            const result = await Notification.requestPermission();
-            this.permission = result;
-            return result;
+            return await Notification.requestPermission();
         } catch (error) {
             console.error('Error requesting notification permission:', error);
             return 'denied';
@@ -40,10 +30,10 @@ export class PushNotificationService {
     }
 
     /**
-     * Check if we can show notifications
+     * Check if we can show notifications (reads live permission state)
      */
     canNotify() {
-        return 'Notification' in window && this.permission === 'granted';
+        return 'Notification' in window && Notification.permission === 'granted';
     }
 
     /**
@@ -140,6 +130,30 @@ export class PushNotificationService {
      */
     _getBadge() {
         return window.cqAssets?.favicon16 || '/build/images/favicon-16x16.png';
+    }
+
+    // ==================== Badging API ====================
+
+    /**
+     * Set the app icon badge count (PWA only)
+     * @param {number} count - Unread message count (0 clears the badge)
+     */
+    setBadge(count) {
+        if (!('setAppBadge' in navigator)) return;
+
+        if (count > 0) {
+            navigator.setAppBadge(count).catch(() => {});
+        } else {
+            navigator.clearAppBadge().catch(() => {});
+        }
+    }
+
+    /**
+     * Clear the app icon badge
+     */
+    clearBadge() {
+        if (!('clearAppBadge' in navigator)) return;
+        navigator.clearAppBadge().catch(() => {});
     }
 
     /**

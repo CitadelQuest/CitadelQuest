@@ -69,6 +69,9 @@ export class CqChatModalManager {
         this.pageNewChatBtn = document.getElementById('cqChatPageNewChatBtn');
         this.selectedMembers = new Set();
         
+        // Track per-chat unread counts for push notification detection
+        this._chatUnreadCounts = new Map();
+        
         this.init();
     }
     
@@ -937,43 +940,51 @@ export class CqChatModalManager {
 
     /**
      * Show system push notifications for new CQ Chat messages
-     * Only when the user is not actively viewing the chat
+     * Uses updates.chats (always available) to detect new messages,
+     * since updates.messages only contains data when a chat modal is open.
      */
     _handlePushNotifications(updates) {
-        if (!updates.messages || updates.messages.length === 0) return;
+        if (!updates.chats || updates.chats.length === 0) return;
 
         const isPageHidden = document.hidden;
         const isChatModalOpen = this.modal?.classList.contains('show');
-        const isViewingThisChat = isChatModalOpen && this.currentChatId;
 
-        updates.messages.forEach(message => {
-            // Only notify for incoming messages (from contacts, not from current user)
-            const isIncoming = message.cqContactId || message.cq_contact_id;
-            if (!isIncoming) return;
+        updates.chats.forEach(chat => {
+            const prevCount = this._chatUnreadCounts.get(chat.id) || 0;
+            const newCount = chat.unreadCount || 0;
 
-            // Determine if we should notify
-            // Notify if: page is hidden OR chat modal is not open OR viewing a different chat
-            const shouldNotify = isPageHidden || !isChatModalOpen || !isViewingThisChat;
+            // Only notify if unread count increased since last poll
+            if (newCount <= prevCount) return;
 
-            if (shouldNotify) {
-                // Get contact info from the message or current chat
-                let contactName = 'Contact';
-                let contactDomain = '';
-                if (message.contactUsername) {
-                    contactName = message.contactUsername;
-                    contactDomain = message.contactDomain || '';
-                } else if (this.currentChat?.contact?.cqContactUsername) {
-                    contactName = this.currentChat.contact.cqContactUsername;
-                    contactDomain = this.currentChat.contact.cqContactDomain || '';
-                }
+            // Don't notify if user is actively viewing this specific chat
+            if (isChatModalOpen && this.currentChatId === chat.id) return;
 
-                const chatId = message.cqChatId || message.cq_chat_id || updates.chatId;
-                if (chatId) {
-                    pushNotificationService.notifyNewMessage(
-                        message, chatId, contactName, contactDomain
-                    );
-                }
+            // Get contact info
+            const isGroup = chat.isGroupChat || false;
+            let contactName, contactDomain;
+            if (isGroup) {
+                contactName = chat.title || 'Group';
+                contactDomain = '';
+            } else {
+                contactName = chat.contact?.cqContactUsername || 'Contact';
+                contactDomain = chat.contact?.cqContactDomain || '';
             }
+
+            // Build a synthetic message from lastMessage for the notification service
+            const lastMsg = chat.lastMessage;
+            if (lastMsg && lastMsg.content) {
+                const syntheticMsg = {
+                    id: `${chat.id}:${lastMsg.createdAt || Date.now()}`,
+                    content: lastMsg.content,
+                    createdAt: lastMsg.createdAt,
+                };
+                pushNotificationService.notifyNewMessage(
+                    syntheticMsg, chat.id, contactName, contactDomain
+                );
+            }
+
+            // Update stored count
+            this._chatUnreadCounts.set(chat.id, newCount);
         });
     }
     
@@ -992,6 +1003,9 @@ export class CqChatModalManager {
             }
         }
         this.updatePageTitle(count);
+
+        // Update PWA app icon badge
+        pushNotificationService.setBadge(count);
     }
     
     /**
