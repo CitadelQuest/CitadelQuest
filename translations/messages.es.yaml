@@ -625,6 +625,16 @@ dashboard:
     feed_description: 'Sigue perfiles y mira actualizaciones'
     profile_description: 'Personaliza tu perfil público'
     admin_description: 'Administración de la Ciudadela'
+    pwa:
+        install: 'Instalar App'
+        install_title: 'Instala CitadelQuest en tu dispositivo para acceso rápido'
+        installing: 'Instalando…'
+        installed: '¡App instalada con éxito!'
+    notifications:
+        enable: 'Activar Notificaciones'
+        enable_title: 'Recibe notificaciones de nuevos mensajes en CQ Chat'
+        enabled: '¡Notificaciones activadas!'
+        denied: 'Permiso de notificaciones denegado. Puedes activarlo en la configuración del navegador.'
 
 cq_memory:
     page_title: 'CQ Memoria'

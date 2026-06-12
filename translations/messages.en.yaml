@@ -627,6 +627,16 @@ dashboard:
     feed_description: 'Follow profiles and see updates'
     profile_description: 'Customize your public profile'
     admin_description: 'Citadel administration'
+    pwa:
+        install: 'Install App'
+        install_title: 'Install CitadelQuest on your device for quick access'
+        installing: 'Installing…'
+        installed: 'App installed successfully!'
+    notifications:
+        enable: 'Enable Notifications'
+        enable_title: 'Get notified about new CQ Chat messages'
+        enabled: 'Notifications enabled!'
+        denied: 'Notification permission denied. You can enable them in your browser settings.'
 
 cq_memory:
     page_title: 'CQ Memory'

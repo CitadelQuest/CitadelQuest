@@ -2902,11 +2902,11 @@ class SpiritConversationService
             }
             
             // If sub-agent dropped everything, fall back to original nodes
-            if (empty($enrichedNodes) && !empty($recalledNodes)) {
+            /*if (empty($enrichedNodes) && !empty($recalledNodes)) {
                 $this->logger->debug('Subconsciousness sub-agent: all nodes filtered out, keeping originals');
                 $enrichedNodes = $recalledNodes;
                 $confidence = 'low';
-            }
+            }*/
             
             // Build enriched system prompt: replace the <recalled-memories> section
             $enrichedSystemPrompt = $this->rebuildSystemPromptWithEnrichedRecall(

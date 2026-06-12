@@ -625,6 +625,16 @@ dashboard:
     feed_description: 'Kövesd a profilokat és nézd az frissítéseket'
     profile_description: 'Személyre szabd a nyilvános profilodat'
     admin_description: 'Citadella adminisztráció'
+    pwa:
+        install: 'Alkalmazás Telepítése'
+        install_title: 'Telepítsd a CitadelQuestet az eszközödre a gyors hozzáférésért'
+        installing: 'Telepítés…'
+        installed: 'Alkalmazás sikeresen telepítve!'
+    notifications:
+        enable: 'Értesítések Engedélyezése'
+        enable_title: 'Értesítések az új CQ Chat üzenetekről'
+        enabled: 'Értesítések engedélyezve!'
+        denied: 'Értesítési engedély megtagadva. A böngésző beállításaiban engedélyezheted.'
 
 cq_memory:
     page_title: 'CQ Memória'

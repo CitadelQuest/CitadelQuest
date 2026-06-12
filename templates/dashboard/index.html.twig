@@ -339,6 +339,71 @@
                     </div>
                 </div>
             </div>
+
+            <!-- PWA Install & Notifications -->
+            <div class="mt-3 d-grid gap-2">
+                <button id="pwa-install-btn" class="btn btn-cyber btn-sm d-none" title="{{ 'dashboard.pwa.install_title'|trans }}">
+                    <i class="mdi mdi-cellphone-arrow-down me-2"></i>{{ 'dashboard.pwa.install'|trans }}
+                </button>
+                <button id="notification-permission-btn" class="btn btn-outline-cyber btn-sm d-none" title="{{ 'dashboard.notifications.enable_title'|trans }}">
+                    <i class="mdi mdi-bell-ring me-2"></i>{{ 'dashboard.notifications.enable'|trans }}
+                </button>
+            </div>
+
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const installBtn = document.getElementById('pwa-install-btn');
+                const notifBtn = document.getElementById('notification-permission-btn');
+
+                // PWA Install button logic
+                if (installBtn && window.pwaManager) {
+                    window.pwaManager.onChange((canInstall, isInstalled) => {
+                        if (canInstall) {
+                            installBtn.classList.remove('d-none');
+                        } else {
+                            installBtn.classList.add('d-none');
+                        }
+                    });
+
+                    installBtn.addEventListener('click', async () => {
+                        installBtn.disabled = true;
+                        installBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>{{ 'dashboard.pwa.installing'|trans }}';
+                        const result = await window.pwaManager.install();
+                        if (result) {
+                            installBtn.classList.add('d-none');
+                            window.toast?.success('{{ 'dashboard.pwa.installed'|trans }}');
+                        } else {
+                            installBtn.disabled = false;
+                            installBtn.innerHTML = '<i class="mdi mdi-cellphone-arrow-down me-2"></i>{{ 'dashboard.pwa.install'|trans }}';
+                        }
+                    });
+                }
+
+                // Notification permission button logic
+                if (notifBtn && 'Notification' in window) {
+                    if (Notification.permission === 'default') {
+                        notifBtn.classList.remove('d-none');
+                    }
+
+                    notifBtn.addEventListener('click', async () => {
+                        notifBtn.disabled = true;
+                        notifBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
+                        const result = await Notification.requestPermission();
+                        if (result === 'granted') {
+                            notifBtn.classList.add('d-none');
+                            window.toast?.success('{{ 'dashboard.notifications.enabled'|trans }}');
+                        } else {
+                            notifBtn.disabled = false;
+                            notifBtn.innerHTML = '<i class="mdi mdi-bell-ring me-2"></i>{{ 'dashboard.notifications.enable'|trans }}';
+                            if (result === 'denied') {
+                                notifBtn.classList.add('d-none');
+                                window.toast?.warning('{{ 'dashboard.notifications.denied'|trans }}');
+                            }
+                        }
+                    });
+                }
+            });
+            </script>
         </div>
 
     </div>

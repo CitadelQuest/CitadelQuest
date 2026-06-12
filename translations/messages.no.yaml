@@ -625,6 +625,16 @@ dashboard:
     feed_description: 'Følg profiler og se oppdateringer'
     profile_description: 'Tilpass din offentlige profil'
     admin_description: 'Citadelladministrasjon'
+    pwa:
+        install: 'Installer App'
+        install_title: 'Installer CitadelQuest på enheten din for rask tilgang'
+        installing: 'Installerer…'
+        installed: 'App installert!'
+    notifications:
+        enable: 'Aktiver Varsler'
+        enable_title: 'Få varsler om nye CQ Chat-meldinger'
+        enabled: 'Varsler aktivert!'
+        denied: 'Varslingstillatelse avslått. Du kan aktivere det i nettleserinnstillingene.'
 
 cq_memory:
     page_title: 'CQ Minne'

@@ -2,6 +2,7 @@ import { CqChatApiService } from './CqChatApiService.js';
 import { updatesService } from '../../services/UpdatesService.js';
 import { ImageShowcase } from '../../shared/image-showcase.js';
 import { formatDate as cqFormatDate, formatTime as cqFormatTime } from '../../shared/date-utils.js';
+import { pushNotificationService } from '../pwa/PushNotifications.js';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 
@@ -127,6 +128,13 @@ export class CqChatModalManager {
         // Register listener for updates (polling starts in entry point)
         this.updatesService.addListener('cqChat', (updates) => {
             this.handleUpdates(updates);
+        });
+
+        // Handle push notification clicks - open the relevant chat
+        pushNotificationService.onNotificationClick(({ chatId }) => {
+            if (chatId) {
+                this.openChat(chatId);
+            }
         });
     }
     
@@ -922,6 +930,51 @@ export class CqChatModalManager {
         if (this.currentChatId && updates.statusUpdates && updates.statusUpdates.length > 0) {
             this.updateMessageStatuses(updates.statusUpdates);
         }
+
+        // Push notifications for new incoming messages
+        this._handlePushNotifications(updates);
+    }
+
+    /**
+     * Show system push notifications for new CQ Chat messages
+     * Only when the user is not actively viewing the chat
+     */
+    _handlePushNotifications(updates) {
+        if (!updates.messages || updates.messages.length === 0) return;
+
+        const isPageHidden = document.hidden;
+        const isChatModalOpen = this.modal?.classList.contains('show');
+        const isViewingThisChat = isChatModalOpen && this.currentChatId;
+
+        updates.messages.forEach(message => {
+            // Only notify for incoming messages (from contacts, not from current user)
+            const isIncoming = message.cqContactId || message.cq_contact_id;
+            if (!isIncoming) return;
+
+            // Determine if we should notify
+            // Notify if: page is hidden OR chat modal is not open OR viewing a different chat
+            const shouldNotify = isPageHidden || !isChatModalOpen || !isViewingThisChat;
+
+            if (shouldNotify) {
+                // Get contact info from the message or current chat
+                let contactName = 'Contact';
+                let contactDomain = '';
+                if (message.contactUsername) {
+                    contactName = message.contactUsername;
+                    contactDomain = message.contactDomain || '';
+                } else if (this.currentChat?.contact?.cqContactUsername) {
+                    contactName = this.currentChat.contact.cqContactUsername;
+                    contactDomain = this.currentChat.contact.cqContactDomain || '';
+                }
+
+                const chatId = message.cqChatId || message.cq_chat_id || updates.chatId;
+                if (chatId) {
+                    pushNotificationService.notifyNewMessage(
+                        message, chatId, contactName, contactDomain
+                    );
+                }
+            }
+        });
     }
     
     /**

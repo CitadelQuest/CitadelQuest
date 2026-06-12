@@ -29,6 +29,10 @@ import { initLanguageSwitcher } from '../js/ui/language-switcher';
 // Import notifications
 import '../js/shared/notifications';
 
+// Import PWA manager (captures beforeinstallprompt, exposes install globally)
+import { pwaManager } from '../js/features/pwa/index';
+window.pwaManager = pwaManager;
+
 // Import toast
 import { ToastService } from '../js/shared/toast';
 window.toast = new ToastService();

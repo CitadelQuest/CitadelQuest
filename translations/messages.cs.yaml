@@ -627,6 +627,16 @@ dashboard:
     feed_description: 'Sleduj profily a jejich novinky'
     profile_description: 'Uprav si svůj veřejný profil'
     admin_description: 'Administrace Citadely'
+    pwa:
+        install: 'Instalovat Aplikaci'
+        install_title: 'Nainstalujte si CitadelQuest pro rychlý přístup'
+        installing: 'Instaluji…'
+        installed: 'Aplikace úspěšně nainstalována!'
+    notifications:
+        enable: 'Povolit Notifikace'
+        enable_title: 'Dostávejte upozornění na nové CQ Chat zprávy'
+        enabled: 'Notifikace povoleny!'
+        denied: 'Notifikace zamítnuty. Můžete je povolit v nastavení prohlížeče.'
 
 cq_memory:
     page_title: 'CQ Paměť'
