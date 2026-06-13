@@ -4,6 +4,8 @@ namespace App\Service;
 
 use App\Entity\AiServiceRequest;
 use App\Entity\AiServiceResponse;
+use App\Entity\User;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use SepaQr\SepaQrData;
 use chillerlan\QRCode\QRCode;
@@ -28,7 +30,9 @@ class AIToolCallService
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly AIToolProfileService $aiToolProfileService,
         private readonly AIToolGitService $aiToolGitService,
-        private readonly AIToolCommandService $aiToolCommandService
+        private readonly AIToolCommandService $aiToolCommandService,
+        private readonly AiToolPolicyService $aiToolPolicyService,
+        private readonly Security $security
     ) {
     }
     
@@ -43,6 +47,14 @@ class AIToolCallService
             }
             
             $arguments['lang'] = $lang;
+
+            // Citadel-level policy: admin-only tools are blocked for non-admin users (defense-in-depth)
+            if ($this->aiToolPolicyService->isAdminOnly($toolName)) {
+                $user = $this->security->getUser();
+                if (!($user instanceof User && $user->hasAdminRole())) {
+                    return ['error' => 'This tool is restricted to administrators.'];
+                }
+            }
 
             // Check if we have a specific method for this tool
             $methodName = lcfirst($toolName);

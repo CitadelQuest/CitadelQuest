@@ -626,7 +626,7 @@ HTML;
     private function buildContentFrontendData($file, string $content, bool $usedAnnotations, string $projectId): string
     {
         $headerName = htmlspecialchars($file->getName());
-        $headerPath = htmlspecialchars($file->getPath());
+        $headerPath = htmlspecialchars($file->getPath() == '/' ? '' : $file->getPath());
         $mimeType = htmlspecialchars($file->getMimeType() ?? 'application/octet-stream');
         $size = is_string($content) ? mb_strlen($content) : 0;
         $editLink = $this->buildFileEditLink($file);
@@ -1045,6 +1045,8 @@ HTML;
 
         $sourceDisplay = $source ? htmlspecialchars(rtrim($source['path'], '/') . '/' . $source['name']) : '';
         $destDisplay = $dest ? htmlspecialchars(rtrim($dest['path'], '/') . '/' . $dest['name']) : '';
+        $sourceDisplay = str_replace('//', '/', $sourceDisplay);
+        $destDisplay = str_replace('//', '/', $destDisplay);
 
         switch ($operation) {
             case 'create':

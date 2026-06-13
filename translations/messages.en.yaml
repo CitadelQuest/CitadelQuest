@@ -1507,6 +1507,8 @@ ai_tools:
         required: 'required'
         select_model: 'Select Model'
         default_model: 'Default (auto)'
+        admin_only: 'Admin only'
+        admin_only_help: 'Admin only — hidden from and unusable by non-admin users'
     category:
         file: 'File Management'
         web: 'Web Tools'

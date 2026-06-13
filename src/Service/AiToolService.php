@@ -11,8 +11,55 @@ class AiToolService
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
-        private readonly SpiritService $spiritService
+        private readonly SpiritService $spiritService,
+        private readonly AiToolPolicyService $aiToolPolicyService
     ) {
+    }
+
+    /**
+     * Whether the current user has the admin role.
+     */
+    public function currentUserIsAdmin(): bool
+    {
+        $user = $this->security->getUser();
+        return $user instanceof User && $user->hasAdminRole();
+    }
+
+    /**
+     * Decorate a single tool with its Citadel-level adminOnly flag.
+     */
+    private function decorateAdminOnly(AiTool $tool): AiTool
+    {
+        $tool->setAdminOnly($this->aiToolPolicyService->isAdminOnly($tool->getName()));
+        return $tool;
+    }
+
+    /**
+     * Apply the Citadel-level adminOnly policy to a list of tools:
+     *  - attach the adminOnly flag to each tool
+     *  - remove admin-only tools entirely for non-admin users
+     * @param AiTool[] $tools
+     * @return AiTool[]
+     */
+    private function applyAdminOnlyPolicy(array $tools): array
+    {
+        $adminOnlyNames = $this->aiToolPolicyService->getAdminOnlyToolNames();
+        if (empty($adminOnlyNames)) {
+            return $tools;
+        }
+
+        $isAdmin = $this->currentUserIsAdmin();
+        $result = [];
+        foreach ($tools as $tool) {
+            $isAdminOnly = in_array($tool->getName(), $adminOnlyNames, true);
+            if ($isAdminOnly && !$isAdmin) {
+                continue; // hidden from non-admins everywhere
+            }
+            $tool->setAdminOnly($isAdminOnly);
+            $result[] = $tool;
+        }
+
+        return $result;
     }
     
     /**
@@ -75,7 +122,7 @@ class AiToolService
             return null;
         }
 
-        return AiTool::fromArray($result);
+        return $this->decorateAdminOnly(AiTool::fromArray($result));
     }
 
     /**
@@ -93,7 +140,7 @@ class AiToolService
             return null;
         }
 
-        return AiTool::fromArray($result);
+        return $this->decorateAdminOnly(AiTool::fromArray($result));
     }
 
     /**
@@ -114,7 +161,9 @@ class AiToolService
         
         $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
 
-        return array_map(fn($data) => AiTool::fromArray($data), $results);
+        $tools = array_map(fn($data) => AiTool::fromArray($data), $results);
+
+        return $this->applyAdminOnlyPolicy($tools);
     }
 
     /**

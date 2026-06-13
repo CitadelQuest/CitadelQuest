@@ -1507,6 +1507,8 @@ ai_tools:
         required: 'povinný'
         select_model: 'Vybrat model'
         default_model: 'Výchozí (auto)'
+        admin_only: 'Pouze pro administrátory'
+        admin_only_help: 'Pouze pro administrátory — skryté a nepoužitelné pro běžné uživatele'
     category:
         file: 'Správa souborů'
         web: 'Webové nástroje'

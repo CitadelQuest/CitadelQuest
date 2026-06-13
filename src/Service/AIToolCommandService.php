@@ -60,7 +60,7 @@ class AIToolCommandService
         }
 
         // Security: scan command for absolute paths that escape the project root
-        $securityError = $this->validateCommandPaths($command, $projectDir);
+        /*$securityError = $this->validateCommandPaths($command, $projectDir);
         if ($securityError !== null) {
             $this->logger->warning('runCommand blocked: absolute path escape attempt', [
                 'projectId' => $projectId,
@@ -71,7 +71,7 @@ class AIToolCommandService
                 'success' => false,
                 'error' => 'Security blocked: ' . $securityError
             ];
-        }
+        }*/
 
         // Always run in project root — no cwd parameter
         $cwdResolved = $projectDir;

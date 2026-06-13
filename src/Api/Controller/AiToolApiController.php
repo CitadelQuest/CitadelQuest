@@ -4,6 +4,7 @@ namespace App\Api\Controller;
 
 use App\Service\AiToolService;
 use App\Service\AiToolSettingsService;
+use App\Service\AiToolPolicyService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,7 +18,8 @@ class AiToolApiController extends AbstractController
 {
     public function __construct(
         private readonly AiToolService $aiToolService,
-        private readonly AiToolSettingsService $aiToolSettingsService
+        private readonly AiToolSettingsService $aiToolSettingsService,
+        private readonly AiToolPolicyService $aiToolPolicyService
     ) {
     }
 
@@ -28,7 +30,35 @@ class AiToolApiController extends AbstractController
         $tools = $this->aiToolService->findAll($activeOnly);
 
         return $this->json([
-            'tools' => array_map(fn($tool) => $tool->jsonSerialize(), $tools)
+            'tools' => array_map(fn($tool) => $tool->jsonSerialize(), $tools),
+            'isAdmin' => $this->aiToolService->currentUserIsAdmin()
+        ]);
+    }
+
+    /**
+     * Set the Citadel-level admin-only policy for a tool (admins only).
+     */
+    #[Route('/{id}/admin-only', name: 'app_api_ai_tool_admin_only', methods: ['PUT'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function setAdminOnly(string $id, Request $request): JsonResponse
+    {
+        $tool = $this->aiToolService->findById($id);
+        if (!$tool) {
+            return $this->json(['error' => 'Tool not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!is_array($data) || !array_key_exists('adminOnly', $data)) {
+            return $this->json(['error' => 'Missing adminOnly flag'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $adminOnly = (bool) $data['adminOnly'];
+        $this->aiToolPolicyService->setAdminOnly($tool->getName(), $adminOnly);
+
+        return $this->json([
+            'success' => true,
+            'toolName' => $tool->getName(),
+            'adminOnly' => $adminOnly
         ]);
     }
 

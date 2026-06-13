@@ -1067,6 +1067,9 @@ class ProjectFileService
             return $lineB - $lineA; // Reverse order (highest line first)
         });
         
+        // Track replace operations whose "find" text was not present (no-op)
+        $notFound = [];
+
         // Process content-based operations first (they don't affect line numbers)
         foreach ($contentBasedOps as $update) {
             switch ($update['operation']) {
@@ -1074,7 +1077,11 @@ class ProjectFileService
                     if (!isset($update['find']) || !isset($update['replace'])) {
                         throw new \InvalidArgumentException('Replace operation requires "find" and "replaceWith" fields');
                     }
-                    $updatedContent = str_replace($update['find'], $update['replace'], $updatedContent);
+                    $replaceCount = 0;
+                    $updatedContent = str_replace($update['find'], $update['replace'], $updatedContent, $replaceCount);
+                    if ($replaceCount === 0) {
+                        $notFound[] = (string) $update['find'];
+                    }
                     break;
 
                 case 'append':
@@ -1095,7 +1102,21 @@ class ProjectFileService
                     throw new \InvalidArgumentException('Unsupported update operation: ' . $update['operation']);
             }
         }
-        
+
+        // If any "replace" operation's find text was not present, fail the whole update
+        // so the Spirit knows no change was made (instead of a false success).
+        if (!empty($notFound)) {
+            $details = array_map(function ($find) {
+                $snippet = mb_strlen($find) > 120 ? mb_substr($find, 0, 120) . '…' : $find;
+                return '"' . $snippet . '"';
+            }, $notFound);
+            throw new \RuntimeException(
+                'Replace failed: the "find" text was not found in the file, so no changes were made. '
+                . 'Verify the exact text including whitespace/indentation and line breaks, then retry. '
+                . 'Not found: ' . implode('; ', $details)
+            );
+        }
+
         // Update lines array after content-based operations
         $lines = explode("\n", $updatedContent);
         

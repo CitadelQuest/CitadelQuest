@@ -1499,6 +1499,8 @@ ai_tools:
         required: 'povinný'
         select_model: 'Vybrať model'
         default_model: 'Predvolený (auto)'
+        admin_only: 'Len pre administrátorov'
+        admin_only_help: 'Len pre administrátorov — skryté a nepoužiteľné pre bežných používateľov'
     category:
         file: 'Správa súborov'
         web: 'Webové nástroje'

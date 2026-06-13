@@ -25,6 +25,7 @@ export default class AiToolsSettingsManager {
 
         this.tools = [];
         this.currentToolId = null;
+        this.isAdmin = false;
 
         // Category display config
         this.categoryLabels = {
@@ -73,6 +74,7 @@ export default class AiToolsSettingsManager {
             const response = await fetch(this.apiUrl);
             const data = await response.json();
             this.tools = data.tools || [];
+            this.isAdmin = data.isAdmin || false;
             this.renderTools();
         } catch (error) {
             console.error('Error loading AI tools:', error);
@@ -183,11 +185,17 @@ export default class AiToolsSettingsManager {
                     <span class="cursor-pointer tool-name-toggle text-cyber fw-semibold" data-tool-id="${tool.id}" title="Show details">
                         <i class="mdi mdi-chevron-right tool-chevron me-1 text-secondary" style="transition: transform 0.2s;"></i>${tool.name}
                     </span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-sm btn-outline-secondary border-0 tool-settings-btn d-none" data-tool-id="${tool.id}" title="${this.translations.tool_settings || 'Settings'}">
+                    <button class="btn btn-sm btn-outline-info border-0 tool-settings-btn d-none" data-tool-id="${tool.id}" title="${this.translations.tool_settings || 'Settings'}">
                         <i class="mdi mdi-cog"></i>
                     </button>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    ${this.isAdmin ? `
+                    <div class="form-check form-switch mb-0 me-2 _d-flex align-items-center gap-1" title="${this.translations.admin_only_help || 'Admin only — hidden from non-admin users'}">
+                        <i class="mdi mdi-shield-account ${tool.adminOnly ? 'text-warning' : 'text-secondary'}" style="font-size: 0.9rem;"></i>
+                        <input class="form-check-input tool-adminonly-toggle" type="checkbox" role="switch" 
+                            data-tool-id="${tool.id}" ${tool.adminOnly ? 'checked' : ''}>
+                    </div>` : ''}
                     <div class="form-check form-switch mb-0 ms-1">
                         <input class="form-check-input tool-active-toggle" type="checkbox" role="switch" 
                             data-tool-id="${tool.id}" ${tool.isActive ? 'checked' : ''}>
@@ -218,6 +226,12 @@ export default class AiToolsSettingsManager {
         // Active toggle
         const activeToggle = cardEl.querySelector('.tool-active-toggle');
         activeToggle.addEventListener('change', (e) => this.toggleToolActive(tool.id, e.target.checked, cardEl));
+
+        // Admin-only toggle (admins only)
+        const adminOnlyToggle = cardEl.querySelector('.tool-adminonly-toggle');
+        if (adminOnlyToggle) {
+            adminOnlyToggle.addEventListener('change', (e) => this.toggleAdminOnly(tool.id, e.target.checked, cardEl));
+        }
 
         // Settings button — load settings to check if tool has any
         this.checkToolSettings(tool.id, cardEl.querySelector('.tool-settings-btn'));
@@ -260,6 +274,40 @@ export default class AiToolsSettingsManager {
             }
         } catch (error) {
             console.error('Error toggling tool:', error);
+            this.showToast(this.translations.error || 'Error', 'danger');
+        }
+    }
+
+    // =====================
+    // Admin-only Policy Toggle
+    // =====================
+
+    async toggleAdminOnly(toolId, adminOnly, cardEl) {
+        try {
+            const response = await fetch(`${this.apiUrl}/${toolId}/admin-only`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ adminOnly })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const idx = this.tools.findIndex(t => t.id === toolId);
+                if (idx !== -1) this.tools[idx].adminOnly = adminOnly;
+
+                // Update shield icon color
+                const shield = cardEl.querySelector('.mdi-shield-account');
+                if (shield) {
+                    shield.classList.toggle('text-warning', adminOnly);
+                    shield.classList.toggle('text-secondary', !adminOnly);
+                }
+
+                this.showToast(this.translations.saved || 'Saved', 'success');
+            } else {
+                this.showToast(data.error || this.translations.error || 'Error', 'danger');
+            }
+        } catch (error) {
+            console.error('Error toggling admin-only:', error);
             this.showToast(this.translations.error || 'Error', 'danger');
         }
     }

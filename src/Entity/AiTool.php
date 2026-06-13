@@ -15,6 +15,8 @@ class AiTool implements JsonSerializable
     private int $displayOrder;
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $updatedAt;
+    /** Transient: Citadel-level admin-only policy flag (from main.db, not persisted in user db) */
+    private bool $adminOnly = false;
     
     public function __construct(string $name, string $description, string $parameters, bool $isActive = true, string $category = 'general', int $displayOrder = 0)
     {
@@ -139,6 +141,17 @@ class AiTool implements JsonSerializable
         return $this;
     }
     
+    public function isAdminOnly(): bool
+    {
+        return $this->adminOnly;
+    }
+    
+    public function setAdminOnly(bool $adminOnly): self
+    {
+        $this->adminOnly = $adminOnly;
+        return $this;
+    }
+    
     public function jsonSerialize(): array
     {
         return [
@@ -149,6 +162,7 @@ class AiTool implements JsonSerializable
             'isActive' => $this->isActive,
             'category' => $this->category,
             'displayOrder' => $this->displayOrder,
+            'adminOnly' => $this->adminOnly,
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'updatedAt' => $this->updatedAt->format(\DateTimeInterface::ATOM)
         ];
