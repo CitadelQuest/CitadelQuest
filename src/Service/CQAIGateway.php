@@ -106,19 +106,18 @@ class CQAIGateway implements AiGatewayInterface
         ];
         
         try {
-            // Send request to CQAIGateway API
-            $response = $this->httpClient->request('POST', $aiGateway->getApiEndpointUrl() . $this->apiEndpointUrlPath, [
-                'headers' => $headers,
-                'json' => $requestData,
-                'timeout' => 600, // 10 minutes timeout
-                'max_duration' => 600 // 10 minutes max duration for the entire request
-            ]);
-            
-            // Get response data
-            $responseContent = $response->getContent();
+            $endpointBase = rtrim($aiGateway->getApiEndpointUrl(), '/');
+
+            // Async start + poll (Cloudflare-524-proof): the slow OpenRouter call runs
+            // in a detached gateway worker, while we poll fast/short status requests that
+            // never exceed Cloudflare's ~100s proxy window. Falls back to the legacy
+            // single synchronous POST if the gateway has not been updated yet.
+            $responseData = $this->sendRequestViaJob($endpointBase, $headers, $requestData);
+            if ($responseData === null) {
+                $responseData = $this->sendRequestLegacy($endpointBase . $this->apiEndpointUrlPath, $headers, $requestData);
+            }
 
             // Parse response data
-            $responseData = json_decode($responseContent, true) ?? [];
             $choices = $responseData['choices'] ?? [];
             $message = $choices[0]['message'] ?? [];
             $finishReason = $choices[0]['finish_reason'] ?? null;
@@ -146,11 +145,101 @@ class CQAIGateway implements AiGatewayInterface
             $errorResponse = new AiServiceResponse(
                 $request->getId(),
                 ['error' => $e->getMessage()],
-                ['response' => $response->getContent(false)]
+                ['error' => $e->getMessage()]
             );
             
             return $errorResponse;
         }
+    }
+
+    /**
+     * Async pattern: POST /ai/chat/completions/start to enqueue a background job on the
+     * gateway, then poll /ai/chat/completions/status/{jobId} until done. Each HTTP call is
+     * short, so the chain is safe against Cloudflare's ~100s 524 timeout even when the
+     * underlying OpenRouter generation takes minutes.
+     *
+     * @return array|null The completion response array, or null if the gateway does not
+     *                     support the async endpoints (caller should fall back to legacy).
+     */
+    private function sendRequestViaJob(string $endpointBase, array $headers, array $requestData): ?array
+    {
+        $startUrl = $endpointBase . $this->apiEndpointUrlPath . '/start';
+        $statusUrlBase = $endpointBase . $this->apiEndpointUrlPath . '/status/';
+
+        // 1) Start the job
+        $startResponse = $this->httpClient->request('POST', $startUrl, [
+            'headers' => $headers,
+            'json' => $requestData,
+            'timeout' => 30,
+            'max_duration' => 30
+        ]);
+
+        $startStatus = $startResponse->getStatusCode();
+        // Older gateway without the async endpoint -> signal legacy fallback
+        if ($startStatus === 404) {
+            return null;
+        }
+
+        $startContent = $startResponse->getContent(false);
+        $startJson = json_decode($startContent, true) ?? [];
+
+        if ($startStatus >= 400 || empty($startJson['jobId'])) {
+            $err = $startJson['error']['message'] ?? ($startJson['error'] ?? $startContent);
+            throw new \Exception('CQ AI Gateway start failed (' . $startStatus . '): ' . (is_string($err) ? $err : json_encode($err)));
+        }
+
+        $jobId = $startJson['jobId'];
+
+        // 2) Poll status until done
+        $maxWaitSeconds = 600;       // 10 min hard ceiling
+        $pollIntervalSeconds = 2;
+        $deadline = time() + $maxWaitSeconds;
+
+        while (time() < $deadline) {
+            sleep($pollIntervalSeconds);
+
+            $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $jobId, [
+                'headers' => $headers,
+                'timeout' => 30,
+                'max_duration' => 30
+            ]);
+
+            $statusCode = $statusResponse->getStatusCode();
+            $statusContent = $statusResponse->getContent(false);
+            $statusJson = json_decode($statusContent, true) ?? [];
+
+            if ($statusCode >= 400) {
+                $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
+                throw new \Exception('CQ AI Gateway status poll failed (' . $statusCode . '): ' . (is_string($err) ? $err : json_encode($err)));
+            }
+
+            if (!empty($statusJson['done'])) {
+                if (isset($statusJson['response'])) {
+                    return $statusJson['response'];
+                }
+                $err = $statusJson['error'] ?? 'Unknown gateway job error';
+                throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
+            }
+        }
+
+        throw new \Exception('CQ AI Gateway job timed out after ' . $maxWaitSeconds . 's (jobId: ' . $jobId . ')');
+    }
+
+    /**
+     * Legacy single synchronous POST to /ai/chat/completions. Used as a fallback when the
+     * gateway does not yet expose the async start/status endpoints.
+     */
+    private function sendRequestLegacy(string $url, array $headers, array $requestData): array
+    {
+        $response = $this->httpClient->request('POST', $url, [
+            'headers' => $headers,
+            'json' => $requestData,
+            'timeout' => 600,
+            'max_duration' => 600
+        ]);
+
+        $responseContent = $response->getContent(false);
+        return json_decode($responseContent, true) ?? [];
     }
 
     /**

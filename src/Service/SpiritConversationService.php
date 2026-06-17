@@ -885,6 +885,82 @@ class SpiritConversationService
     }
     
     /**
+     * Run a full Spirit Chat turn server-side: initial AI response + complete
+     * tool-execution loop, until the AI stops requesting tools.
+     *
+     * Designed to run inside a detached CLI worker (app:spirit-chat-turn) so the
+     * long-running AI calls never block an HTTP request (avoids Cloudflare 524).
+     * All messages are persisted as they are produced, so the browser can render
+     * them by polling and they survive a closed browser / lost connection.
+     *
+     * @param callable $shouldStop Returns true when the user requested to stop the chain.
+     */
+    public function runFullTurn(
+        string $conversationId,
+        string $userMessageId,
+        string $lang = 'English',
+        int $maxOutput = 500,
+        float $temperature = 0.7,
+        ?string $cachedSystemPrompt = null,
+        ?callable $shouldStop = null,
+        float $toolTemperature = 0.5
+    ): void {
+        $shouldStop = $shouldStop ?? static fn (): bool => false;
+
+        // Load the user message that initiated this turn
+        $messageService = new SpiritConversationMessageService(
+            $this->userDatabaseManager,
+            $this->security,
+            $this->logger
+        );
+        $userMessage = $messageService->getMessageById($userMessageId);
+        if (!$userMessage) {
+            throw new \Exception('User message not found: ' . $userMessageId);
+        }
+
+        // Initial AI response (may request tools)
+        $response = $this->sendMessageAsync(
+            $conversationId,
+            $userMessage,
+            $lang,
+            $maxOutput,
+            $temperature,
+            $cachedSystemPrompt
+        );
+
+        // Tool-execution loop — bounded to avoid runaway chains
+        $maxIterations = 25;
+        $iterations = 0;
+
+        while (
+            ($response['requiresToolExecution'] ?? false)
+            && !empty($response['toolCalls'])
+            && !$shouldStop()
+            && $iterations < $maxIterations
+        ) {
+            $assistantMessage = $response['message'];
+            $assistantMessageId = is_array($assistantMessage)
+                ? ($assistantMessage['id'] ?? null)
+                : $assistantMessage->getId();
+
+            if (!$assistantMessageId) {
+                break;
+            }
+
+            $response = $this->executeToolsAsync(
+                $conversationId,
+                $assistantMessageId,
+                $response['toolCalls'],
+                $lang,
+                $maxOutput,
+                $toolTemperature
+            );
+
+            $iterations++;
+        }
+    }
+
+    /**
      * Determine response type from AI service response
      * Uses finish_reason: 'stop', 'tool_use', 'length', 'content_filter'
      */
@@ -1602,12 +1678,16 @@ class SpiritConversationService
     public function buildSystemInfoSection(): string
     {
         $currentDateTime = (new \DateTime('now', new \DateTimeZone('Europe/Prague')))->format('Y-m-d H:i:s');
-        
+
+        // CLI-safe: $_SERVER['SERVER_NAME'] is undefined when the turn runs in the
+        // background worker (no web request). Fall back gracefully.
+        $host = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? (gethostname() ?: 'localhost');
+
         return "
 
             <current-system-info>
                 <CitadelQuest-app>
-                    <host>{$_SERVER["SERVER_NAME"]}</host>
+                    <host>{$host}</host>
                     <version>{$this->citadelVersion->getVersion()}</version>
                 </CitadelQuest-app>
                 <user>

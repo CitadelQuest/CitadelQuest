@@ -348,18 +348,65 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Start a background turn (timeout-proof). Persists the user message and hands
+     * the full AI response + tool loop to a detached worker. Returns immediately.
+     * @param {string} conversationId - The ID of the conversation
+     * @param {string|Array} message - The message to send
+     * @param {number} maxOutput - Max output tokens
+     * @param {number} temperature - Sampling temperature
+     * @returns {Promise<Object>} - { success, jobId, userMessage, savedAttachments }
+     */
+    async startTurn(conversationId, message, maxOutput = 500, temperature = 0.7) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${conversationId}/start-turn`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    message,
+                    max_output: maxOutput,
+                    temperature
+                })
+            });
+            return await this._parseResponse(response, 'Failed to start turn');
+        } catch (error) {
+            console.error('Error starting turn:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Poll the status of a background turn. Lightweight + fast.
+     * @param {string} conversationId - The ID of the conversation
+     * @param {string} jobId - The turn job id
+     * @returns {Promise<Object>} - { status, done, error, messages, stopRequested }
+     */
+    async getTurnStatus(conversationId, jobId) {
+        const response = await fetch(`${this.baseUrl}/${conversationId}/turn-status/${jobId}`, {
+            method: 'GET',
+            credentials: 'include',
+            signal: AbortSignal.timeout(30000) // poll must be fast; abort stuck polls
+        });
+        return await this._parseResponse(response, 'Failed to fetch turn status');
+    }
+
+    /**
      * Stop tool execution chain
      * @param {string} conversationId - The ID of the conversation
+     * @param {string|null} jobId - The turn job id to stop
      * @returns {Promise<Object>} - Success status
      */
-    async stopExecution(conversationId) {
+    async stopExecution(conversationId, jobId = null) {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/stop-execution`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                credentials: 'include'
+                credentials: 'include',
+                body: JSON.stringify({ jobId })
             });
             
             if (!response.ok) {

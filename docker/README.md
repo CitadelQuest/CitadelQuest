@@ -129,6 +129,21 @@ docker-compose up --build
 - Verify `/var/www/html/var` is writable
 - Check SQLite extension is loaded: `php -m | grep sqlite`
 
+### Spirit Chat "HTTP 524" / response generated but not delivered
+- **524 is a Cloudflare timeout** (origin didn't return a full HTTP response within
+  Cloudflare's fixed ~100s proxy window — not raisable below the Enterprise plan).
+  Apache `Timeout 900` and PHP `max_execution_time 900` are correct and **not** the cause.
+- Spirit Chat turns now run in a **detached background worker** (`app:spirit-chat-turn`)
+  spawned from `start-turn`; the browser polls `turn-status`. No HTTP request is held open
+  for the long AI call, so 524 cannot occur regardless of response length, and responses
+  survive a closed browser (they're persisted and appear on reload).
+- Requirements for this to work in the container:
+  - PHP `exec()` must be enabled (it is by default in `php:8.4-apache`).
+  - The PHP **CLI** binary must be reachable. Override with `CQ_PHP_BINARY=/usr/local/bin/php`
+    if auto-detection fails.
+  - `var/log/` must be writable (worker output goes to `var/log/spirit-turn.log`).
+- If a turn stays "thinking" forever, check `var/log/spirit-turn.log` for worker errors.
+
 ## Architecture
 
 ```

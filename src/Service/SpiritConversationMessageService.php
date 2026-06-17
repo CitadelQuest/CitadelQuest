@@ -161,6 +161,40 @@ class SpiritConversationMessageService
     }
     
     /**
+     * Get messages created at/after a timestamp for a conversation.
+     * Used by background-turn polling to fetch new assistant/tool messages as they appear.
+     *
+     * @param string $conversationId
+     * @param string $since 'Y-m-d H:i:s' boundary (inclusive)
+     * @param string[] $roles Optional role filter (e.g. ['assistant', 'tool'])
+     * @return SpiritConversationMessage[]
+     */
+    public function getMessagesByConversationSince(string $conversationId, string $since, array $roles = []): array
+    {
+        $db = $this->getUserDb();
+
+        $sql = 'SELECT * FROM spirit_conversation_message WHERE conversation_id = ? AND created_at >= ?';
+        $params = [$conversationId, $since];
+
+        if (!empty($roles)) {
+            $placeholders = implode(', ', array_fill(0, count($roles), '?'));
+            $sql .= ' AND role IN (' . $placeholders . ')';
+            $params = array_merge($params, $roles);
+        }
+
+        $sql .= ' ORDER BY created_at ASC';
+
+        $result = $db->executeQuery($sql, $params);
+
+        $messages = [];
+        foreach ($result->fetchAllAssociative() as $data) {
+            $messages[] = SpiritConversationMessage::fromArray($data);
+        }
+
+        return $messages;
+    }
+
+    /**
      * Get a single message by ID
      */
     public function getMessageById(string $messageId): ?SpiritConversationMessage

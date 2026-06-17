@@ -17,6 +17,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceUseLogService;
+use App\Service\SpiritChatTurnService;
 use App\CitadelVersion;
 
 #[Route('/api/spirit-conversation')]
@@ -562,19 +563,342 @@ class SpiritConversationApiController extends AbstractController
     }
     
     /**
-     * Stop tool execution chain
+     * Start a background turn: persist the user message, then hand off the full
+     * AI response + tool-execution loop to a detached CLI worker. Returns immediately
+     * with a turn job id; the browser polls turn-status for results.
+     *
+     * This is the timeout-proof replacement for send-async + execute-tools: no single
+     * HTTP request is held open for the long AI call, so Cloudflare's 100s limit (524)
+     * is never hit, regardless of how long the AI turn takes.
+     */
+    #[Route('/{id}/start-turn', name: 'api_spirit_conversation_start_turn', methods: ['POST'])]
+    public function startTurn(
+        string $id,
+        Request $request,
+        TranslatorInterface $translator,
+        \App\Service\SpiritConversationMessageService $messageService,
+        SpiritChatTurnService $turnService
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+            if (!isset($data['message'])) {
+                return $this->json(['error' => 'Missing message parameter'], 400);
+            }
+
+            // Get conversation
+            $conversation = $this->conversationService->getConversation($id);
+            if (!$conversation) {
+                return $this->json(['error' => 'Conversation not found'], 404);
+            }
+
+            // Create user message
+            $messageContent = is_array($data['message']) ? $data['message'] : [['type' => 'text', 'text' => $data['message']]];
+            $userMessage = $messageService->createMessage($id, 'user', 'text', $messageContent);
+
+            $userMessageArray = $userMessage->jsonSerialize();
+            // Save files from message
+            $newFiles = $this->conversationService->saveFilesFromMessage($userMessageArray, 'general');
+            $newFilesInfo = [];
+            foreach ($newFiles as $file) {
+                $newFilesInfo[] = [
+                    'type' => 'text',
+                    'text' => 'File: `' . $file->getFullPath() . '` (projectId: `' . $file->getProjectId() . '`)',
+                ];
+            }
+            if (count($newFilesInfo) > 0) {
+                $userMessageArray['content'] = array_merge($userMessageArray['content'], $newFilesInfo);
+            }
+
+            // Save images from message
+            $newImages = $this->aiServiceResponseService->saveImagesFromMessage(
+                new AiServiceResponse('', $userMessageArray, []),
+                'general',
+                '/uploads/img'
+            );
+            $newImagesInfo = [];
+            foreach ($newImages as $image) {
+                $newImagesInfo[] = [
+                    'type' => 'text',
+                    'text' => '<div class="small float-end text-end">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
+                ];
+            }
+            if (count($newImagesInfo) > 0) {
+                $userMessageArray['content'] = array_merge($userMessageArray['content'], $newImagesInfo);
+            }
+            $userMessage->setContent($userMessageArray['content']);
+            $messageService->updateMessageContent($userMessage);
+
+            // Get max output + temperature
+            $maxOutput = isset($data['max_output']) ? (int) $data['max_output'] : 500;
+            $temperature = isset($data['temperature']) ? (float) $data['temperature'] : 0.7;
+
+            // Get locale for language
+            $locale = $request->getSession()->get('_locale') ??
+                      $request->getSession()->get('citadel_locale') ?? 'en';
+            $lang = $translator->trans('navigation.language.' . $locale) . ' (' . $locale . ')';
+
+            // Read cached system prompt + recalled nodes from pre-send (one-shot)
+            $session = $request->getSession();
+            $cachedSystemPrompt = $session->get("recall_{$id}_latest");
+            $cachedRecallNodes = $session->get("recall_{$id}_nodes");
+            if ($cachedSystemPrompt) {
+                $session->remove("recall_{$id}_latest");
+            }
+            if ($cachedRecallNodes) {
+                $session->remove("recall_{$id}_nodes");
+            }
+            $session->save();
+
+            // Persist memory_recall message if pre-send returned recalled nodes (for history/reload)
+            if ($cachedRecallNodes && !empty($cachedRecallNodes['recalledNodes'])) {
+                $messageService->createMessage($id, 'assistant', 'memory_recall', $cachedRecallNodes, $userMessage->getId());
+            }
+
+            // Create the turn job and spawn the detached worker
+            $turnJobId = $turnService->create($id, $userMessage->getId(), [
+                'lang' => $lang,
+                'maxOutput' => $maxOutput,
+                'temperature' => $temperature,
+                'toolTemperature' => 0.5,
+                'cachedSystemPrompt' => $cachedSystemPrompt,
+                'host' => $request->getHost(), // restored in the worker so system-info matches web
+            ]);
+
+            try {
+                $this->spawnTurnWorker((string) $this->getUser()->getId(), $turnJobId);
+            } catch (\Throwable $spawnError) {
+                // Could not start the background worker — fail the turn now so the UI
+                // shows a clear error instead of polling a job that will never run.
+                $turnService->markFailed($turnJobId, 'Could not start background worker: ' . $spawnError->getMessage());
+                return $this->json([
+                    'error' => 'Could not start background processing. ' . $spawnError->getMessage(),
+                ], 500);
+            }
+
+            // Return immediately — the browser will poll turn-status
+            $result = [
+                'success' => true,
+                'jobId' => $turnJobId,
+                'userMessage' => $userMessage->jsonSerialize(),
+                'turnStartedAt' => $turnService->find($turnJobId)['created_at'] ?? null,
+            ];
+            if (!empty($newFilesInfo) || !empty($newImagesInfo)) {
+                $result['savedAttachments'] = array_merge($newFilesInfo, $newImagesInfo);
+            }
+
+            return $this->json($result);
+
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Poll the status of a background turn and fetch any new messages produced so far.
+     * Lightweight + fast — always returns well under Cloudflare's 100s window.
+     */
+    #[Route('/{id}/turn-status/{jobId}', name: 'api_spirit_conversation_turn_status', methods: ['GET'])]
+    public function turnStatus(
+        string $id,
+        string $jobId,
+        \App\Service\SpiritConversationMessageService $messageService,
+        SpiritChatTurnService $turnService
+    ): JsonResponse {
+        try {
+            $turn = $turnService->find($jobId);
+            if (!$turn || $turn['conversation_id'] !== $id) {
+                return $this->json(['error' => 'Turn not found'], 404);
+            }
+
+            // New assistant/tool messages produced since the turn started.
+            // memory_recall is excluded — it's rendered live and on full reload only.
+            $since = $turn['created_at'] ?? (new \DateTime())->format('Y-m-d H:i:s');
+            $messages = $messageService->getMessagesByConversationSince($id, $since, ['assistant', 'tool']);
+
+            $messagesWithUsage = array_map(function ($msg) {
+                if ($msg->getType() === 'memory_recall') {
+                    return null;
+                }
+                $msgData = $msg->jsonSerialize();
+                if ($msg->getAiServiceRequestId()) {
+                    $usage = $this->aiServiceUseLogService->getUsageByRequestId($msg->getAiServiceRequestId());
+                    if ($usage) {
+                        $msgData['usage'] = $usage;
+                    }
+                }
+                return $msgData;
+            }, $messages);
+            $messagesWithUsage = array_values(array_filter($messagesWithUsage));
+
+            $done = in_array($turn['status'], [
+                SpiritChatTurnService::STATUS_COMPLETED,
+                SpiritChatTurnService::STATUS_FAILED,
+                SpiritChatTurnService::STATUS_STOPPED,
+            ], true);
+
+            return $this->json([
+                'success' => true,
+                'status' => $turn['status'],
+                'done' => $done,
+                'error' => $turn['error'] ?? null,
+                'stopRequested' => (int) ($turn['stop_requested'] ?? 0) === 1,
+                'messages' => $messagesWithUsage,
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Stop tool execution chain — flags the background turn to stop after the
+     * current AI call finishes.
      */
     #[Route('/{id}/stop-execution', name: 'api_spirit_conversation_stop_execution', methods: ['POST'])]
-    public function stopExecution(string $id): JsonResponse
+    public function stopExecution(string $id, Request $request, SpiritChatTurnService $turnService): JsonResponse
     {
         try {
-            // For now, just return success
-            // In the future, this could set a flag in the database or session
-            // to signal the frontend to stop the execution chain
-            
+            $data = json_decode($request->getContent(), true) ?: [];
+            $jobId = $data['jobId'] ?? null;
+            if ($jobId) {
+                $turn = $turnService->find($jobId);
+                if ($turn && $turn['conversation_id'] === $id) {
+                    $turnService->requestStop($jobId);
+                }
+            }
+
             return $this->json(['success' => true]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Spawn the detached background worker that processes a turn.
+     * The process is fully detached (nohup + background) so it outlives this HTTP request.
+     */
+    private function spawnTurnWorker(string $userId, string $turnJobId): void
+    {
+        // Ensure exec() is available (some hardened PHP setups disable it)
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (!function_exists('exec') || in_array('exec', $disabled, true)) {
+            throw new \RuntimeException('PHP exec() is disabled; cannot spawn background worker.');
+        }
+
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $env = $this->getParameter('kernel.environment');
+        $logFile = $projectDir . '/var/log/spirit-turn.log';
+
+        $php = $this->resolvePhpBinary();
+        if ($php === null) {
+            throw new \RuntimeException('Could not locate a PHP CLI binary to run the worker (php-fpm is not usable).');
+        }
+
+        $cmd = sprintf(
+            'nohup %s %s/bin/console app:spirit-chat-turn %s %s --env=%s >> %s 2>&1 &',
+            escapeshellarg($php),
+            $projectDir,
+            escapeshellarg($userId),
+            escapeshellarg($turnJobId),
+            escapeshellarg($env),
+            escapeshellarg($logFile)
+        );
+
+        // Debug trace so we can see exactly what was launched (and from which SAPI)
+        @file_put_contents(
+            $logFile,
+            sprintf(
+                "[%s] spawn turn=%s user=%s sapi=%s php=%s\n  cmd: %s\n",
+                date('c'),
+                $turnJobId,
+                $userId,
+                PHP_SAPI,
+                $php,
+                $cmd
+            ),
+            FILE_APPEND
+        );
+
+        // exec returns immediately because the command is backgrounded with `&`
+        @exec($cmd);
+    }
+
+    /**
+     * Resolve the PHP **CLI** binary path.
+     *
+     * This is intentionally careful: under PHP-FPM (and mod_php) PHP_BINARY points to
+     * php-fpm / apache, NOT the CLI — running `php-fpm bin/console` just prints FPM usage.
+     * We therefore build a candidate list and validate each one by running `-v` and
+     * checking for the "(cli)" marker, so we never launch the FPM/CGI binary by mistake.
+     *
+     * Returns null if no working CLI binary can be found.
+     */
+    private function resolvePhpBinary(): ?string
+    {
+        $candidates = [];
+
+        // 1. Explicit override (set CQ_PHP_BINARY=/usr/bin/php to force it)
+        $envBinary = getenv('CQ_PHP_BINARY');
+        if ($envBinary) {
+            $candidates[] = $envBinary;
+        }
+
+        // 2. PATH-resolved CLI — matches what works in the user's shell (`php bin/console ...`)
+        if (function_exists('exec')) {
+            $out = [];
+            $code = null;
+            @exec('command -v php 2>/dev/null', $out, $code);
+            if ($code === 0 && !empty($out[0])) {
+                $candidates[] = trim($out[0]);
+            }
+        }
+
+        // 3. PHP_BINARY only if it is a real CLI binary (not php-fpm / php-cgi)
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $base = basename(PHP_BINARY);
+            if (str_contains($base, 'php') && !str_contains($base, 'fpm') && !str_contains($base, 'cgi')) {
+                $candidates[] = PHP_BINARY;
+            }
+        }
+
+        // 4. Version-suffixed + common install locations
+        if (defined('PHP_MAJOR_VERSION') && defined('PHP_MINOR_VERSION')) {
+            $ver = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+            $candidates[] = '/usr/local/bin/php' . $ver;
+            $candidates[] = '/usr/bin/php' . $ver;
+        }
+        if (defined('PHP_BINDIR') && PHP_BINDIR) {
+            $candidates[] = PHP_BINDIR . '/php';
+        }
+        $candidates[] = '/usr/local/bin/php';
+        $candidates[] = '/usr/bin/php';
+
+        foreach ($candidates as $candidate) {
+            if ($this->isCliPhpBinary($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Verify a binary is a usable PHP CLI by running `<bin> -v` and looking for "(cli)".
+     */
+    private function isCliPhpBinary(string $binary): bool
+    {
+        if ($binary === '' || !function_exists('exec')) {
+            return false;
+        }
+        // Absolute/relative path must be executable; bare "php" relies on PATH
+        if (str_contains($binary, '/') && !is_executable($binary)) {
+            return false;
+        }
+
+        $out = [];
+        $code = null;
+        @exec(escapeshellarg($binary) . ' -v 2>&1', $out, $code);
+
+        return $code === 0 && str_contains(implode(' ', $out), '(cli)');
     }
 }

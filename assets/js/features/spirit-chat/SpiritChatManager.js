@@ -32,6 +32,7 @@ export class SpiritChatManager {
         this.executionStopped = false;
         this.isExecutingTools = false;
         this.lastMessageUsage = null;
+        this.currentTurnJobId = null; // Active background turn job id (timeout-proof flow)
         
         // Memory graph state (Phase 3.5: Pre-Send Reflexes)
         this.memoryGraphView = null;
@@ -2294,8 +2295,10 @@ export class SpiritChatManager {
             // Add loading indicator for assistant response (after graph)
             const loadingEl = this.addLoadingIndicator();
             
-            // Step 2: SEND — actual AI request (uses cached system prompt from pre-send)
-            const response = await this.apiService.sendMessageAsync(this.currentConversationId, messageContent, maxOutput, temperature);
+            // Step 2: START TURN — hand the full AI response + tool loop to a detached
+            // worker. Returns immediately with a job id (timeout-proof: no long-held
+            // HTTP request, so Cloudflare's 100s limit / HTTP 524 is never hit).
+            const startResult = await this.apiService.startTurn(this.currentConversationId, messageContent, maxOutput, temperature);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
@@ -2307,34 +2310,23 @@ export class SpiritChatManager {
                 this.fadeOutMemoryGraph(memoryGraphEl, preSendData);
             }
             
-            if (response.error) {
-                throw new Error(response.error);
+            if (startResult.error) {
+                throw new Error(startResult.error);
             }
             
             // Append saved attachment info to user message (live, without refresh)
-            if (response.savedAttachments && response.savedAttachments.length > 0) {
+            if (startResult.savedAttachments && startResult.savedAttachments.length > 0) {
                 const lastUserBubble = this.chatMessages.querySelector('.chat-message-user:last-of-type .chat-content');
                 if (lastUserBubble) {
-                    const attachmentHtml = '<div style="clear:both;"></div>' + response.savedAttachments
+                    const attachmentHtml = '<div style="clear:both;"></div>' + startResult.savedAttachments
                         .map(a => this.formatMessageContent(a.text))
                         .join('');
                     lastUserBubble.insertAdjacentHTML('beforeend', attachmentHtml);
                 }
             }
             
-            // Add AI's response to UI
-            this.addAssistantMessageToUI(response.message);
-            
-            // Update context window usage from response
-            if (response.message?.usage?.totalTokens) {
-                this.lastMessageUsage = response.message.usage;
-                this.updateContextWindowUsage(response.message.usage.totalTokens);
-            }
-            
-            // If AI wants to use tools, execute them
-            if (response.requiresToolExecution && response.toolCalls) {
-                await this.executeToolChain(response.message.id, response.toolCalls, maxOutput, 0.5/* temperature */, response.message?.usage);
-            }
+            // Step 3: POLL — render messages as the background worker produces them
+            await this.runBackgroundTurn(startResult.jobId);
             
             // Update conversation list to reflect changes
             this.loadConversations();
@@ -3304,19 +3296,105 @@ export class SpiritChatManager {
     }
 
     /**
-     * Stop tool execution
+     * Poll a background turn until completion, rendering messages as the detached
+     * worker produces them. Timeout-proof replacement for the old synchronous
+     * send + executeToolChain flow — every request here is short, so Cloudflare's
+     * 100s limit (HTTP 524) is never hit regardless of how long the AI turn takes.
+     */
+    async runBackgroundTurn(jobId) {
+        this.currentTurnJobId = jobId;
+        this.isExecutingTools = true;
+        this.executionStopped = false;
+
+        if (this.stopExecutionBtn) {
+            this.stopExecutionBtn.classList.remove('d-none');
+        }
+
+        const renderedIds = new Set();
+        let thinkingEl = this.addLoadingIndicator();
+        let consecutiveErrors = 0;
+        const pollInterval = 2000;
+
+        try {
+            while (true) {
+                let status;
+                try {
+                    status = await this.apiService.getTurnStatus(this.currentConversationId, jobId);
+                    consecutiveErrors = 0;
+                } catch (err) {
+                    // Network/poll hiccup — retry a few times before giving up.
+                    // The worker keeps running server-side regardless.
+                    consecutiveErrors++;
+                    if (consecutiveErrors >= 5) {
+                        throw new Error('Lost connection while waiting for the response. It may still be processing — refresh to check.');
+                    }
+                    await new Promise(r => setTimeout(r, pollInterval));
+                    continue;
+                }
+
+                // Render any new messages produced since the last poll
+                if (Array.isArray(status.messages)) {
+                    for (const message of status.messages) {
+                        if (!message.id || renderedIds.has(message.id)) continue;
+                        renderedIds.add(message.id);
+
+                        // Remove the thinking indicator once real content arrives
+                        if (thinkingEl && this.chatMessages?.contains(thinkingEl)) {
+                            this.chatMessages.removeChild(thinkingEl);
+                            thinkingEl = null;
+                        }
+
+                        const el = this.createMessageElement(message);
+                        if (el) {
+                            this.chatMessages.appendChild(el);
+                            this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+
+                        // Track context window usage from assistant messages
+                        if (message.role === 'assistant' && message.usage?.totalTokens) {
+                            this.lastMessageUsage = message.usage;
+                            this.updateContextWindowUsage(message.usage.totalTokens);
+                        }
+                    }
+                }
+
+                if (status.done) {
+                    if (status.status === 'failed' && status.error) {
+                        this.addErrorMessageToUI(status.error);
+                    } else if (status.status === 'stopped') {
+                        this.addErrorMessageToUI(window.translations?.['spirit.chat.execution_stopped'] || 'Execution stopped by user');
+                    }
+                    break;
+                }
+
+                await new Promise(r => setTimeout(r, pollInterval));
+            }
+        } finally {
+            if (thinkingEl && this.chatMessages?.contains(thinkingEl)) {
+                this.chatMessages.removeChild(thinkingEl);
+            }
+            this.isExecutingTools = false;
+            this.currentTurnJobId = null;
+            if (this.stopExecutionBtn) {
+                this.stopExecutionBtn.classList.add('d-none');
+            }
+        }
+    }
+
+    /**
+     * Stop tool execution — flags the background turn to stop after the current
+     * AI call finishes (an in-flight model call cannot be interrupted mid-stream).
      */
     async stopExecution() {
         this.executionStopped = true;
         
         try {
-            await this.apiService.stopExecution(this.currentConversationId);
-            this.addErrorMessageToUI('Execution stopped by user');
+            await this.apiService.stopExecution(this.currentConversationId, this.currentTurnJobId);
+            // The poll loop will surface the 'stopped' state once the worker halts.
         } catch (error) {
             console.error('Error stopping execution:', error);
         }
         
-        this.isExecutingTools = false;
         this.sendMessageBtn.disabled = false;
     }
 }
