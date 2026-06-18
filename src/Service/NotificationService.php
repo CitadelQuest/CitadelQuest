@@ -49,10 +49,10 @@ class NotificationService
         $notification->setId($userDb->lastInsertId());
 
         // Emit SSE event with the notification data
-        $this->eventPublisher->publish(new Event(
+        /*$this->eventPublisher->publish(new Event(
             'notification',
             ['notification' => $notification->toArray()]
-        ), $user);
+        ), $user);*/
 
         return $notification;
     }

@@ -596,9 +596,9 @@ HTML;
             // Handle binary data display
             if (!$usedAnnotations && strpos($content, 'data:') === 0) {
                 $content = "binary data, not displayed";
-                if (strpos($file->getMimeType(), 'image/') === 0 || 
-                    strpos($file->getMimeType(), 'video/') === 0 || 
-                    strpos($file->getMimeType(), 'audio/') === 0) {
+                if (strpos($file->getMimeType() ?? '', 'image/') === 0 || 
+                    strpos($file->getMimeType() ?? '', 'video/') === 0 || 
+                    strpos($file->getMimeType() ?? '', 'audio/') === 0) {
                     $content = 'binary data, displayed directly in frontend';
                 }
             }
@@ -653,15 +653,15 @@ HTML;
         $contentFrontendData = $header . $this->renderCollapsible($previewSummary, $previewBody);
 
         // Image data
-        if (strpos($file->getMimeType(), 'image/') === 0) {
+        if (strpos($file->getMimeType() ?? '', 'image/') === 0) {
             $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
         }
         // Video data
-        elseif (strpos($file->getMimeType(), 'video/') === 0) {
+        elseif (strpos($file->getMimeType() ?? '', 'video/') === 0) {
             $contentFrontendData = '<video src="/api/project-file/' . $file->getId() . '/download" controls style="max-width: 100%;" class="rounded shadow"></video>';
         }
         // Audio data
-        elseif (strpos($file->getMimeType(), 'audio/') === 0) {
+        elseif (strpos($file->getMimeType() ?? '', 'audio/') === 0) {
             $contentFrontendData = '<audio src="/api/project-file/' . $file->getId() . '/download" controls style="width: 100%;" class="rounded shadow"></audio>';
         }
         // PDF with annotations

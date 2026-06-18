@@ -1092,6 +1092,21 @@ export class SpiritChatManager {
             
             // Check if conversation has been memory-extracted (closed)
             this.setConversationClosed(conversation.memoryExtracted === true);
+
+            // Resume a still-running background turn: if a detached worker is still
+            // processing this conversation (e.g. the browser was closed mid-turn), re-attach
+            // the poll loop so the loading indicator, Stop button and Send-disabled state come
+            // back and new messages keep streaming in. Seed with already-rendered ids to avoid
+            // duplicates. Fire-and-forget — the poll loop runs independently.
+            try {
+                const active = await this.apiService.getActiveTurn(conversationId);
+                if (active?.active && active.jobId) {
+                    const seedIds = (conversation.messages || []).map(m => m.id).filter(Boolean);
+                    this.runBackgroundTurn(active.jobId, seedIds);
+                }
+            } catch (activeTurnError) {
+                console.error('Error checking active turn:', activeTurnError);
+            }
             
         } catch (error) {
             console.error('Error loading conversation:', error);
@@ -3301,16 +3316,22 @@ export class SpiritChatManager {
      * send + executeToolChain flow — every request here is short, so Cloudflare's
      * 100s limit (HTTP 524) is never hit regardless of how long the AI turn takes.
      */
-    async runBackgroundTurn(jobId) {
+    async runBackgroundTurn(jobId, seedRenderedIds = []) {
         this.currentTurnJobId = jobId;
         this.isExecutingTools = true;
         this.executionStopped = false;
 
+        // Disable Send + show Stop while the turn (and its tool-call chain) runs
+        if (this.sendMessageBtn) {
+            this.sendMessageBtn.disabled = true;
+        }
         if (this.stopExecutionBtn) {
             this.stopExecutionBtn.classList.remove('d-none');
         }
 
-        const renderedIds = new Set();
+        // Seed with message ids already on screen (e.g. when resuming a turn after a
+        // browser close + modal re-open) so we don't render duplicates.
+        const renderedIds = new Set(seedRenderedIds);
         let thinkingEl = this.addLoadingIndicator();
         let consecutiveErrors = 0;
         const pollInterval = 2000;
@@ -3338,10 +3359,10 @@ export class SpiritChatManager {
                         if (!message.id || renderedIds.has(message.id)) continue;
                         renderedIds.add(message.id);
 
-                        // Remove the thinking indicator once real content arrives
+                        // Temporarily remove the thinking indicator so new content is
+                        // appended above it — it's re-pinned to the bottom below.
                         if (thinkingEl && this.chatMessages?.contains(thinkingEl)) {
                             this.chatMessages.removeChild(thinkingEl);
-                            thinkingEl = null;
                         }
 
                         const el = this.createMessageElement(message);
@@ -3367,6 +3388,16 @@ export class SpiritChatManager {
                     break;
                 }
 
+                // Still processing (e.g. waiting on the next tool-call step) — keep the
+                // loading indicator pinned below the last message so the user always
+                // sees activity between tool-chain messages.
+                if (!thinkingEl || !this.chatMessages?.contains(thinkingEl)) {
+                    thinkingEl = this.addLoadingIndicator();
+                } else {
+                    // Re-pin to the bottom in case new messages were appended after it
+                    this.chatMessages.appendChild(thinkingEl);
+                }
+
                 await new Promise(r => setTimeout(r, pollInterval));
             }
         } finally {
@@ -3375,6 +3406,9 @@ export class SpiritChatManager {
             }
             this.isExecutingTools = false;
             this.currentTurnJobId = null;
+            if (this.sendMessageBtn) {
+                this.sendMessageBtn.disabled = false;
+            }
             if (this.stopExecutionBtn) {
                 this.stopExecutionBtn.classList.add('d-none');
             }

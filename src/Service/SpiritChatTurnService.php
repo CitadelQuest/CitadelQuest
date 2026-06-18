@@ -80,6 +80,22 @@ class SpiritChatTurnService
         return $row ?: null;
     }
 
+    /**
+     * Find the most recent still-running turn (pending or processing) for a conversation.
+     * Used when the Spirit Chat modal is (re)opened to resume polling/UI state for a turn
+     * whose detached worker is still running after the browser was closed.
+     */
+    public function findActiveByConversation(string $conversationId): ?array
+    {
+        $db = $this->getUserDb();
+        $row = $db->executeQuery(
+            'SELECT * FROM spirit_chat_turn WHERE conversation_id = ? AND status IN (?, ?) ORDER BY created_at DESC LIMIT 1',
+            [$conversationId, self::STATUS_PENDING, self::STATUS_PROCESSING]
+        )->fetchAssociative();
+
+        return $row ?: null;
+    }
+
     public function markProcessing(string $id): void
     {
         $this->getUserDb()->executeStatement(

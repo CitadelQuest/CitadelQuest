@@ -393,6 +393,22 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Check whether a conversation has a still-running background turn. Used when the
+     * Spirit Chat modal is (re)opened to resume the loading indicator + Stop button and
+     * re-attach the poll loop for a worker that is still running after a browser close.
+     * @param {string} conversationId - The ID of the conversation
+     * @returns {Promise<Object>} - { active, jobId, status }
+     */
+    async getActiveTurn(conversationId) {
+        const response = await fetch(`${this.baseUrl}/${conversationId}/active-turn`, {
+            method: 'GET',
+            credentials: 'include',
+            signal: AbortSignal.timeout(30000)
+        });
+        return await this._parseResponse(response, 'Failed to fetch active turn');
+    }
+
+    /**
      * Stop tool execution chain
      * @param {string} conversationId - The ID of the conversation
      * @param {string|null} jobId - The turn job id to stop

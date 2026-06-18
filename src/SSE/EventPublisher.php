@@ -73,7 +73,7 @@ class EventPublisher
     {
         $request = $this->requestStack->getCurrentRequest();
 
-        $windowId = $request->cookies->get('browserWindowId', '')??'';
+        $windowId = $request?->cookies?->get('browserWindowId', '') ?? null;
         if (!$windowId) {
             return;
         }

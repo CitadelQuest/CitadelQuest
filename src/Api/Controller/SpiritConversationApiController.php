@@ -751,6 +751,33 @@ class SpiritConversationApiController extends AbstractController
     }
 
     /**
+     * Report whether a conversation has a still-running background turn (pending/processing).
+     * Called when the Spirit Chat modal is (re)opened so the UI can resume the loading
+     * indicator + Stop button and re-attach the poll loop for a worker that is still running
+     * after the browser was closed.
+     */
+    #[Route('/{id}/active-turn', name: 'api_spirit_conversation_active_turn', methods: ['GET'])]
+    public function activeTurn(string $id, SpiritChatTurnService $turnService): JsonResponse
+    {
+        try {
+            $turn = $turnService->findActiveByConversation($id);
+            if (!$turn) {
+                return $this->json(['success' => true, 'active' => false]);
+            }
+
+            return $this->json([
+                'success' => true,
+                'active' => true,
+                'jobId' => $turn['id'],
+                'status' => $turn['status'],
+                'turnStartedAt' => $turn['created_at'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Stop tool execution chain — flags the background turn to stop after the
      * current AI call finishes.
      */
