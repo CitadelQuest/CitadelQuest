@@ -160,23 +160,32 @@ class CQAIGateway implements AiGatewayInterface
 
     /**
      * Build the webhook URL that the CQ AI Gateway should call when a background job completes.
-     * Uses the current request's scheme + host + the authenticated user's username.
+     * Uses the current request's scheme + host when available (web context).
+     * Falls back to $_SERVER values (set by SpiritChatTurnCommand from turn payload) in CLI context.
      */
     private function buildWebhookUrl(): ?string
     {
-        $request = $this->requestStack->getMainRequest();
-        if (!$request) {
-            return null;
-        }
-
         $user = $this->security->getUser();
         if (!$user) {
             return null;
         }
 
-        $scheme = $request->getScheme();
-        $host = $request->getHost();
-        $port = $request->getPort();
+        $request = $this->requestStack->getMainRequest();
+
+        if ($request) {
+            $scheme = $request->getScheme();
+            $host = $request->getHost();
+            $port = $request->getPort();
+        } else {
+            // CLI context (SpiritChatTurnCommand): $_SERVER is set from turn payload
+            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
+            if (!$host) {
+                return null;
+            }
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'https';
+            $port = 443;
+        }
+
         $username = $user->getUserIdentifier();
 
         $portPart = '';
