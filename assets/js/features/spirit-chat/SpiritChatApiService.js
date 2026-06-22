@@ -246,6 +246,7 @@ export class SpiritChatApiService {
     }
 
     /**
+     * DEPRECATED ?
      * Send a message (returns immediately without executing tools)
      * @param {string} conversationId - The ID of the conversation
      * @param {string|Array} message - The message to send
@@ -274,6 +275,7 @@ export class SpiritChatApiService {
     }
 
     /**
+     * DEPRECATED
      * Execute tools and get AI's next response
      * @param {string} conversationId - The ID of the conversation
      * @param {string} assistantMessageId - The ID of the assistant message that requested tools

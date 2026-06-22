@@ -60,6 +60,7 @@ services:
                 App\Service\CQMemoryPackService: '@App\Service\CQMemoryPackService'
                 App\Service\CQMemoryLibraryService: '@App\Service\CQMemoryLibraryService'
                 App\Service\AnnoService: '@App\Service\AnnoService'
+                App\Service\AiWebhookService: '@App\Service\AiWebhookService'
 
     App\Service\CQAIGateway:
         autowire: true

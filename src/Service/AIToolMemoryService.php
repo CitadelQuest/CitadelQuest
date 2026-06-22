@@ -1866,7 +1866,7 @@ PROMPT;
                 return null;
             }
 
-            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/deepseek-v4-flash', $gateway->getId());
             if (!$aiServiceModel) {
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
             }
@@ -1878,7 +1878,8 @@ PROMPT;
             // Build a minimal AI request with the PDF binary
             // The AI provider parses PDFs at the API level — annotations come back automatically
             $messages = [
-                ['role' => 'system', 'content' => 'You are a document parser. Return the full text content of the provided PDF document. Preserve structure, headings, lists, and formatting. Output only the document text, no commentary.'],
+                //['role' => 'system', 'content' => 'You are a document parser. Return the full text content of the provided PDF document. Preserve structure, headings, lists, and formatting. Output only the document text, no commentary.'],
+                ['role' => 'system', 'content' => 'Hi, sending you PDF for background auto-parsing. Output just: YES or NO, if you like it ;)'],
                 ['role' => 'user', 'content' => [
                     ['type' => 'text', 'text' => 'Parse and return the full text content of this PDF file: ' . $filename],
                     ['type' => 'file', 'file' => [

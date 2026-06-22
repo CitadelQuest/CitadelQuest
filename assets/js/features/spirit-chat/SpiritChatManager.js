@@ -3124,6 +3124,7 @@ export class SpiritChatManager {
     }
 
     /**
+     * DEPRECATED
      * Execute tool chain (loop until no more tools needed)
      */
     async executeToolChain(messageId, toolCalls, maxOutput, temperature, previousCallUsage = null) {
@@ -3237,6 +3238,7 @@ export class SpiritChatManager {
     }
 
     /**
+     * DEPRECATED
      * Add tool execution indicator to UI
      * Returns the element so it can be removed later
      */

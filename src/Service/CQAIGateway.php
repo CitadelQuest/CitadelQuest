@@ -13,11 +13,13 @@ use App\Service\AiServiceResponseService;
 use App\Service\AiGatewayService;
 use App\Service\SettingsService;
 use App\Service\AiServiceModelService;
+use App\Service\AiWebhookService;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use App\CitadelVersion;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class CQAIGateway implements AiGatewayInterface
 {
@@ -28,7 +30,8 @@ class CQAIGateway implements AiGatewayInterface
         private readonly SettingsService $settingsService,
         private readonly ServiceLocator $serviceLocator, 
         private readonly LoggerInterface $logger,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly RequestStack $requestStack
     ) {
     }
     
@@ -108,11 +111,14 @@ class CQAIGateway implements AiGatewayInterface
         try {
             $endpointBase = rtrim($aiGateway->getApiEndpointUrl(), '/');
 
+            // Build webhook URL for the gateway to call back when the job is done
+            $webhookUrl = $this->buildWebhookUrl();
+
             // Async start + poll (Cloudflare-524-proof): the slow OpenRouter call runs
             // in a detached gateway worker, while we poll fast/short status requests that
             // never exceed Cloudflare's ~100s proxy window. Falls back to the legacy
             // single synchronous POST if the gateway has not been updated yet.
-            $responseData = $this->sendRequestViaJob($endpointBase, $headers, $requestData);
+            $responseData = $this->sendRequestViaJob($endpointBase, $headers, $requestData, $webhookUrl);
             if ($responseData === null) {
                 $responseData = $this->sendRequestLegacy($endpointBase . $this->apiEndpointUrlPath, $headers, $requestData);
             }
@@ -153,18 +159,56 @@ class CQAIGateway implements AiGatewayInterface
     }
 
     /**
+     * Build the webhook URL that the CQ AI Gateway should call when a background job completes.
+     * Uses the current request's scheme + host + the authenticated user's username.
+     */
+    private function buildWebhookUrl(): ?string
+    {
+        $request = $this->requestStack->getMainRequest();
+        if (!$request) {
+            return null;
+        }
+
+        $user = $this->security->getUser();
+        if (!$user) {
+            return null;
+        }
+
+        $scheme = $request->getScheme();
+        $host = $request->getHost();
+        $port = $request->getPort();
+        $username = $user->getUserIdentifier();
+
+        $portPart = '';
+        if (($scheme === 'https' && $port !== 443) || ($scheme === 'http' && $port !== 80)) {
+            $portPart = ':' . $port;
+        }
+
+        return sprintf('%s://%s%s/%s/api/webhook/ai-gateway', $scheme, $host, $portPart, $username);
+    }
+
+    /**
      * Async pattern: POST /ai/chat/completions/start to enqueue a background job on the
      * gateway, then poll /ai/chat/completions/status/{jobId} until done. Each HTTP call is
      * short, so the chain is safe against Cloudflare's ~100s 524 timeout even when the
      * underlying OpenRouter generation takes minutes.
      *
+     * With webhook support: the gateway POSTs the result back to our webhook endpoint,
+     * which stores it in the local DB. We poll the local DB (instant) and only fall back
+     * to HTTP status polling every 10s for older gateways that don't support webhooks.
+     *
      * @return array|null The completion response array, or null if the gateway does not
      *                     support the async endpoints (caller should fall back to legacy).
      */
-    private function sendRequestViaJob(string $endpointBase, array $headers, array $requestData): ?array
+    private function sendRequestViaJob(string $endpointBase, array $headers, array $requestData, ?string $webhookUrl = null): ?array
     {
         $startUrl = $endpointBase . $this->apiEndpointUrlPath . '/start';
         $statusUrlBase = $endpointBase . $this->apiEndpointUrlPath . '/status/';
+
+        // Include webhook_url in the start request so the gateway can call us back
+        if ($webhookUrl !== null) {
+            $requestData['webhook_url'] = $webhookUrl;
+        }
 
         // 1) Start the job
         $startResponse = $this->httpClient->request('POST', $startUrl, [
@@ -190,35 +234,56 @@ class CQAIGateway implements AiGatewayInterface
 
         $jobId = $startJson['jobId'];
 
-        // 2) Poll status until done
-        $maxWaitSeconds = 600;       // 10 min hard ceiling
-        $pollIntervalSeconds = 2;
+        // 2) Poll for completion: check local DB first (webhook may have already delivered),
+        //    fall back to HTTP status polling every 10s for older gateways without webhook support.
+        $aiWebhookService = $this->serviceLocator->get(AiWebhookService::class);
+
+        $maxWaitSeconds = 900;       // 15 min hard ceiling
+        $pollIntervalSeconds = 1;
+        $httpFallbackInterval = 10;
         $deadline = time() + $maxWaitSeconds;
+        $lastHttpPoll = 0;
 
         while (time() < $deadline) {
             sleep($pollIntervalSeconds);
 
-            $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $jobId, [
-                'headers' => $headers,
-                'timeout' => 30,
-                'max_duration' => 30
-            ]);
-
-            $statusCode = $statusResponse->getStatusCode();
-            $statusContent = $statusResponse->getContent(false);
-            $statusJson = json_decode($statusContent, true) ?? [];
-
-            if ($statusCode >= 400) {
-                $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
-                throw new \Exception('CQ AI Gateway status poll failed (' . $statusCode . '): ' . (is_string($err) ? $err : json_encode($err)));
+            // Check local DB — instant, no HTTP round-trip
+            $cached = $aiWebhookService->getResult($jobId);
+            if ($cached !== null) {
+                $aiWebhookService->deleteResult($jobId);
+                if ($cached['status'] === 'completed' && $cached['response'] !== null) {
+                    return $cached['response'];
+                }
+                $err = $cached['error'] ?? 'Unknown gateway job error';
+                throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
             }
 
-            if (!empty($statusJson['done'])) {
-                if (isset($statusJson['response'])) {
-                    return $statusJson['response'];
+            // HTTP fallback — only every 10s, for older gateways without webhook support
+            if (time() - $lastHttpPoll >= $httpFallbackInterval) {
+                $lastHttpPoll = time();
+
+                $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $jobId, [
+                    'headers' => $headers,
+                    'timeout' => 30,
+                    'max_duration' => 30
+                ]);
+
+                $statusCode = $statusResponse->getStatusCode();
+                $statusContent = $statusResponse->getContent(false);
+                $statusJson = json_decode($statusContent, true) ?? [];
+
+                if ($statusCode >= 400) {
+                    $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
+                    throw new \Exception('CQ AI Gateway status poll failed (' . $statusCode . '): ' . (is_string($err) ? $err : json_encode($err)));
                 }
-                $err = $statusJson['error'] ?? 'Unknown gateway job error';
-                throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
+
+                if (!empty($statusJson['done'])) {
+                    if (isset($statusJson['response'])) {
+                        return $statusJson['response'];
+                    }
+                    $err = $statusJson['error'] ?? 'Unknown gateway job error';
+                    throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
+                }
             }
         }
 
@@ -243,6 +308,7 @@ class CQAIGateway implements AiGatewayInterface
     }
 
     /**
+     * Currently NOT USED anywhere
      * Handle tool calls
      */
     public function handleToolCalls(AiServiceRequest $request, AiServiceResponse $response, string $lang = 'English'): AiServiceResponse

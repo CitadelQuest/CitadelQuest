@@ -23,7 +23,8 @@ class AiGatewayService
 {
     private array $gatewayImplementations = [];
     private ?CQAIGateway $CQAIGateway = null;
-    
+    private ?User $user = null;
+
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
@@ -31,18 +32,25 @@ class AiGatewayService
         ?CQAIGateway $CQAIGateway = null
     ) {
         $this->CQAIGateway = $CQAIGateway;
-        
+
         // Register gateway implementations
         $this->registerGatewayImplementation('cq_ai_gateway');
     }
-    
+
+    public function setUser(User $user): void
+    {
+        $this->user = $user;
+    }
+
     /**
      * Get a fresh database connection for the current user
      */
     private function getUserDb()
     {
-        /** @var User $user */
-        $user = $this->security->getUser();
+        $user = $this->user ?? $this->security->getUser();
+        if (!$user) {
+            throw new \Exception('User not found');
+        }
         return $this->userDatabaseManager->getDatabaseConnection($user);
     }
 

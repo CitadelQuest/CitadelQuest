@@ -512,6 +512,7 @@ class SpiritConversationApiController extends AbstractController
     }
     
     /**
+     * DEPRECATED
      * Execute tools and get AI's next response
      */
     #[Route('/{id}/execute-tools', name: 'api_spirit_conversation_execute_tools', methods: ['POST'])]

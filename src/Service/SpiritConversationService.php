@@ -929,7 +929,7 @@ class SpiritConversationService
         );
 
         // Tool-execution loop — bounded to avoid runaway chains
-        $maxIterations = 25;
+        $maxIterations = 222;
         $iterations = 0;
 
         while (
