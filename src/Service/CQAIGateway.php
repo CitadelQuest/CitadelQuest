@@ -251,7 +251,7 @@ class CQAIGateway implements AiGatewayInterface
         $pollIntervalSeconds = 1;
         $httpFallbackInterval = 10;
         $deadline = time() + $maxWaitSeconds;
-        $lastHttpPoll = 0;
+        $lastHttpPoll = time();
 
         while (time() < $deadline) {
             sleep($pollIntervalSeconds);
@@ -267,8 +267,8 @@ class CQAIGateway implements AiGatewayInterface
                 throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
             }
 
-            // HTTP fallback — only every 10s, for older gateways without webhook support
-            if (time() - $lastHttpPoll >= $httpFallbackInterval) {
+            // HTTP fallback — only for local dev where gateway can't reach the webhook URL
+            if ($webhookUrl !== null && str_contains($webhookUrl, '.local') && time() - $lastHttpPoll >= $httpFallbackInterval) {
                 $lastHttpPoll = time();
 
                 $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $jobId, [
