@@ -71,8 +71,12 @@ class CQMemoryExplorer {
         
         // Set callbacks for extraction
         this.extractPanel.onExtractionStart = () => {
-            // No manual polling — processStepsSequentially() handles all steps.
-            // Manual polling would race with step processing, causing missing nodes in 3D.
+            // CLI worker handles processing — manual polling picks up progress updates.
+            // Start manual polling for faster UI updates during extraction.
+            if (!this.manualPollingActive) {
+                updatesService.pause('memoryExplorer');
+                this.startManualPolling();
+            }
         };
         this.extractPanel.onExtractionComplete = () => { this.loadGraphData(); };
         this.extractPanel.onGraphDelta = (delta) => this.applyGraphDelta(delta);
@@ -130,9 +134,8 @@ class CQMemoryExplorer {
                     // Update extract panel progress
                     this.extractPanel.updateJobProgress(packJobs);
                     
-                    // Apply graph delta only when /step loop is NOT driving
-                    // (when /step is active, deltas come directly per-step to avoid duplicates)
-                    if (!this.extractPanel?.isProcessingSteps && updates.memoryJobs.graphDeltas?.[packKey]) {
+                    // Apply graph delta from polling (CLI worker produces nodes/edges)
+                    if (updates.memoryJobs.graphDeltas?.[packKey]) {
                         this.applyGraphDelta(updates.memoryJobs.graphDeltas[packKey]);
                     }
                 }
@@ -206,7 +209,14 @@ class CQMemoryExplorer {
      */
     getCurrentPackKey() {
         if (!this.currentPackPath) return null;
-        return this.currentPackPath.path + '/' + this.currentPackPath.name;
+        try {
+            const packData = typeof this.currentPackPath === 'string'
+                ? JSON.parse(this.currentPackPath)
+                : this.currentPackPath;
+            return packData.path + '/' + packData.name;
+        } catch (e) {
+            return null;
+        }
     }
 
     /**

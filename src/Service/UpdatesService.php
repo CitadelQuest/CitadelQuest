@@ -83,7 +83,7 @@ class UpdatesService
             $statusUpdates = $this->getMessageStatusUpdates($openChatId, $since);
         }
 
-        // 5. Process pending memory extraction jobs (one step per poll)
+        // 5. Collect memory job statuses and graph deltas (step processing handled by CLI worker)
         $memoryJobs = $this->processMemoryJobs($since);
 
         // 6. Get contact IDs that have unread chat messages (for sidebar highlighting)
@@ -372,8 +372,9 @@ class UpdatesService
     }
 
     /**
-     * Process pending memory jobs across all packs and return status updates
-     * Discovers all .cqmpack files, processes ONE job step per poll to avoid blocking
+     * Collect memory job status updates across all packs for UI display.
+     * Step processing is now handled by the async CLI worker — this method only
+     * collects active/completed job statuses and graph deltas for frontend polling.
      * 
      * @param string $since Timestamp for delta queries
      */
@@ -392,15 +393,11 @@ class UpdatesService
 
             foreach ($allPackFiles as $packFile) {
                 $packKey = $packFile['path'] . '/' . $packFile['name'];
-                $targetPack = ['projectId' => 'general', 'path' => $packFile['path'], 'name' => $packFile['name']];
 
                 try {
                     $this->packService->open('general', $packFile['path'], $packFile['name']);
 
                     // Safety net: purge foreign jobs from synced/remote packs.
-                    // Layer 1 cleans jobs during CQ Memory sync and CQ Contact download,
-                    // but File Browser generic sync replaces the binary without opening
-                    // the pack as SQLite — so foreign jobs can slip through.
                     $sourceUrl = $this->packService->getSourceUrl();
                     if ($sourceUrl) {
                         $syncedAt = $this->packService->getSyncedAt();
@@ -414,36 +411,35 @@ class UpdatesService
                         }
                     }
 
-                    // Process ONE pending job step — only if no frontend /step loop is driving
-                    if (!$result['processed']) {
-                        $jobsToProcess = $this->packService->getJobsToProcess(1);
+                    // Fallback: if there are jobs to process but the worker hasn't made
+                    // progress recently, the CLI worker may have failed to spawn or crashed.
+                    // Re-spawn the worker to ensure jobs don't get stuck.
+                    /*$jobsToProcess = $this->packService->getJobsToProcess(1);
+                    if (!empty($jobsToProcess)) {
+                        $staleJob = $jobsToProcess[0];
+                        $stalePayload = $staleJob->getPayload();
+                        $workerSpawnedAt = $stalePayload['worker_spawned_at'] ?? 0;
+                        $stepLockedAt = $stalePayload['step_locked_at'] ?? 0;
 
-                        if (!empty($jobsToProcess)) {
-                            $job = $jobsToProcess[0];
-                            $jobPayload = $job->getPayload();
+                        // Only re-spawn if:
+                        // 1. No step lock is active (worker isn't mid-step)
+                        // 2. Worker was spawned >120s ago (give it time to start and run)
+                        $stepLockActive = $stepLockedAt > 0 && (time() - $stepLockedAt < 240);
+                        $workerIsStale = time() - $workerSpawnedAt >= 120;
 
-                            // Skip if frontend /step endpoint is actively processing this job
-                            // (last_step_request_at is refreshed on every /step call)
-                            $lastStepRequestAt = $jobPayload['last_step_request_at'] ?? 0;
-                            if (time() - $lastStepRequestAt >= 60) {
-                                // No frontend activity — backend drives this step
-                                $jobId = $job->getId();
-                                $this->packService->close();
-
-                                if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE) {
-                                    $this->aiToolMemoryService->processPackExtractionJobStep($targetPack, $jobId);
-                                    $result['processed'] = true;
-                                } elseif ($job->getType() === MemoryJob::TYPE_ANALYZE_RELATIONSHIPS) {
-                                    $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($targetPack, $jobId);
-                                    $result['processed'] = true;
-                                }
-
-                                // Reopen to get status and deltas
-                                $this->packService->open('general', $packFile['path'], $packFile['name']);
+                        if (!$stepLockActive && $workerIsStale) {
+                            $this->packService->close();
+                            try {
+                                $this->aiToolMemoryService->spawnMemoryJobWorker(
+                                    $staleJob->getId(),
+                                    ['projectId' => 'general', 'path' => $packFile['path'], 'name' => $packFile['name']]
+                                );
+                            } catch (\Throwable $e) {
+                                // Non-fatal — will retry on next poll
                             }
-                            // else: frontend is driving — just observe (collect status below)
+                            $this->packService->open('general', $packFile['path'], $packFile['name']);
                         }
-                    }
+                    }*/
 
                     // Collect active jobs
                     $activeJobs = $this->packService->getActiveJobs();

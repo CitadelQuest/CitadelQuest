@@ -765,8 +765,8 @@ class CQMemoryPackApiController extends AbstractController
     }
 
     /**
-     * Process one job step synchronously
-     * Returns the nodes and edges created in this step for immediate graph update
+     * Get current job status and graph deltas (no longer drives step processing).
+     * The async CLI worker handles all step processing — this endpoint is for UI observation only.
      */
     #[Route('/pack/step', name: 'api_memory_pack_step', methods: ['POST'])]
     public function processJobStep(Request $request): JsonResponse
@@ -780,72 +780,32 @@ class CQMemoryPackApiController extends AbstractController
             return new JsonResponse(['error' => 'path and name are required'], 400);
         }
 
-        // Release session lock early — job steps make AI calls (3-15s+)
-        $request->getSession()->save();
-
         try {
-            $targetPack = [
-                'projectId' => $projectId,
-                'path' => $path,
-                'name' => $name
-            ];
-            
-            // Open pack to check for jobs
             $this->packService->open($projectId, $path, $name);
+
+            // Get active jobs for status display
+            $activeJobs = $this->packService->getActiveJobs();
             $jobsToProcess = $this->packService->getJobsToProcess(1);
-            
-            if (empty($jobsToProcess)) {
-                $this->packService->close();
-                return new JsonResponse([
-                    'success' => true,
-                    'hasMoreSteps' => false,
-                    'message' => 'No jobs to process'
-                ]);
-            }
-            
-            $job = $jobsToProcess[0];
-            $jobId = $job->getId();
-            
-            // Signal that the frontend /step loop is actively driving this job
-            // Backend processMemoryJobs() checks this and skips step processing
-            $payload = $job->getPayload();
-            $payload['last_step_request_at'] = time();
-            $this->packService->updateJobPayload($jobId, $payload);
-            
-            // Get timestamp before processing to capture new nodes/edges
-            $beforeTimestamp = date('Y-m-d H:i:s');
-            $this->packService->close();
-            
-            // Process ONE step (opens/closes pack internally)
-            $isComplete = false;
-            if ($job->getType() === 'extract_recursive') {
-                $isComplete = $this->aiToolMemoryService->processPackExtractionJobStep($targetPack, $jobId);
-            } elseif ($job->getType() === 'analyze_relationships') {
-                $isComplete = $this->aiToolMemoryService->processPackRelationshipAnalysisJobStep($targetPack, $jobId);
-            }
-            
-            // Get nodes and edges created in this step
-            $this->packService->open($projectId, $path, $name);
-            $delta = $this->packService->getGraphDelta($beforeTimestamp);
-            
-            // Get updated job status
-            $updatedJob = $this->packService->findJobById($jobId);
+            $hasMoreSteps = !empty($jobsToProcess);
+
+            // Get graph delta since the provided timestamp (if any)
+            $since = $data['since'] ?? date('Y-m-d H:i:s', time() - 5);
+            $delta = $this->packService->getGraphDelta($since);
+
+            // Build job status response
             $jobStatus = null;
-            if ($updatedJob) {
+            if (!empty($activeJobs)) {
+                $job = $activeJobs[0];
                 $jobStatus = [
-                    'id' => $updatedJob->getId(),
-                    'type' => $updatedJob->getType(),
-                    'status' => $updatedJob->getStatus(),
-                    'progress' => $updatedJob->getProgress(),
-                    'totalSteps' => $updatedJob->getTotalSteps(),
-                    'currentBlock' => $updatedJob->getPayload()['current_block_title'] ?? null
+                    'id' => $job->getId(),
+                    'type' => $job->getType(),
+                    'status' => $job->getStatus(),
+                    'progress' => $job->getProgress(),
+                    'totalSteps' => $job->getTotalSteps(),
+                    'currentBlock' => $job->getPayload()['current_block_title'] ?? null
                 ];
             }
-            
-            // Check if there are more jobs
-            $remainingJobs = $this->packService->getJobsToProcess(1);
-            $hasMoreSteps = !empty($remainingJobs);
-            
+
             $this->packService->close();
 
             return new JsonResponse([
@@ -853,14 +813,14 @@ class CQMemoryPackApiController extends AbstractController
                 'hasMoreSteps' => $hasMoreSteps,
                 'job' => $jobStatus,
                 'delta' => $delta,
-                'stepComplete' => $isComplete
+                'stepComplete' => !$hasMoreSteps
             ]);
 
         } catch (\Exception $e) {
             $this->packService->close();
             return new JsonResponse([
                 'success' => false,
-                'error' => 'Failed to process step: ' . $e->getMessage()
+                'error' => 'Failed to get job status: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -7,6 +7,7 @@ use App\Entity\MemoryJob;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\ContainerBagInterface;
 
 /**
  * Service for AI Tool memory operations
@@ -48,9 +49,159 @@ class AIToolMemoryService
         private readonly CQMemoryLibraryService $libraryService,
         private readonly TranslatorInterface $translator,
         private readonly AiToolSettingsService $aiToolSettingsService,
-        private readonly AiToolService $aiToolService
+        private readonly AiToolService $aiToolService,
+        private readonly ContainerBagInterface $containerBag
     ) {
         $this->user = $security->getUser();
+    }
+
+    /**
+     * Spawn a detached background CLI worker to process a memory job.
+     * The process is fully detached (nohup + background) so it outlives this HTTP request.
+     */
+    public function spawnMemoryJobWorker(string $jobId, array $targetPack): void
+    {
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (!function_exists('exec') || in_array('exec', $disabled, true)) {
+            throw new \RuntimeException('PHP exec() is disabled; cannot spawn background worker.');
+        }
+
+        $projectDir = $this->containerBag->get('kernel.project_dir');
+        $env = $this->containerBag->get('kernel.environment');
+        $logFile = $projectDir . '/var/log/memory-worker.log';
+
+        $php = $this->resolvePhpBinary();
+        if ($php === null) {
+            throw new \RuntimeException('Could not locate a PHP CLI binary to run the memory worker.');
+        }
+
+        $userId = $this->user?->getId();
+        if (!$userId) {
+            throw new \RuntimeException('No authenticated user — cannot spawn memory worker.');
+        }
+
+        // Mark the job with a spawn timestamp so the UpdatesService stale-job
+        // fallback doesn't immediately re-spawn a duplicate worker.
+        try {
+            $this->packService->open(
+                $targetPack['projectId'] ?? 'general',
+                $targetPack['path'] ?? '',
+                $targetPack['name'] ?? ''
+            );
+            $job = $this->packService->findJobById($jobId);
+            if ($job) {
+                $payload = $job->getPayload();
+                $payload['worker_spawned_at'] = time();
+                $this->packService->updateJobPayload($jobId, $payload);
+            }
+            $this->packService->close();
+        } catch (\Throwable $e) {
+            // Non-fatal — spawn anyway, stale fallback just won't have the timestamp
+        }
+
+        // Pass the current request host to the CLI worker for webhook URL construction
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+
+        $cmd = sprintf(
+            'nohup %s %s/bin/console app:memory-job-worker %s %s %s %s %s %s --env=%s >> %s 2>&1 &',
+            escapeshellarg($php),
+            $projectDir,
+            escapeshellarg((string) $userId),
+            escapeshellarg($jobId),
+            escapeshellarg($targetPack['projectId'] ?? 'general'),
+            escapeshellarg($targetPack['path'] ?? ''),
+            escapeshellarg($targetPack['name'] ?? ''),
+            escapeshellarg($host),
+            escapeshellarg($env),
+            escapeshellarg($logFile)
+        );
+
+        @file_put_contents(
+            $logFile,
+            sprintf(
+                "[%s] spawn memory-job job=%s user=%s pack=%s/%s sapi=%s php=%s host=%s\n  cmd: %s\n",
+                date('c'),
+                $jobId,
+                $userId,
+                $targetPack['path'] ?? '',
+                $targetPack['name'] ?? '',
+                PHP_SAPI,
+                $php,
+                $host,
+                $cmd
+            ),
+            FILE_APPEND
+        );
+
+        @exec($cmd);
+    }
+
+    /**
+     * Resolve the PHP CLI binary path.
+     * Under PHP-FPM/mod_php, PHP_BINARY points to php-fpm/apache, NOT the CLI.
+     */
+    private function resolvePhpBinary(): ?string
+    {
+        $candidates = [];
+
+        $envBinary = getenv('CQ_PHP_BINARY');
+        if ($envBinary) {
+            $candidates[] = $envBinary;
+        }
+
+        if (function_exists('exec')) {
+            $out = [];
+            $code = null;
+            @exec('command -v php 2>/dev/null', $out, $code);
+            if ($code === 0 && !empty($out[0])) {
+                $candidates[] = trim($out[0]);
+            }
+        }
+
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $base = basename(PHP_BINARY);
+            if (str_contains($base, 'php') && !str_contains($base, 'fpm') && !str_contains($base, 'cgi')) {
+                $candidates[] = PHP_BINARY;
+            }
+        }
+
+        if (defined('PHP_MAJOR_VERSION') && defined('PHP_MINOR_VERSION')) {
+            $ver = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+            $candidates[] = '/usr/local/bin/php' . $ver;
+            $candidates[] = '/usr/bin/php' . $ver;
+        }
+        if (defined('PHP_BINDIR') && PHP_BINDIR) {
+            $candidates[] = PHP_BINDIR . '/php';
+        }
+        $candidates[] = '/usr/local/bin/php';
+        $candidates[] = '/usr/bin/php';
+
+        foreach ($candidates as $candidate) {
+            if ($this->isCliPhpBinary($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Verify a binary is a usable PHP CLI by running `<bin> -v` and looking for "(cli)".
+     */
+    private function isCliPhpBinary(string $binary): bool
+    {
+        if ($binary === '' || !function_exists('exec')) {
+            return false;
+        }
+        if (str_contains($binary, '/') && !is_executable($binary)) {
+            return false;
+        }
+
+        $out = [];
+        $code = null;
+        @exec(escapeshellarg($binary) . ' -v 2>&1', $out, $code);
+
+        return $code === 0 && str_contains(implode(' ', $out), '(cli)');
     }
 
     /**
@@ -763,6 +914,7 @@ You are a Document Summarizer. Your task is to create a comprehensive yet concis
 
 ## Output:
 Respond with ONLY the summary text, no formatting, no headers, no explanations.
+<clean_system_prompt>
 PROMPT;
             $systemPrompt = $customPrompt ?: $defaultPrompt;
 
@@ -1881,7 +2033,7 @@ PROMPT;
                 //['role' => 'system', 'content' => 'You are a document parser. Return the full text content of the provided PDF document. Preserve structure, headings, lists, and formatting. Output only the document text, no commentary.'],
                 ['role' => 'system', 'content' => 'Hi, sending you PDF for background auto-parsing. Output just: YES or NO, if you like it ;)'],
                 ['role' => 'user', 'content' => [
-                    ['type' => 'text', 'text' => 'Parse and return the full text content of this PDF file: ' . $filename],
+                    ['type' => 'text', 'text' => /*'Parse and return the full text content of this PDF file: ' .*/ $filename],
                     ['type' => 'file', 'file' => [
                         'file_data' => $pdfContent,
                         'filename' => $filename
@@ -2418,22 +2570,26 @@ PROMPT;
 You are the Content Block Extractor Agent. Your task is to analyze content and split it into logical sections/blocks for hierarchical memory extraction.
 
 ## Your Task
-Analyze the provided content (with line numbers) and identify its natural structure - sections, chapters, topics, time periods, or any other logical divisions.
+Analyze the provided content (with line numbers) and identify its natural structure — sections, chapters, topics, functions, classes, or any other logical divisions.
 
 ## Guidelines:
-- Identify few larger logical blocks (sections) in the content
+- Identify the natural structure and split into logical blocks (sections, chapters, topics, or code units)
 - Each block should be a coherent, self-contained section
-- Preserve the natural structure of the document (headings, topics, time periods)
+- Preserve the natural structure of the content (headings, topics, scope, indentation, logical grouping)
 - Use the LINE NUMBERS shown at the start of each line to specify block ranges
-- Create a meaningful title and summary for each block
-- Extract 2-5 content-related tags for each block (topics, people, places, concepts mentioned)
-- Set is_leaf=true if a block is small enough to not need further splitting (typically <12 lines or atomic content)
+- Create a meaningful title and a detailed summary (up to 1000 chars) for each block covering its key topics, concepts, purpose, and important details
+- Extract 2-5 content-related tags for each block (topics, technologies, patterns, people, places, concepts)
+- Set is_leaf=true if a block is small enough to not need further splitting (typically <12 lines or atomic content like a single function, small class, or atomic section)
 
 ## Block Detection Strategies:
-- **Documents**: Use headings, chapters, sections
+- **Documents & Books**: Use headings, chapters, sections, parts, appendices
 - **Conversations**: Split by date, topic changes, or significant events
 - **Logs**: Group by time periods or event types
 - **Articles**: Use natural paragraph groupings or topic shifts
+- **PHP**: Classes, functions, methods, namespaces, includes/requires
+- **JavaScript**: Functions, classes, modules, IIFEs, event handlers
+- **HTML**: Semantic sections, components, repeated patterns, distinct UI areas
+- **CSS**: Rule sets, media queries, component styles, utility classes
 
 ## Output Format
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
@@ -2443,23 +2599,23 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
     "blocks": [
         {
             "title": "Section title or description",
-            "summary": "Brief summary of this section (max 100 chars)",
+            "summary": "Detailed summary of this section's key topics, concepts, purpose, and important details (up to 1000 chars)",
             "start_line": 1,
-            "end_line": 12,
+            "end_line": 45,
             "is_leaf": false,
-            "tags": ["topic1", "person-name", "concept"]
+            "tags": ["topic1", "concept-name", "technology"]
         },
         {
-            "title": "Another section",
-            "summary": "Summary of section content",
-            "start_line": 13,
-            "end_line": 25,
+            "title": "Atomic unit or small section",
+            "summary": "Summary of this block's content and purpose",
+            "start_line": 46,
+            "end_line": 58,
             "is_leaf": true,
-            "tags": ["migration", "prague", "december-2025"]
+            "tags": ["function", "security", "session"]
         }
     ],
-    "document_summary": "Overall summary of the entire document (max 200 chars)",
-    "document_tags": ["main-topic", "key-person", "time-period"]
+    "document_summary": "Comprehensive summary of the entire document (up to 2000 chars). Cover the main purpose, key topics, structure, important details, and notable patterns.",
+    "document_tags": ["main-topic", "key-concept", "technology"]
 }
 ```
 
@@ -2470,11 +2626,13 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 4. end_line of one block should be start_line-1 of the next
 5. Minimum 2 blocks, maximum 9 blocks (sections)
 6. If content is too small or atomic, return single block with is_leaf=true
-7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "january-2026")
+7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "php-class", "january-2026")
 
 ## Data Integrity (CRITICAL):
 - NEVER fabricate, guess, or hallucinate any information in titles, summaries, or tags.
-- If data like email addresses is obfuscated (e.g. `[email protected]`), do NOT invent the real address.
+- If data like email addresses or credentials is obfuscated (e.g. `[email protected]`), do NOT invent real values.
+- Preserve content structure and intent accurately.
+<clean_system_prompt>
 PROMPT;
     }
 
@@ -2516,9 +2674,14 @@ PROMPT;
         $blocks = [];
         
         foreach ($data['blocks'] as $block) {
-            // Get line numbers (1-indexed from AI, convert to 0-indexed for array access)
-            $startLine = max(1, (int)($block['start_line'] ?? 1));
-            $endLine = min($totalLines, (int)($block['end_line'] ?? $totalLines));
+            // AI returns absolute line numbers (offset by startLineOffset).
+            // Convert to relative indices for slicing the block content array.
+            $absStartLine = max(1, (int)($block['start_line'] ?? 1));
+            $absEndLine = (int)($block['end_line'] ?? $absStartLine);
+
+            // Convert absolute → relative (1-indexed within block content)
+            $startLine = max(1, $absStartLine - $startLineOffset + 1);
+            $endLine = min($totalLines, $absEndLine - $startLineOffset + 1);
             
             // Ensure valid range
             if ($endLine < $startLine) {
@@ -2532,8 +2695,8 @@ PROMPT;
             $blocks[] = [
                 'title' => $block['title'] ?? 'Untitled Section',
                 'summary' => $block['summary'] ?? '',
-                'start_line' => $startLine,
-                'end_line' => $endLine,
+                'start_line' => $absStartLine,
+                'end_line' => $absEndLine,
                 'is_leaf' => (bool)($block['is_leaf'] ?? false),
                 'content' => $blockContent,
                 'tags' => $block['tags'] ?? []
@@ -2772,8 +2935,18 @@ PROMPT;
         $this->packService->updateJobProgress($job->getId(), 0, 1);
         $this->packService->startJob($job->getId());
 
-        // Close pack - polling endpoint will reopen it for processing
+        // Close pack - the CLI worker will open it for processing
         $this->packService->close();
+
+        // Spawn detached CLI worker to process this job in the background
+        try {
+            $this->spawnMemoryJobWorker($job->getId(), $targetPack);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Failed to spawn memory job worker (job will be picked up by polling fallback)', [
+                'jobId' => $job->getId(),
+                'error' => $e->getMessage()
+            ]);
+        }
 
         return $job;
     }
@@ -2924,12 +3097,108 @@ PROMPT;
         $this->packService->startJob($analysisJob->getId());
         $this->packService->close();
 
+        // Spawn detached CLI worker to process this job in the background
+        try {
+            $this->spawnMemoryJobWorker($analysisJob->getId(), $targetPack);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Failed to spawn memory job worker for analysis (job will be picked up by polling fallback)', [
+                'jobId' => $analysisJob->getId(),
+                'error' => $e->getMessage()
+            ]);
+        }
+
         return $analysisJob;
     }
 
     /**
+     * Complete an extraction job: mark as completed and create relationship analysis job.
+     * Called from both the "no pending blocks at start" path and the "last block just processed" path.
+     */
+    private function completeExtractionJob(string $jobId, array $payload, int $processedCount, array $targetPack): void
+    {
+        $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
+
+        $this->packService->completeJob($jobId, [
+            'total_memories' => $processedCount,
+            'message' => "Extraction complete. Created {$processedCount} memory nodes."
+        ]);
+
+        // Create relationship analysis job with hierarchical pair strategy
+        if (!empty($extractedNodeIds) && !($payload['skip_analysis'] ?? false)) {
+            $pendingPairs = [];
+            $seenPairs = [];
+
+            // Determine the source_ref of the newly extracted document
+            $newSourceRef = $payload['source_ref'] ?? null;
+
+            // --- 1. Intra-document leaf pairs (same source_ref, non-sibling) ---
+            if ($newSourceRef) {
+                $newLeaves = $this->packService->getLeafNodes($newSourceRef);
+                $newLeafIds = array_map(fn($n) => $n->getId(), $newLeaves);
+
+                foreach ($newLeafIds as $leafId) {
+                    $structuralIds = $this->packService->getStructurallyRelatedNodeIds($leafId);
+
+                    foreach ($newLeafIds as $otherLeafId) {
+                        if ($otherLeafId === $leafId) continue;
+                        if (in_array($otherLeafId, $structuralIds)) continue;
+
+                        $pairKey = $leafId < $otherLeafId
+                            ? $leafId . ':' . $otherLeafId
+                            : $otherLeafId . ':' . $leafId;
+                        if (isset($seenPairs[$pairKey])) continue;
+                        $seenPairs[$pairKey] = true;
+
+                        $pendingPairs[] = [$leafId, $otherLeafId, 'intra'];
+                    }
+                }
+            }
+
+            // --- 2. Cross-document root gating (Phase 1) ---
+            // Find new doc's root node and compare against all other docs' roots
+            $newRootNode = $newSourceRef
+                ? $this->packService->findRootNode($extractedNodeIds[0] ?? '')
+                : null;
+            // If the first extracted node IS the root, use it directly
+            if (!$newRootNode && $newSourceRef) {
+                $allRoots = $this->packService->getRootNodes();
+                foreach ($allRoots as $root) {
+                    if ($root->getSourceRef() === $newSourceRef) {
+                        $newRootNode = $root;
+                        break;
+                    }
+                }
+            }
+
+            if ($newRootNode) {
+                $existingRoots = $this->packService->getRootNodes($newSourceRef);
+                foreach ($existingRoots as $existingRoot) {
+                    $pendingPairs[] = [$newRootNode->getId(), $existingRoot->getId(), 'root_gate'];
+                }
+            }
+
+            if (!empty($pendingPairs)) {
+                $analysisJob = $this->packService->createJob(
+                    MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
+                    [
+                        'target_pack' => $targetPack,
+                        'pending_pairs' => $pendingPairs,
+                        'processed_count' => 0,
+                        'relationships_created' => 0,
+                        'source_job_id' => $jobId,
+                        'document_title' => $payload['document_title'] ?? null,
+                        'new_source_ref' => $newSourceRef
+                    ]
+                );
+                $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));
+                $this->packService->startJob($analysisJob->getId());
+            }
+        }
+    }
+
+    /**
      * Process a single step of a pack extraction job
-     * Called during polling
+     * Called by the async CLI worker (MemoryJobWorkerCommand)
      */
     public function processPackExtractionJobStep(array $targetPack, string $jobId): bool
     {
@@ -2966,26 +3235,33 @@ PROMPT;
                 }
             }
 
-            // Concurrent processing guard: prevent duplicate step execution
-            // Two paths process steps: GUI (/api/memory/pack/step) and polling (/api/updates)
-            // Without this lock, both can process the same needs_init step simultaneously,
-            // creating duplicate root nodes and sub-nodes.
+            // Concurrent processing guard (defense-in-depth).
+            // The stale-job fallback in UpdatesService is currently disabled,
+            // so the CLI worker is the sole driver. This lock protects against
+            // accidental re-enablement or manual duplicate worker spawns.
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
             if (time() - $stepLockedAt < 240) {
                 $this->packService->close();
                 return false; // Another process is handling this step
             }
-            // Claim the lock before AI calls (may take 30-90s with large thinking models)
+            // Claim the lock with a unique token (atomic check-then-set is impossible
+            // with SQLite without transactions, so we use verify-after-write pattern)
+            $lockToken = uniqid('lock_', true);
             $payload['step_locked_at'] = time();
+            $payload['step_lock_token'] = $lockToken;
             $this->packService->updateJobPayload($jobId, $payload);
 
-            // Re-read job after lock write to detect concurrent completion
-            // (another process may have finished needs_init between our read and lock write)
+            // Re-read job after lock write to detect concurrent lock acquisition
             $freshJob = $this->packService->findJobById($jobId);
             if ($freshJob) {
                 $freshPayload = $freshJob->getPayload();
+                // If another worker overwrote our lock token, bail out
+                if (($freshPayload['step_lock_token'] ?? null) !== $lockToken) {
+                    $this->packService->close();
+                    return false;
+                }
+                // Also check if needs_init was completed by another process
                 if (empty($freshPayload['needs_init']) && !empty($payload['needs_init'])) {
-                    // Another process already completed init — release lock and bail
                     $this->packService->close();
                     return false;
                 }
@@ -3031,22 +3307,22 @@ PROMPT;
                 // Prevents duplicate root nodes from concurrent step processing (GUI + backend polling)
                 if ($this->packService->hasRootNodeForSourceRef($sourceRef)) {
                     // Another process already created the root node — release lock and let it drive
-                    unset($payload['step_locked_at']);
+                    unset($payload['step_locked_at'], $payload['step_lock_token']);
                     $this->packService->updateJobPayload($jobId, $payload);
                     $this->packService->close();
                     return false;
                 }
 
-                // Generate document summary (AI call)
-                $summaryContent = $this->generateDocumentSummary($content, $documentTitle, $aiServiceModel, $jobId);
+                $totalLines = count(explode("\n", $content));
+
+                // Extract initial content blocks (AI call) — also returns document_summary
+                $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1, $jobId);
+
+                // Use document_summary from Content Block Extractor response (no separate AI call needed)
+                $summaryContent = $blocks['document_summary'] ?? null;
                 if (!$summaryContent) {
                     $summaryContent = "{$summaryPrefix}: {$documentTitle}";
                 }
-
-                $totalLines = count(explode("\n", $content));
-
-                // Extract initial content blocks (AI call)
-                $blocks = $this->extractContentBlocks($content, $documentTitle, $aiServiceModel, 1, $jobId);
 
                 $documentTags = array_merge(
                     [$baseTag],
@@ -3055,7 +3331,7 @@ PROMPT;
 
                 // Re-check idempotency after slow AI calls (safety net against race condition)
                 if ($this->packService->hasRootNodeForSourceRef($sourceRef)) {
-                    unset($payload['step_locked_at']);
+                    unset($payload['step_locked_at'], $payload['step_lock_token']);
                     $this->packService->updateJobPayload($jobId, $payload);
                     $this->packService->close();
                     return false;
@@ -3106,7 +3382,7 @@ PROMPT;
 
                 $this->packService->updateJobProgress($jobId, 1, 1 + count($pendingBlocks));
                 // Release step lock so next step can be picked up
-                unset($payload['step_locked_at']);
+                unset($payload['step_locked_at'], $payload['step_lock_token']);
                 $this->packService->updateJobPayload($jobId, $payload);
                 $this->packService->close();
 
@@ -3118,85 +3394,7 @@ PROMPT;
 
             // If no pending blocks, extraction is done
             if (empty($pendingBlocks)) {
-                $extractedNodeIds = $payload['extracted_node_ids'] ?? [];
-                
-                $this->packService->completeJob($jobId, [
-                    'total_memories' => $processedCount,
-                    'message' => "Extraction complete. Created {$processedCount} memory nodes."
-                ]);
-
-                // Create relationship analysis job with hierarchical pair strategy
-                if (!empty($extractedNodeIds) && !($payload['skip_analysis'] ?? false)) {
-                    $pendingPairs = [];
-                    $seenPairs = [];
-                    
-                    // Determine the source_ref of the newly extracted document
-                    $newSourceRef = $payload['source_ref'] ?? null;
-                    
-                    // --- 1. Intra-document leaf pairs (same source_ref, non-sibling) ---
-                    if ($newSourceRef) {
-                        $newLeaves = $this->packService->getLeafNodes($newSourceRef);
-                        $newLeafIds = array_map(fn($n) => $n->getId(), $newLeaves);
-                        
-                        foreach ($newLeafIds as $leafId) {
-                            $structuralIds = $this->packService->getStructurallyRelatedNodeIds($leafId);
-                            
-                            foreach ($newLeafIds as $otherLeafId) {
-                                if ($otherLeafId === $leafId) continue;
-                                if (in_array($otherLeafId, $structuralIds)) continue;
-                                
-                                $pairKey = $leafId < $otherLeafId
-                                    ? $leafId . ':' . $otherLeafId
-                                    : $otherLeafId . ':' . $leafId;
-                                if (isset($seenPairs[$pairKey])) continue;
-                                $seenPairs[$pairKey] = true;
-                                
-                                $pendingPairs[] = [$leafId, $otherLeafId, 'intra'];
-                            }
-                        }
-                    }
-                    
-                    // --- 2. Cross-document root gating (Phase 1) ---
-                    // Find new doc's root node and compare against all other docs' roots
-                    $newRootNode = $newSourceRef
-                        ? $this->packService->findRootNode($extractedNodeIds[0] ?? '') 
-                        : null;
-                    // If the first extracted node IS the root, use it directly
-                    if (!$newRootNode && $newSourceRef) {
-                        $allRoots = $this->packService->getRootNodes();
-                        foreach ($allRoots as $root) {
-                            if ($root->getSourceRef() === $newSourceRef) {
-                                $newRootNode = $root;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if ($newRootNode) {
-                        $existingRoots = $this->packService->getRootNodes($newSourceRef);
-                        foreach ($existingRoots as $existingRoot) {
-                            $pendingPairs[] = [$newRootNode->getId(), $existingRoot->getId(), 'root_gate'];
-                        }
-                    }
-                    
-                    if (!empty($pendingPairs)) {
-                        $analysisJob = $this->packService->createJob(
-                            MemoryJob::TYPE_ANALYZE_RELATIONSHIPS,
-                            [
-                                'target_pack' => $targetPack,
-                                'pending_pairs' => $pendingPairs,
-                                'processed_count' => 0,
-                                'relationships_created' => 0,
-                                'source_job_id' => $jobId,
-                                'document_title' => $payload['document_title'] ?? null,
-                                'new_source_ref' => $newSourceRef
-                            ]
-                        );
-                        $this->packService->updateJobProgress($analysisJob->getId(), 0, count($pendingPairs));
-                        $this->packService->startJob($analysisJob->getId());
-                    }
-                }
-
+                $this->completeExtractionJob($jobId, $payload, $processedCount, $targetPack);
                 $this->packService->close();
                 return true;
             }
@@ -3210,14 +3408,53 @@ PROMPT;
             $sourceType = $payload['source_type'];
             $blockDepth = $block['depth'] ?? 1;
 
-            // Generate summary for this block
-            $summaryContent = $this->generateDocumentSummary($blockContent, $blockTitle, $aiServiceModel, $jobId);
+            // Use AI-provided summary from Content Block Extractor for sub-blocks
+            // (skip separate generateDocumentSummary AI call — 7x fewer API calls)
+            $summaryContent = $block['summary'] ?? null;
             if (!$summaryContent) {
-                $summaryContent = $block['summary'] ?? $blockTitle;//"Section: {$blockTitle}";
+                $summaryContent = $blockTitle;
             }
 
             $sourceRange = $block['start_line'] . ':' . $block['end_line'];
             
+            // Deduplication guard: skip if a node for this exact source range already exists
+            // (prevents duplicates from concurrent workers that slipped through the lock)
+            if ($this->packService->hasNodeForSourceRange($sourceRef, $sourceRange)) {
+                $this->logger->info('Skipping duplicate block node', [
+                    'jobId' => $jobId,
+                    'sourceRange' => $sourceRange,
+                    'title' => $blockTitle
+                ]);
+                // Still process sub-blocks if this block isn't a leaf
+                $blockLines = count(explode("\n", $blockContent));
+                if (!$block['is_leaf'] && $blockDepth < $maxDepth && $blockLines > 30) {
+                    $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line'], $jobId);
+                    if ($subBlocks && count($subBlocks['blocks']) > 1) {
+                        // Find the existing node to use as parent
+                        $existingNode = $this->packService->findNodeBySourceRange($sourceRef, $sourceRange);
+                        $parentId = $existingNode ? $existingNode->getId() : $parentNodeId;
+                        // Upgrade existing parent summary with richer document_summary
+                        if ($existingNode && !empty($subBlocks['document_summary'])) {
+                            $this->packService->updateNodeContent($existingNode->getId(), $subBlocks['document_summary']);
+                        }
+                        foreach ($subBlocks['blocks'] as $subBlock) {
+                            $subBlock['parent_node_id'] = $parentId;
+                            $subBlock['depth'] = $blockDepth + 1;
+                            $pendingBlocks[] = $subBlock;
+                        }
+                    }
+                }
+                // Update payload and continue to next step
+                $payload['pending_blocks'] = $pendingBlocks;
+                $payload['processed_count'] = $processedCount;
+                $payload['current_block_title'] = $blockTitle;
+                $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingBlocks));
+                unset($payload['step_locked_at'], $payload['step_lock_token']);
+                $this->packService->updateJobPayload($jobId, $payload);
+                $this->packService->close();
+                return empty($pendingBlocks);
+            }
+
             $baseTag = $payload['base_tag'] ?? 'document';
             $blockTags = array_merge(
                 [$baseTag],
@@ -3259,6 +3496,11 @@ PROMPT;
                 $subBlocks = $this->extractContentBlocks($blockContent, $blockTitle, $aiServiceModel, $block['start_line'], $jobId);
                 
                 if ($subBlocks && count($subBlocks['blocks']) > 1) {
+                    // Upgrade parent node summary: use document_summary from this extraction
+                    // (richer than the brief block.summary from the previous level)
+                    if (!empty($subBlocks['document_summary'])) {
+                        $this->packService->updateNodeContent($summaryNode->getId(), $subBlocks['document_summary']);
+                    }
                     foreach ($subBlocks['blocks'] as $subBlock) {
                         $subBlock['parent_node_id'] = $summaryNode->getId();
                         $subBlock['depth'] = $blockDepth + 1;
@@ -3277,8 +3519,13 @@ PROMPT;
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingBlocks));
             
             // Release step lock and update payload
-            unset($payload['step_locked_at']);
+            unset($payload['step_locked_at'], $payload['step_lock_token']);
             $this->packService->updateJobPayload($jobId, $payload);
+
+            // If all blocks processed, complete the job (create analysis job etc.)
+            if (empty($pendingBlocks)) {
+                $this->completeExtractionJob($jobId, $payload, $processedCount, $targetPack);
+            }
 
             $this->packService->close();
 
@@ -3335,7 +3582,8 @@ PROMPT;
                 }
             }
 
-            // Concurrent processing guard (same as extraction — see processPackExtractionJobStep)
+            // Concurrent processing guard (defense-in-depth — same as extraction)
+            // See processPackExtractionJobStep for details.
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
             if (time() - $stepLockedAt < 240) {
                 $this->packService->close();
@@ -3473,7 +3721,7 @@ PROMPT;
             
             $this->packService->updateJobProgress($jobId, $processedCount, $processedCount + count($pendingPairs));
             // Release step lock
-            unset($payload['step_locked_at']);
+            unset($payload['step_locked_at'], $payload['step_lock_token']);
             $this->packService->updateJobPayload($jobId, $payload);
 
             $this->packService->close();

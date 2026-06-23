@@ -817,6 +817,37 @@ class CQMemoryPackService
     // Node Operations
     // ========================================
     
+    /**
+     * Check if a node with the same source_ref and source_range already exists.
+     * Used as a deduplication guard to prevent duplicate nodes from concurrent workers.
+     */
+    public function hasNodeForSourceRange(string $sourceRef, string $sourceRange): bool
+    {
+        $db = $this->getConnection();
+        $result = $db->fetchOne(
+            'SELECT COUNT(*) FROM memory_nodes WHERE source_ref = ? AND source_range = ? AND is_active = 1',
+            [$sourceRef, $sourceRange]
+        );
+        return $result > 0;
+    }
+
+    /**
+     * Find an existing node by source_ref and source_range.
+     * Used by dedup guard to get the parent node ID for sub-block extraction.
+     */
+    public function findNodeBySourceRange(string $sourceRef, string $sourceRange): ?MemoryNode
+    {
+        $db = $this->getConnection();
+        $row = $db->fetchAssociative(
+            'SELECT * FROM memory_nodes WHERE source_ref = ? AND source_range = ? AND is_active = 1 LIMIT 1',
+            [$sourceRef, $sourceRange]
+        );
+        if (!$row) {
+            return null;
+        }
+        return MemoryNode::fromArray($row);
+    }
+    
     public function storeNode(
         string $content,
         string $category = MemoryNode::CATEGORY_KNOWLEDGE,
@@ -1415,6 +1446,21 @@ class CQMemoryPackService
         ]);
         
         return $newNode;
+    }
+
+    /**
+     * Update the content (summary) of an existing node in place.
+     * Used when a parent node receives a richer document_summary from
+     * the Content Block Extractor that split its children.
+     */
+    public function updateNodeContent(string $nodeId, string $content): void
+    {
+        $this->dirty = true;
+        $db = $this->getConnection();
+        $db->executeStatement(
+            'UPDATE memory_nodes SET content = ? WHERE id = ?',
+            [$content, $nodeId]
+        );
     }
     
     public function forgetNode(string $nodeId, ?string $reason = null): bool

@@ -17,8 +17,7 @@ export class MemoryExtractPanel {
         this.targetPack = null;
         this.projectId = 'general';
         
-        // Synchronous step processing
-        this.isProcessingSteps = false;
+        // Job tracking (status display only — step processing handled by CLI worker)
         this.currentJobId = null;
         
         // Active source type: 'file', 'url', 'text', 'conversation'
@@ -255,7 +254,7 @@ export class MemoryExtractPanel {
     updateStartButtonState() {
         const startBtn = document.getElementById('btn-start-extraction');
         if (!startBtn) return;
-        if (this.isProcessingSteps || this.activeJobs.size > 0) {
+        if (this.activeJobs.size > 0) {
             startBtn.disabled = true;
             return;
         }
@@ -299,7 +298,7 @@ export class MemoryExtractPanel {
     updateAnalyzeButtonState() {
         const btn = document.getElementById('btn-start-analysis');
         if (btn) {
-            btn.disabled = !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
+            btn.disabled = !this.targetPack || this.activeJobs.size > 0;
         }
         this.updateSelectedAnalysisButton();
     }
@@ -308,7 +307,7 @@ export class MemoryExtractPanel {
      * Check if the current pack has active (stalled) jobs and resume them
      */
     async checkForActiveJobs() {
-        if (!this.targetPack || this.isProcessingSteps) return;
+        if (!this.targetPack) return;
         
         try {
             const response = await fetch('/api/memory/pack/jobs', {
@@ -325,17 +324,14 @@ export class MemoryExtractPanel {
             const data = await response.json();
             
             if (data.success && data.jobs && data.jobs.length > 0) {
-                // Found stalled jobs — populate activeJobs and resume processing
+                // Found active jobs — display their status (CLI worker handles processing)
                 data.jobs.forEach(job => {
                     this.activeJobs.set(job.id, job);
                 });
                 this.renderJobsList();
-                
-                // Resume step processing for stalled jobs
-                this.processStepsSequentially();
             }
         } catch (e) {
-            // Non-fatal — just means we can't detect stalled jobs
+            // Non-fatal — just means we can't detect active jobs
             console.warn('Failed to check for active jobs:', e.message);
         }
     }
@@ -479,7 +475,7 @@ export class MemoryExtractPanel {
                     }
                 }
                 
-                // Add job to tracking
+                // Add job to tracking (CLI worker handles processing)
                 this.addJobToList(result.jobId, {
                     type: result.initialProgress?.type || 'extract_recursive',
                     progress: result.initialProgress?.progress || 0,
@@ -488,10 +484,7 @@ export class MemoryExtractPanel {
                     packContext: this.targetPack
                 });
                 
-                // Start synchronous step processing
-                this.processStepsSequentially();
-                
-                // Notify parent component
+                // Notify parent component — polling will pick up progress updates
                 if (this.onExtractionStart) {
                     this.onExtractionStart();
                 }
@@ -559,103 +552,11 @@ export class MemoryExtractPanel {
             if (startBtn) {
                 // Restore button label but keep disabled if async jobs are running
                 startBtn.innerHTML = '<i class="mdi mdi-excavator"></i> Start Extraction';
-                if (!this.isProcessingSteps && this.activeJobs.size === 0) {
+                if (this.activeJobs.size === 0) {
                     startBtn.disabled = false;
                 }
             }
         }
-    }
-
-    /**
-     * Process job steps sequentially - fetch one step, wait for response, apply to graph, repeat
-     */
-    async processStepsSequentially() {
-        if (this.isProcessingSteps || !this.targetPack) {
-            return;
-        }
-        
-        this.isProcessingSteps = true;
-        try {
-            while (this.isProcessingSteps) {
-                // Fetch and process ONE step
-                const response = await fetch('/api/memory/pack/step', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        projectId: this.targetPack.projectId,
-                        path: this.targetPack.path,
-                        name: this.targetPack.name
-                    })
-                });
-                
-                if (!response.ok) {
-                    // Retry on transient 5xx errors (e.g. 504 Gateway Timeout)
-                    if (response.status >= 500 && response.status < 600) {
-                        this.stepRetryCount = (this.stepRetryCount || 0) + 1;
-                        if (this.stepRetryCount <= 3) {
-                            console.warn(`Step returned ${response.status}, retry ${this.stepRetryCount}/3...`);
-                            await new Promise(resolve => setTimeout(resolve, 2000 * this.stepRetryCount));
-                            continue;
-                        }
-                    }
-                    this.stepRetryCount = 0;
-                    throw new Error('Step processing failed');
-                }
-                this.stepRetryCount = 0;
-                
-                const data = await response.json();
-                
-                if (!data.success) {
-                    throw new Error(data.error || 'Step processing failed');
-                }
-                
-                // Update job status (skip if user aborted this job)
-                if (data.job && !this.abortedJobIds.has(data.job.id)) {
-                    this.activeJobs.set(data.job.id, data.job);
-                    this.renderJobsList();
-                }
-                
-                // Apply graph delta immediately
-                const hasNewData = (data.delta?.nodes?.length > 0) || (data.delta?.edges?.length > 0);
-                if (hasNewData && this.onGraphDelta) {
-                    this.onGraphDelta(data.delta);
-                }
-                
-                // Check if more steps remain
-                if (!data.hasMoreSteps) {
-                    this.isProcessingSteps = false;
-                    
-                    // Clear jobs after delay and re-enable extraction button
-                    setTimeout(() => {
-                        this.activeJobs.clear();
-                        this.renderJobsList();
-                        this.enableStartButton();
-                        if (this.onExtractionComplete) {
-                            this.onExtractionComplete();
-                        }
-                    }, 2000);
-                    
-                    break;
-                }
-                
-                // Back off when no work was done (e.g. concurrent lock held by backend)
-                // Short delay for real steps, longer delay for no-ops to avoid flooding
-                await new Promise(resolve => setTimeout(resolve, hasNewData ? 100 : 2000));
-            }
-            
-        } catch (error) {
-            console.error('Step processing error:', error);
-            this.isProcessingSteps = false;
-            this.showError('Extraction failed: ' + error.message);
-            this.enableStartButton();
-        }
-    }
-    
-    /**
-     * Stop step processing
-     */
-    stopStepProcessing() {
-        this.isProcessingSteps = false;
     }
 
     /**
@@ -696,7 +597,7 @@ export class MemoryExtractPanel {
                 packContext: this.targetPack
             });
 
-            this.processStepsSequentially();
+            // CLI worker handles processing — polling will pick up progress updates
 
         } catch (error) {
             console.error('Analysis failed:', error);
@@ -785,7 +686,7 @@ export class MemoryExtractPanel {
         if (!btn) return;
 
         const count = this.selectedRootIds.size;
-        btn.disabled = count === 0 || !this.targetPack || this.isProcessingSteps || this.activeJobs.size > 0;
+        btn.disabled = count === 0 || !this.targetPack || this.activeJobs.size > 0;
 
         if (badge) {
             badge.textContent = count;
@@ -829,7 +730,7 @@ export class MemoryExtractPanel {
                 packContext: this.targetPack
             });
 
-            this.processStepsSequentially();
+            // CLI worker handles processing — polling will pick up progress updates
 
         } catch (error) {
             console.error('Selected analysis failed:', error);
@@ -908,10 +809,9 @@ export class MemoryExtractPanel {
 
     updateJobProgress(jobs) {
         // Update active jobs with new progress data
+        // (caller already filters by packKey, so no spiritId filter needed)
         jobs.forEach(job => {
-            if (job.spiritId === this.spiritId) {
-                this.activeJobs.set(job.id, job);
-            }
+            this.activeJobs.set(job.id, job);
         });
 
         this.renderJobsList();
