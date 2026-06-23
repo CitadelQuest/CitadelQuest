@@ -5,6 +5,7 @@ namespace App\Api\Controller;
 use App\Entity\User;
 use App\Service\AiWebhookService;
 use App\Service\AiGatewayService;
+use App\Service\AnnoService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,6 +28,7 @@ class WebhookApiController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly AiWebhookService $aiWebhookService,
         private readonly AiGatewayService $aiGatewayService,
+        private readonly AnnoService $annoService,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -78,6 +80,12 @@ class WebhookApiController extends AbstractController
                 $data['response'] ?? null,
                 $data['error'] ?? null
             );
+
+            // Save annotations to file
+            if ( isset($data['response']) && isset($data['response']['annotations']) ) {
+                $this->annoService->setUser($user);
+                $this->annoService->saveAnnotations($data['response']['annotations']);
+            }
 
             return $this->json(['success' => true]);
 

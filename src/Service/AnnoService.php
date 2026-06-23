@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\User;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\String\Slugger\SluggerInterface;
 
@@ -30,6 +31,11 @@ class AnnoService
         private readonly SluggerInterface $slugger,
         private readonly LoggerInterface $logger
     ) {
+    }
+
+    public function setUser(User $user): void
+    {
+        $this->projectFileService->setUser($user);
     }
 
     /**
