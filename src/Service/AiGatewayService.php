@@ -368,7 +368,163 @@ class AiGatewayService
 
         return $response;
     }
-    
+
+    /**
+     * Send multiple requests in parallel (batch async).
+     *
+     * All requests must use the same AI model/gateway. Fires N /start calls
+     * simultaneously, then polls for all results in one loop. Creates response
+     * entities and logs usage for each. Falls back to sequential sendRequest
+     * if the gateway doesn't support async endpoints.
+     *
+     * @param array<string, AiServiceRequest> $requests [pairKey => request]
+     * @param string $purpose Purpose label for usage logging
+     * @param string $projectId Project ID for annotations
+     * @return array<string, AiServiceResponse> [pairKey => response]
+     */
+    public function sendRequestBatch(array $requests, string $purpose, string $projectId = 'general'): array
+    {
+        if (empty($requests)) {
+            return [];
+        }
+
+        $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+        $annoService = $this->serviceLocator->get(AnnoService::class);
+
+        // All requests use the same model — get it from the first one
+        $firstRequest = reset($requests);
+        $aiServiceModel = $aiServiceModelService->findById($firstRequest->getAiServiceModelId());
+        if (!$aiServiceModel) {
+            throw new \Exception('AI Service Model not found');
+        }
+        $aiGateway = $this->findById($aiServiceModel->getAiGatewayId());
+        if (!$aiGateway) {
+            throw new \Exception('AI Gateway not found');
+        }
+        $gatewayImplementation = $this->getGatewayImplementation($aiGateway->getType());
+        if (!$gatewayImplementation) {
+            throw new \Exception('Gateway implementation not found for type: ' . $aiGateway->getType());
+        }
+
+        // Update annotations in messages for all requests
+        foreach ($requests as $pairKey => $request) {
+            $requestMessages = $request->getMessages();
+            for ($i = 0; $i < count($requestMessages); $i++) {
+                $requestMessages[$i] = $annoService->updatePDFannotationsInMessage($requestMessages[$i]);
+            }
+            $request->setMessages($requestMessages);
+        }
+
+        // Try batch async path
+        $jobContexts = $gatewayImplementation->startBatch($requests);
+
+        // Check if any returned null (gateway doesn't support async)
+        $allNull = true;
+        foreach ($jobContexts as $ctx) {
+            if ($ctx !== null) {
+                $allNull = false;
+                break;
+            }
+        }
+
+        if ($allNull) {
+            // Gateway doesn't support async — fall back to sequential sendRequest
+            $results = [];
+            foreach ($requests as $pairKey => $request) {
+                $response = $gatewayImplementation->sendRequest($request);
+                $response = $aiServiceResponseService->createResponse(
+                    $request->getId(),
+                    $response->getMessage(),
+                    $response->getFullResponse(),
+                    $response->getFinishReason(),
+                    $response->getInputTokens(),
+                    $response->getOutputTokens(),
+                    $response->getTotalTokens()
+                );
+                $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
+                $results[$pairKey] = $response;
+            }
+            return $results;
+        }
+
+        // Filter out failed starts (null contexts) and handle them via legacy fallback
+        $validContexts = [];
+        $fallbackKeys = [];
+        foreach ($jobContexts as $pairKey => $ctx) {
+            if ($ctx !== null) {
+                $validContexts[$pairKey] = $ctx;
+            } else {
+                $fallbackKeys[] = $pairKey;
+            }
+        }
+
+        // Wait for all async jobs
+        $batchResults = $gatewayImplementation->waitForBatch($validContexts);
+
+        // Process results into AiServiceResponse entities
+        $results = [];
+        foreach ($batchResults as $pairKey => $responseData) {
+            $request = $requests[$pairKey];
+
+            // Check for error
+            if (isset($responseData['error']) && !isset($responseData['choices'])) {
+                $response = new AiServiceResponse(
+                    $request->getId(),
+                    ['error' => $responseData['error']],
+                    $responseData
+                );
+            } else {
+                $choices = $responseData['choices'] ?? [];
+                $message = $choices[0]['message'] ?? [];
+                $finishReason = $choices[0]['finish_reason'] ?? null;
+
+                $response = new AiServiceResponse($request->getId(), $message, $responseData);
+                if (isset($responseData['usage'])) {
+                    $response->setInputTokens($responseData['usage']['prompt_tokens'] ?? null);
+                    $response->setOutputTokens($responseData['usage']['completion_tokens'] ?? null);
+                    $response->setTotalTokens($responseData['usage']['total_tokens'] ?? null);
+                }
+                $response->setFinishReason($finishReason);
+            }
+
+            // Save response to database
+            $response = $aiServiceResponseService->createResponse(
+                $request->getId(),
+                $response->getMessage(),
+                $response->getFullResponse(),
+                $response->getFinishReason(),
+                $response->getInputTokens(),
+                $response->getOutputTokens(),
+                $response->getTotalTokens()
+            );
+
+            // Log usage
+            $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
+
+            $results[$pairKey] = $response;
+        }
+
+        // Handle any fallback keys (gateway didn't support async for those)
+        foreach ($fallbackKeys as $pairKey) {
+            $request = $requests[$pairKey];
+            $response = $gatewayImplementation->sendRequest($request);
+            $response = $aiServiceResponseService->createResponse(
+                $request->getId(),
+                $response->getMessage(),
+                $response->getFullResponse(),
+                $response->getFinishReason(),
+                $response->getInputTokens(),
+                $response->getOutputTokens(),
+                $response->getTotalTokens()
+            );
+            $this->logServiceUse($purpose, $aiGateway, $aiServiceModel, $request, $response);
+            $results[$pairKey] = $response;
+        }
+
+        return $results;
+    }
+
     /**
      * Log the AI service usage
      * TODO: move this to AiServiceUseLogService

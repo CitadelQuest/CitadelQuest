@@ -36,126 +36,333 @@ class CQAIGateway implements AiGatewayInterface
     }
     
     /**
-     * Send a request to the AI service
+     * Send a request to the AI service (synchronous — blocks until response).
+     * Uses async start+poll internally for Cloudflare-524 safety, with legacy fallback.
      */
     public function sendRequest(AiServiceRequest $request): AiServiceResponse
     {
-        // Get services
-        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
-        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
-        $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
-        $aiServiceResponseService = $this->serviceLocator->get(AiServiceResponseService::class);
-
-        // Get the model
-        $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
-        if (!$aiServiceModel) {
-            throw new \Exception('AI Service Model not found');
-        }
-        // Get the gateway
-        $aiGateway = $aiGatewayService->findById($aiServiceModel->getAiGatewayId());
-        if (!$aiGateway) {
-            throw new \Exception('AI Gateway not found');
-        }        
-        // Get API key from gateway
-        $apiKey = $aiGateway->getApiKey();
-        
-        if (!$apiKey || $apiKey === '') {
-            throw new \Exception('CQAIGateway API key not configured');
-        }
-
-        $filteredMessages = $request->getMessages();
-
-        // Filter out image_url type content from messages
-        // for models that do not have image input modality
-        $modelFullConfig = $aiServiceModel->getFullConfig();
-        $inputModalities = $modelFullConfig['architecture']['input_modalities'] ?? [];
-        if ( !in_array('image', $inputModalities) ) {
-            $this->filterImageUrlContent($filteredMessages);
-        }
-
-        // save filtered messages to request
-        $request->setMessages($filteredMessages);
-        $aiServiceRequestService->updateRequest($request);
-        
-        // Prepare request data
-        $requestData = [
-            'model' => $aiServiceModel->getModelSlug(),
-            'messages' => $filteredMessages
-        ];
-        
-        if ($request->getMaxTokens() !== null) {
-            $requestData['max_completion_tokens'] = $request->getMaxTokens();
-        }
-        
-        if ($request->getTemperature() !== null) {
-            $requestData['temperature'] = $request->getTemperature();
-        }
-        
-        if ($request->getStopSequence() !== null) {
-            $requestData['stop'] = [$request->getStopSequence()];
-        }
-        
-        if ($request->getTools() !== null && count($request->getTools()) > 0) {
-            $requestData['tools'] = $request->getTools();
-            $requestData['tool_choice'] = 'auto';
-        }
-        
-        // Prepare headers
-        $headers = [
-            'Content-Type' => 'application/json',
-            'Authorization' => 'Bearer ' . $apiKey,
-            'User-Agent' => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
-            'X-CQ-CONTACT-ID' => $this->security->getUser()?->getId()?->toRfc4122() ?? ''
-        ];
-        
         try {
-            $endpointBase = rtrim($aiGateway->getApiEndpointUrl(), '/');
+            $prepared = $this->prepareRequest($request);
 
-            // Build webhook URL for the gateway to call back when the job is done
-            $webhookUrl = $this->buildWebhookUrl();
-
-            // Async start + poll (Cloudflare-524-proof): the slow OpenRouter call runs
-            // in a detached gateway worker, while we poll fast/short status requests that
-            // never exceed Cloudflare's ~100s proxy window. Falls back to the legacy
-            // single synchronous POST if the gateway has not been updated yet.
-            $responseData = $this->sendRequestViaJob($endpointBase, $headers, $requestData, $webhookUrl);
-            if ($responseData === null) {
-                $responseData = $this->sendRequestLegacy($endpointBase . $this->apiEndpointUrlPath, $headers, $requestData);
+            $gatewayJobId = $this->startJobFromPrepared($prepared);
+            if ($gatewayJobId === null) {
+                // Gateway doesn't support async endpoints — legacy synchronous POST
+                $responseData = $this->sendRequestLegacy(
+                    $prepared['endpointBase'] . $this->apiEndpointUrlPath,
+                    $prepared['headers'],
+                    $prepared['requestData']
+                );
+            } else {
+                $jobContext = [
+                    'gatewayJobId' => $gatewayJobId,
+                    'endpointBase' => $prepared['endpointBase'],
+                    'headers'      => $prepared['headers'],
+                    'webhookUrl'   => $prepared['webhookUrl'],
+                    'requestId'    => $request->getId(),
+                ];
+                $responseData = $this->waitForJob($jobContext);
             }
 
-            // Parse response data
-            $choices = $responseData['choices'] ?? [];
-            $message = $choices[0]['message'] ?? [];
-            $finishReason = $choices[0]['finish_reason'] ?? null;
-            
-            // Create response entity
-            $aiServiceResponse = new AiServiceResponse(
-                $request->getId(),
-                $message,
-                $responseData
-            );
-            
-            // Calculate tokens if available in response
-            if (isset($responseData['usage'])) {
-                $aiServiceResponse->setInputTokens($responseData['usage']['prompt_tokens'] ?? null);
-                $aiServiceResponse->setOutputTokens($responseData['usage']['completion_tokens'] ?? null);
-                $aiServiceResponse->setTotalTokens($responseData['usage']['total_tokens'] ?? null);
-            }
-            
-            $aiServiceResponse->setFinishReason($finishReason);
+            return $this->parseResponse($responseData, $request->getId());
 
-            return $aiServiceResponse;
-            
         } catch (\Exception $e) {
-            // Handle errors
             $errorResponse = new AiServiceResponse(
                 $request->getId(),
                 ['error' => $e->getMessage()],
                 ['error' => $e->getMessage()]
             );
-            
             return $errorResponse;
         }
+    }
+
+    /**
+     * Prepare request data for sending to the gateway.
+     * Handles model lookup, message filtering, and header/URL construction.
+     *
+     * @return array{endpointBase: string, headers: array, requestData: array, webhookUrl: ?string}
+     */
+    private function prepareRequest(AiServiceRequest $request): array
+    {
+        $aiServiceModelService = $this->serviceLocator->get(AiServiceModelService::class);
+        $aiGatewayService = $this->serviceLocator->get(AiGatewayService::class);
+        $aiServiceRequestService = $this->serviceLocator->get(AiServiceRequestService::class);
+
+        $aiServiceModel = $aiServiceModelService->findById($request->getAiServiceModelId());
+        if (!$aiServiceModel) {
+            throw new \Exception('AI Service Model not found');
+        }
+        $aiGateway = $aiGatewayService->findById($aiServiceModel->getAiGatewayId());
+        if (!$aiGateway) {
+            throw new \Exception('AI Gateway not found');
+        }
+        $apiKey = $aiGateway->getApiKey();
+        if (!$apiKey || $apiKey === '') {
+            throw new \Exception('CQAIGateway API key not configured');
+        }
+
+        $filteredMessages = $request->getMessages();
+        $modelFullConfig = $aiServiceModel->getFullConfig();
+        $inputModalities = $modelFullConfig['architecture']['input_modalities'] ?? [];
+        if (!in_array('image', $inputModalities)) {
+            $this->filterImageUrlContent($filteredMessages);
+        }
+
+        $request->setMessages($filteredMessages);
+        $aiServiceRequestService->updateRequest($request);
+
+        $requestData = [
+            'model'    => $aiServiceModel->getModelSlug(),
+            'messages' => $filteredMessages,
+        ];
+        if ($request->getMaxTokens() !== null) {
+            $requestData['max_completion_tokens'] = $request->getMaxTokens();
+        }
+        if ($request->getTemperature() !== null) {
+            $requestData['temperature'] = $request->getTemperature();
+        }
+        if ($request->getStopSequence() !== null) {
+            $requestData['stop'] = [$request->getStopSequence()];
+        }
+        if ($request->getTools() !== null && count($request->getTools()) > 0) {
+            $requestData['tools'] = $request->getTools();
+            $requestData['tool_choice'] = 'auto';
+        }
+
+        $headers = [
+            'Content-Type'     => 'application/json',
+            'Authorization'    => 'Bearer ' . $apiKey,
+            'User-Agent'       => 'CitadelQuest ' . CitadelVersion::VERSION . ' HTTP Client',
+            'X-CQ-CONTACT-ID'  => $this->security->getUser()?->getId()?->toRfc4122() ?? '',
+        ];
+
+        $endpointBase = rtrim($aiGateway->getApiEndpointUrl(), '/');
+        $webhookUrl = $this->buildWebhookUrl();
+
+        return [
+            'endpointBase' => $endpointBase,
+            'headers'      => $headers,
+            'requestData'  => $requestData,
+            'webhookUrl'   => $webhookUrl,
+        ];
+    }
+
+    /**
+     * Start an async job on the gateway (non-blocking).
+     * Returns gateway job ID string, or null if the gateway doesn't support async endpoints.
+     */
+    private function startJobFromPrepared(array $prepared): ?string
+    {
+        $startUrl = $prepared['endpointBase'] . $this->apiEndpointUrlPath . '/start';
+        $requestData = $prepared['requestData'];
+        if ($prepared['webhookUrl'] !== null) {
+            $requestData['webhook_url'] = $prepared['webhookUrl'];
+        }
+
+        $startResponse = $this->httpClient->request('POST', $startUrl, [
+            'headers'      => $prepared['headers'],
+            'json'         => $requestData,
+            'timeout'      => 30,
+            'max_duration' => 30,
+        ]);
+
+        $startStatus = $startResponse->getStatusCode();
+        if ($startStatus === 404) {
+            return null; // Gateway doesn't support async — caller falls back to legacy
+        }
+
+        $startContent = $startResponse->getContent(false);
+        $startJson = json_decode($startContent, true) ?? [];
+
+        if ($startStatus >= 400 || empty($startJson['jobId'])) {
+            $err = $startJson['error']['message'] ?? ($startJson['error'] ?? $startContent);
+            throw new \Exception('CQ AI Gateway start failed (' . $startStatus . '): ' . (is_string($err) ? $err : json_encode($err)));
+        }
+
+        return $startJson['jobId'];
+    }
+
+    /**
+     * Check a single job for completion (non-blocking, single check).
+     * Returns response data array if done, null if still pending.
+     */
+    private function checkJobOnce(array $jobContext, bool $allowHttpFallback): ?array
+    {
+        $aiWebhookService = $this->serviceLocator->get(AiWebhookService::class);
+        $gatewayJobId = $jobContext['gatewayJobId'];
+
+        // 1) Check local DB — instant, no HTTP round-trip (webhook may have already delivered)
+        $cached = $aiWebhookService->getResult($gatewayJobId);
+        if ($cached !== null) {
+            $aiWebhookService->deleteResult($gatewayJobId);
+            if ($cached['status'] === 'completed' && $cached['response'] !== null) {
+                return $cached['response'];
+            }
+            $err = $cached['error'] ?? 'Unknown gateway job error';
+            throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
+        }
+
+        // 2) HTTP fallback — only for local dev where gateway can't reach the webhook URL
+        if ($allowHttpFallback
+            && $jobContext['webhookUrl'] !== null
+            && str_contains($jobContext['webhookUrl'], '.local')
+        ) {
+            $statusUrlBase = $jobContext['endpointBase'] . $this->apiEndpointUrlPath . '/status/';
+            $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $gatewayJobId, [
+                'headers'      => $jobContext['headers'],
+                'timeout'      => 30,
+                'max_duration' => 30,
+            ]);
+            $statusCode = $statusResponse->getStatusCode();
+            $statusContent = $statusResponse->getContent(false);
+            $statusJson = json_decode($statusContent, true) ?? [];
+
+            if ($statusCode >= 400) {
+                $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
+                throw new \Exception('CQ AI Gateway status poll failed (' . $statusCode . '): ' . (is_string($err) ? $err : json_encode($err)));
+            }
+
+            if (!empty($statusJson['done'])) {
+                if (isset($statusJson['response'])) {
+                    return $statusJson['response'];
+                }
+                $err = $statusJson['error'] ?? 'Unknown gateway job error';
+                throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
+            }
+        }
+
+        return null; // Still pending
+    }
+
+    /**
+     * Wait for a single job to complete (blocking poll loop).
+     */
+    public function waitForJob(array $jobContext): array
+    {
+        $maxWaitSeconds = 900;
+        $pollIntervalSeconds = 1;
+        $httpFallbackInterval = 10;
+        $deadline = time() + $maxWaitSeconds;
+        $lastHttpPoll = 0;
+
+        while (time() < $deadline) {
+            sleep($pollIntervalSeconds);
+            $allowHttp = (time() - $lastHttpPoll) >= $httpFallbackInterval;
+            if ($allowHttp) {
+                $lastHttpPoll = time();
+            }
+
+            $result = $this->checkJobOnce($jobContext, $allowHttp);
+            if ($result !== null) {
+                return $result;
+            }
+        }
+
+        throw new \Exception('CQ AI Gateway job timed out after ' . $maxWaitSeconds . 's (jobId: ' . $jobContext['gatewayJobId'] . ')');
+    }
+
+    /**
+     * Parse raw gateway response data into an AiServiceResponse entity.
+     */
+    private function parseResponse(array $responseData, string $requestId): AiServiceResponse
+    {
+        $choices = $responseData['choices'] ?? [];
+        $message = $choices[0]['message'] ?? [];
+        $finishReason = $choices[0]['finish_reason'] ?? null;
+
+        $aiServiceResponse = new AiServiceResponse($requestId, $message, $responseData);
+
+        if (isset($responseData['usage'])) {
+            $aiServiceResponse->setInputTokens($responseData['usage']['prompt_tokens'] ?? null);
+            $aiServiceResponse->setOutputTokens($responseData['usage']['completion_tokens'] ?? null);
+            $aiServiceResponse->setTotalTokens($responseData['usage']['total_tokens'] ?? null);
+        }
+        $aiServiceResponse->setFinishReason($finishReason);
+
+        return $aiServiceResponse;
+    }
+
+    // ─── Batch API (parallel async calls) ───────────────────────────────────
+
+    /**
+     * Start an async job for a single request (non-blocking).
+     * Returns job context array for later polling, or null if gateway doesn't support async.
+     */
+    public function startJob(AiServiceRequest $request): ?array
+    {
+        $prepared = $this->prepareRequest($request);
+        $gatewayJobId = $this->startJobFromPrepared($prepared);
+        if ($gatewayJobId === null) {
+            return null;
+        }
+        return [
+            'gatewayJobId' => $gatewayJobId,
+            'endpointBase' => $prepared['endpointBase'],
+            'headers'      => $prepared['headers'],
+            'webhookUrl'   => $prepared['webhookUrl'],
+            'requestId'    => $request->getId(),
+        ];
+    }
+
+    /**
+     * Start multiple async jobs simultaneously (non-blocking).
+     *
+     * @param array<string, AiServiceRequest> $requests [requestId => request]
+     * @return array<string, array|null> [requestId => jobContext|null]
+     */
+    public function startBatch(array $requests): array
+    {
+        $contexts = [];
+        foreach ($requests as $requestId => $request) {
+            $contexts[$requestId] = $this->startJob($request);
+            usleep(90000); // 100 ms delay
+        }
+        return $contexts;
+    }
+
+    /**
+     * Wait for all batch jobs to complete. Polls all pending jobs in one loop.
+     *
+     * @param array<string, array> $jobContexts [requestId => jobContext]
+     * @return array<string, array> [requestId => responseData]
+     */
+    public function waitForBatch(array $jobContexts): array
+    {
+        $results = [];
+        $pending = $jobContexts;
+        $maxWaitSeconds = 900;
+        $pollIntervalSeconds = 1;
+        $httpFallbackInterval = 10;
+        $deadline = time() + $maxWaitSeconds;
+        $lastHttpPoll = 0;
+
+        while (!empty($pending) && time() < $deadline) {
+            sleep($pollIntervalSeconds);
+            $allowHttp = (time() - $lastHttpPoll) >= $httpFallbackInterval;
+            if ($allowHttp) {
+                $lastHttpPoll = time();
+            }
+
+            foreach ($pending as $requestId => $jobContext) {
+                try {
+                    $result = $this->checkJobOnce($jobContext, $allowHttp);
+                    if ($result !== null) {
+                        $results[$requestId] = $result;
+                        unset($pending[$requestId]);
+                    }
+                } catch (\Exception $e) {
+                    // Job failed — record error as response data
+                    $results[$requestId] = ['error' => $e->getMessage()];
+                    unset($pending[$requestId]);
+                }
+            }
+        }
+
+        // Mark remaining as timed out
+        foreach ($pending as $requestId => $ctx) {
+            $results[$requestId] = ['error' => 'CQ AI Gateway batch job timed out (jobId: ' . $ctx['gatewayJobId'] . ')'];
+        }
+
+        return $results;
     }
 
     /**
@@ -194,109 +401,6 @@ class CQAIGateway implements AiGatewayInterface
         }
 
         return sprintf('%s://%s%s/%s/api/webhook/ai-gateway', $scheme, $host, $portPart, $username);
-    }
-
-    /**
-     * Async pattern: POST /ai/chat/completions/start to enqueue a background job on the
-     * gateway, then poll /ai/chat/completions/status/{jobId} until done. Each HTTP call is
-     * short, so the chain is safe against Cloudflare's ~100s 524 timeout even when the
-     * underlying OpenRouter generation takes minutes.
-     *
-     * With webhook support: the gateway POSTs the result back to our webhook endpoint,
-     * which stores it in the local DB. We poll the local DB (instant) and only fall back
-     * to HTTP status polling every 10s for older gateways that don't support webhooks.
-     *
-     * @return array|null The completion response array, or null if the gateway does not
-     *                     support the async endpoints (caller should fall back to legacy).
-     */
-    private function sendRequestViaJob(string $endpointBase, array $headers, array $requestData, ?string $webhookUrl = null): ?array
-    {
-        $startUrl = $endpointBase . $this->apiEndpointUrlPath . '/start';
-        $statusUrlBase = $endpointBase . $this->apiEndpointUrlPath . '/status/';
-
-        // Include webhook_url in the start request so the gateway can call us back
-        if ($webhookUrl !== null) {
-            $requestData['webhook_url'] = $webhookUrl;
-        }
-
-        // 1) Start the job
-        $startResponse = $this->httpClient->request('POST', $startUrl, [
-            'headers' => $headers,
-            'json' => $requestData,
-            'timeout' => 30,
-            'max_duration' => 30
-        ]);
-
-        $startStatus = $startResponse->getStatusCode();
-        // Older gateway without the async endpoint -> signal legacy fallback
-        if ($startStatus === 404) {
-            return null;
-        }
-
-        $startContent = $startResponse->getContent(false);
-        $startJson = json_decode($startContent, true) ?? [];
-
-        if ($startStatus >= 400 || empty($startJson['jobId'])) {
-            $err = $startJson['error']['message'] ?? ($startJson['error'] ?? $startContent);
-            throw new \Exception('CQ AI Gateway start failed (' . $startStatus . '): ' . (is_string($err) ? $err : json_encode($err)));
-        }
-
-        $jobId = $startJson['jobId'];
-
-        // 2) Poll for completion: check local DB first (webhook may have already delivered),
-        //    fall back to HTTP status polling every 10s for older gateways without webhook support.
-        $aiWebhookService = $this->serviceLocator->get(AiWebhookService::class);
-
-        $maxWaitSeconds = 900;       // 15 min hard ceiling
-        $pollIntervalSeconds = 1;
-        $httpFallbackInterval = 10;
-        $deadline = time() + $maxWaitSeconds;
-        $lastHttpPoll = time();
-
-        while (time() < $deadline) {
-            sleep($pollIntervalSeconds);
-
-            // Check local DB — instant, no HTTP round-trip
-            $cached = $aiWebhookService->getResult($jobId);
-            if ($cached !== null) {
-                $aiWebhookService->deleteResult($jobId);
-                if ($cached['status'] === 'completed' && $cached['response'] !== null) {
-                    return $cached['response'];
-                }
-                $err = $cached['error'] ?? 'Unknown gateway job error';
-                throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
-            }
-
-            // HTTP fallback — only for local dev where gateway can't reach the webhook URL
-            if ($webhookUrl !== null && str_contains($webhookUrl, '.local') && time() - $lastHttpPoll >= $httpFallbackInterval) {
-                $lastHttpPoll = time();
-
-                $statusResponse = $this->httpClient->request('GET', $statusUrlBase . $jobId, [
-                    'headers' => $headers,
-                    'timeout' => 30,
-                    'max_duration' => 30
-                ]);
-
-                $statusCode = $statusResponse->getStatusCode();
-                $statusContent = $statusResponse->getContent(false);
-                $statusJson = json_decode($statusContent, true) ?? [];
-
-                if ($statusCode >= 400) {
-                    $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
-                    throw new \Exception('CQ AI Gateway status poll failed (' . $statusCode . '): ' . (is_string($err) ? $err : json_encode($err)));
-                }
-
-                if (!empty($statusJson['done'])) {
-                    if (isset($statusJson['response'])) {
-                        return $statusJson['response'];
-                    }
-                    $err = $statusJson['error'] ?? 'Unknown gateway job error';
-                    throw new \Exception('CQ AI Gateway job failed: ' . (is_string($err) ? $err : json_encode($err)));
-                }
-            }
-        }
-
-        throw new \Exception('CQ AI Gateway job timed out after ' . $maxWaitSeconds . 's (jobId: ' . $jobId . ')');
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\MemoryNode;
 use App\Entity\MemoryJob;
+use App\Entity\AiServiceResponse;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -1483,90 +1484,16 @@ PROMPT;
      */
     private function analyzePairRelationship(string $nodeAId, string $nodeBId, string $pairType = 'intra'): array
     {
-        // Fetch both nodes
-        $nodeA = $this->packService->findNodeById($nodeAId);
-        $nodeB = $this->packService->findNodeById($nodeBId);
-
-        if (!$nodeA || !$nodeB) {
-            return [
-                'success' => false,
-                'error' => 'One or both nodes not found',
-                'relationshipCreated' => false
-            ];
+        // Prepare (pre-AI): check existing, build request
+        $prepared = $this->preparePairAnalysis($nodeAId, $nodeBId, $pairType);
+        if ($prepared['skip']) {
+            return $prepared['result'];
         }
 
-        // Allowed types depend on pair context:
-        // intra-doc: RELATES_TO + CONTRADICTS only (REINFORCES is redundant within same document)
-        // cross-doc: all three types
-        $isCrossDoc = in_array($pairType, ['root_gate', 'cross_recursive']);
-        $allowedTypes = $isCrossDoc
-            ? [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_REINFORCES, MemoryNode::RELATION_CONTRADICTS]
-            : [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_CONTRADICTS];
-
-        // Check if relationship already exists (both directions)
-        // This covers cases where a previous analysis already created this edge
-        // Also check NOT_DETECTED — pair was already analyzed with no result
-        $checkTypes = array_merge($allowedTypes, [MemoryNode::RELATION_NOT_DETECTED]);
-        foreach ($checkTypes as $type) {
-            if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
-                return [
-                    'success' => true,
-                    'relationshipCreated' => false,
-                    'skipped' => 'relationship_exists'
-                ];
-            }
-        }
-
-        // Get AI model for the Relationship Analyzer Sub-Agent — check tool settings first
-        $aiServiceModel = null;
-        $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
-        if ($memoryExtractTool) {
-            $customModelId = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_ai_model');
-            if ($customModelId) {
-                $aiServiceModel = $this->aiServiceModelService->findById($customModelId);
-            }
-        }
-        // Fallback: default fast models
-        if (!$aiServiceModel) {
-            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
-            if ($gateway) {
-                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
-                if (!$aiServiceModel) {
-                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
-                }
-            }
-        }
-        if (!$aiServiceModel) {
-            return [
-                'success' => false,
-                'error' => 'No AI service model configured for Relationship Analyzer',
-                'relationshipCreated' => false
-            ];
-        }
-
-        // Build pairwise prompts — check tool settings first
-        $customPrompt = $memoryExtractTool
-            ? $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_system_prompt')
-            : null;
-        $systemPrompt = $customPrompt ?: $this->buildPairwiseAnalyzerSystemPrompt();
-        $userMessage = $this->buildPairwiseAnalyzerUserMessage($nodeA, $nodeB);
-
-        $messages = [
-            ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $userMessage]
-        ];
-
+        // Send single request synchronously
         $userLocale = $this->settingsService->getUserLocale();
-
-        $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-            $aiServiceModel->getId(),
-            $messages,
-            null,
-            0.3
-        );
-
         $aiServiceResponse = $this->aiGatewayService->sendRequest(
-            $aiServiceRequest,
+            $prepared['request'],
             'Pairwise Memory Relationship Analyzer Sub-Agent',
             $userLocale['lang'],
             'general'
@@ -1578,10 +1505,116 @@ PROMPT;
                 'Pairwise Memory Relationship Analyzer Sub-Agent',
                 $aiServiceResponse,
                 null,
-                $aiServiceModel->getModelSlug()
+                $prepared['aiServiceModel']->getModelSlug()
             );
         }
 
+        // Process result (post-AI): parse response, create relationship
+        return $this->processPairAnalysisResult(
+            $nodeAId, $nodeBId, $pairType, $aiServiceResponse, $prepared['allowedTypes']
+        );
+    }
+
+    /**
+     * Prepare a pair for analysis: check existing relationships, build AI request.
+     * Returns ['skip' => bool, 'result' => array, 'request' => ?AiServiceRequest, 'allowedTypes' => array, 'aiServiceModel' => ?AiServiceModel]
+     */
+    private function preparePairAnalysis(string $nodeAId, string $nodeBId, string $pairType): array
+    {
+        // Fetch both nodes
+        $nodeA = $this->packService->findNodeById($nodeAId);
+        $nodeB = $this->packService->findNodeById($nodeBId);
+
+        if (!$nodeA || !$nodeB) {
+            return [
+                'skip' => true,
+                'result' => ['success' => false, 'error' => 'One or both nodes not found', 'relationshipCreated' => false],
+                'request' => null, 'allowedTypes' => [], 'aiServiceModel' => null
+            ];
+        }
+
+        // Allowed types depend on pair context
+        $isCrossDoc = in_array($pairType, ['root_gate', 'cross_recursive']);
+        $allowedTypes = $isCrossDoc
+            ? [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_REINFORCES, MemoryNode::RELATION_CONTRADICTS]
+            : [MemoryNode::RELATION_RELATES_TO, MemoryNode::RELATION_CONTRADICTS];
+
+        // Check if relationship already exists
+        $checkTypes = array_merge($allowedTypes, [MemoryNode::RELATION_NOT_DETECTED]);
+        foreach ($checkTypes as $type) {
+            if ($this->packService->relationshipExists($nodeAId, $nodeBId, $type)) {
+                return [
+                    'skip' => true,
+                    'result' => ['success' => true, 'relationshipCreated' => false, 'skipped' => 'relationship_exists'],
+                    'request' => null, 'allowedTypes' => $allowedTypes, 'aiServiceModel' => null
+                ];
+            }
+        }
+
+        // Get AI model
+        $aiServiceModel = null;
+        $memoryExtractTool = $this->aiToolService->findByName('memoryExtract');
+        if ($memoryExtractTool) {
+            $customModelId = $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_ai_model');
+            if ($customModelId) {
+                $aiServiceModel = $this->aiServiceModelService->findById($customModelId);
+            }
+        }
+        if (!$aiServiceModel) {
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if ($gateway) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+                if (!$aiServiceModel) {
+                    $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
+                }
+            }
+        }
+        if (!$aiServiceModel) {
+            return [
+                'skip' => true,
+                'result' => ['success' => false, 'error' => 'No AI service model configured for Relationship Analyzer', 'relationshipCreated' => false],
+                'request' => null, 'allowedTypes' => $allowedTypes, 'aiServiceModel' => null
+            ];
+        }
+
+        // Build prompts
+        $customPrompt = $memoryExtractTool
+            ? $this->aiToolSettingsService->getSettingValue($memoryExtractTool->getId(), 'relationship_analyzer_system_prompt')
+            : null;
+        $systemPrompt = $customPrompt ?: $this->buildPairwiseAnalyzerSystemPrompt();
+        $userMessage = $this->buildPairwiseAnalyzerUserMessage($nodeA, $nodeB);
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userMessage]
+        ];
+
+        $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+            $aiServiceModel->getId(),
+            $messages,
+            null,
+            0.3
+        );
+
+        return [
+            'skip' => false,
+            'result' => null,
+            'request' => $aiServiceRequest,
+            'allowedTypes' => $allowedTypes,
+            'aiServiceModel' => $aiServiceModel,
+        ];
+    }
+
+    /**
+     * Process the AI response for a pair analysis: parse, validate, create relationship.
+     */
+    private function processPairAnalysisResult(
+        string $nodeAId,
+        string $nodeBId,
+        string $pairType,
+        AiServiceResponse $aiServiceResponse,
+        array $allowedTypes
+    ): array {
         // Parse pairwise response
         $analysisResult = $this->parsePairwiseAnalyzerResponse($aiServiceResponse);
 
@@ -1609,17 +1642,12 @@ PROMPT;
             $strength = $rel['strength'] ?? 0.8;
             $context = $rel['context'] ?? null;
 
-            // Hard reject PART_OF — AI shouldn't produce structural edges
             if ($type === MemoryNode::RELATION_PART_OF) {
                 $type = null;
             }
-
-            // Reject types not allowed for this pair context
             if ($type && !in_array($type, $allowedTypes)) {
                 $type = null;
             }
-
-            // Validate type
             if ($type && !in_array($type, MemoryNode::getValidRelationTypes())) {
                 $this->logger->warning('Invalid relationship type from pairwise analyzer', [
                     'type' => $type, 'nodeAId' => $nodeAId, 'nodeBId' => $nodeBId
@@ -1628,8 +1656,7 @@ PROMPT;
             }
         }
 
-        // If no valid semantic relationship was found, store NOT_DETECTED
-        // so this pair is skipped on future re-analysis (saves AI credits)
+        // If no valid semantic relationship, store NOT_DETECTED
         if (!$type) {
             try {
                 $this->packService->createRelationship(
@@ -1638,9 +1665,7 @@ PROMPT;
                     0.0,
                     $analysisResult['analysis'] ?? null
                 );
-            } catch (\Exception $e) {
-                // Non-fatal — dedup record is optional
-            }
+            } catch (\Exception $e) {}
             return [
                 'success' => true,
                 'relationshipCreated' => false,
@@ -1659,11 +1684,7 @@ PROMPT;
 
         try {
             $relationship = $this->packService->createRelationship(
-                $nodeAId,
-                $nodeBId,
-                $type,
-                $strength,
-                $context
+                $nodeAId, $nodeBId, $type, $strength, $context
             );
 
             return [
@@ -1682,9 +1703,7 @@ PROMPT;
         } catch (\Exception $e) {
             $this->logger->warning('Failed to create pairwise relationship', [
                 'error' => $e->getMessage(),
-                'nodeAId' => $nodeAId,
-                'nodeBId' => $nodeBId,
-                'type' => $type
+                'nodeAId' => $nodeAId, 'nodeBId' => $nodeBId, 'type' => $type
             ]);
             return [
                 'success' => false,
@@ -3548,12 +3567,15 @@ PROMPT;
 
 
     /**
-     * Process a single step of pack relationship analysis job
-     * Handles pair types: 'intra', 'root_gate', 'cross_recursive'
-     * One AI call per step. Dynamic pair spawning for cross-doc drill-down.
+     * Process a single step of pack relationship analysis job.
+     * Handles pair types: 'intra', 'root_gate', 'cross_recursive'.
+     * Processes up to 10 pairs per step in parallel via batch async AI calls.
+     * Dynamic pair spawning for cross-doc drill-down.
      */
     public function processPackRelationshipAnalysisJobStep(array $targetPack, string $jobId): bool
     {
+        $batchSize = 16;
+
         try {
             $this->packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
             
@@ -3566,8 +3588,6 @@ PROMPT;
             $payload = $job->getPayload();
 
             // Guard: verify pack file exists on this instance before burning AI credits
-            // Foreign .cqmpack files (uploaded from another instance) may contain jobs
-            // with target_pack paths that don't exist here — skip those gracefully.
             $payloadPack = $payload['target_pack'] ?? null;
             if ($payloadPack) {
                 $packFile = $this->projectFileService->findByPathAndName(
@@ -3583,14 +3603,25 @@ PROMPT;
             }
 
             // Concurrent processing guard (defense-in-depth — same as extraction)
-            // See processPackExtractionJobStep for details.
             $stepLockedAt = $payload['step_locked_at'] ?? 0;
             if (time() - $stepLockedAt < 240) {
                 $this->packService->close();
-                return false; // Another process is handling this step
+                return false;
             }
+            $lockToken = uniqid('lock_', true);
             $payload['step_locked_at'] = time();
+            $payload['step_lock_token'] = $lockToken;
             $this->packService->updateJobPayload($jobId, $payload);
+
+            // Re-read job after lock write to detect concurrent lock acquisition
+            $freshJob = $this->packService->findJobById($jobId);
+            if ($freshJob) {
+                $freshPayload = $freshJob->getPayload();
+                if (($freshPayload['step_lock_token'] ?? null) !== $lockToken) {
+                    $this->packService->close();
+                    return false;
+                }
+            }
 
             $pendingPairs = $payload['pending_pairs'] ?? [];
             $processedCount = $payload['processed_count'] ?? 0;
@@ -3628,91 +3659,133 @@ PROMPT;
                 return true;
             }
 
-            // Process ONE pair per step
-            $pair = array_shift($pendingPairs);
-            $nodeAId = $pair[0];
-            $nodeBId = $pair[1];
-            $pairType = $pair[2] ?? 'intra';
-            $newRelationship = 0;
-            $spawnedPairs = [];
+            // Take up to N pairs for this step
+            $batchPairs = array_slice($pendingPairs, 0, $batchSize);
+            $pendingPairs = array_slice($pendingPairs, $batchSize);
 
-            try {
-                $result = $this->analyzePairRelationship($nodeAId, $nodeBId, $pairType);
-                $relationshipFound = ($result['success'] ?? false) && ($result['relationshipCreated'] ?? false);
-                // For gating types, also consider skipped (already exists) as "found"
-                $gatingPass = $relationshipFound || (($result['skipped'] ?? '') === 'relationship_exists');
+            // Phase 1: Prepare all pairs (pre-AI checks, build requests)
+            $preparedPairs = [];   // [pairIndex => prepared data]
+            $batchRequests = [];   // [pairIndex => AiServiceRequest]
+            $skippedResults = [];  // [pairIndex => result array]
 
-                if ($relationshipFound) {
-                    $newRelationship = 1;
+            foreach ($batchPairs as $idx => $pair) {
+                $nodeAId = $pair[0];
+                $nodeBId = $pair[1];
+                $pairType = $pair[2] ?? 'intra';
+
+                $prepared = $this->preparePairAnalysis($nodeAId, $nodeBId, $pairType);
+                if ($prepared['skip']) {
+                    $skippedResults[$idx] = $prepared['result'];
+                } else {
+                    $preparedPairs[$idx] = $prepared;
+                    $batchRequests[$idx] = $prepared['request'];
                 }
-
-                // --- Handle pair type specific logic ---
-                
-                if ($pairType === 'root_gate' && $gatingPass) {
-                    // Root gating passed: spawn cross_recursive pairs
-                    // Keep root-root edge as high-level overview relationship
-                    
-                    // leaf_A × root_child_B for each new doc leaf
-                    $newSourceRef = $payload['new_source_ref'] ?? null;
-                    // For full-pack analysis (no new_source_ref), derive from nodeA's source_ref
-                    if (!$newSourceRef) {
-                        $nodeAObj = $this->packService->findNodeById($nodeAId);
-                        $newSourceRef = $nodeAObj?->getSourceRef();
-                    }
-                    if ($newSourceRef) {
-                        $newLeaves = $this->packService->getLeafNodes($newSourceRef);
-                        $existingRootChildren = $this->packService->getChildNodes($nodeBId);
-                        
-                        foreach ($newLeaves as $leaf) {
-                            foreach ($existingRootChildren as $child) {
-                                $spawnedPairs[] = [$leaf->getId(), $child->getId(), 'cross_recursive'];
-                            }
-                        }
-                    }
-                } elseif ($pairType === 'cross_recursive' && $gatingPass) {
-                    // Cross-recursive: if nodeB has children, drill deeper
-                    $children = $this->packService->getChildNodes($nodeBId);
-                    if (!empty($children)) {
-                        // nodeB is intermediate — don't create edge (Option B gating)
-                        // Undo the relationship count if one was created at this level
-                        // Actually, analyzePairRelationship already created it.
-                        // For Option B: we should NOT have created it. But we need to
-                        // know if there's a semantic match to gate. So we let AI decide,
-                        // but we only keep the edge if nodeB is a leaf.
-                        // Since nodeB has children, it's NOT a leaf — remove the edge if created.
-                        if ($relationshipFound && isset($result['relationship']['id'])) {
-                            try {
-                                $this->packService->deleteRelationship($result['relationship']['id']);
-                                $newRelationship = 0;
-                            } catch (\Exception $e) {
-                                // Ignore deletion failure
-                            }
-                        }
-                        
-                        // Spawn deeper pairs
-                        foreach ($children as $child) {
-                            $spawnedPairs[] = [$nodeAId, $child->getId(), 'cross_recursive'];
-                        }
-                    }
-                    // If nodeB has NO children (is leaf) — relationship was already created. Perfect.
-                }
-                // 'intra' pairs: relationship created directly, no spawning needed.
-
-            } catch (\Exception $e) {
-                $this->logger->warning('Failed to analyze pair relationship', [
-                    'pair' => $pair,
-                    'pairType' => $pairType,
-                    'error' => $e->getMessage()
-                ]);
             }
 
-            // Append any spawned pairs to the pending list
+            // Phase 2: Fire all AI requests in parallel
+            $batchResponses = [];
+            if (!empty($batchRequests)) {
+                $userLocale = $this->settingsService->getUserLocale();
+                $batchResponses = $this->aiGatewayService->sendRequestBatch(
+                    $batchRequests,
+                    'Pairwise Memory Relationship Analyzer Sub-Agent',
+                    'general'
+                );
+
+                // Log AI usage for each response
+                foreach ($batchResponses as $idx => $aiServiceResponse) {
+                    if ($this->packService->isOpen() && isset($preparedPairs[$idx])) {
+                        $this->packService->logAiUsageFromResponse(
+                            'Pairwise Memory Relationship Analyzer Sub-Agent',
+                            $aiServiceResponse,
+                            null,
+                            $preparedPairs[$idx]['aiServiceModel']->getModelSlug()
+                        );
+                    }
+                }
+            }
+
+            // Phase 3: Process all results (parse, create relationships, handle spawning)
+            $spawnedPairs = [];
+
+            foreach ($batchPairs as $idx => $pair) {
+                $nodeAId = $pair[0];
+                $nodeBId = $pair[1];
+                $pairType = $pair[2] ?? 'intra';
+                $newRelationship = 0;
+
+                try {
+                    // Get result — either from skipped (pre-AI check) or from AI response
+                    if (isset($skippedResults[$idx])) {
+                        $result = $skippedResults[$idx];
+                    } elseif (isset($batchResponses[$idx])) {
+                        $result = $this->processPairAnalysisResult(
+                            $nodeAId, $nodeBId, $pairType,
+                            $batchResponses[$idx],
+                            $preparedPairs[$idx]['allowedTypes']
+                        );
+                    } else {
+                        $this->logger->warning('No response for pair in batch', [
+                            'pair' => $pair, 'pairType' => $pairType
+                        ]);
+                        continue;
+                    }
+
+                    $relationshipFound = ($result['success'] ?? false) && ($result['relationshipCreated'] ?? false);
+                    $gatingPass = $relationshipFound || (($result['skipped'] ?? '') === 'relationship_exists');
+
+                    if ($relationshipFound) {
+                        $newRelationship = 1;
+                    }
+
+                    // --- Handle pair type specific logic ---
+
+                    if ($pairType === 'root_gate' && $gatingPass) {
+                        $newSourceRef = $payload['new_source_ref'] ?? null;
+                        if (!$newSourceRef) {
+                            $nodeAObj = $this->packService->findNodeById($nodeAId);
+                            $newSourceRef = $nodeAObj?->getSourceRef();
+                        }
+                        if ($newSourceRef) {
+                            $newLeaves = $this->packService->getLeafNodes($newSourceRef);
+                            $existingRootChildren = $this->packService->getChildNodes($nodeBId);
+                            foreach ($newLeaves as $leaf) {
+                                foreach ($existingRootChildren as $child) {
+                                    $spawnedPairs[] = [$leaf->getId(), $child->getId(), 'cross_recursive'];
+                                }
+                            }
+                        }
+                    } elseif ($pairType === 'cross_recursive' && $gatingPass) {
+                        $children = $this->packService->getChildNodes($nodeBId);
+                        if (!empty($children)) {
+                            if ($relationshipFound && isset($result['relationship']['id'])) {
+                                try {
+                                    $this->packService->deleteRelationship($result['relationship']['id']);
+                                    $newRelationship = 0;
+                                } catch (\Exception $e) {}
+                            }
+                            foreach ($children as $child) {
+                                $spawnedPairs[] = [$nodeAId, $child->getId(), 'cross_recursive'];
+                            }
+                        }
+                    }
+
+                } catch (\Exception $e) {
+                    $this->logger->warning('Failed to analyze pair relationship in batch', [
+                        'pair' => $pair,
+                        'pairType' => $pairType,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+
+                $processedCount++;
+                $relationshipsCreated += $newRelationship;
+            }
+
+            // Append spawned pairs to the pending list
             if (!empty($spawnedPairs)) {
                 $pendingPairs = array_merge($pendingPairs, $spawnedPairs);
             }
-
-            $processedCount++;
-            $relationshipsCreated += $newRelationship;
 
             // Update job
             $payload['pending_pairs'] = $pendingPairs;
@@ -3723,6 +3796,15 @@ PROMPT;
             // Release step lock
             unset($payload['step_locked_at'], $payload['step_lock_token']);
             $this->packService->updateJobPayload($jobId, $payload);
+
+            // If all pairs processed, complete the job
+            if (empty($pendingPairs)) {
+                $this->packService->completeJob($jobId, [
+                    'pairs_analyzed' => $processedCount,
+                    'relationships_created' => $relationshipsCreated,
+                    'message' => "Relationship analysis complete. Analyzed {$processedCount} pairs, created {$relationshipsCreated} relationships."
+                ]);
+            }
 
             $this->packService->close();
             return empty($pendingPairs);
