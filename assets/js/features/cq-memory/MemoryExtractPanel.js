@@ -398,7 +398,7 @@ export class MemoryExtractPanel {
             return;
         }
 
-        const maxDepth = depthSlider ? parseInt(depthSlider.value) : 3;
+        const maxDepth = depthSlider ? parseInt(depthSlider.value) : 2;
         const extractionParams = this.getExtractionParams(maxDepth);
 
         // Disable button during request

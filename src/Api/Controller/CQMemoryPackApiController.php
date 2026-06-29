@@ -442,7 +442,7 @@ class CQMemoryPackApiController extends AbstractController
                 'sourceType' => $sourceType ?? 'document',
                 'sourceRef' => $sourceRef,
                 'content' => $content,
-                'maxDepth' => $data['maxDepth'] ?? 3,
+                'maxDepth' => $data['maxDepth'] ?? 2,
                 'documentTitle' => $data['documentTitle'] ?? null,
                 'skipAnalysis' => (bool)($data['skipAnalysis'] ?? false)
             ];

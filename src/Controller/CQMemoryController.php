@@ -203,7 +203,7 @@ class CQMemoryController extends AbstractController
                 'sourceType' => $data['sourceType'] ?? 'file',
                 'sourceRef' => $data['sourceRef'] ?? null,
                 'content' => $data['content'] ?? null,
-                'maxDepth' => $data['maxDepth'] ?? 3,
+                'maxDepth' => $data['maxDepth'] ?? 2,
                 'documentTitle' => $data['documentTitle'] ?? null,
                 'skipAnalysis' => $data['skipAnalysis'] ?? false
             ];

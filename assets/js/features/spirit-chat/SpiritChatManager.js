@@ -1196,7 +1196,7 @@ export class SpiritChatManager {
                 body: JSON.stringify({
                     sourceType: 'spirit_conversation',
                     sourceRef: this.currentConversationId,
-                    maxDepth: parseInt(document.getElementById('extract-modal-depth')?.value || '3'),
+                    maxDepth: parseInt(document.getElementById('extract-modal-depth')?.value || '2'),
                     skipAnalysis: !(document.getElementById('extract-modal-auto-analyze')?.checked ?? true)
                 })
             });

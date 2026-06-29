@@ -2805,7 +2805,7 @@ PROMPT;
             $targetPack = $arguments['targetPack'];
             $sourceType = $arguments['sourceType'] ?? 'document';
             $sourceRef = $arguments['sourceRef'] ?? null;
-            $maxDepth = $arguments['maxDepth'] ?? 3;
+            $maxDepth = $arguments['maxDepth'] ?? 2;
 
             // Try to auto-load content if not provided
             $content = $arguments['content'] ?? null;
@@ -3294,7 +3294,7 @@ PROMPT;
                 return true;
             }
 
-            $maxDepth = $payload['max_depth'] ?? 3;
+            $maxDepth = $payload['max_depth'] ?? 2;
 
             // Deferred initialization: generate document summary + extract content blocks
             // This was moved out of startPackRecursiveExtractionJob to make job creation instant
