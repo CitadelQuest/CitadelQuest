@@ -6,6 +6,8 @@ use App\Entity\ProjectFile;
 use App\Service\ProjectFileService;
 use App\Service\AIToolMemoryService;
 use App\Service\AnnoService;
+use App\Service\CQMemoryLibraryService;
+use App\Service\CQMemoryPackService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,6 +29,8 @@ class ProjectFileApiController extends AbstractController
         private readonly ProjectFileService $projectFileService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly AnnoService $annoService,
+        private readonly CQMemoryLibraryService $libraryService,
+        private readonly CQMemoryPackService $packService,
         private readonly Security $security,
         private readonly LoggerInterface $logger
     ) {
@@ -508,6 +512,10 @@ class ProjectFileApiController extends AbstractController
         try {
             $tree = $this->projectFileService->showProjectTree($projectId);
 
+            $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
+
+            $this->annotateTreeWithAnnotationFlags($tree, $projectId, $packFiles);
+
             return $this->json([
                 'success' => true,
                 'tree' => $tree
@@ -523,6 +531,55 @@ class ProjectFileApiController extends AbstractController
                 'error' => $e->getMessage()
             ], 400);
         }
+    }
+
+    /**
+     * Walk the tree and add hasAnnotation / inMemoryPack flags to PDF file nodes
+     */
+    private function annotateTreeWithAnnotationFlags(array &$node, string $projectId, array $packFiles): void
+    {
+        if (isset($node['children']) && is_array($node['children'])) {
+            foreach ($node['children'] as &$child) {
+                $this->annotateTreeWithAnnotationFlags($child, $projectId, $packFiles);
+            }
+        }
+
+        if (isset($node['type']) && $node['type'] !== 'directory' && $node['type'] !== 'projectRootDirectory') {
+            $extension = strtolower(pathinfo($node['name'], PATHINFO_EXTENSION));
+            if ($extension === 'pdf') {
+                $node['hasAnnotation'] = $this->annoService->hasAnnotation(
+                    AnnoService::TYPE_PDF,
+                    $node['name'],
+                    $projectId
+                );
+
+                if ($node['hasAnnotation']) {
+                    $sourceRef = $projectId . ':' . $node['path'] . ':' . $node['name'];
+                    $node['inMemoryPack'] = $this->isInMemoryPack($packFiles, $projectId, $sourceRef);
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if a source_ref exists in any CQ Memory Pack in the project
+     */
+    private function isInMemoryPack(array $packFiles, string $projectId, string $sourceRef): bool
+    {
+        foreach ($packFiles as $packFile) {
+            try {
+                $this->packService->open($projectId, $packFile['path'], $packFile['name']);
+                $source = $this->packService->getSourceByRef($sourceRef);
+                $this->packService->close();
+                if ($source !== null) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                $this->packService->close();
+            }
+        }
+
+        return false;
     }
 
     /**

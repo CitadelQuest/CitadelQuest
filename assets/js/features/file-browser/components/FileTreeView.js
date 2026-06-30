@@ -375,7 +375,14 @@ export class FileTreeView {
             return wrapperElement;
         } else {
             // Set file icon based on file type
-            iconElement.innerHTML = this.getFileIcon(node.name);
+            const extension = node.name.split('.').pop().toLowerCase();
+            if (extension === 'pdf' && node.inMemoryPack) {
+                iconElement.innerHTML = '<i class="mdi mdi-file-pdf-box text-info"></i>';
+            } else if (extension === 'pdf' && node.hasAnnotation) {
+                iconElement.innerHTML = '<i class="mdi mdi-file-pdf-box text-danger"></i>';
+            } else {
+                iconElement.innerHTML = this.getFileIcon(node.name);
+            }
 
             // Add cloud icon for remote/synced files
             if (node.isRemote) {
