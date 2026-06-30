@@ -644,15 +644,15 @@ export class FileBrowser {
                     </span>
                 </div>
                 <div class="file-preview-actions">
-                    <button class="btn btn-sm btn-outline-primary me-2" data-action="show-gallery" data-directory-path="${directoryPath}" 
+                    <button class="btn btn-sm btn-outline-primary me-2 mb-2" data-action="show-gallery" data-directory-path="${directoryPath}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-image-multiple"></i> <span class="d-none d-md-inline small ms-1">${this.translations.show_gallery || 'Image Gallery'}</span>
                     </button>
-                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="create-zip" data-file-id="${directory.id}" 
+                    <button class="btn btn-sm btn-outline-cyber me-2 mb-2" data-action="create-zip" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-folder-zip"></i> <span class="d-none d-md-inline small ms-1">${this.translations.create_zip || 'Create ZIP'}</span>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${directory.id}" 
+                    <button class="btn btn-sm btn-outline-danger mb-2" data-action="delete" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
                     </button>
@@ -870,31 +870,31 @@ export class FileBrowser {
                     </span>
                 </div>
                 <div class="file-preview-actions">
-                    <button class="btn btn-sm btn-outline-primary me-2" data-action="download" data-file-id="${file.id}" 
+                    <button class="btn btn-sm btn-outline-primary me-2 mb-2" data-action="download" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-download"></i> <span class="d-none d-md-inline small ms-1">${this.translations.download || 'Download'}</span>
                     </button>
                     ${!isRemote && extension === 'zip' ? `
-                    <button class="btn btn-sm btn-outline-cyber me-2" data-action="extract-zip" data-file-id="${file.id}" 
+                    <button class="btn btn-sm btn-outline-cyber me-2 mb-2" data-action="extract-zip" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-zip-box-outline"></i> <span class="d-none d-md-inline small ms-1">${this.translations.unzip || 'Unzip'}</span>
                     </button>` : ''}
                     ${!isRemote && !isShared ? `
-                    <button class="btn btn-sm btn-outline-success me-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
+                    <button class="btn btn-sm btn-outline-success me-2 mb-2" data-action="share" data-file-id="${file.id}" data-file-name="${file.name}" data-file-type="${extension}"
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small ms-1">${this.translations.share || 'Share'}</span>
                     </button>` : ''}
                     ${!isRemote && isShared ? `
-                    <button class="btn btn-sm btn-outline-success me-2" data-action="edit-share" data-file-id="${file.id}"
+                    <button class="btn btn-sm btn-outline-success me-2 mb-2" data-action="edit-share" data-file-id="${file.id}"
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-share-variant"></i> <span class="d-none d-md-inline small ms-1">${this.translations.shared_edit || 'Shared - edit'}</span>
                     </button>` : ''}
                     ${!isRemote && this.isTextFile(extension, file.name) ? `
-                    <button class="btn btn-sm btn-outline-primary me-3" data-action="edit" data-file-id="${file.id}" 
+                    <button class="btn btn-sm btn-outline-primary me-3 mb-2" data-action="edit" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small ms-1">${this.translations.edit || 'Edit'}</span>
                     </button>` : ''}
-                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-file-id="${file.id}" 
+                    <button class="btn btn-sm btn-outline-danger mb-2" data-action="delete" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
                     </button>
