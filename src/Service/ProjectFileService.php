@@ -1758,8 +1758,8 @@ class ProjectFileService
             // Project-specific directory
             $projectDir . '/' . $projectId,
             // Project subdirectories
-            $projectDir . '/' . $projectId . '/data',
-            $projectDir . '/' . $projectId . '/www'
+            //$projectDir . '/' . $projectId . '/data',
+            //$projectDir . '/' . $projectId . '/www'
         ];
         
         // Use umask to ensure proper permissions during directory creation
