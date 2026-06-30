@@ -48,7 +48,7 @@ export class FileBrowser {
         'dockerfile', 'makefile', 'rakefile', 'gemfile', 'procfile',
         'gradle', 'cmake', 'ninja',
         // Subtitle / misc plain text
-        'srt', 'vtt', 'ass', 'ssa',
+        'srt', 'vtt', 'ass', 'ssa', 'as',
     ]);
 
     /**
