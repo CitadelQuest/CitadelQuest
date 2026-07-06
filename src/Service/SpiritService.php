@@ -354,6 +354,58 @@ class SpiritService
     }
     
     /**
+     * Get the AI model for a spirit's subconsciousness memory agent.
+     * Preference order:
+     *   1. Spirit-specific setting (subconsciousnessAgentAiModel)
+     *   2. Global user setting (subconsciousness_agent_ai_model) - backward compat
+     *   3. Primary AI model
+     *   4. Default model slug 'citadelquest/kael'
+     * 
+     * @param string $spiritId The ID of the spirit
+     * @return AiServiceModel|null The AI model to use for the memory agent
+     */
+    public function getSpiritSubconsciousnessAgentAiModel(string $spiritId): ?AiServiceModel
+    {
+        // 1. Try spirit-specific setting
+        $spiritModelId = $this->getSpiritSetting($spiritId, 'subconsciousnessAgentAiModel');
+        if ($spiritModelId) {
+            $aiServiceModel = $this->aiServiceModelService->findById($spiritModelId);
+            if ($aiServiceModel) {
+                return $aiServiceModel;
+            }
+        }
+        
+        // 2. Backward compat: global user setting
+        $globalModelSlug = $this->settingsService->getSettingValue('subconsciousness_agent_ai_model', 'citadelquest/kael');
+        if ($globalModelSlug) {
+            $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+            if ($gateway) {
+                $aiServiceModel = $this->aiServiceModelService->findByModelSlug($globalModelSlug, $gateway->getId());
+                if ($aiServiceModel) {
+                    return $aiServiceModel;
+                }
+            }
+        }
+        
+        // 3. Fall back to primary AI model
+        $aiServiceModel = $this->aiGatewayService->getPrimaryAiServiceModel();
+        if ($aiServiceModel) {
+            return $aiServiceModel;
+        }
+        
+        // 4. Final fallback: default model slug
+        $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
+        if ($gateway) {
+            $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/kael', $gateway->getId());
+            if ($aiServiceModel) {
+                return $aiServiceModel;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
      * Update an existing spirit
      */
     public function updateSpirit(Spirit $spirit): void

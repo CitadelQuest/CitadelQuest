@@ -46,9 +46,13 @@ class SpiritController extends AbstractController
             return !in_array($model->getId(), $imageModelIds);
         });
         
+        $spiritId = $this->spiritService->getUserSpirit()->getId();
+        $settings = $this->spiritService->getSpiritSettings($spiritId);
+        
         return $this->render('spirit/index.html.twig', [
-            'spiritId' => $this->spiritService->getUserSpirit()->getId(),
-            'aiModels' => $textModels
+            'spiritId' => $spiritId,
+            'aiModels' => $textModels,
+            'spirit' => ['id' => $spiritId, 'settings' => $settings]
         ]);
     }
 
@@ -119,12 +123,15 @@ class SpiritController extends AbstractController
         // Get conversations for this spirit (returns array of arrays)
         $conversationsData = $this->spiritConversationService->getConversationsBySpirit($id);
         
+        $settings = $this->spiritService->getSpiritSettings($id);
+        
         return $this->render('spirit/index.html.twig', [
             'spiritId' => $id,
             'aiModels' => $textModels,
             'allSpirits' => $allSpirits,
             'interactions' => $interactionsData,
-            'conversations' => $conversationsData
+            'conversations' => $conversationsData,
+            'spirit' => ['id' => $id, 'settings' => $settings]
         ]);
     }
 }

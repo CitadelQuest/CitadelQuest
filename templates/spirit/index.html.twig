@@ -121,6 +121,25 @@
                                     </button>
                                     <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                 </div>
+                                <div class="form-group mb-3">
+                                    <label for="spirit-subconsciousness-agent-ai-model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.subconsciousness_agent_ai_model'|trans|default('Memory Agent AI Model') }}</label>
+                                    <input type="hidden" id="spirit-subconsciousness-agent-ai-model" value="{{ spirit.settings.subconsciousnessAgentAiModel ?? '' }}">
+                                    <button type="button" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" id="spirit-subconsciousness-agent-ai-model-selector-btn">
+                                        <span id="spirit-subconsciousness-agent-ai-model-display">
+                                            {% if spirit.settings.subconsciousnessAgentAiModel is defined and spirit.settings.subconsciousnessAgentAiModel %}
+                                                {% for model in aiModels %}
+                                                    {% if model.id == spirit.settings.subconsciousnessAgentAiModel %}
+                                                        {{ model.modelName }}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                    <div class="form-text text-muted ms-2">{{ 'spirit.settings.subconsciousness_agent_ai_model_hint'|trans|default('Model used for the Memory Agent sub-consciousness synthesis') }}</div>
+                                </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
                                     <div class="position-relative">
@@ -275,6 +294,26 @@
                         const displayText = model.modelName || '{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}';
                         document.getElementById('spirit-ai-model-display').textContent = displayText;
                         // Auto-save immediately (like Memory Type does)
+                        if (window.spiritManager) {
+                            window.spiritManager.updateSpiritSettings();
+                        } else if (saveBtn) {
+                            saveBtn.disabled = false;
+                        }
+                    }, currentModelId || null);
+                });
+            }
+
+            const subAgentModelBtn = document.getElementById('spirit-subconsciousness-agent-ai-model-selector-btn');
+            if (subAgentModelBtn) {
+                subAgentModelBtn.addEventListener('click', function() {
+                    const currentModelId = document.getElementById('spirit-subconsciousness-agent-ai-model').value;
+                    window.aiModelSelector.open('primary', function(model) {
+                        // Update hidden input
+                        document.getElementById('spirit-subconsciousness-agent-ai-model').value = model.id;
+                        // Update display
+                        const displayText = model.modelName || '{{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}';
+                        document.getElementById('spirit-subconsciousness-agent-ai-model-display').textContent = displayText;
+                        // Auto-save immediately
                         if (window.spiritManager) {
                             window.spiritManager.updateSpiritSettings();
                         } else if (saveBtn) {

@@ -27,6 +27,7 @@ export class SpiritManager {
         this.interactionsContainer = document.getElementById('spirit-interactions');
         this.systemPromptInput = document.getElementById('spirit-system-prompt');
         this.aiModelSelect = document.getElementById('spirit-ai-model');
+        this.subconsciousnessAgentAiModelSelect = document.getElementById('spirit-subconsciousness-agent-ai-model');
         this.updateSettingsBtn = document.getElementById('update-spirit-settings');
         this.conversationsList = document.getElementById('conversations-list');
         
@@ -343,6 +344,15 @@ export class SpiritManager {
             this.updateAiModelDisplay(modelId);
         }
 
+        if (this.subconsciousnessAgentAiModelSelect) {
+            // Set the value of the hidden input for the sub-consciousness agent model
+            const modelId = settings.subconsciousnessAgentAiModel || '';
+            this.subconsciousnessAgentAiModelSelect.value = modelId;
+            
+            // Update the display button text with model name
+            this.updateSubconsciousnessAgentAiModelDisplay(modelId);
+        }
+
         // Disable save button after loading
         if (this.updateSettingsBtn) {
             this.updateSettingsBtn.disabled = true;
@@ -377,6 +387,37 @@ export class SpiritManager {
             }
         } catch (error) {
             console.error('Error fetching model info:', error);
+        }
+    }
+
+    /**
+     * Update sub-consciousness agent AI model display button text
+     */
+    async updateSubconsciousnessAgentAiModelDisplay(modelId) {
+        const displayElement = document.getElementById('spirit-subconsciousness-agent-ai-model-display');
+        if (!displayElement) return;
+        
+        if (!modelId) {
+            displayElement.textContent = this.translations.use_primary_model || 'Use Primary AI Model';
+            return;
+        }
+        
+        try {
+            // Fetch model info from API
+            const response = await fetch(`/api/ai/model/selector?type=primary`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (data.success && data.models) {
+                const model = data.models.find(m => m.id === modelId);
+                if (model) {
+                    displayElement.textContent = model.modelName;
+                } else {
+                    displayElement.textContent = this.translations.use_primary_model || 'Use Primary AI Model';
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching sub-agent model info:', error);
         }
     }
 
@@ -592,6 +633,7 @@ export class SpiritManager {
         try {
             const systemPrompt = this.systemPromptInput.value.trim();
             const aiModel = this.aiModelSelect.value;
+            const subconsciousnessAgentAiModel = this.subconsciousnessAgentAiModelSelect?.value ?? '';
             
             // Send the update to the server
             const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
@@ -601,7 +643,8 @@ export class SpiritManager {
                 },
                 body: JSON.stringify({
                     systemPrompt,
-                    aiModel
+                    aiModel,
+                    subconsciousnessAgentAiModel
                 })
             });
             

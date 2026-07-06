@@ -2855,12 +2855,21 @@ class SpiritConversationService
         array $packsSearched = []
     ): array {
         try {
-            // Get AI model (same as extraction sub-agents: Kael = Gemini Flash)
+            // Get AI model for the sub-consciousness agent. Prefer the per-spirit
+            // setting; fall back to primary model / default tool model.
             $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
             if (!$gateway) {
                 throw new \Exception('CQ AI Gateway not found');
             }
-            $model = $this->aiServiceModelService->findByModelSlug($this->settingsService->getSettingValue('subconsciousness_agent_ai_model', 'citadelquest/kael'), $gateway->getId());
+            
+            // Resolve the spirit for this conversation so we can use the
+            // per-spirit sub-consciousness agent AI model setting.
+            $conversation = $this->getConversation($conversationId);
+            $spiritId = $conversation?->getSpiritId();
+            $model = $spiritId
+                ? $this->spiritService->getSpiritSubconsciousnessAgentAiModel($spiritId)
+                : null;
+            
             if (!$model) {
                 $model = $this->aiServiceModelService->findByModelSlug('citadelquest/tool-1', $gateway->getId());
             }

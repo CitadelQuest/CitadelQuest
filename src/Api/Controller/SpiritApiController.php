@@ -130,6 +130,10 @@ class SpiritApiController extends AbstractController
                 $this->spiritService->setSpiritSetting($spirit->getId(), 'aiModel', $data['aiModel']);
             }
             
+            if (isset($data['subconsciousnessAgentAiModel'])) {
+                $this->spiritService->setSpiritSetting($spirit->getId(), 'subconsciousnessAgentAiModel', $data['subconsciousnessAgentAiModel']);
+            }
+            
             // Get the updated spirit
             $updatedSpirit = $this->spiritService->getSpirit($spirit->getId());
             
