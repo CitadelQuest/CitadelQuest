@@ -63,11 +63,11 @@ mkdir -p /var/www/html/var/user_databases /var/www/html/var/user_backups /var/ww
 chown -R www-data:www-data /var/www/html/var
 chmod -R 775 /var/www/html/var
 
-# Clear and warm up cache
+# Clear and warm up cache as www-data so the generated cache is owned by the runtime user
 if [ -f "/var/www/html/bin/console" ]; then
     echo "Warming up cache..."
-    php /var/www/html/bin/console cache:clear --no-interaction --env=prod 2>/dev/null || true
-    php /var/www/html/bin/console cache:warmup --no-interaction --env=prod 2>/dev/null || true
+    su -s /bin/bash www-data -c "php /var/www/html/bin/console cache:clear --no-interaction --env=prod" 2>/dev/null || true
+    su -s /bin/bash www-data -c "php /var/www/html/bin/console cache:warmup --no-interaction --env=prod" 2>/dev/null || true
     chown -R www-data:www-data /var/www/html/var
 fi
 
