@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Ustawienia'
         ai_model: 'Model AI'
+        subconsciousness_agent_ai_model: 'Model AI Agenta Pamięci'
+        subconsciousness_agent_ai_model_hint: 'Model używany do syntezy podświadomości Agenta Pamięci'
         use_primary_model: 'Użyj głównego modelu AI'
         system_prompt: 'Prompt systemowy'
         system_prompt_placeholder: 'Zdefiniuj, jak Twój Duch powinien się zachowywać i jaką wiedzę powinien posiadać...'

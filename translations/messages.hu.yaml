@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Beállítások'
         ai_model: 'AI modell'
+        subconsciousness_agent_ai_model: 'Memóriaügynök AI modell'
+        subconsciousness_agent_ai_model_hint: 'A Memóriaügynök tudattalan szintéziséhez használt modell'
         use_primary_model: 'Elsődleges AI modell használata'
         system_prompt: 'Rendszer prompt'
         system_prompt_placeholder: 'Határozd meg, hogyan viselkedjen a Szellemed és milyen tudással rendelkezzen...'

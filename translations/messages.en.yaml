@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Settings'
         ai_model: 'AI Model'
+        subconsciousness_agent_ai_model: 'Memory Agent AI Model'
+        subconsciousness_agent_ai_model_hint: 'Model used for the Memory Agent sub-consciousness synthesis'
         use_primary_model: 'Use Primary AI Model'
         system_prompt: 'System Prompt'
         system_prompt_placeholder: 'Define how your Spirit should behave and what knowledge it should have...'

@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Nastavenia'
         ai_model: 'AI Model'
+        subconsciousness_agent_ai_model: 'AI model pamäťového agenta'
+        subconsciousness_agent_ai_model_hint: 'Model použitý pre syntézu podvedomia pamäťového agenta'
         use_primary_model: 'Použiť primárny AI Model'
         system_prompt: 'Systémový prompt'
         system_prompt_placeholder: 'Definujte, ako sa má váš Spirit správať a aké znalosti by mal mať...'

@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Impostazioni'
         ai_model: 'Modello IA'
+        subconsciousness_agent_ai_model: "Modello IA dell'Agente di Memoria"
+        subconsciousness_agent_ai_model_hint: "Modello utilizzato per la sintesi subconscia dell'Agente di Memoria"
         use_primary_model: 'Usa modello IA primario'
         system_prompt: 'Prompt di sistema'
         system_prompt_placeholder: 'Definisci come il tuo Spirito dovrebbe comportarsi e quali conoscenze dovrebbe avere...'

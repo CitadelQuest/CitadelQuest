@@ -183,6 +183,8 @@ spirit:
     settings:
         title: 'Innstillinger'
         ai_model: 'KI-modell'
+        subconsciousness_agent_ai_model: 'AI-modell for Minneagenten'
+        subconsciousness_agent_ai_model_hint: 'Modell brukt for Minneagentens underbevisst syntese'
         use_primary_model: 'Bruk primær KI-modell'
         system_prompt: 'Systemprompt'
         system_prompt_placeholder: 'Definer hvordan din Ånd skal oppføre seg og hvilken kunnskap den skal ha...'
