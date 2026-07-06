@@ -277,9 +277,9 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
-                'searchedPacks' => $result['searchedPacks'] ?? [],
                 'rootNodes' => $result['rootNodes'] ?? [],
                 'packsToSearch' => $result['packsToSearch'] ?? [],
+                'shouldTriggerSubAgent' => $result['shouldTriggerSubAgent'],
             ]);
             
             // Phase 4: Store user message for sub-agent context
@@ -294,8 +294,6 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $result['keywords'],
                 'packInfo' => $result['packInfo'],
-                'graphData' => $result['graphData'] ?? null,
-                'searchedPacks' => $result['searchedPacks'] ?? [],
                 'shouldTriggerSubAgent' => $result['shouldTriggerSubAgent'],
                 'cached' => true,
             ]);
@@ -307,8 +305,9 @@ class SpiritConversationApiController extends AbstractController
     
     /**
      * Phase 4: Run Subconsciousness sub-agent to enrich Reflexes recall.
-     * Called by frontend between pre-send and send-async (Step 1.5).
-     * Reads cached data from session, runs AI sub-agent, overwrites session cache.
+     * Deprecated in the main flow: the sub-agent now runs inside the background worker
+     * (see start-turn / SpiritChatTurnCommand). Kept for backward compatibility and
+     * manual API/testing use.
      */
     #[Route('/{id}/sub-agent-recall', name: 'api_spirit_conversation_sub_agent_recall', methods: ['POST'])]
     public function subAgentRecall(
@@ -355,10 +354,13 @@ class SpiritConversationApiController extends AbstractController
                 'recalledNodes' => $result['recalledNodes'],
                 'keywords' => $keywords,
                 'packInfo' => $cachedNodes['packInfo'] ?? [],
-                'searchedPacks' => $cachedNodes['searchedPacks'] ?? [],
+                'rootNodes' => $cachedNodes['rootNodes'] ?? [],
+                'packsToSearch' => $cachedNodes['packsToSearch'] ?? [],
                 'synthesis' => $result['synthesis'],
                 'confidence' => $result['confidence'],
                 'subAgentUsage' => $result['usage'],
+                // Enrichment has already happened here; the worker should not re-run it.
+                'shouldTriggerSubAgent' => false,
             ]);
             // Clean up user message from session
             $session->remove("recall_{$id}_user_message");
@@ -648,12 +650,17 @@ class SpiritConversationApiController extends AbstractController
             if ($cachedRecallNodes) {
                 $session->remove("recall_{$id}_nodes");
             }
+            // The sub-agent now runs in the worker; clear the session copy of the user message text.
+            $session->remove("recall_{$id}_user_message");
             $session->save();
 
-            // Persist memory_recall message if pre-send returned recalled nodes (for history/reload)
-            if ($cachedRecallNodes && !empty($cachedRecallNodes['recalledNodes'])) {
-                $messageService->createMessage($id, 'assistant', 'memory_recall', $cachedRecallNodes, $userMessage->getId());
-            }
+            // The memory_recall message is now created by the background worker after
+            // sub-agent enrichment, so it always reflects the final (enriched) recall.
+            // We do not create it here to avoid stale Reflexes-only badges in the UI.
+
+            // Build a worker payload from the cached recall data. Only the metadata
+            // the worker needs is stored in the turn payload to keep the JSON small.
+            $workerPreSendData = $cachedRecallNodes ?: [];
 
             // Create the turn job and spawn the detached worker
             $turnJobId = $turnService->create($id, $userMessage->getId(), [
@@ -662,7 +669,10 @@ class SpiritConversationApiController extends AbstractController
                 'temperature' => $temperature,
                 'toolTemperature' => 0.5,
                 'cachedSystemPrompt' => $cachedSystemPrompt,
+                'preSendData' => $workerPreSendData, // recall metadata for the worker
                 'host' => $request->getHost(), // restored in the worker so system-info matches web
+                'scheme' => $request->getScheme(), // restored for webhook URL generation in CLI
+                'port' => $request->getPort(),
             ]);
 
             try {
@@ -711,15 +721,13 @@ class SpiritConversationApiController extends AbstractController
                 return $this->json(['error' => 'Turn not found'], 404);
             }
 
-            // New assistant/tool messages produced since the turn started.
-            // memory_recall is excluded — it's rendered live and on full reload only.
+            // New assistant/tool/memory_recall messages produced since the turn started.
+            // memory_recall is now created by the worker after sub-agent enrichment, so
+            // we include it here so the live UI can render the updated recall badge.
             $since = $turn['created_at'] ?? (new \DateTime())->format('Y-m-d H:i:s');
             $messages = $messageService->getMessagesByConversationSince($id, $since, ['assistant', 'tool']);
 
             $messagesWithUsage = array_map(function ($msg) {
-                if ($msg->getType() === 'memory_recall') {
-                    return null;
-                }
                 $msgData = $msg->jsonSerialize();
                 if ($msg->getAiServiceRequestId()) {
                     $usage = $this->aiServiceUseLogService->getUsageByRequestId($msg->getAiServiceRequestId());

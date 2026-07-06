@@ -103,11 +103,17 @@ class SpiritChatTurnCommand extends Command implements ServiceSubscriberInterfac
 
         $payload = json_decode($turn['payload'] ?? '{}', true) ?: [];
 
-        // Restore the originating request host so system-info / prompt building matches
-        // the web context (there is no $_SERVER['SERVER_NAME'] in CLI).
+        // Restore the originating request host/scheme so system-info / prompt building
+        // and webhook URL generation match the web context (there is no $_SERVER in CLI).
         if (!empty($payload['host'])) {
             $_SERVER['SERVER_NAME'] = $payload['host'];
             $_SERVER['HTTP_HOST'] = $payload['host'];
+        }
+        if (!empty($payload['scheme']) && $payload['scheme'] === 'https') {
+            $_SERVER['HTTPS'] = 'on';
+        }
+        if (!empty($payload['port'])) {
+            $_SERVER['SERVER_PORT'] = $payload['port'];
         }
 
         $turnService->markProcessing($turnJobId);
@@ -121,7 +127,8 @@ class SpiritChatTurnCommand extends Command implements ServiceSubscriberInterfac
                 (float) ($payload['temperature'] ?? 0.7),
                 $payload['cachedSystemPrompt'] ?? null,
                 fn (): bool => $turnService->isStopRequested($turnJobId),
-                (float) ($payload['toolTemperature'] ?? 0.5)
+                (float) ($payload['toolTemperature'] ?? 0.5),
+                $payload['preSendData'] ?? []
             );
 
             if ($turnService->isStopRequested($turnJobId)) {

@@ -384,13 +384,13 @@ class CQAIGateway implements AiGatewayInterface
             $host = $request->getHost();
             $port = $request->getPort();
         } else {
-            // CLI context (SpiritChatTurnCommand): $_SERVER is set from turn payload
+            // CLI context (SpiritChatTurnCommand): $_SERVER is restored from turn payload
             $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
             if (!$host) {
                 return null;
             }
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'https';
-            $port = 443;
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $port = (int) ($_SERVER['SERVER_PORT'] ?? ($scheme === 'https' ? 443 : 80));
         }
 
         $username = $user->getUserIdentifier();

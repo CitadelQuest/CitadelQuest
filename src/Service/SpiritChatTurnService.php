@@ -107,7 +107,7 @@ class SpiritChatTurnService
     public function markCompleted(string $id): void
     {
         $this->getUserDb()->executeStatement(
-            'UPDATE spirit_chat_turn SET status = ?, completed_at = ? WHERE id = ? AND status NOT IN (?, ?)',
+            'UPDATE spirit_chat_turn SET status = ?, completed_at = ?, payload = "removed" WHERE id = ? AND status NOT IN (?, ?)',
             [
                 self::STATUS_COMPLETED,
                 (new \DateTime())->format('Y-m-d H:i:s'),
@@ -121,7 +121,7 @@ class SpiritChatTurnService
     public function markStopped(string $id): void
     {
         $this->getUserDb()->executeStatement(
-            'UPDATE spirit_chat_turn SET status = ?, completed_at = ? WHERE id = ?',
+            'UPDATE spirit_chat_turn SET status = ?, completed_at = ?, payload = "removed" WHERE id = ?',
             [self::STATUS_STOPPED, (new \DateTime())->format('Y-m-d H:i:s'), $id]
         );
     }

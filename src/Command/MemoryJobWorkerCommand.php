@@ -165,7 +165,7 @@ class MemoryJobWorkerCommand extends Command implements ServiceSubscriberInterfa
 
         // 4. Process all steps in a loop until the job is complete or fails
         try {
-            $maxIterations = 500;
+            $maxIterations = 10000;
             $iteration = 0;
             $lastProgress = -1;
             $lockContentionRetries = 0;

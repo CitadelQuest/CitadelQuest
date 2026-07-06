@@ -5,7 +5,6 @@ import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
 import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
-import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
 import { formatDate, formatShortDate, formatTime, getCitadelLocale } from '../../shared/date-utils';
 import { getFileEditModal } from '../../shared/file-edit-modal';
 
@@ -33,11 +32,6 @@ export class SpiritChatManager {
         this.isExecutingTools = false;
         this.lastMessageUsage = null;
         this.currentTurnJobId = null; // Active background turn job id (timeout-proof flow)
-        
-        // Memory graph state (Phase 3.5: Pre-Send Reflexes)
-        this.memoryGraphView = null;
-        this.memoryGraphData = null;
-        this.memoryGraphContainer = null;
         
         // Pagination state
         this.messageLimit = 10; // Messages per page
@@ -2258,45 +2252,21 @@ export class SpiritChatManager {
             // Extract plain text for pre-send (handle multimodal content)
             const messageText = typeof message === 'string' ? message : message;
             
-            // Step 1: PRE-SEND — run Reflexes recall, show 3D memory graph
-            let memoryGraphEl = null;
+            // Step 1: PRE-SEND — run Reflexes recall, show a temporary text placeholder
+            let recallPlaceholderEl = null;
             let preSendData = null;
-            this.memoryGraphData = null; // Reset: each recall may search different packs
             const preSendLoadingEl = this.addLoadingIndicator();
             try {
                 const preSendResult = await this.apiService.preSend(this.currentConversationId, messageText);
                 
-                if (preSendResult.success && preSendResult.recalledNodes?.length > 0) {
+                if (preSendResult.success && (preSendResult.recalledNodes?.length > 0 || preSendResult.synthesis)) {
                     preSendData = preSendResult;
-                    memoryGraphEl = this.showMemoryRecallGraph(preSendResult);
+                    recallPlaceholderEl = this.showMemoryRecallPlaceholder(preSendResult);
                 }
                 
-                // Step 1.5: SUB-AGENT — Subconsciousness enrichment (Phase 4)
-                if (preSendResult.shouldTriggerSubAgent && preSendData) {
-                    try {
-                        this.showSubAgentThinking(memoryGraphEl);
-                        
-                        const subAgentResult = await this.apiService.subAgentRecall(this.currentConversationId);
-                        
-                        if (subAgentResult.success) {
-                            // Merge enriched data
-                            preSendData = {
-                                ...preSendData,
-                                recalledNodes: subAgentResult.recalledNodes,
-                                synthesis: subAgentResult.synthesis,
-                                confidence: subAgentResult.confidence,
-                                subAgentUsage: subAgentResult.usage,
-                                enrichedBySubAgent: true,
-                            };
-                            // Update graph highlights with enriched results
-                            this.updateRecallAfterSubAgent(memoryGraphEl, subAgentResult);
-                        }
-                    } catch (subAgentError) {
-                        // Sub-agent is optional — continue with Reflexes-only
-                        console.warn('Sub-agent failed, using Reflexes results:', subAgentError);
-                    }
-                    this.hideSubAgentThinking(memoryGraphEl);
-                }
+                // Phase 4: Subconsciousness sub-agent enrichment now runs inside the
+                // background worker (see runFullTurn). The placeholder stays visible here
+                // until the worker creates the enriched memory_recall message.
             } catch (preSendError) {
                 // Pre-send is optional — if it fails, continue with normal send
                 console.warn('Pre-send failed, continuing with normal send:', preSendError);
@@ -2307,7 +2277,7 @@ export class SpiritChatManager {
                 this.chatMessages.removeChild(preSendLoadingEl);
             }
             
-            // Add loading indicator for assistant response (after graph)
+            // Add loading indicator for assistant response (after placeholder)
             const loadingEl = this.addLoadingIndicator();
             
             // Step 2: START TURN — hand the full AI response + tool loop to a detached
@@ -2320,12 +2290,11 @@ export class SpiritChatManager {
                 this.chatMessages.removeChild(loadingEl);
             }
             
-            // Fade out memory graph → collapse to persistent badge
-            if (memoryGraphEl) {
-                this.fadeOutMemoryGraph(memoryGraphEl, preSendData);
-            }
-            
             if (startResult.error) {
+                // Remove temporary placeholder on turn start failure
+                if (recallPlaceholderEl && recallPlaceholderEl.parentNode) {
+                    recallPlaceholderEl.parentNode.removeChild(recallPlaceholderEl);
+                }
                 throw new Error(startResult.error);
             }
             
@@ -2340,8 +2309,10 @@ export class SpiritChatManager {
                 }
             }
             
-            // Step 3: POLL — render messages as the background worker produces them
-            await this.runBackgroundTurn(startResult.jobId);
+            // Step 3: POLL — render messages as the background worker produces them.
+            // The temporary text placeholder is passed so the poll can replace it with the
+            // worker's enriched memory_recall message when it arrives.
+            await this.runBackgroundTurn(startResult.jobId, [], recallPlaceholderEl);
             
             // Update conversation list to reflect changes
             this.loadConversations();
@@ -2362,103 +2333,54 @@ export class SpiritChatManager {
     }
 
     /**
-     * Show 3D memory graph with recalled nodes highlighted in the chat area
-     * Phase 3.5: Visual feedback while waiting for AI response
+     * Show a simple text placeholder with recalled memory captions while waiting
+     * for the background worker to finish the sub-agent enrichment.
      */
-    showMemoryRecallGraph(preSendResult) {
+    showMemoryRecallPlaceholder(preSendResult) {
         if (!this.chatMessages) return null;
-        
-        // Create container element in chat flow
-        const graphEl = document.createElement('div');
-        graphEl.className = 'chat-memory-recall';
-        graphEl.innerHTML = `
-            <div class="memory-recall-viewport" style="position: relative; width: 50%; height: 200px; border-radius: 8px; overflow: hidden; background: rgba(10, 10, 15, 0.8); margin-bottom: 0.5rem;">
-                <canvas class="memory-recall-canvas" style="width: 100%; height: 100%;"></canvas>
-                <div class="memory-recall-overlay" style="position: absolute; bottom: 4px; left: 8px; pointer-events: none;">
-                    <span class="small" style="font-size: 0.6rem; opacity: 0.6;">
-                        <i class="mdi mdi-brain"></i> ${preSendResult.recalledNodes.length} ${preSendResult.recalledNodes.length === 1 ? 'memory' : 'memories'} recalled
+
+        const nodes = preSendResult.recalledNodes || [];
+        const count = nodes.length;
+        const synthesis = preSendResult.synthesis || '';
+
+        // Build a compact caption list for the placeholder (first few nodes only)
+        const previewNodes = nodes.slice(0, 5);
+        const moreCount = Math.max(0, count - previewNodes.length);
+        const captionsHtml = previewNodes.map(node => {
+            const packBadge = node.packName ? `<span class="badge bg-info bg-opacity-10 text-info opacity-75 me-1" style="font-size: 0.5rem;" title="Memory pack">${node.packName}</span>` : '';
+            return `<div class="py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem; overflow: hidden;">${packBadge}${node.summary || 'Memory node'}</div>`;
+        }).join('');
+        const moreHtml = moreCount > 0
+            ? `<div class="pt-1 text-muted opacity-50" style="font-size: 0.6rem;"><i class="mdi mdi-dots-horizontal me-1"></i>${moreCount} more ${moreCount === 1 ? 'memory' : 'memories'}</div>`
+            : '';
+
+        const label = count > 0
+            ? `${count} ${count === 1 ? 'memory' : 'memories'} recalled`
+            : (synthesis ? 'Memory reflection' : 'Memory recall');
+
+        const placeholderEl = document.createElement('div');
+        placeholderEl.className = 'chat-memory-recall';
+        placeholderEl.innerHTML = `
+            <div class="p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25" style="margin-bottom: 0.5rem; max-width: 100%;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="text-muted small">
+                        <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${label}
                     </span>
+                    <span class="small text-muted opacity-50" style="font-size: 0.6rem;">
+                        <i class="mdi mdi-loading mdi-spin me-1"></i>thinking
+                    </span>
+                </div>
+                <div class="memory-recall-placeholder-captions" style="opacity: 0.85;">
+                    ${captionsHtml}
+                    ${moreHtml}
                 </div>
             </div>
         `;
-        
-        this.chatMessages.appendChild(graphEl);
-        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        
-        // Initialize Three.js graph in the viewport
-        const viewport = graphEl.querySelector('.memory-recall-viewport');
-        const canvas = graphEl.querySelector('.memory-recall-canvas');
-        
-        if (viewport && canvas) {
-            try {
-                // Set canvas dimensions
-                const rect = viewport.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-                
-                // Create compact graph view
-                const graphView = new MemoryGraphView(viewport, {
-                    backgroundColor: 0x0a0a0f,
-                    compact: true
-                });
-                graphView.setOnNodeSelect(null); // read-only
-                
-                // Load graph data if we have it cached, otherwise fetch it
-                this.loadMemoryGraphForRecall(graphView, preSendResult);
-                
-                // Store reference for cleanup
-                this.memoryGraphView = graphView;
-                
-                // Auto-rotate
-                if (graphView.controls) {
-                    graphView.controls.autoRotate = true;
-                    graphView.controls.autoRotateSpeed = 1.0;
-                }
-            } catch (err) {
-                console.warn('Failed to init memory recall graph:', err);
-            }
-        }
-        
-        return graphEl;
-    }
 
-    /**
-     * Load memory graph data and highlight recalled nodes
-     */
-    async loadMemoryGraphForRecall(graphView, preSendResult) {
-        try {
-            // Use merged graph data from all searched packs (supplied by pre-send)
-            if (!this.memoryGraphData && preSendResult.graphData) {
-                this.memoryGraphData = {
-                    nodes: preSendResult.graphData.nodes || [],
-                    edges: preSendResult.graphData.edges || [],
-                    stats: {}
-                };
-            }
-            
-            if (this.memoryGraphData) {
-                graphView.loadGraph(this.memoryGraphData);
-                graphView.resetView();
-                
-                // After focusOnGraph settles (500ms), zoom camera 50% closer
-                setTimeout(() => {
-                    if (!graphView.camera || !graphView.controls) return;
-                    const target = graphView.controls.target.clone();
-                    const pos = graphView.camera.position.clone();
-                    // Move camera halfway between current position and target
-                    graphView.camera.position.lerpVectors(pos, target, 0.35);
-                    graphView.controls.update();
-                    
-                    // Highlight recalled nodes with glow
-                    const recalledIds = preSendResult.recalledNodes.map(n => n.id);
-                    recalledIds.forEach(id => {
-                        graphView.glowNodeById(id, true);
-                    });
-                }, 700);
-            }
-        } catch (err) {
-            console.warn('Failed to load memory graph data:', err);
-        }
+        this.chatMessages.appendChild(placeholderEl);
+        this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+        return placeholderEl;
     }
 
     /**
@@ -2468,38 +2390,42 @@ export class SpiritChatManager {
     createMemoryRecallBadge(recallData) {
         const nodes = recallData?.recalledNodes || [];
         const keywords = recallData?.keywords || [];
-        const packInfo = recallData?.packInfo || null;
-        const searchedPacks = recallData?.searchedPacks || [];
         const synthesis = recallData?.synthesis || '';
         const confidence = recallData?.confidence || '';
         const subAgentUsage = recallData?.subAgentUsage || null;
         const count = nodes.length;
         
-        if (count === 0) return null;
+        // If there is nothing to show (no nodes and no synthesis), skip the badge.
+        if (count === 0 && !synthesis) return null;
         
         const badgeEl = document.createElement('div');
         badgeEl.className = 'chat-message chat-message-memory-recall flex-column d-inline-block';
         
         // Badge label reflects whether sub-agent enriched the recall
         const isSynthesized = !!synthesis;
-        const expandedCount = nodes.filter(n => n.expanded).length;
-        const hasGraphContext = nodes.some(n => n.graphNeighbors && n.graphNeighbors.length > 0);
-        let badgeLabel = isSynthesized 
-            ? `${count} ${count === 1 ? 'memory' : 'memories'} synthesized`
-            : `${count} ${count === 1 ? 'memory' : 'memories'} recalled`;
+        let badgeLabel;
+        if (count === 0 && isSynthesized) {
+            badgeLabel = 'Memory reflection';
+        } else if (isSynthesized) {
+            badgeLabel = `${count} ${count === 1 ? 'memory' : 'memories'} synthesized`;
+        } else {
+            badgeLabel = `${count} ${count === 1 ? 'memory' : 'memories'} recalled`;
+        }
         
-        // Build expandable details list
-        const detailRows = nodes.map(node => {
-            const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
-            const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
-            const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
-            const expandedBadge = node.expanded ? `<span class="badge bg-warning bg-opacity-25 text-warning ms-1 opacity-75" style="font-size: 0.5rem;" title="Discovered via graph relationship">graph</span>` : '';
-            const packBadge = node.packName ? `<span class="badge bg-info bg-opacity-10 text-info opacity-75 me-1" title="Memory pack">${node.packName}</span>` : '';
-            return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;overflow: hidden;">
-                <span class="flex-grow-1">${packBadge}${node.summary || 'Memory node'}</span>
-                ${expandedBadge}${category}${score}${tags}
-            </div>`;
-        }).join('');
+        // Build expandable details list (only when there are nodes)
+        const detailRows = count > 0
+            ? nodes.map(node => {
+                const score = node.score ? `<span class="badge bg-dark bg-opacity-50 text-cyber ms-1" style="font-size: 0.55rem;">${parseFloat(node.score).toFixed(2)}</span>` : '';
+                const category = node.category ? `<span class="badge bg-dark bg-opacity-50 opacity-75 ms-1" style="font-size: 0.55rem;">${node.category}</span>` : '';
+                const tags = (node.tags && node.tags.length > 0) ? node.tags.map(t => `<span class="badge bg-dark bg-opacity-25 opacity-50 ms-1" style="font-size: 0.5rem;">${t}</span>`).join('') : '';
+                const expandedBadge = node.expanded ? `<span class="badge bg-warning bg-opacity-25 text-warning ms-1 opacity-75" style="font-size: 0.5rem;" title="Discovered via graph relationship">graph</span>` : '';
+                const packBadge = node.packName ? `<span class="badge bg-info bg-opacity-10 text-info opacity-75 me-1" title="Memory pack">${node.packName}</span>` : '';
+                return `<div class="d-flex align-items-start gap-1 py-1 border-bottom border-dark border-opacity-25" style="font-size: 0.7rem;overflow: hidden;">
+                    <span class="flex-grow-1">${packBadge}${node.summary || 'Memory node'}</span>
+                    ${expandedBadge}${category}${score}${tags}
+                </div>`;
+            }).join('')
+            : '';
         
         // Synthesis section (Phase 4)
         const synthesisHtml = synthesis 
@@ -2541,248 +2467,23 @@ export class SpiritChatManager {
                 <i class="mdi mdi-chevron-right text-muted opacity-50 small" style="transition: transform 0.2s;"></i>
             </div>
             <div class="d-none p-2 bg-info bg-opacity-10 rounded border border-top-0 border-info border-opacity-25 memory-recall-details">
-                <div class="memory-recall-graph-container" style="position: relative; width: 100%; height: 200px; border-radius: 6px; overflow: hidden; background: rgba(10, 10, 15, 0.8); margin-bottom: 0.5rem;"></div>
                 ${synthesisHtml}
                 ${detailRows}
                 ${keywordsHtml}
                 ${usageHtml}
             </div>
         `;
-        
-        // Wire up expand/collapse toggle with lazy 3D graph init
+
+        // Wire up expand/collapse toggle
         const badgeHeader = badgeEl.querySelector('.memory-recall-badge');
         const detailsPanel = badgeEl.querySelector('.memory-recall-details');
-        const graphContainer = badgeEl.querySelector('.memory-recall-graph-container');
-        let graphInitialized = false;
-        
+
         badgeHeader.addEventListener('click', () => {
             detailsPanel.classList.toggle('d-none');
             badgeHeader.querySelector('.mdi-chevron-right')?.classList.toggle('mdi-rotate-90');
-            
-            const isExpanded = !detailsPanel.classList.contains('d-none');
-            
-            // Lazy-init 3D graph on first expand
-            if (isExpanded && !graphInitialized && (packInfo || searchedPacks.length) && graphContainer) {
-                graphInitialized = true;
-                this.initBadgeMemoryGraph(graphContainer, nodes, packInfo, searchedPacks);
-            }
-            
-            // Dispose graph when collapsed to free resources
-            if (!isExpanded && graphContainer?._graphView) {
-                graphContainer._graphView.dispose();
-                graphContainer._graphView = null;
-                graphInitialized = false;
-                graphContainer.innerHTML = '';
-            }
         });
         
         return badgeEl;
-    }
-    
-    /**
-     * Initialize a compact 3D memory graph inside a badge's detail panel
-     */
-    async initBadgeMemoryGraph(container, recalledNodes, packInfo, searchedPacks = []) {
-        try {
-            // Add canvas element required by MemoryGraphView
-            const canvas = document.createElement('canvas');
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            container.appendChild(canvas);
-            
-            // Wait for layout to compute dimensions after d-none toggle
-            await new Promise(r => requestAnimationFrame(r));
-            
-            const graphView = new MemoryGraphView(container, {
-                backgroundColor: 0x0a0a0f,
-                compact: true
-            });
-            graphView.setOnNodeSelect(null); // read-only
-            
-            // Auto-rotate
-            if (graphView.controls) {
-                graphView.controls.autoRotate = true;
-                graphView.controls.autoRotateSpeed = 1.0;
-            }
-            
-            // Use cached merged graph data from all searched packs (live flow)
-            // Fallback: fetch from all searchedPacks (page refresh — memoryGraphData is null)
-            let graphData = this.memoryGraphData;
-            if (!graphData && searchedPacks.length > 0) {
-                const mergedNodes = [];
-                const mergedEdges = [];
-                const seenNodeIds = new Set();
-                const seenEdgeIds = new Set();
-                for (const pack of searchedPacks) {
-                    try {
-                        const response = await fetch('/api/memory/pack/open', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                projectId: pack.projectId,
-                                path: pack.path,
-                                name: pack.name
-                            })
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            for (const n of (data.nodes || [])) {
-                                if (!seenNodeIds.has(n.id)) { seenNodeIds.add(n.id); mergedNodes.push(n); }
-                            }
-                            for (const e of (data.edges || [])) {
-                                if (!seenEdgeIds.has(e.id)) { seenEdgeIds.add(e.id); mergedEdges.push(e); }
-                            }
-                        }
-                    } catch (err) {
-                        // Pack fetch failed — partial graph is acceptable
-                    }
-                }
-                graphData = { nodes: mergedNodes, edges: mergedEdges, stats: {} };
-                this.memoryGraphData = graphData;
-            } else if (!graphData && packInfo?.name) {
-                // Legacy fallback: older messages without searchedPacks
-                try {
-                    const response = await fetch('/api/memory/pack/open', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            projectId: packInfo.projectId,
-                            path: packInfo.path,
-                            name: packInfo.name
-                        })
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        graphData = { nodes: data.nodes || [], edges: data.edges || [], stats: data.stats || {} };
-                        this.memoryGraphData = graphData;
-                    }
-                } catch (err) { /* non-critical */ }
-            }
-            
-            if (graphData) {
-                graphView.loadGraph(graphData);
-                graphView.resetView();
-                
-                // Zoom closer + highlight recalled nodes after settle
-                setTimeout(() => {
-                    if (!graphView.camera || !graphView.controls) return;
-                    const target = graphView.controls.target.clone();
-                    const pos = graphView.camera.position.clone();
-                    graphView.camera.position.lerpVectors(pos, target, 0.35);
-                    graphView.controls.update();
-                    
-                    const recalledIds = recalledNodes.map(n => n.id);
-                    recalledIds.forEach(id => graphView.glowNodeById(id, true));
-                }, 700);
-            }
-            
-            // Store ref on container for cleanup
-            container._graphView = graphView;
-        } catch (err) {
-            console.warn('Failed to init badge memory graph:', err);
-        }
-    }
-
-    /**
-     * Fade out and remove memory graph element after AI response arrives
-     */
-    fadeOutMemoryGraph(graphEl, preSendData) {
-        if (!graphEl) return;
-        
-        // Fade out over 2 seconds, collapse height to avoid empty space
-        graphEl.style.transition = 'opacity 2s ease-out, max-height 2s ease-out';
-        graphEl.style.maxHeight = graphEl.scrollHeight + 'px';
-        graphEl.style.overflow = 'hidden';
-        
-        requestAnimationFrame(() => {
-            graphEl.style.opacity = '0';
-            graphEl.style.maxHeight = '0';
-        });
-        
-        setTimeout(() => {
-            // Dispose Three.js instance
-            if (this.memoryGraphView) {
-                this.memoryGraphView.dispose();
-                this.memoryGraphView = null;
-            }
-            
-            // Replace graph with persistent badge
-            if (graphEl.parentNode && preSendData) {
-                const badgeData = {
-                    recalledNodes: preSendData.recalledNodes,
-                    keywords: preSendData.keywords,
-                    packInfo: preSendData.packInfo,
-                    synthesis: preSendData.synthesis || '',
-                    confidence: preSendData.confidence || '',
-                    subAgentUsage: preSendData.subAgentUsage || null,
-                };
-                const badgeEl = this.createMemoryRecallBadge(badgeData);
-                graphEl.parentNode.replaceChild(badgeEl, graphEl);
-            } else if (graphEl.parentNode) {
-                graphEl.parentNode.removeChild(graphEl);
-            }
-        }, 2500);
-    }
-    
-    /**
-     * Phase 4: Show "thinking deeper" overlay on memory graph during sub-agent processing
-     */
-    showSubAgentThinking(graphEl) {
-        if (!graphEl) return;
-        
-        const overlay = graphEl.querySelector('.memory-recall-overlay');
-        if (overlay) {
-            overlay.innerHTML = `
-                <span class="small" style="font-size: 0.6rem; opacity: 0.8;">
-                    <i class="mdi mdi-brain"></i> Thinking deeper...
-                </span>
-            `;
-        }
-        
-        // Add subtle pulse animation to the 3D viewport
-        const viewport = graphEl.querySelector('.memory-recall-viewport');
-        if (viewport) viewport.style.animation = 'pulse-subtle 1.5s ease-in-out infinite';
-    }
-    
-    /**
-     * Phase 4: Hide "thinking deeper" overlay after sub-agent completes
-     */
-    hideSubAgentThinking(graphEl) {
-        if (!graphEl) return;
-        const viewport = graphEl.querySelector('.memory-recall-viewport');
-        if (viewport) viewport.style.animation = '';
-    }
-    
-    /**
-     * Phase 4: Update graph and overlay after sub-agent enrichment
-     */
-    updateRecallAfterSubAgent(graphEl, subAgentResult) {
-        if (!graphEl) return;
-        
-        const nodeCount = subAgentResult.recalledNodes?.length || 0;
-        const confidence = subAgentResult.confidence || 'medium';
-        const overlay = graphEl.querySelector('.memory-recall-overlay');
-        
-        if (overlay) {
-            const icon = confidence === 'high' ? 'mdi-brain' : 'mdi-brain';
-            overlay.innerHTML = `
-                <span class="small" style="font-size: 0.6rem; opacity: 0.7;">
-                    <i class="mdi ${icon}"></i> ${nodeCount} ${nodeCount === 1 ? 'memory' : 'memories'} synthesized
-                </span>
-            `;
-        }
-        
-        // Update graph highlights: dim nodes that were dropped, keep relevant ones glowing
-        if (this.memoryGraphView && subAgentResult.recalledNodes) {
-            const enrichedIds = subAgentResult.recalledNodes.map(n => n.id);
-            // Re-glow only the enriched nodes
-            if (this.memoryGraphView.clearAllGlows) {
-                this.memoryGraphView.clearAllGlows();
-            }
-            enrichedIds.forEach(id => {
-                this.memoryGraphView.glowNodeById(id, true);
-            });
-        }
     }
     
     /**
@@ -3318,7 +3019,7 @@ export class SpiritChatManager {
      * send + executeToolChain flow — every request here is short, so Cloudflare's
      * 100s limit (HTTP 524) is never hit regardless of how long the AI turn takes.
      */
-    async runBackgroundTurn(jobId, seedRenderedIds = []) {
+    async runBackgroundTurn(jobId, seedRenderedIds = [], recallPlaceholderEl = null) {
         this.currentTurnJobId = jobId;
         this.isExecutingTools = true;
         this.executionStopped = false;
@@ -3360,6 +3061,13 @@ export class SpiritChatManager {
                     for (const message of status.messages) {
                         if (!message.id || renderedIds.has(message.id)) continue;
                         renderedIds.add(message.id);
+
+                        // When the worker creates the enriched memory_recall message,
+                        // replace the temporary text placeholder with it.
+                        if (recallPlaceholderEl && message.type === 'memory_recall' && this.chatMessages?.contains(recallPlaceholderEl)) {
+                            this.chatMessages.removeChild(recallPlaceholderEl);
+                            recallPlaceholderEl = null;
+                        }
 
                         // Temporarily remove the thinking indicator so new content is
                         // appended above it — it's re-pinned to the bottom below.
@@ -3405,6 +3113,9 @@ export class SpiritChatManager {
         } finally {
             if (thinkingEl && this.chatMessages?.contains(thinkingEl)) {
                 this.chatMessages.removeChild(thinkingEl);
+            }
+            if (recallPlaceholderEl && this.chatMessages?.contains(recallPlaceholderEl)) {
+                this.chatMessages.removeChild(recallPlaceholderEl);
             }
             this.isExecutingTools = false;
             this.currentTurnJobId = null;

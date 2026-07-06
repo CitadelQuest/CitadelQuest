@@ -2569,6 +2569,7 @@ PROMPT;
                 );
             }
 
+            // TODO FIX: if null ('Failed to parse content block extractor response') returned , try again, max. 3x
             return $this->parseContentBlockExtractorResponse($aiServiceResponse, $content, $startLineOffset);
 
         } catch (\Exception $e) {

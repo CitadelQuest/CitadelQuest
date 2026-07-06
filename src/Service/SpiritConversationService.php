@@ -503,8 +503,6 @@ class SpiritConversationService
         $packInfo = [];
         
         $rootNodes = [];
-        $graphData = null;
-        $searchedPacks = [];
         $packsToSearch = [];
         if ($config['includeMemory'] && $config['memoryType'] >= 1 && !empty($userMessageText)) {
             // Get existing conversation messages for context enrichment
@@ -525,8 +523,6 @@ class SpiritConversationService
             $keywords = $recallResult['keywords'] ?? [];
             $packInfo = $recallResult['packInfo'] ?? [];
             $rootNodes = $recallResult['rootNodes'] ?? [];
-            $graphData = $recallResult['graphData'] ?? null;
-            $searchedPacks = $recallResult['searchedPacks'] ?? [];
             $packsToSearch = $recallResult['packsToSearch'] ?? [];
         }
         
@@ -539,8 +535,6 @@ class SpiritConversationService
             'keywords' => $keywords,
             'packInfo' => $packInfo,
             'rootNodes' => $rootNodes,
-            'graphData' => $graphData,
-            'searchedPacks' => $searchedPacks,
             'packsToSearch' => $packsToSearch,
             'shouldTriggerSubAgent' => $shouldTriggerSubAgent,
         ];
@@ -562,13 +556,13 @@ class SpiritConversationService
             return false;
         }
         
+        // TODO: Testing hack — always trigger sub-agent for Memory Agent mode. Remove after testing.
+        return true;
+        
         // No recalled nodes = nothing for sub-agent to evaluate
         if (empty($recalledNodes)) {
             return false;
         }
-        
-        // TODO: Testing hack — always trigger sub-agent for Memory Agent mode. Remove after testing.
-        return true;
         
         // --- Smart trigger logic (restore after testing) ---
         // Skip trivial messages
@@ -903,7 +897,8 @@ class SpiritConversationService
         float $temperature = 0.7,
         ?string $cachedSystemPrompt = null,
         ?callable $shouldStop = null,
-        float $toolTemperature = 0.5
+        float $toolTemperature = 0.5,
+        array $preSendData = []
     ): void {
         $shouldStop = $shouldStop ?? static fn (): bool => false;
 
@@ -916,6 +911,62 @@ class SpiritConversationService
         $userMessage = $messageService->getMessageById($userMessageId);
         if (!$userMessage) {
             throw new \Exception('User message not found: ' . $userMessageId);
+        }
+
+        // Phase 4: Subconsciousness sub-agent enrichment — runs inside the
+        // background worker so its long-ish AI call never blocks an HTTP request.
+        $userMessageText = $this->extractUserMessageText($userMessage);
+        $finalRecallData = [
+            'recalledNodes' => $preSendData['recalledNodes'] ?? [],
+            'keywords' => $preSendData['keywords'] ?? [],
+            'packInfo' => $preSendData['packInfo'] ?? [],
+            'synthesis' => '',
+            'confidence' => '',
+            'subAgentUsage' => null,
+        ];
+
+        if (!empty($preSendData['shouldTriggerSubAgent']) && /*!empty($preSendData['recalledNodes']) &&*/ $cachedSystemPrompt !== null) {
+            try {
+                $subAgentResult = $this->runSubconsciousnessAgent(
+                    $conversationId,
+                    $userMessageText,
+                    $cachedSystemPrompt,
+                    $preSendData['recalledNodes'],
+                    $preSendData['keywords'] ?? [],
+                    $preSendData['rootNodes'] ?? [],
+                    $preSendData['packsToSearch'] ?? []
+                );
+
+                $cachedSystemPrompt = $subAgentResult['systemPrompt'];
+                $finalRecallData = [
+                    'recalledNodes' => $subAgentResult['recalledNodes'],
+                    'keywords' => $preSendData['keywords'] ?? [],
+                    'packInfo' => $preSendData['packInfo'] ?? [],
+                    'synthesis' => $subAgentResult['synthesis'] ?? '',
+                    'confidence' => $subAgentResult['confidence'] ?? '',
+                    'subAgentUsage' => $subAgentResult['usage'] ?? null,
+                ];
+            } catch (\Throwable $e) {
+                $this->logger->warning('Subconsciousness sub-agent enrichment failed in turn worker: {error}', [
+                    'error' => $e->getMessage(),
+                    'conversationId' => $conversationId,
+                    'userMessageId' => $userMessageId,
+                ]);
+                // Continue with Reflexes-only recall.
+            }
+        }
+
+        // Persist a memory_recall message for the UI (enriched or Reflexes-only).
+        // Also show it when the synthesis is the answer (e.g. a memory-structure question
+        // where the sub-agent marks all candidates as irrelevant but the count is known).
+        if (!empty($finalRecallData['recalledNodes']) || !empty($finalRecallData['synthesis'])) {
+            $messageService->createMessage(
+                $conversationId,
+                'assistant',
+                'memory_recall',
+                $finalRecallData,
+                $userMessageId
+            );
         }
 
         // Initial AI response (may request tools)
@@ -1006,6 +1057,9 @@ class SpiritConversationService
             );
             $db->executeStatement(
                 'UPDATE ai_service_response SET message = "removed", full_response = "removed"'
+            );
+            $db->executeStatement(
+                'UPDATE spirit_chat_turn SET payload = "removed" WHERE status = "completed" OR status = "stopped"'
             );
         }
     }
@@ -2211,6 +2265,33 @@ class SpiritConversationService
     }
     
     /**
+     * Extract plain text from a single SpiritConversationMessage entity.
+     * Handles both string content and multimodal content arrays.
+     */
+    private function extractUserMessageText(\App\Entity\SpiritConversationMessage $message): string
+    {
+        $content = $message->getContent();
+        
+        if (is_string($content)) {
+            return trim($content);
+        }
+        
+        if (is_array($content)) {
+            $textParts = [];
+            foreach ($content as $part) {
+                if (is_array($part) && ($part['type'] ?? '') === 'text' && isset($part['text'])) {
+                    $textParts[] = $part['text'];
+                } elseif (is_string($part)) {
+                    $textParts[] = $part;
+                }
+            }
+            return trim(implode(' ', $textParts));
+        }
+        
+        return '';
+    }
+    
+    /**
      * Extract meaningful keywords from natural language text
      * 
      * Pure PHP keyword extraction — no AI cost.
@@ -2478,21 +2559,10 @@ class SpiritConversationService
             
             $query = implode(' ', $keywords);
             
-            // Build searchedPacks list for frontend persistence (page refresh)
-            $searchedPacks = array_map(fn($p) => [
-                'projectId' => $memoryInfo['projectId'],
-                'path' => $p['path'],
-                'name' => $p['name'],
-            ], $packsToSearch);
-            
             // Search each pack and collect results
             $packsSearched = 0;
             $rootNodes = []; // Phase 4b: root nodes for Memory Agent context
             $seenRootIds = [];
-            $mergedGraphNodes = []; // All nodes from all searched packs for 3D visualization
-            $mergedGraphEdges = []; // All edges from all searched packs for 3D visualization
-            $seenGraphNodeIds = [];
-            $seenGraphEdgeIds = [];
             
             foreach ($packsToSearch as $packRef) {
                 try {
@@ -2554,26 +2624,6 @@ class SpiritConversationService
                         }
                     } catch (\Exception $e) {
                         // Root node fetch failed for this pack — non-critical, continue
-                    }
-                    
-                    // Collect full graph data from this pack for 3D visualization
-                    // (while pack is open — avoids extra API calls from frontend)
-                    try {
-                        $packGraph = $this->packService->getGraphData();
-                        foreach ($packGraph['nodes'] ?? [] as $gNode) {
-                            if (!in_array($gNode['id'], $seenGraphNodeIds)) {
-                                $seenGraphNodeIds[] = $gNode['id'];
-                                $mergedGraphNodes[] = $gNode;
-                            }
-                        }
-                        foreach ($packGraph['edges'] ?? [] as $gEdge) {
-                            if (!in_array($gEdge['id'], $seenGraphEdgeIds)) {
-                                $seenGraphEdgeIds[] = $gEdge['id'];
-                                $mergedGraphEdges[] = $gEdge;
-                            }
-                        }
-                    } catch (\Exception $e) {
-                        // Graph data fetch failed — non-critical, 3D scene will be partial
                     }
                     
                     $packResults = $this->packService->recall(
@@ -2660,17 +2710,15 @@ class SpiritConversationService
                 $results = array_slice($results, 0, $limit);
             }
             
-            $mergedGraphData = ['nodes' => $mergedGraphNodes, 'edges' => $mergedGraphEdges];
-            
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData, 'packsToSearch' => $packsToSearch]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'packsToSearch' => $packsToSearch]);
             }
             
             // Filter: only include results with meaningful scores
             $results = array_filter($results, fn($r) => $r['score'] >= $minScore);
             
             if (empty($results)) {
-                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'searchedPacks' => $searchedPacks, 'rootNodes' => $rootNodes, 'graphData' => $mergedGraphData, 'packsToSearch' => $packsToSearch]);
+                return array_merge($emptyResult, ['keywords' => $keywords, 'packInfo' => $packInfo, 'rootNodes' => $rootNodes, 'packsToSearch' => $packsToSearch]);
             }
             
             // Build node data for frontend + Phase 4b: include graph neighbors
@@ -2744,9 +2792,7 @@ class SpiritConversationService
                 'nodes' => $recalledNodes,
                 'keywords' => $keywords,
                 'packInfo' => $packInfo,
-                'searchedPacks' => $searchedPacks,
                 'rootNodes' => $rootNodes,
-                'graphData' => $mergedGraphData,
                 'packsToSearch' => $packsToSearch,
             ];
             
@@ -3026,7 +3072,7 @@ class SpiritConversationService
     private function buildSubAgentSystemPrompt(): string
     {
         return <<<'PROMPT'
-You are a Memory Analyst for a Spirit AI assistant. Your task is to evaluate candidate memories recalled by keyword search and produce a contextual synthesis.
+You are the Spirit's own subconsciousness. Before the Spirit answers, you briefly recall and reflect on the memories that are relevant to the user's message. You are not an external analyst — you are the Spirit's internal memory layer, the quiet voice that brings back what matters.
 
 ## Memory Structure
 Memories are organized as a graph-based knowledge system:
@@ -3048,7 +3094,7 @@ You will receive an XML document `<memory-evaluation>` containing:
 
 ### 1. EVALUATE
 For each candidate memory, decide if it is truly relevant to the current conversation context. A memory is relevant if:
-- It provides answer for user question
+- It provides an answer to the user's question
 - It directly relates to what the user is talking about
 - It provides useful background context for the Spirit to respond well
 - It contains facts/preferences the Spirit should consider right now
@@ -3058,11 +3104,13 @@ A memory is NOT relevant if:
 - It's too generic or stale to be useful for this specific conversation
 
 ### 2. SYNTHESIZE
-The synthesis is Spirit sub-conscious memory layer should provide short but exact context selected from was amount of memories, to keep Spirit consciousness sharp, smart, coherent and based.
-Write a brief contextual summary (100-200 words) that tells the Spirit:
-- What it should know from these memories for the current conversation
+Write a brief contextual summary (200-500 words) in the same language as the user's message. This summary is what the Spirit will know when it answers. Include:
+- What the Spirit should know from these memories for the current conversation
 - Any important connections between the memories
-- Always include exact key facts, preferences, or context that should influence the response
+- Exact key facts, preferences, or context that should influence the response
+- A direct answer to any factual question about memory structure, availability, or counts. For example, if the user asks how many root nodes are available, state the exact number clearly.
+
+If the user is asking about memory itself (how many memories, root nodes, packs, etc.), answer it directly using the information provided in the input. Do not leave this to the Spirit to guess.
 
 ### 3. RELATIONSHIPS (if graph context is provided)
 You may receive graph relationships for candidate memories (REINFORCES, CONTRADICTS, RELATES_TO). Use them to:
@@ -3094,7 +3142,7 @@ Respond with ONLY a valid JSON object:
 
 ## Rules
 1. ONLY output the JSON object, nothing else
-2. Keep synthesis concise but informative (100-200 words)
+2. Keep synthesis informative but concise (200-500 words)
 3. If you need to mention documents/files - do it as: "memory sources", they exists in memory database, not on filesystem as normal "files"
 4. confidence = "high" if candidates clearly match context, "medium" if partially relevant, "low" if weak matches
 5. If NO candidates are relevant, return empty relevant array and synthesis = "" with confidence = "low"
