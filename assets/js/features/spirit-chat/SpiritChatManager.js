@@ -1496,7 +1496,7 @@ export class SpiritChatManager {
                 : '';
             if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
-                    <div class="chat-usage small text-muted opacity-50">
+                    <div class="chat-usage small text-muted opacity-75">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
                         <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                         <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
@@ -1579,7 +1579,7 @@ export class SpiritChatManager {
                         : '';
                     if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                         toolUsageHtml = `
-                            <span class="small text-muted opacity-50 ms-2">
+                            <span class="small text-muted ms-2">
                                 <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens}
                                 <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                                 <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
@@ -1589,8 +1589,8 @@ export class SpiritChatManager {
                 }
                 
                 toolExecutionHtml = `
-                    <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: <strong>${toolNames}</strong></span>
+                    <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 border-0 border-success border-opacity-25">
+                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i>Executed: <strong class="text-light opacity-50">${toolNames}</strong></span>
                         ${toolUsageHtml}
                     </div>
                 `;
@@ -2363,11 +2363,11 @@ export class SpiritChatManager {
         placeholderEl.innerHTML = `
             <div class="p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25" style="margin-bottom: 0.5rem; max-width: 100%;">
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="text-muted small">
+                    <span class="small">
                         <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${label}
                     </span>
-                    <span class="small text-muted opacity-50" style="font-size: 0.6rem;">
-                        <i class="mdi mdi-loading mdi-spin me-1"></i>thinking
+                    <span class="small text-cyber">
+                        <i class="mdi mdi-loading mdi-spin me-1 ms-2 text-light"></i>thinking
                     </span>
                 </div>
                 <div class="memory-recall-placeholder-captions" style="opacity: 0.85;">
@@ -2452,7 +2452,7 @@ export class SpiritChatManager {
             : '';
         const usageHtml = subAgentUsage 
             ? `<div class="mt-1 pt-1 border-top border-dark border-opacity-25 d-flex align-items-center gap-2" style="font-size: 0.55rem;">
-                <span class="text-warning opacity-50" title="Subconsciousness Sub-Agent"><i class="mdi mdi-brain me-1"></i>Subconsciousness Sub-Agent</span>
+                <span class="text-warning opacity-50" title="Subconsciousness Memory-Agent"><i class="mdi mdi-brain me-1"></i>Subconsciousness Memory-Agent</span>
                 <span class="opacity-50" title="Tokens"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1"></i>${subAgentUsage.totalTokensFormatted || '0'}</span>
                 <span class="opacity-50" title="Credits"><i class="mdi mdi-circle-multiple-outline text-warning opacity-75 me-1"></i>${subAgentUsage.totalPriceFormatted || '0'}</span>
                 <span class="opacity-50 me-2">${modelHtml}</span>
@@ -2460,13 +2460,13 @@ export class SpiritChatManager {
             : '';
         
         badgeEl.innerHTML = `
-            <div class="d-flex align-items-center gap-2 p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25 cursor-pointer memory-recall-badge">
-                <span class="text-muted small">
+            <div class="d-flex align-items-center gap-2 p-2 bg-info bg-opacity-10 rounded border-0 border-info border-opacity-25 cursor-pointer memory-recall-badge">
+                <span class="small">
                     <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${badgeLabel}
                 </span>
                 <i class="mdi mdi-chevron-right text-muted opacity-50 small" style="transition: transform 0.2s;"></i>
             </div>
-            <div class="d-none p-2 bg-info bg-opacity-10 rounded border border-top-0 border-info border-opacity-25 memory-recall-details">
+            <div class="d-none p-2 pt-0 bg-info bg-opacity-10 rounded rounded-top-0 border-0 border-top-0 border-info border-opacity-25 memory-recall-details" style="max-width: min(960px, 95%);margin-left:0.5rem;">
                 ${synthesisHtml}
                 ${detailRows}
                 ${keywordsHtml}
@@ -2797,7 +2797,7 @@ export class SpiritChatManager {
                 : '';
             if (message.usage.totalTokens > 0 || message.usage.totalPrice > 0) {
                 usageHtml = `
-                    <div class="chat-usage small text-muted opacity-50">
+                    <div class="chat-usage small text-muted opacity-75">
                         <span title="Tokens"><i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50"></i>${tokens}</span>
                         <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                         <span title="Credits"><i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50"></i>${price}</span>
@@ -2873,7 +2873,7 @@ export class SpiritChatManager {
                             : '';
                         if (toolUsage.totalTokens > 0 || toolUsage.totalPrice > 0) {
                             toolUsageHtml = `
-                                <span class="small text-muted opacity-50 ms-2">
+                                <span class="small text-muted ms-2">
                                     <i class="mdi mdi-tally-mark-5 me-1 text-cyber opacity-50" title="Tokens"></i>${tokens} <i class="mdi mdi-circle-small opacity-75 me-1"></i>
                                     <i class="mdi mdi-circle-multiple-outline me-1 text-cyber opacity-50" title="Credits"></i>${price}
                                     ${modelHtml}
@@ -2882,8 +2882,8 @@ export class SpiritChatManager {
                     }
                     
                     toolIndicator.innerHTML = `
-                        <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
-                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executed: <strong>${toolNames}</strong></span>
+                        <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 border-0 border-success border-opacity-25">
+                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i>Executed: <strong class="text-light opacity-50">${toolNames}</strong></span>
                             ${toolUsageHtml}
                         </div>
                     `;
@@ -2956,7 +2956,7 @@ export class SpiritChatManager {
         toolEl.innerHTML = `
             <div class="d-flex align-items-center gap-2 p-2 bg-dark bg-opacity-25 rounded">
                 <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
-                <span class="text-cyber small"><i class="mdi mdi-tools text-cyber opacity-75 me-2"></i>Executing: <strong>${toolNames}</strong></span>
+                <span class="text-cyber small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i>Executing: <strong>${toolNames}</strong></span>
             </div>
         `;
         

@@ -13,8 +13,8 @@
 // Base scrollbar styling
 @mixin cyber-scrollbar {
     &::-webkit-scrollbar {
-        width: 5px;
-        height: 5px;
+        width: 6px;
+        height: 6px;
         background: transparent;
     }
     

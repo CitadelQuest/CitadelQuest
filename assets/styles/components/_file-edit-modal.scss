@@ -1,0 +1,39 @@
+@use '../variables' as vars;
+@use "../mixins" as mix;
+
+#fileEditModal {
+    .modal-body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    #fileEditEditorContainer {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .cm-editor {
+        height: 100%;
+        font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .cm-scroller {
+        overflow: auto;
+
+        // cyber-scrollbar
+        @include mix.cyber-scrollbar;
+    }
+
+    .cm-tooltip {
+        border-radius: vars.$border-radius;
+    }
+
+    .cm-search label,
+    .cm-search input,
+    .cm-search button {
+        font-family: inherit;
+    }
+}

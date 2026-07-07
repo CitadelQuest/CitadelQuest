@@ -354,8 +354,8 @@ HTML;
             return '';
         }
 
-        $maxChars = 500;
-        $maxLines = 10;
+        $maxChars = 5000;
+        $maxLines = 100;
         $preview = $content;
 
         // Trim to max lines first
@@ -383,7 +383,7 @@ HTML;
         return <<<HTML
 <div class="mt-2">
     <div class="small $colorClass mb-1"><i class="mdi $icon me-1"></i>$label$truncatedNote</div>
-    <pre class="bg-black bg-opacity-50 rounded p-2 mb-0 small text-light" style="max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word;">$escaped</pre>
+    <pre class="bg-black bg-opacity-50 rounded p-2 mb-0 small text-cyber" style="max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word;">$escaped</pre>
     $cutNote
 </div>
 HTML;

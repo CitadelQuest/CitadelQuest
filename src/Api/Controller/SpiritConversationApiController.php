@@ -437,7 +437,7 @@ class SpiritConversationApiController extends AbstractController
             foreach ($newImages as $image) {
                 $newImagesInfo[] = [
                     'type' => 'text',
-                    'text' => '<div class="small float-end text-end">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
+                    'text' => '<div class="small float-end text-end font-monospace opacity-50 text-cyber">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
                 ];
             }
             if (count($newImagesInfo) > 0) {
@@ -622,7 +622,7 @@ class SpiritConversationApiController extends AbstractController
             foreach ($newImages as $image) {
                 $newImagesInfo[] = [
                     'type' => 'text',
-                    'text' => '<div class="small float-end text-end">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
+                    'text' => '<div class="small float-end text-end font-monospace opacity-50 text-cyber">Image file: `' . $image['fullPath'] . '`<br>projectId: `' . $image['projectId'] . '`</div><div style="clear: both;"></div>',
                 ];
             }
             if (count($newImagesInfo) > 0) {

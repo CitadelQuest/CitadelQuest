@@ -1,4 +1,14 @@
 import * as bootstrap from 'bootstrap';
+import { EditorView } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
+import { materialTheme } from './codemirror-material-theme';
+import { javascript } from '@codemirror/lang-javascript';
+import { php } from '@codemirror/lang-php';
+import { css } from '@codemirror/lang-css';
+import { sass } from '@codemirror/lang-sass';
+import { html } from '@codemirror/lang-html';
+import { markdown } from '@codemirror/lang-markdown';
+import { json } from '@codemirror/lang-json';
 
 /**
  * Shared File Edit Modal
@@ -27,6 +37,7 @@ export class FileEditModal {
     constructor() {
         this.apiBase = '/api/project-file';
         this.modalId = 'fileEditModal';
+        this.editor = null;
     }
 
     /**
@@ -57,7 +68,6 @@ export class FileEditModal {
             const modal = this._ensureModal(t);
 
             modal.querySelector('#fileEditModalTitle').textContent = file.name;
-            modal.querySelector('#fileEditTextarea').value = content;
             modal.dataset.fileId = fileId;
 
             // Replace save button to clear any previous listeners
@@ -72,7 +82,7 @@ export class FileEditModal {
             bsModal.show();
 
             modal.addEventListener('shown.bs.modal', () => {
-                modal.querySelector('#fileEditTextarea').focus();
+                this._mountEditor(modal, file.name, content);
             }, { once: true });
         } catch (error) {
             console.error('Error opening file edit modal:', error);
@@ -88,7 +98,8 @@ export class FileEditModal {
      */
     async save(modal, onSaved, t) {
         const fileId = modal.dataset.fileId;
-        const content = modal.querySelector('#fileEditTextarea').value;
+        const content = this.editor ? this.editor.state.doc.toString()
+            : modal.querySelector('#fileEditTextarea').value;
 
         try {
             const resp = await fetch(`${this.apiBase}/${fileId}/content`, {
@@ -129,22 +140,22 @@ export class FileEditModal {
         modal.innerHTML = `
             <div class="modal-dialog modal-fullscreen">
                 <div class="modal-content bg-dark text-light">
-                    <div class="modal-header border-secondary">
-                        <h5 class="modal-title">
-                            <i class="mdi mdi-pencil me-2"></i>
+                    <div class="modal-header border-secondary py-2 px-3">
+                        <h6 class="modal-title">
+                            <i class="mdi mdi-pencil text-cyber me-2"></i>
                             <span id="fileEditModalTitle"></span>
-                        </h5>
+                        </h6>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-0">
-                        <textarea id="fileEditTextarea" class="form-control bg-dark text-light border-0 h-100 rounded-0"
-                            style="resize: none; font-family: monospace; font-size: 14px;"></textarea>
+                        <div id="fileEditEditorContainer" class="h-100 w-100"></div>
+                        <textarea id="fileEditTextarea" class="d-none"></textarea>
                     </div>
                     <div class="modal-footer border-secondary justify-content-between">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
                             <i class="mdi mdi-close me-1"></i>${t.cancel}
                         </button>
-                        <button type="button" class="btn btn-cyber" id="fileEditSaveBtn">
+                        <button type="button" class="btn btn-sm btn-cyber" id="fileEditSaveBtn">
                             <i class="mdi mdi-content-save me-1"></i>${t.save}
                         </button>
                     </div>
@@ -153,6 +164,85 @@ export class FileEditModal {
         `;
         document.body.appendChild(modal);
         return modal;
+    }
+
+    /**
+     * Mount (or re-mount) a CodeMirror 6 editor into the modal.
+     * @param {HTMLElement} modal
+     * @param {string} fileName
+     * @param {string} content
+     */
+    _mountEditor(modal, fileName, content) {
+        const container = modal.querySelector('#fileEditEditorContainer');
+        const textarea = modal.querySelector('#fileEditTextarea');
+
+        if (this.editor) {
+            this.editor.destroy();
+            this.editor = null;
+        }
+
+        const extensions = [
+            basicSetup,
+            materialTheme,
+            EditorView.updateListener.of((update) => {
+                if (update.docChanged) {
+                    textarea.value = this.editor.state.doc.toString();
+                }
+            })
+        ];
+
+        const languageExtension = this._detectLanguage(fileName);
+        if (languageExtension) {
+            extensions.push(languageExtension);
+        }
+
+        this.editor = new EditorView({
+            doc: content,
+            extensions,
+            parent: container
+        });
+
+        textarea.value = content;
+        this.editor.focus();
+    }
+
+    /**
+     * Pick a CodeMirror language extension based on the file extension.
+     * @param {string} fileName
+     * @returns {import('@codemirror/state').Extension|null}
+     */
+    _detectLanguage(fileName) {
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+        const langMap = {
+            php: () => php(),
+            phtml: () => php(),
+            js: () => javascript(),
+            mjs: () => javascript(),
+            cjs: () => javascript(),
+            jsx: () => javascript({ jsx: true }),
+            ts: () => javascript({ typescript: true }),
+            tsx: () => javascript({ jsx: true, typescript: true }),
+            vue: () => javascript(),
+            svelte: () => javascript(),
+            css: () => css(),
+            less: () => css(),
+            styl: () => css(),
+            scss: () => sass(),
+            sass: () => sass(),
+            html: () => html(),
+            htm: () => html(),
+            twig: () => html(),
+            xml: () => html(),
+            svg: () => html(),
+            rss: () => html(),
+            atom: () => html(),
+            md: () => markdown(),
+            markdown: () => markdown(),
+            json: () => json(),
+            json5: () => json(),
+            jsonc: () => json()
+        };
+        return langMap[ext] ? langMap[ext]() : null;
     }
 
     /**

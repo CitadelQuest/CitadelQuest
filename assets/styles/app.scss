@@ -16,6 +16,7 @@
 @use "./components/spirit";
 @use "./components/_spirit_chat";
 @use "./components/_file-browser";
+@use "./components/_file-edit-modal";
 @use "./components/_ai-model-selector";
 @use "./notifications";
 
@@ -625,11 +626,25 @@ input[type="range"].form-range-input,
     @include mix.cyber-scrollbar;
 }
 
+#spiritChatModal * .modal-footer, 
+#spiritChatModal * .modal-header {
+    border-color: rgba(colors.$secondary, 0.1) !important;
+
+    &.btn-close {
+        color: colors.$cyber;
+    }
+}
+
+div[data-type="tool_calls_frontend_data"]
+{
+    border-radius: 0 1rem 1rem 1rem !important;
+}
 
 div[data-type="tool_calls_frontend_data"] pre
 {
     max-height: 50vh;
     @include mix.cyber-scrollbar;
+    //color: colors.$cyber !important;
 }
 
 @keyframes memory-jobs-pulse {

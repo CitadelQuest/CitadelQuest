@@ -659,15 +659,19 @@ class AIToolMemoryService
                 $content = implode("\n", array_slice($lines, $start - 1, $end - $start + 1));
             }
 
+            $title = $sourceData['title'] ?? null;
+            $displayType = $sourceData['source_type'] ?? $sourceType ?? 'unknown';
+
             return [
                 'success' => true,
                 'sourceRef' => $sourceRef,
-                'sourceType' => $sourceData['source_type'] ?? $sourceType,
-                'title' => $sourceData['title'] ?? null,
+                'sourceType' => $displayType,
+                'title' => $title,
                 'totalLines' => $totalLines,
                 'range' => $range,
                 'content' => $content,
-                'memoryId' => $memoryNode ? $memoryNode->getId() : null
+                'memoryId' => $memoryNode ? $memoryNode->getId() : null,
+                '_frontendData' => $this->buildMemorySourceFrontendData($sourceRef, $displayType, $title, $totalLines, $range)
             ];
 
         } catch (\Exception $e) {
@@ -678,6 +682,37 @@ class AIToolMemoryService
                 'error' => 'Error retrieving memory source: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Build a compact frontend card for the memorySource tool result.
+     * Displays the source reference, type, title and line range, without
+     * duplicating the potentially large source content in the chat UI.
+     */
+    private function buildMemorySourceFrontendData(string $sourceRef, string $sourceType, ?string $title, int $totalLines, string $range): string
+    {
+        $displayRef = htmlspecialchars($sourceRef);
+        $displayType = htmlspecialchars($sourceType);
+        $displayTitle = $title ? htmlspecialchars($title) : null;
+        $rangeText = $range === 'all' ? "all {$totalLines} lines" : "lines {$range} (of {$totalLines})";
+        $rangeTextEsc = htmlspecialchars($rangeText);
+
+        $titleHtml = $displayTitle
+            ? "<div class=\"small text-muted\"><i class=\"mdi mdi-format-title me-1\"></i>{$displayTitle}</div>"
+            : '';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2 mb-0">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-graph text-info me-2"></i>
+        <strong>Memory source</strong>
+        <span class="ms-2 text-muted">$rangeTextEsc</span>
+    </div>
+    <span class="small text-muted mt-1"><i class="mdi mdi-identifier me-1"></i><code>$displayRef</code></span>
+    <span class="small text-muted ms-3"><i class="mdi mdi-tag-outline me-1"></i>$displayType</span>
+    $titleHtml
+</div>
+HTML;
     }
 
     /**

@@ -128,11 +128,18 @@
         padding: 0.5rem;
         
         .chat-message {
-            margin-bottom: 1rem;
+            margin-bottom: 0rem;
             display: flex;
+
+            &.chat-message-memory-recall {
+                max-width: 100%;
+                margin-bottom: 0.5rem;
+                margin-top: 1rem;
+            }
             
             &.chat-message-user {
                 justify-content: flex-end;
+                margin-bottom: 0.5rem;
                 
                 .chat-bubble {
                     background-color: rgba(colors.$cyber, 0.3);
@@ -142,15 +149,35 @@
             
             &.chat-message-assistant {
                 justify-content: flex-start;
+                margin-top: 0.5rem;
                 
                 .chat-bubble {
                     background-color: rgba(colors.$dark, 0.5);
                     border-radius: 1rem 1rem 1rem 0;
+                    margin-bottom: 1rem;
                 }
+            }
+
+            &.chat-message-tool {
+                margin-bottom: 0rem;
+
+                max-width: min(800px, 90%);
+
+                :first-child {
+                    border-radius: 0.5rem 0.5rem 0 0.5rem !important;
+                }
+            }
+
+            &.chat-message-system {
+                margin-bottom: 1rem;
+                margin-left: 0.5rem;
+
+                /* border-radius: 0 1rem 1rem 1rem !important; */
+                max-width: min(960px, 95%);
             }
             
             .chat-bubble {
-                max-width: 90%;
+                max-width: min(1200px, 100%);
                 padding: 0.75rem 1rem;
                 position: relative;
                 
@@ -279,15 +306,20 @@
     }
 }
 
-.chat-message-memory-recall {
-    max-width: 100%;
-}
-
 #messageInput:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
+#messageInput {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    color: colors.$cyber;
+    border-radius: 0.5rem !important;
+    padding: 0.7rem !important;
+    /* margin: 0.5rem 0; */
+    overflow-x: auto !important;
+    font-family: monospace !important;
+    font-size: small !important;
+}
 
 // Animations
 @keyframes pulse-subtle {

@@ -533,7 +533,7 @@ class AIToolFileService
         <span class="ms-2 text-muted">$dirCount dirs, $fileCount files</span>
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$projectEsc</code></div>
-    <pre class="small text-light bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0" style="max-height:300px; overflow-y:auto; line-height:1.4;">$treeEsc</pre>
+    <pre class="small text-cyber bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0" style="max-height:300px; overflow-y:auto; line-height:1.4;">$treeEsc</pre>
 </div>
 HTML;
     }
@@ -632,25 +632,22 @@ HTML;
         $editLink = $this->buildFileEditLink($file);
 
         $header = <<<HTML
-<div class="bg-dark bg-opacity-50 rounded p-2 mb-2">
+<div class="bg-dark bg-opacity-50 rounded p-2 mb-0">
     <div class="d-flex align-items-center">
         <i class="mdi mdi-file-document-outline text-cyber me-2"></i>
         <strong>File read</strong>
         <span class="ms-2 text-muted">$size chars</span>
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code>$editLink</div>
-    <div class="small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$mimeType</div>
+    <div class="d-none small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$mimeType</div>
 </div>
 HTML;
 
-        // Text content — wrap in a collapsible (chevron toggle) so the
-        // chat feed stays clean, matching the `fileUpdate` operation UI.
+        // For text files, do not embed the raw content in the chat UI.
+        // The full file is now available in the much nicer CodeMirror edit modal.
         // Media (image/video/audio) and PDF-with-annotations keep their
         // existing bespoke display below.
-        $previewBody = '<pre class="bg-dark bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;">'
-            . htmlspecialchars($content) . '</pre>';
-        $previewSummary = "<i class='mdi mdi-text-box-outline me-1'></i><strong>content</strong> <span class='text-muted'>({$size} chars)</span>";
-        $contentFrontendData = $header . $this->renderCollapsible($previewSummary, $previewBody);
+        $contentFrontendData = $header;
 
         // Image data
         if (strpos($file->getMimeType() ?? '', 'image/') === 0) {
@@ -793,7 +790,7 @@ HTML;
     <div class="d-flex align-items-center">
         <i class="mdi mdi-file-edit-outline text-cyber me-2"></i>
         <strong>fileUpdate</strong>
-        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>$count op(s) applied</span>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>{# $count op(s) applied #}</span>
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code>$editLink</div>
     <div class="mt-2">$detailsHtml</div>
@@ -1074,10 +1071,10 @@ HTML;
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code>$editLink</div>
 </div>
 HTML;
-                $previewBody = '<pre class="bg-dark bg-opacity-50 rounded p-2 small mb-0" style="white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;">'
-                    . htmlspecialchars($contentStr) . '</pre>';
-                $previewSummary = "<i class='mdi mdi-text-box-outline me-1'></i><strong>content</strong> <span class='text-muted'>({$contentLen} chars)</span>";
-                return $header . $this->renderCollapsible($previewSummary, $previewBody);
+
+                // Do not embed the full content preview in the chat UI.
+                // The content can be reviewed in the CodeMirror edit modal.
+                return $header;
 
             case 'copy':
                 return <<<HTML
