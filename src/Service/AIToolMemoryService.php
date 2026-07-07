@@ -698,7 +698,7 @@ class AIToolMemoryService
         $rangeTextEsc = htmlspecialchars($rangeText);
 
         $titleHtml = $displayTitle
-            ? "<div class=\"small text-muted\"><i class=\"mdi mdi-format-title me-1\"></i>{$displayTitle}</div>"
+            ? "<span class=\"small text-muted\"><i class=\"mdi mdi-format-title me-1 ms-3\"></i>{$displayTitle}</span>"
             : '';
 
         return <<<HTML
@@ -708,8 +708,8 @@ class AIToolMemoryService
         <strong>Memory source</strong>
         <span class="ms-2 text-muted">$rangeTextEsc</span>
     </div>
-    <span class="small text-muted mt-1"><i class="mdi mdi-identifier me-1"></i><code>$displayRef</code></span>
-    <span class="small text-muted ms-3"><i class="mdi mdi-tag-outline me-1"></i>$displayType</span>
+    <div class="small text-muted mt-1"><i class="mdi mdi-identifier me-1"></i><code>$displayRef</code></div>
+    <span class="small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$displayType</span>
     $titleHtml
 </div>
 HTML;
