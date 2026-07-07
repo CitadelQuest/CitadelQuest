@@ -2580,32 +2580,45 @@ PROMPT;
 
             $userLocale = $this->settingsService->getUserLocale();
 
-            $aiServiceRequest = $this->aiServiceRequestService->createRequest(
-                $aiServiceModel->getId(),
-                $messages,
-                null,
-                0.3
-            );
-
-            $aiServiceResponse = $this->aiGatewayService->sendRequest(
-                $aiServiceRequest,
-                'memoryExtract AI Tool - Content Block Extractor Sub-Agent',
-                $userLocale['lang'],
-                'general'
-            );
-
-            // Log AI usage to pack if open
-            if ($this->packService->isOpen()) {
-                $this->packService->logAiUsageFromResponse(
-                    'Content Block Extractor Sub-Agent',
-                    $aiServiceResponse,
-                    $jobId,
-                    $aiServiceModel->getModelSlug()
+            $maxAttempts = 3;
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                $aiServiceRequest = $this->aiServiceRequestService->createRequest(
+                    $aiServiceModel->getId(),
+                    $messages,
+                    null,
+                    0.3
                 );
+
+                $aiServiceResponse = $this->aiGatewayService->sendRequest(
+                    $aiServiceRequest,
+                    'memoryExtract AI Tool - Content Block Extractor Sub-Agent (attempt ' . $attempt . '/' . $maxAttempts . ')',
+                    $userLocale['lang'],
+                    'general'
+                );
+
+                // Log AI usage to pack if open
+                if ($this->packService->isOpen()) {
+                    $this->packService->logAiUsageFromResponse(
+                        'Content Block Extractor Sub-Agent',
+                        $aiServiceResponse,
+                        $jobId,
+                        $aiServiceModel->getModelSlug()
+                    );
+                }
+
+                $result = $this->parseContentBlockExtractorResponse($aiServiceResponse, $content, $startLineOffset);
+                if ($result !== null) {
+                    return $result;
+                }
+
+                $this->logger->warning('Content Block Extractor returned null, retrying', [
+                    'attempt' => $attempt,
+                    'maxAttempts' => $maxAttempts,
+                    'documentTitle' => $documentTitle
+                ]);
             }
 
-            // TODO FIX: if null ('Failed to parse content block extractor response') returned , try again, max. 3x
-            return $this->parseContentBlockExtractorResponse($aiServiceResponse, $content, $startLineOffset);
+            return null;
 
         } catch (\Exception $e) {
             $this->logger->error('Failed to extract content blocks', [
