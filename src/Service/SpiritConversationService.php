@@ -410,6 +410,67 @@ class SpiritConversationService
         return $count;
     }
 
+    /**
+     * Undo the last user message: hard-delete it and every message created after it
+     * (assistant reply, tool results, memory_recall, etc.).
+     *
+     * @return array{success: bool, deletedCount: int, message: string}
+     */
+    public function undoLastMessage(string $conversationId): array
+    {
+        $messageService = new SpiritConversationMessageService(
+            $this->userDatabaseManager,
+            $this->security,
+            $this->logger
+        );
+
+        // Find the most recent user message
+        $messages = $messageService->getMessagesByConversation($conversationId);
+        $lastUserMessage = null;
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            if ($messages[$i]->getRole() === 'user') {
+                $lastUserMessage = $messages[$i];
+                break;
+            }
+        }
+
+        if (!$lastUserMessage) {
+            return [
+                'success' => false,
+                'deletedCount' => 0,
+                'message' => 'No user message found to undo'
+            ];
+        }
+
+        $deletedCount = $messageService->deleteMessagesFrom(
+            $conversationId,
+            $lastUserMessage->getCreatedAt()->format('Y-m-d H:i:s')
+        );
+
+        // Update conversation last_interaction to the previous message's timestamp
+        // (or keep current if no messages remain — frontend will reload anyway).
+        if ($deletedCount > 0) {
+            $db = $this->getUserDb();
+            $conversation = $this->getConversation($conversationId);
+            if ($conversation) {
+                $remainingMessages = $messageService->getMessagesByConversation($conversationId);
+                if (!empty($remainingMessages)) {
+                    $lastRemaining = end($remainingMessages);
+                    $conversation->setLastInteraction($lastRemaining->getCreatedAt());
+                } else {
+                    $conversation->setLastInteraction($conversation->getCreatedAt());
+                }
+                $this->updateConversation($conversation);
+            }
+        }
+
+        return [
+            'success' => true,
+            'deletedCount' => $deletedCount,
+            'message' => 'Last message removed'
+        ];
+    }
+
     public function saveFilesFromMessage(array $message, string $projectId = 'general', string $path = '/uploads'): array
     {
         if (!is_array($message['content'])) {
@@ -1135,7 +1196,22 @@ class SpiritConversationService
                 // Remove from result before sending to AI
                 unset($toolResult['_frontendData']);
             }
-            
+
+            // Sanitize tool result: strip invalid UTF-8 and truncate huge outputs
+            // so the next AI request message structure stays valid and small.
+            $toolResult = $this->sanitizeToolResult($toolResult);
+            $encodedContent = json_encode($toolResult);
+            if ($encodedContent === false) {
+                $this->logger->warning('Tool result JSON encoding failed, falling back to safe placeholder', [
+                    'tool' => $toolName,
+                    'jsonError' => json_last_error_msg()
+                ]);
+                $encodedContent = json_encode([
+                    'success' => false,
+                    'error' => 'Tool result could not be encoded for the AI provider.'
+                ]);
+            }
+
             // Format result based on provider
             if (isset($toolCall['function'])) {
                 // OpenAI format
@@ -1143,35 +1219,73 @@ class SpiritConversationService
                     'tool_call_id' => $toolCall['id'],
                     'role' => 'tool',
                     'name' => $toolName,
-                    'content' => json_encode($toolResult)
+                    'content' => $encodedContent
                 ];
-                
+
                 // Add frontendData separately
                 if ($frontendData) {
                     $result['frontendData'] = $frontendData;
                 }
-                
+
                 $results[] = $result;
             } else {
                 // Anthropic format
                 $result = [
                     'type' => 'tool_result',
                     'tool_use_id' => $toolCall['id'],
-                    'content' => json_encode($toolResult)
+                    'content' => $encodedContent
                 ];
-                
+
                 // Add frontendData separately
                 if ($frontendData) {
                     $result['frontendData'] = $frontendData;
                 }
-                
+
                 $results[] = $result;
             }
         }
         
         return $results;
     }
-    
+
+    /**
+     * Sanitize tool result before JSON-encoding it for the AI provider.
+     *
+     * Strips invalid UTF-8 bytes (which break json_encode) and truncates
+     * extremely long strings so the message payload stays within Gateway limits.
+     */
+    private function sanitizeToolResult(mixed $value, int $maxStringLength = 100000): mixed
+    {
+        if (is_string($value)) {
+            // Remove invalid UTF-8 byte sequences that would break json_encode
+            $value = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+            if ($value === false) {
+                $value = '';
+            }
+            // Truncate huge outputs to keep AI context sane
+            if (strlen($value) > $maxStringLength) {
+                $value = substr($value, 0, $maxStringLength) . "\n\n[Content truncated due to length...]";
+            }
+            return $value;
+        }
+
+        if (is_array($value)) {
+            $cleaned = [];
+            foreach ($value as $key => $item) {
+                $cleaned[$key] = $this->sanitizeToolResult($item, $maxStringLength);
+            }
+            return $cleaned;
+        }
+
+        if (is_object($value)) {
+            $array = json_decode(json_encode($value), true);
+            return $array !== null ? $this->sanitizeToolResult($array, $maxStringLength) : null;
+        }
+
+        // bool, int, float, null pass through unchanged
+        return $value;
+    }
+
     /**
      * Prepare messages for AI request from message table
      * Similar to prepareMessagesForAiRequest but loads from spirit_conversation_message table

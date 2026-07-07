@@ -345,6 +345,16 @@ export class SpiritChatManager {
                     this.sendMessage();
                 }
             });
+
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.altKey && e.ctrlKey) {
+                    if ( this.messageInput.classList.contains("darkTerminalStyle") ) {
+                        this.messageInput.classList.remove("darkTerminalStyle");
+                    } else {
+                        this.messageInput.classList.add("darkTerminalStyle");
+                    }
+                }
+            });
         }
 
         // Response max output slider
@@ -1411,15 +1421,18 @@ export class SpiritChatManager {
                 this.chatMessages.appendChild(messageEl);
             }
         });
-        
+
+        // Add undo button to the last user message
+        this.addUndoButtonToLastUserMessage();
+
         // Scroll to bottom
         this.chatMessages.scrollIntoView({ behavior: 'instant', block: 'end' });
-        
+
         // Setup scroll listener for auto-loading (after scroll to bottom)
         if (this.hasMoreMessages) {
             setTimeout(() => this.setupScrollAutoLoad(), 100);
         }
-        
+
         // Focus input
         /* if (this.messageInput) {
             this.messageInput.focus();
@@ -1648,7 +1661,7 @@ export class SpiritChatManager {
         messageEl.innerHTML = (formattedContent != '') ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between">${usageHtml}${timestampHtml}</div>
+                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-end">${usageHtml}${timestampHtml}</div>
             </div>
         ` : '';
 
@@ -2710,12 +2723,82 @@ export class SpiritChatManager {
         messageEl.innerHTML = formattedContent != '' ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>
+                <div class="chat-meta d-flex align-items-center justify-content-end">
+                    <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>
+                </div>
             </div>
         ` : '';
-        
+
         this.chatMessages.appendChild(messageEl);
+        this.addUndoButtonToLastUserMessage();
         this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+    /**
+     * Inject an undo button into the last user message bubble.
+     * Removes any existing undo buttons first so only the latest one has it.
+     */
+    addUndoButtonToLastUserMessage() {
+        if (!this.chatMessages || !this.currentConversationId) return;
+
+        // Remove stale undo buttons
+        this.chatMessages.querySelectorAll('.chat-undo-button').forEach(btn => btn.remove());
+
+        const userMessages = this.chatMessages.querySelectorAll('.chat-message-user');
+        const lastUserMessage = userMessages[userMessages.length - 1];
+        if (!lastUserMessage) return;
+
+        const bubble = lastUserMessage.querySelector('.chat-bubble');
+        if (!bubble) return;
+
+        const undoBtn = document.createElement('button');
+        undoBtn.type = 'button';
+        undoBtn.className = 'chat-undo-button btn btn-link btn-sm p-0 ms-2 text-light opacity-50';
+        undoBtn.title = window.translations?.['spirit.chat.undo_last'] || 'Undo / remove last message';
+        undoBtn.innerHTML = '<i class="mdi mdi-undo-variant"></i>';
+        undoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.handleUndoLastMessage();
+        });
+
+        const meta = bubble.querySelector('.chat-meta');
+        if (meta) {
+            meta.appendChild(undoBtn);
+        } else {
+            bubble.appendChild(undoBtn);
+        }
+    }
+
+    /**
+     * Handle undo of the last user message: hard-delete it and everything after it,
+     * then reload the conversation.
+     */
+    async handleUndoLastMessage() {
+        if (!this.currentConversationId) return;
+
+        if (!confirm(window.translations?.['spirit.chat.undo_confirm'] || 'Remove your last message and the Spirit reply?')) {
+            return;
+        }
+
+        const undoBtn = this.chatMessages.querySelector('.chat-undo-button');
+        if (undoBtn) {
+            undoBtn.disabled = true;
+            undoBtn.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i>';
+        }
+
+        try {
+            await this.apiService.undoLastMessage(this.currentConversationId);
+            // Reload conversation to reflect deletion
+            await this.loadConversation(this.currentConversationId);
+            window.toast?.success(window.translations?.['spirit.chat.undo_success'] || 'Last message removed');
+        } catch (error) {
+            console.error('Failed to undo last message:', error);
+            window.toast?.error(error.message || 'Failed to remove last message');
+            if (undoBtn) {
+                undoBtn.disabled = false;
+                undoBtn.innerHTML = '<i class="mdi mdi-undo-variant"></i>';
+            }
+        }
     }
 
     /**
@@ -2812,7 +2895,7 @@ export class SpiritChatManager {
         messageEl.innerHTML = formattedContent != '' ? `
             <div class="chat-bubble">
                 <div class="chat-content">${formattedContent}</div>
-                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between pt-1">
+                <div class="chat-meta d-flex flex-wrap align-items-center justify-content-end pt-1">
                     ${usageHtml}
                     <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75"></i> ${formattedTime}</div>
                 </div>

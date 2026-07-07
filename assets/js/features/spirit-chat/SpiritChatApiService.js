@@ -163,6 +163,24 @@ export class SpiritChatApiService {
     }
 
     /**
+     * Undo the last user message: hard-delete it and all messages after it.
+     * @param {string} conversationId - The ID of the conversation
+     * @returns {Promise<Object>} - { success, deletedCount, message }
+     */
+    async undoLastMessage(conversationId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${conversationId}/undo-last`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            return await this._parseResponse(response, 'Failed to undo last message');
+        } catch (error) {
+            console.error('Error undoing last message:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get credit balance
      * @returns {Promise<number>} - The credit balance
      */

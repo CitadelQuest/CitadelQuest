@@ -242,6 +242,27 @@ class SpiritConversationApiController extends AbstractController
             return $this->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    #[Route('/{id}/undo-last', name: 'api_spirit_conversation_undo_last', methods: ['DELETE'])]
+    public function undoLastMessage(string $id): JsonResponse
+    {
+        try {
+            $conversation = $this->conversationService->getConversation($id);
+            if (!$conversation) {
+                return $this->json(['error' => 'Conversation not found'], 404);
+            }
+
+            $result = $this->conversationService->undoLastMessage($id);
+
+            if (!$result['success']) {
+                return $this->json($result, 400);
+            }
+
+            return $this->json($result);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], 500);
+        }
+    }
     
     /**
      * Pre-send: run Reflexes recall, cache system prompt, return recalled nodes

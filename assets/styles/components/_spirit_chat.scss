@@ -315,14 +315,16 @@
     cursor: not-allowed;
 }
 #messageInput {
-    background-color: rgba(0, 0, 0, 0.3) !important;
-    color: colors.$cyber;
-    border-radius: 0.5rem !important;
-    padding: 0.7rem !important;
-    /* margin: 0.5rem 0; */
-    overflow-x: auto !important;
-    font-family: monospace !important;
-    font-size: small !important;
+    &.darkTerminalStyle {
+        background-color: rgba(0, 0, 0, 0.3) !important;
+        color: colors.$cyber;
+        border-radius: 0.5rem !important;
+        padding: 0.7rem !important;
+        /* margin: 0.5rem 0; */
+        overflow-x: auto !important;
+        font-family: monospace !important;
+        font-size: small !important;
+    }
 }
 
 // Animations
@@ -366,4 +368,22 @@
 .spirit-loading-ghost {
     font-size: 1.2rem;
     animation: spirit-fading 1.5s ease-in-out infinite;
+}
+
+// Undo button on the last user message
+.chat-undo-button {
+    font-size: 0.75rem;
+    line-height: 1;
+    text-decoration: none !important;
+
+    &:hover,
+    &:focus {
+        opacity: 1 !important;
+        color: colors.$cyber !important;
+    }
+
+    &:disabled {
+        opacity: 0.75 !important;
+        pointer-events: none;
+    }
 }

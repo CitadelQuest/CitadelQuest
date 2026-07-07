@@ -254,6 +254,33 @@ class SpiritConversationMessageService
     }
     
     /**
+     * Delete a single message by ID
+     */
+    public function deleteMessage(string $messageId): void
+    {
+        $db = $this->getUserDb();
+
+        $db->executeStatement(
+            'DELETE FROM spirit_conversation_message WHERE id = ?',
+            [$messageId]
+        );
+    }
+
+    /**
+     * Delete all messages for a conversation created at/after a given timestamp.
+     * Used by "undo last" to remove the last user message and everything after it.
+     */
+    public function deleteMessagesFrom(string $conversationId, string $sinceCreatedAt): int
+    {
+        $db = $this->getUserDb();
+
+        return $db->executeStatement(
+            'DELETE FROM spirit_conversation_message WHERE conversation_id = ? AND created_at >= ?',
+            [$conversationId, $sinceCreatedAt]
+        );
+    }
+
+    /**
      * Delete all messages for a conversation
      */
     public function deleteMessagesByConversation(string $conversationId): void
