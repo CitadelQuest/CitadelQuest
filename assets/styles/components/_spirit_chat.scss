@@ -175,6 +175,10 @@
                 /* border-radius: 0 1rem 1rem 1rem !important; */
                 max-width: min(960px, 95%);
             }
+
+            &.chat-message-error {
+                margin-bottom: 1rem 0rem;
+            }
             
             .chat-bubble {
                 max-width: min(1200px, 100%);
@@ -356,4 +360,10 @@
     100% {
         opacity: 0.6;
     }
+}
+
+// Loading ghost indicator in Spirit Chat
+.spirit-loading-ghost {
+    font-size: 1.2rem;
+    animation: spirit-fading 1.5s ease-in-out infinite;
 }

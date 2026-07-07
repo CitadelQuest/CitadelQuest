@@ -663,10 +663,10 @@ HTML;
         }
         // PDF with annotations
         elseif ($usedAnnotations) {
-            $contentFrontendData = '<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+            $contentFrontendData = '<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-0"
                             onclick="this.querySelector(\'.embed-container\').classList.toggle(\'d-none\');">
                         <div class="d-flex align-items-center px-1">
-                            <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                            <i class="mdi mdi-file-pdf-box me-1 text-danger opacity-50" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
                             <span class="text-cyber">' . htmlspecialchars($file->getName()) . '</span>
                         </div>
                         <div class="p-2 pt-0 d-none embed-container">

@@ -408,6 +408,8 @@ class AIToolWebService
         // Ensure parent directories exist and create file
         $file = $this->projectFileService->createFile($projectId, $downloadPath, $downloadFilename, $content, $mimeType);
 
+        $size = strlen($content);
+
         return [
             'success' => true,
             'operation' => 'download',
@@ -416,8 +418,9 @@ class AIToolWebService
             'projectFileId' => $file->getId(),
             'path' => $downloadPath,
             'filename' => $downloadFilename,
-            'size' => strlen($content),
+            'size' => $size,
             'mimeType' => $mimeType,
+            '_frontendData' => $this->buildDownloadFrontendData($downloadPath, $downloadFilename, $size, $mimeType)
         ];
     }
 
@@ -650,6 +653,44 @@ Return ONLY the extracted content in Markdown format. No explanations, no meta-c
 - Email addresses are often obfuscated by Cloudflare protection (e.g. `[email protected]`). If the actual email address is not visible in the source, do NOT invent one. Instead write: `[email protected]` or omit it entirely. Wrong data is worse than no data.
 - Same applies to phone numbers, prices, names, or any other specific data — if it's not clearly present in the source, do not make it up.
 PROMPT;
+    }
+
+    /**
+     * Build frontend data HTML for downloaded file
+     */
+    private function buildDownloadFrontendData(string $path, string $filename, int $size, ?string $mimeType): string
+    {
+        $displayPath = htmlspecialchars(rtrim($path, '/') . '/' . $filename);
+        $displayPath = str_replace('//', '/', $displayPath);
+        $displayName = htmlspecialchars($filename);
+        $displaySize = $this->formatBytes($size);
+        $displayMime = htmlspecialchars($mimeType ?? 'application/octet-stream');
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2 mb-0">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-download-circle-outline text-cyber me-2"></i>
+        <strong>File downloaded</strong>
+        <span class="ms-2 text-muted">$displaySize</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$displayPath</code></div>
+    <div class="d-none small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$displayMime</div>
+</div>
+HTML;
+    }
+
+    /**
+     * Format byte size to human readable string
+     */
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . 'B';
+        }
+        if ($bytes < 1024 * 1024) {
+            return round($bytes / 1024, 1) . 'KB';
+        }
+        return round($bytes / 1024 / 1024, 1) . 'MB';
     }
 
     /**

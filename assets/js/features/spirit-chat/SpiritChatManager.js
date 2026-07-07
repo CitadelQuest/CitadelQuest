@@ -17,6 +17,7 @@ export class SpiritChatManager {
         this.apiService = new SpiritChatApiService();
         this.currentSpiritId = null;
         this.currentSpirit = null; // Store current spirit data to avoid re-fetching
+        this.currentSpiritColor = '#95ec86'; // Default spirit color, updated when spirit is loaded
         this.currentConversationId = null;
         this.deleteConversationId = null;
         this.isLoadingMessages = false;
@@ -501,9 +502,12 @@ export class SpiritChatManager {
                 // visualState might be just a string, use default
                 color = '#95ec86';
             }
+            this.currentSpiritColor = color || '#95ec86';
             if (color) {
                 spiritAvatar.forEach(icon => icon.style.color = color);
             }
+        } else {
+            this.currentSpiritColor = '#95ec86';
         }
         
         // Update UI with spirit info
@@ -1609,7 +1613,7 @@ export class SpiritChatManager {
                             </div>`;
                 } else if (item.type === 'file') {
                     return `<div style="clear: both;"></div>
-                            <div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2 content-showcase position-relative"
+                            <div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-0 content-showcase position-relative"
                                     data-title="${item.file.filename}" data-type="file"
                                     onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
                                 <div class="d-flex align-items-center px-1 chat-file-preview-title">
@@ -2361,7 +2365,7 @@ export class SpiritChatManager {
         const placeholderEl = document.createElement('div');
         placeholderEl.className = 'chat-memory-recall';
         placeholderEl.innerHTML = `
-            <div class="p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25" style="margin-bottom: 0.5rem; max-width: 100%;">
+            <div class="p-2 mt-3 bg-info bg-opacity-10 rounded border-0" style="margin-bottom: 0.5rem; max-width: 100%;">
                 <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="small">
                         <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${label}
@@ -2683,10 +2687,10 @@ export class SpiritChatManager {
                 } else if (item.type === 'image_url') {
                     return `<img src="${item.image_url.url}" alt="" class="chat-image-preview mb-2 ms-2">`;
                 } else if (item.type === 'file') {
-                    return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-2"
+                    return `<div class="chat-file-preview rounded text-cyber bg-dark bg-opacity-25 cursor-pointer mb-0"
                                 onclick="this.querySelector('.embed-container').classList.toggle('d-none');">
                             <div class="d-flex align-items-center px-1">
-                                <i class="mdi mdi-file-pdf-box me-1" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
+                                <i class="mdi mdi-file-pdf-box me-1 text-danger opacity-50" style="font-size: 1.6rem; padding: 0 0.3rem !important;"></i>
                                 <span class="text-cyber">${item.file.filename}</span>
                             </div>
                             <div class="p-2 pt-0 d-none embed-container">
@@ -2722,12 +2726,11 @@ export class SpiritChatManager {
 
         const loadingEl = document.createElement('div');
         loadingEl.className = 'chat-message chat-message-assistant';
+        const ghostColor = this.currentSpiritColor || '#95ec86';
         loadingEl.innerHTML = `
             <div class="chat-bubble">
                 <div class="chat-content">
-                    <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                        <span class="visually-hidden">${window.translations && window.translations['loading'] ? window.translations['loading'] : 'Loading...'}</span>
-                    </div>
+                    <i class="mdi mdi-ghost spirit-loading-ghost" style="color: ${ghostColor};" role="status" aria-label="${window.translations && window.translations['loading'] ? window.translations['loading'] : 'Loading...'}"></i>
                 </div>
             </div>
         `;
