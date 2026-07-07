@@ -1345,6 +1345,11 @@ export class SpiritChatManager {
         
         // Insert at the beginning of chat messages
         this.chatMessages.insertBefore(fragment, this.chatMessages.firstChild);
+
+        // The last user message may now be in the DOM after auto-loading, so
+        // refresh the undo button on it.
+        this.addUndoButtonToLastUserMessage();
+
         // Note: Observer is set up in loadOlderMessages() after scroll completes
     }
     
