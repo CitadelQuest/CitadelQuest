@@ -541,6 +541,8 @@ PROMPT;
             $html .= '    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">';
             $html .= '      <i class="mdi mdi-fullscreen"></i>';
             $html .= '    </div>';
+            $html .= '  </div>';
+            $html .= '  <div>';
             $html .= '    <div style="clear: both;"></div>';
             $total_cost_credits_parts = explode(".", $total_cost_credits);
             $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
