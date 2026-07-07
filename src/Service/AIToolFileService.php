@@ -651,7 +651,30 @@ HTML;
 
         // Image data
         if (strpos($file->getMimeType() ?? '', 'image/') === 0) {
-            $contentFrontendData = '<img src="/api/project-file/' . $file->getId() . '/download" alt="' . $file->getName() . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
+            $fileId = $file->getId();
+            $fileName = htmlspecialchars($file->getName());
+            $filePath = htmlspecialchars($file->getPath() == '/' ? '' : $file->getPath());
+            $displayProjectId = htmlspecialchars($projectId);
+            $downloadUrl = '/api/project-file/' . $fileId . '/download?download=1';
+            $viewUrl = '/api/project-file/' . $fileId . '/download';
+
+            $contentFrontendData = <<<HTML
+<div class="content-showcase position-relative d-inline-block" data-title="$fileName" data-type="image">
+    <img src="$viewUrl" alt="$fileName" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>
+    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
+        <i class="mdi mdi-fullscreen"></i>
+    </div>
+    <div class="d-flex align-items-center justify-content-between mt-1 w-100">
+        <div class="small text-muted text-truncate me-2">
+            <span class="badge bg-dark bg-opacity-50 me-1">$displayProjectId</span>
+            <i class="mdi mdi-file-outline me-1"></i><code>$filePath/$fileName</code>
+        </div>
+        <a href="$downloadUrl" class="btn btn-link btn-sm p-0 text-muted opacity-50 flex-shrink-0" title="Download" download>
+            <i class="mdi mdi-download"></i>
+        </a>
+    </div>
+</div>
+HTML;
         }
         // Video data
         elseif (strpos($file->getMimeType() ?? '', 'video/') === 0) {

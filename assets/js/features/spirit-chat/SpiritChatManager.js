@@ -1498,7 +1498,7 @@ export class SpiritChatManager {
             const date = new Date(message.timestamp);
             const formattedDate = formatShortDate(date);
             const formattedTime = formatTime(date);
-            timestampHtml = `<div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>`;
+            timestampHtml = `<div class="chat-timestamp ms-2">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>`;
         }
         
         // Format usage info (tokens and price) for assistant messages
@@ -2897,7 +2897,7 @@ export class SpiritChatManager {
                 <div class="chat-content">${formattedContent}</div>
                 <div class="chat-meta d-flex flex-wrap align-items-center justify-content-end pt-1">
                     ${usageHtml}
-                    <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75"></i> ${formattedTime}</div>
+                    <div class="chat-timestamp ms-2">${formattedDate} <i class="mdi mdi-circle-small opacity-75"></i> ${formattedTime}</div>
                 </div>
             </div>
         ` : '';
