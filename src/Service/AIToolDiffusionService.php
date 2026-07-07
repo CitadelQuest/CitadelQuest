@@ -225,6 +225,7 @@ Convert the user's natural language description into a structured JSON response 
 ## Available Models (choose the best model based on the style requested)
 - `cq:100@1` - CyberRealistic Pony v15.0: Best for realistic photos, portraits, anime-realistic blend. NSFW capable. Use `score_9, score_8_up, score_7_up` in prompt for proper activation.
 - `runware:101@1` - FLUX.1 Dev: High quality, excellent prompt understanding, artistic styles.
+- `alibaba:qwen-image@2.0` — new, strong AI model, perfect for NSFW remix/edit
 
 ## Prompting Guidelines
 
@@ -268,6 +269,21 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
     "seed": "user provided seed or null",
     "lora": [],
     "numberResults": 1
+}
+```
+
+For new `alibaba:qwen-image@2.0``:
+```json
+{
+    "action": "generate",
+    "positivePrompt": "your optimized positive prompt here",
+    "model": "model id here",
+    "width": "user provided width or 1216",
+    "height": "user provided height or 1216",
+    "numberResults": 1,
+    "outputType": "base64Data",
+    "outputFormat": "jpg",
+    "includeCost": true
 }
 ```
 
@@ -519,7 +535,7 @@ PROMPT;
         // Display each generated image
         foreach ($savedFiles as $savedFile) {
             $randomID = uniqid();
-            $html .= '<div class="w-100 m-0 p-0 mb-2 position-relative" id="content-showcase-' . $randomID . '">';
+            $html .= '<div class="w-100 m-0 p-0 position-relative" id="content-showcase-' . $randomID . '">';
             $html .= '  <div id="' . $imageContainerId . '" class="d-inline-block position-relative m-0">';
             $html .= '    <img src="' . $savedFile['base64data'] . '" alt="' . htmlspecialchars($savedFile['name']) . '" style="max-width: 100%; max-height: 70vh;" class="rounded float-end"/>';
             $html .= '    <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-25 text-cyber cursor-pointer">';
@@ -530,7 +546,7 @@ PROMPT;
             $total_cost_credits_display = $total_cost_credits_parts[0] . '<span class="opacity-75">.' . $total_cost_credits_parts[1] . '</span>';
             $html .= '    <div class="small text-muted float-start mt-2"><i class="mdi mdi-circle-multiple-outline me-1 ms-2 text-cyber opacity-50" title="Credits"></i> ' . $total_cost_credits_display . '</div>';
             // Download button
-            $html .= '    <a class="btn btn-sm btn-outline-primary mt-3 float-end mx-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1">';
+            $html .= '    <a class="btn btn-sm btn-link text-cyber mt-3 float-end mx-2" href="/api/project-file/' . $savedFile['id'] . '/download?download=1">';
             $html .= '      <i class="mdi mdi-download"></i>';
             $html .= '    </a>';
             $html .= '  </div>';

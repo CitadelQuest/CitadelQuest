@@ -664,16 +664,16 @@ HTML;
     <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
         <i class="mdi mdi-fullscreen"></i>
     </div>
+</div>
     <div class="d-flex align-items-center justify-content-between mt-1 w-100">
         <div class="small text-muted text-truncate me-2">
             <span class="badge bg-dark bg-opacity-50 me-1">$displayProjectId</span>
             <i class="mdi mdi-file-outline me-1"></i><code>$filePath/$fileName</code>
         </div>
-        <a href="$downloadUrl" class="btn btn-link btn-sm p-0 text-muted opacity-50 flex-shrink-0" title="Download" download>
+        <a href="$downloadUrl" class="btn btn-link btn-sm p-0 text-cyber opacity-50 flex-shrink-0" title="Download" download>
             <i class="mdi mdi-download"></i>
         </a>
     </div>
-</div>
 HTML;
         }
         // Video data

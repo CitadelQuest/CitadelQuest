@@ -198,6 +198,10 @@ export class SpiritChatManager {
                 }
                 localStorage.setItem('spiritChatModal', 'true');
                 localStorage.setItem('spiritChatModalUrl', window.location.pathname);
+                // Restore dark terminal style preference for the message input
+                if (this.messageInput && localStorage.getItem('config.chat.settings.darkTerminalStyle.enabled') === 'true') {
+                    this.messageInput.classList.add('darkTerminalStyle');
+                }
                 // Hide memory graph canvas to save GPU while chat modal is open
                 document.getElementById('profile-memory-canvas')?.classList.add('d-none');
             });
@@ -350,8 +354,10 @@ export class SpiritChatManager {
                 if (e.altKey && e.ctrlKey) {
                     if ( this.messageInput.classList.contains("darkTerminalStyle") ) {
                         this.messageInput.classList.remove("darkTerminalStyle");
+                        localStorage.setItem('config.chat.settings.darkTerminalStyle.enabled', 'false');
                     } else {
                         this.messageInput.classList.add("darkTerminalStyle");
+                        localStorage.setItem('config.chat.settings.darkTerminalStyle.enabled', 'true');
                     }
                 }
             });
@@ -2384,15 +2390,16 @@ export class SpiritChatManager {
         placeholderEl.className = 'chat-memory-recall';
         placeholderEl.innerHTML = `
             <div class="p-2 mt-3 bg-info bg-opacity-10 rounded border-0" style="margin-bottom: 0.5rem; max-width: 100%;">
-                <div class="d-flex align-items-center gap-2 mb-1">
+                <div class="d-flex align-items-center gap-2 cursor-pointer memory-recall-placeholder-header">
                     <span class="small">
                         <i class="mdi mdi-brain text-cyber opacity-75 me-1"></i>${label}
                     </span>
                     <span class="small text-cyber">
                         <i class="mdi mdi-loading mdi-spin me-1 ms-2 text-light"></i>thinking
                     </span>
+                    <i class="mdi mdi-chevron-right text-muted opacity-50 small" style="transition: transform 0.2s;"></i>
                 </div>
-                <div class="memory-recall-placeholder-captions" style="opacity: 0.85;">
+                <div class="memory-recall-placeholder-captions d-none" style="opacity: 0.85;">
                     ${captionsHtml}
                     ${moreHtml}
                 </div>
@@ -2401,6 +2408,16 @@ export class SpiritChatManager {
 
         this.chatMessages.appendChild(placeholderEl);
         this.chatMessages.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+        // Wire up expand/collapse toggle on the placeholder header
+        const headerEl = placeholderEl.querySelector('.memory-recall-placeholder-header');
+        const captionsEl = placeholderEl.querySelector('.memory-recall-placeholder-captions');
+        if (headerEl && captionsEl) {
+            headerEl.addEventListener('click', () => {
+                captionsEl.classList.toggle('d-none');
+                headerEl.querySelector('.mdi-chevron-right')?.classList.toggle('mdi-rotate-90');
+            });
+        }
 
         return placeholderEl;
     }
