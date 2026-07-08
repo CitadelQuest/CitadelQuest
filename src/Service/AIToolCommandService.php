@@ -82,7 +82,7 @@ class AIToolCommandService
         $result = $this->commandService->runShell($command, $cwdResolved, $timeout, $minimalEnv);
 
         // Auto-detect read-only commands to skip file sync
-        $syncFiles = $this->isMutatingCommand($command);
+        $syncFiles = $this->isMutatingCommand($command) || $this->isAstrologOutputCommand($command);
         $syncStats = ['registered' => 0, 'updated' => 0];
         if ($syncFiles && !$result['timedOut']) {
             try {
@@ -174,6 +174,20 @@ class AIToolCommandService
         $cmdName = basename($parts[0]);
 
         return !in_array($cmdName, self::READ_ONLY_COMMANDS, true);
+    }
+
+    /**
+     * Detect astrolog commands that write output files (images, text, etc.).
+     * These are read-only according to the command name, but they create files
+     * in the project directory that must be synced with ProjectFileService.
+     */
+    private function isAstrologOutputCommand(string $command): bool
+    {
+        if (stripos($command, 'astrolog') === false) {
+            return false;
+        }
+
+        return preg_match('/\.(?:png|jpg|jpeg|gif|svg|bmp|as|dat|txt|md)\b/i', $command) === 1;
     }
 
     /**
