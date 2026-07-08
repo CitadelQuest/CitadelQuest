@@ -10,6 +10,7 @@ import MarkdownIt from 'markdown-it';
 import { ImageShowcase } from '../../../shared/image-showcase';
 import { formatDate, formatTime } from '../../../shared/date-utils';
 import { getFileEditModal } from '../../../shared/file-edit-modal';
+import { renderMermaidInContainer } from '../../../shared/mermaid-renderer';
 
 /**
  * File Browser component for CitadelQuest
@@ -25,6 +26,8 @@ export class FileBrowser {
     static TEXT_EXTENSIONS = new Set([
         // Generic text & docs
         'txt', 'md', 'markdown', 'rst', 'log', 'csv', 'tsv', 'tex',
+        // Mermaid diagrams
+        'mmd', 'mermaid',
         // Web markup
         'html', 'htm', 'xml', 'svg', 'rss', 'atom',
         // Styles
@@ -904,9 +907,17 @@ export class FileBrowser {
         
         // Preview content based on file type
         previewHtml += '<div class="file-preview-content rounded position-relative">';
-        
+
+        const isMermaid = extension === 'mmd' || extension === 'mermaid';
+
+        // Mermaid diagrams
+        if (isMermaid) {
+            previewHtml += `
+                <div class="mermaid bg-dark bg-opacity-25 rounded p-2 overflow-auto" data-mermaid-source="1">${this.escapeHtml(content)}</div>
+            `;
+        }
         // Images
-        if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
+        else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
             previewHtml += `
                 <div class="content-showcase position-relative d-inline-block">
                     <img src="${content}" alt="${file.name}" class="img-fluid fb rounded" data-file-id="${file.id}" data-is-thumbnail="${isThumbnail}">
@@ -985,6 +996,11 @@ export class FileBrowser {
         previewHtml += '</div>';
         
         this.filePreviewElement.innerHTML = previewHtml;
+
+        // Render Mermaid diagrams in the preview panel
+        if (isMermaid) {
+            renderMermaidInContainer(this.filePreviewElement);
+        }
 
         // Set up content showcase modal header with file info
         const contentShowcaseModal = document.getElementById('contentShowcaseModal');

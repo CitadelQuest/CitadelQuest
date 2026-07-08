@@ -131,6 +131,10 @@
             margin-bottom: 0rem;
             display: flex;
 
+            > * {
+                min-width: 0;
+            }
+
             &.chat-message-memory-recall {
                 max-width: 100%;
                 margin-bottom: 0.5rem;
@@ -386,4 +390,28 @@
         opacity: 0.75 !important;
         pointer-events: none;
     }
+}
+
+// Mermaid diagrams in Spirit Chat
+.mermaid {
+    overflow-x: auto;
+    max-width: 100%;
+    min-height: 2rem;
+    text-align: center;
+    // preserve a visible scrollbar on WebKit-based browsers
+    @include mixins.cyber-scrollbar;
+
+    svg {
+        max-width: none !important;
+        height: auto;
+        display: inline-block;
+        vertical-align: middle;
+    }
+}
+
+.mermaid-error {
+    border: 1px dashed colors.$danger;
+    color: colors.$danger;
+    font-family: monospace;
+    white-space: pre-wrap;
 }

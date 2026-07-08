@@ -183,6 +183,7 @@ $file-browser-preview-header-height: 4rem;
 
 .file-preview-content {
   flex: 1;
+  min-width: 0;
   overflow: auto;
   padding: 1rem;
   

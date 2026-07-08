@@ -7,6 +7,7 @@ import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
 import { formatDate, formatShortDate, formatTime, getCitadelLocale } from '../../shared/date-utils';
 import { getFileEditModal } from '../../shared/file-edit-modal';
+import { prepareMermaidCodeBlocks, renderMermaidInContainer } from '../../shared/mermaid-renderer';
 
 /**
  * Spirit Chat Manager
@@ -139,6 +140,32 @@ export class SpiritChatManager {
 
         // update credit indicator based current real data from CQ AI Gateway
         await this.updateCreditIndicator();
+
+        // Render any Mermaid diagrams already present and watch for new ones
+        this.setupMermaidObserver();
+    }
+
+    /**
+     * Render Mermaid diagrams inside the chat container and observe future insertions.
+     */
+    setupMermaidObserver() {
+        if (!this.chatMessages) return;
+
+        renderMermaidInContainer(this.chatMessages);
+
+        if (this.mermaidObserver) return;
+
+        this.mermaidObserver = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        renderMermaidInContainer(node);
+                    }
+                }
+            }
+        });
+
+        this.mermaidObserver.observe(this.chatMessages, { childList: true, subtree: true });
     }
 
     /**
@@ -1802,6 +1829,7 @@ export class SpiritChatManager {
             typographer: true // Optional: improves typography (e.g., quotes, dashes)
           });
         let html = md.render(content);
+        html = prepareMermaidCodeBlocks(html);
         
         return html;
     }

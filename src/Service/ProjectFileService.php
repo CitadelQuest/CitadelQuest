@@ -50,6 +50,8 @@ class ProjectFileService
     public const TEXT_EXTENSIONS = [
         // Generic text & docs
         'txt', 'md', 'markdown', 'rst', 'log', 'csv', 'tsv', 'tex',
+        // Mermaid diagrams
+        'mmd', 'mermaid',
         // Web markup
         'html', 'htm', 'xml', 'svg', 'rss', 'atom',
         // Styles

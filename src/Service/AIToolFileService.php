@@ -649,6 +649,14 @@ HTML;
         // existing bespoke display below.
         $contentFrontendData = $header;
 
+        // Mermaid diagram source file
+        if ($this->isMermaidContent($file, $content)) {
+            $escapedContent = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+            $contentFrontendData .= <<<HTML
+<div class="mermaid bg-dark bg-opacity-25 rounded p-2 my-2 overflow-auto" data-mermaid-source="1">$escapedContent</div>
+HTML;
+        }
+
         // Image data
         if (strpos($file->getMimeType() ?? '', 'image/') === 0) {
             $fileId = $file->getId();
@@ -705,6 +713,41 @@ HTML;
         return $contentFrontendData;
     }
     
+    /**
+     * Detect whether a file's content is a Mermaid diagram.
+     * Recognized by file extension (.mmd / .mermaid) or by common Mermaid keywords at the start.
+     */
+    private function isMermaidContent($file, string $content): bool
+    {
+        $name = strtolower($file->getName());
+        if (str_ends_with($name, '.mmd') || str_ends_with($name, '.mermaid')) {
+            return true;
+        }
+
+        $trimmed = ltrim($content);
+        if ($trimmed === '') {
+            return false;
+        }
+
+        $lower = strtolower(substr($trimmed, 0, 200));
+        $keywords = [
+            'graph ', "graph\n", "graph\r", "graph\t",
+            'flowchart ', "flowchart\n", "flowchart\r", "flowchart\t",
+            'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram',
+            'gantt', 'pie ', "pie\n", 'journey', 'gitGraph', 'mindmap', 'timeline',
+            'requirementDiagram', 'sankey', 'xychart-beta', 'block-beta',
+            'packet-beta', 'kanban',
+        ];
+
+        foreach ($keywords as $keyword) {
+            if (str_starts_with($lower, strtolower($keyword))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Build frontend data for fileSearch results
      */
