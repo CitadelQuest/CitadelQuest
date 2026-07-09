@@ -291,12 +291,26 @@ export class ImageShowcase {
         try {
             const apiService = this.galleryApiService || this.apiService;
             const response = await apiService.getFileContent(image.id, false);
+            const isSvg = image.name?.toLowerCase().endsWith('.svg');
             
             if (response.success && response.content) {
-                contentContainer.innerHTML = `
-                    <img src="${response.content}" alt="${image.name || ''}" 
-                         style="max-width: 100%; max-height: 90vh; object-fit: contain;">
-                `;
+                if (isSvg) {
+                    // SVG is returned as raw text; embed it inline for reliable rendering
+                    contentContainer.innerHTML = `
+                        <div class="svg-preview rounded shadow" style="max-width: 100%; height: auto; max-height: 90vh;">${this._sanitizeSvg(response.content)}</div>
+                    `;
+                    const svg = contentContainer.querySelector('.svg-preview svg');
+                    if (svg) {
+                        svg.style.width = '100%';
+                        svg.style.height = 'auto';
+                        svg.style.maxHeight = '90vh';
+                    }
+                } else {
+                    contentContainer.innerHTML = `
+                        <img src="${response.content}" alt="${image.name || ''}" 
+                             style="max-width: 100%; max-height: 90vh; object-fit: contain;">
+                    `;
+                }
             } else {
                 throw new Error('Failed to load image');
             }
@@ -381,7 +395,22 @@ export class ImageShowcase {
             // Remove margin classes that don't make sense in fullscreen
             img.classList.remove('ms-2', 'mb-2');
         }
-        
+
+        // Style inline SVG in fullscreen view
+        const svgPreview = contentContainer.querySelector('.svg-preview');
+        if (svgPreview) {
+            svgPreview.style.display = 'block';
+            svgPreview.style.width = '100%';
+            svgPreview.style.maxWidth = '100%';
+            svgPreview.style.maxHeight = '90vh';
+            const svg = svgPreview.querySelector('svg');
+            if (svg) {
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxHeight = '90vh';
+            }
+        }
+
         // Handle embed containers (PDFs)
         const embedContainer = contentContainer.querySelector('.embed-container');
         if (embedContainer) {
@@ -401,6 +430,16 @@ export class ImageShowcase {
             this.bsModal = new bootstrap.Modal(modal);
         }
         this.bsModal.show();
+    }
+
+    /**
+     * Minimal SVG sanitization for inline display.
+     * Removes script tags and inline event handlers.
+     */
+    _sanitizeSvg(svg) {
+        return svg
+            .replace(/<script\b[^>]*>.*?<\/script>/is, '')
+            .replace(/on\w+\s*=\s*["'][^"']*["']/ig, '');
     }
 }
 

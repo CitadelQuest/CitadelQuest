@@ -144,16 +144,27 @@ export class ImageGallery {
             if (response.success && response.content) {
                 const thumbContainer = item.querySelector('.image-gallery-thumb');
                 const image = this.images.find(img => img.id === fileId);
+                const isSvg = image?.name?.toLowerCase().endsWith('.svg');
                 
-                thumbContainer.innerHTML = `
-                    <img src="${response.content}" 
-                         alt="${image?.name || ''}" 
-                         class="image-gallery-img"
-                         loading="lazy">
-                    <div class="content-showcase-icon image-gallery-zoom position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer" title="${this.translations.fullscreen || 'Fullscreen'}">
-                        <i class="mdi mdi-fullscreen"></i>
-                    </div>
-                `;
+                if (isSvg) {
+                    // SVG is returned as raw text; embed it inline for reliable thumbnails
+                    thumbContainer.innerHTML = `
+                        <div class="svg-preview" style="width: 100%; height: 100%;">${this.sanitizeSvgContent(response.content)}</div>
+                        <div class="content-showcase-icon image-gallery-zoom position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer" title="${this.translations.fullscreen || 'Fullscreen'}">
+                            <i class="mdi mdi-fullscreen"></i>
+                        </div>
+                    `;
+                } else {
+                    thumbContainer.innerHTML = `
+                        <img src="${response.content}" 
+                             alt="${image?.name || ''}" 
+                             class="image-gallery-img"
+                             loading="lazy">
+                        <div class="content-showcase-icon image-gallery-zoom position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer" title="${this.translations.fullscreen || 'Fullscreen'}">
+                            <i class="mdi mdi-fullscreen"></i>
+                        </div>
+                    `;
+                }
                 
                 // Add click handler for fullscreen (zoom button)
                 const zoomBtn = thumbContainer.querySelector('.image-gallery-zoom');
@@ -235,11 +246,18 @@ export class ImageGallery {
                 // Fallback: show single image without navigation
                 const response = await this.apiService.getFileContent(fileId, false);
                 if (response.success && response.content) {
+                    const isSvg = image?.name?.toLowerCase().endsWith('.svg');
                     const showcaseEl = document.createElement('div');
                     showcaseEl.className = 'content-showcase';
-                    showcaseEl.innerHTML = `
-                        <img src="${response.content}" alt="${image?.name || ''}" class="img-fluid">
-                    `;
+                    if (isSvg) {
+                        showcaseEl.innerHTML = `
+                            <div class="svg-preview rounded shadow" style="max-width: 100%; height: auto; max-height: 75vh;">${this.sanitizeSvgContent(response.content)}</div>
+                        `;
+                    } else {
+                        showcaseEl.innerHTML = `
+                            <img src="${response.content}" alt="${image?.name || ''}" class="img-fluid">
+                        `;
+                    }
                     this.imageShowcase.show(showcaseEl);
                 }
             }
@@ -247,6 +265,16 @@ export class ImageGallery {
             console.error('Error loading full image:', error);
             window.toast?.error(this.translations.failed_load || 'Failed to load image');
         }
+    }
+    
+    /**
+     * Minimal SVG sanitization for inline display.
+     * Removes script tags and inline event handlers.
+     */
+    sanitizeSvgContent(svg) {
+        return svg
+            .replace(/<script\b[^>]*>.*?<\/script>/is, '')
+            .replace(/on\w+\s*=\s*["'][^"']*["']/ig, '');
     }
     
     /**

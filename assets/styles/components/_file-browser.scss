@@ -528,6 +528,20 @@ $file-browser-preview-header-height: 4rem;
   object-fit: cover;
 }
 
+.image-gallery-thumb .svg-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+  }
+}
+
 .image-gallery-delete {
   position: absolute;
   bottom: 0;

@@ -666,9 +666,15 @@ HTML;
             $downloadUrl = '/api/project-file/' . $fileId . '/download?download=1';
             $viewUrl = '/api/project-file/' . $fileId . '/download';
 
+            // Embed SVG inline so it renders reliably (data URI in <img> is flaky for SVG).
+            $isSvg = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION)) === 'svg';
+            $previewBody = $isSvg
+                ? '<div class="svg-preview rounded shadow" style="max-width: 100%; height: auto; max-height: 75vh;">' . $this->sanitizeSvgContent($this->projectFileService->getFileContent($file->getId(), false)) . '</div>'
+                : '<img src="' . $viewUrl . '" alt="' . $fileName . '" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>';
+
             $contentFrontendData = <<<HTML
 <div class="content-showcase position-relative d-inline-block" data-title="$fileName" data-type="image">
-    <img src="$viewUrl" alt="$fileName" style="max-width: 100%; height: auto; max-height: 75vh;" class="rounded shadow"/>
+    $previewBody
     <div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer">
         <i class="mdi mdi-fullscreen"></i>
     </div>
@@ -711,6 +717,17 @@ HTML;
         }
         
         return $contentFrontendData;
+    }
+
+    /**
+     * Minimal SVG sanitization for inline display in chat.
+     * Removes script tags and inline event handlers to avoid XSS.
+     */
+    private function sanitizeSvgContent(string $svg): string
+    {
+        $svg = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $svg);
+        $svg = preg_replace('/on\w+\s*=\s*["\'][^"\']*["\']/i', '', $svg);
+        return $svg;
     }
     
     /**

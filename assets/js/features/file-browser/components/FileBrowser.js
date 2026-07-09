@@ -918,12 +918,22 @@ export class FileBrowser {
         }
         // Images
         else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
-            previewHtml += `
-                <div class="content-showcase position-relative d-inline-block">
-                    <img src="${content}" alt="${file.name}" class="img-fluid fb rounded" data-file-id="${file.id}" data-is-thumbnail="${isThumbnail}">
-                    ${showcaseIcon}
-                </div>
-            `;
+            if (extension === 'svg') {
+                // SVG is returned as raw text from the API; inline it for reliable rendering
+                previewHtml += `
+                    <div class="content-showcase position-relative d-inline-block" data-title="${file.name}" data-type="image">
+                        <div class="svg-preview rounded shadow" style="max-width: 100%; height: auto; max-height: 75vh;">${this.sanitizeSvgContent(content)}</div>
+                        ${showcaseIcon}
+                    </div>
+                `;
+            } else {
+                previewHtml += `
+                    <div class="content-showcase position-relative d-inline-block">
+                        <img src="${content}" alt="${file.name}" class="img-fluid fb rounded" data-file-id="${file.id}" data-is-thumbnail="${isThumbnail}">
+                        ${showcaseIcon}
+                    </div>
+                `;
+            }
         }
         // Text/code files
         else if (this.isTextFile(extension, file.name)) {
@@ -1047,6 +1057,16 @@ export class FileBrowser {
         const div = document.createElement('div');
         div.textContent = html;
         return div.innerHTML;
+    }
+
+    /**
+     * Minimal SVG sanitization for inline display.
+     * Removes script tags and inline event handlers.
+     */
+    sanitizeSvgContent(svg) {
+        return svg
+            .replace(/<script\b[^>]*>.*?<\/script>/is, '')
+            .replace(/on\w+\s*=\s*["'][^"']*["']/ig, '');
     }
     
     /**

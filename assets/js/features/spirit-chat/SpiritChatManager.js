@@ -1696,9 +1696,17 @@ export class SpiritChatManager {
             usageHtml = '<div></div>';
         }
 
+        // Preserve raw user message text so undo can restore it to the input
+        const rawUserText = message.role === 'user'
+            ? this._escapeAttribute(Array.isArray(message.content)
+                ? message.content.map(item => item.type === 'text' ? item.text : '').join('')
+                : (message.content || ''))
+            : '';
+        const rawTextAttr = message.role === 'user' ? ` data-raw-text="${rawUserText}"` : '';
+
         messageEl.innerHTML = (formattedContent != '') ? `
             <div class="chat-bubble">
-                <div class="chat-content">${formattedContent}</div>
+                <div class="chat-content"${rawTextAttr}>${formattedContent}</div>
                 <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between">${usageHtml}${timestampHtml}</div>
             </div>
         ` : '';
@@ -2770,9 +2778,14 @@ export class SpiritChatManager {
             formattedContent = this.formatMessageContent(userMessage.content);
         }
         
+        const rawText = Array.isArray(messageContent)
+            ? messageContent.map(item => item.type === 'text' ? item.text : '').join('')
+            : (messageContent || '');
+        const rawTextAttr = rawText ? ` data-raw-text="${this._escapeAttribute(rawText)}"` : '';
+
         messageEl.innerHTML = formattedContent != '' ? `
             <div class="chat-bubble">
-                <div class="chat-content">${formattedContent}</div>
+                <div class="chat-content"${rawTextAttr}>${formattedContent}</div>
                 <div class="chat-meta d-flex align-items-center justify-content-between">
                     <div class="chat-timestamp">${formattedDate} <i class="mdi mdi-circle-small opacity-75 me-1"></i> ${formattedTime}</div>
                 </div>
@@ -2830,6 +2843,12 @@ export class SpiritChatManager {
             return;
         }
 
+        // Capture the text of the last user message before it is deleted
+        const userMessages = this.chatMessages.querySelectorAll('.chat-message-user');
+        const lastUserMessage = userMessages[userMessages.length - 1] || null;
+        const chatContent = lastUserMessage?.querySelector('.chat-content');
+        const undoneText = chatContent?.dataset.rawText || chatContent?.textContent || '';
+
         const undoBtn = this.chatMessages.querySelector('.chat-undo-button');
         if (undoBtn) {
             undoBtn.disabled = true;
@@ -2841,6 +2860,13 @@ export class SpiritChatManager {
             // Reload conversation to reflect deletion
             await this.loadConversation(this.currentConversationId);
             window.toast?.success(window.translations?.['spirit.chat.undo_success'] || 'Last message removed');
+
+            // Restore the undone message text into the input so the user can edit/resend
+            if (this.messageInput && undoneText) {
+                this.messageInput.value = undoneText;
+                this.messageInput.dispatchEvent(new Event('input'));
+                this.messageInput.focus();
+            }
         } catch (error) {
             console.error('Failed to undo last message:', error);
             window.toast?.error(error.message || 'Failed to remove last message');
@@ -3279,5 +3305,20 @@ export class SpiritChatManager {
         }
         
         this.sendMessageBtn.disabled = false;
+    }
+
+    /**
+     * Escape a string for safe use in an HTML attribute value.
+     */
+    _escapeAttribute(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\r\n/g, '&#10;')
+            .replace(/\n/g, '&#10;')
+            .replace(/\r/g, '&#10;');
     }
 }

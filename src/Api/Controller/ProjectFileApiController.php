@@ -228,13 +228,23 @@ class ProjectFileApiController extends AbstractController
             
             $response = new BinaryFileResponse($filePath);
             
+            // Explicitly set the content type so browsers render SVG in <img> tags correctly.
+            // BinaryFileResponse's auto-detection may fail on some systems for SVG files.
+            $mimeType = $file->getMimeType();
+            if ($mimeType) {
+                // Normalize SVG content type regardless of how it was stored
+                if (strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION)) === 'svg') {
+                    $mimeType = 'image/svg+xml';
+                }
+                $response->headers->set('Content-Type', $mimeType);
+            }
+            
             // Use inline disposition for embeddable content (PDF, images, audio, video)
             // unless explicitly requested as attachment via ?download=1
             $forceDownload = $request->query->getBoolean('download', false);
-            $mimeType = $file->getMimeType();
-            $isEmbeddable = str_starts_with($mimeType, 'image/') 
-                || str_starts_with($mimeType, 'audio/') 
-                || str_starts_with($mimeType, 'video/') 
+            $isEmbeddable = str_starts_with($mimeType, 'image/')
+                || str_starts_with($mimeType, 'audio/')
+                || str_starts_with($mimeType, 'video/')
                 || $mimeType === 'application/pdf';
             
             $disposition = ($forceDownload || !$isEmbeddable) 
