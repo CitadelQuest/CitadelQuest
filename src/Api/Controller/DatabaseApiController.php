@@ -5,7 +5,9 @@ namespace App\Api\Controller;
 use App\Service\UserDatabaseManager;
 use App\Service\SpiritConversationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -114,6 +116,39 @@ class DatabaseApiController extends AbstractController
             return new JsonResponse([
                 'success' => false,
                 'error' => 'Failed to get database stats: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download the raw user SQLite database file
+     */
+    #[Route('/download', name: 'api_database_download', methods: ['GET'])]
+    public function download(): BinaryFileResponse|JsonResponse
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return new JsonResponse(['error' => 'Unauthorized'], 401);
+            }
+
+            $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
+            if (!file_exists($dbPath)) {
+                throw new \RuntimeException('Database file not found');
+            }
+
+            $response = new BinaryFileResponse($dbPath);
+            $response->headers->set('Content-Type', 'application/vnd.sqlite3');
+            $response->setContentDisposition(
+                ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                basename($dbPath)
+            );
+
+            return $response;
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Failed to download database: ' . $e->getMessage()
             ], 500);
         }
     }
