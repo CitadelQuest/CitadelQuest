@@ -90,19 +90,23 @@ class AIToolFileService
                 $updates
             );
             
-            // Auto-run PHP syntax check (php -l) for .php files so the Spirit
-            // immediately knows if the edit broke the file — saves a runCommand round-trip.
-            $phpSyntaxCheck = $this->runPhpSyntaxCheck($updatedFile);
+            // Auto-run syntax checks for PHP/Twig/JS files so the Spirit immediately
+            // knows if the edit broke the file — saves a runCommand round-trip.
+            $syntaxChecks = $this->runFileSyntaxChecks($updatedFile);
             
             $result = [
                 'success' => true,
                 'file' => $updatedFile->jsonSerialize(),
                 'operations_applied' => count($updates),
-                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates, $phpSyntaxCheck)
+                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates, $syntaxChecks)
             ];
             
-            if ($phpSyntaxCheck !== null) {
-                $result['phpSyntaxCheck'] = $phpSyntaxCheck;
+            if (!empty($syntaxChecks)) {
+                $result['syntaxChecks'] = $syntaxChecks;
+            }
+            // Keep backward compatibility for Spirits/tools expecting the old key.
+            if (isset($syntaxChecks['php'])) {
+                $result['phpSyntaxCheck'] = $syntaxChecks['php'];
             }
             
             return $result;
@@ -138,6 +142,68 @@ class AIToolFileService
 
         $command = 'php -l ' . escapeshellarg($absolutePath);
         $result = $this->commandService->runShell($command, dirname($absolutePath), 15);
+
+        $output = trim(($result['stdout'] ?? '') . "\n" . ($result['stderr'] ?? ''));
+        // Strip the absolute path from output to avoid leaking server filesystem layout.
+        $output = str_replace($absolutePath, $file->getPath() . '/' . $file->getName(), $output);
+
+        return [
+            'checked' => true,
+            'valid' => (bool) ($result['success'] ?? false),
+            'output' => $output !== '' ? $output : 'No output',
+        ];
+    }
+
+    /**
+     * Run the appropriate syntax/validity checks for a freshly-updated file
+     * based on its extension: PHP, Twig or JavaScript.
+     *
+     * @return array<string, array{checked: bool, valid: bool, output: string}>
+     */
+    private function runFileSyntaxChecks($file): array
+    {
+        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+        $checks = [];
+
+        switch ($extension) {
+            case 'php':
+                $check = $this->runPhpSyntaxCheck($file);
+                if ($check !== null) {
+                    $checks['php'] = $check;
+                }
+                break;
+            case 'twig':
+                $check = $this->runTwigSyntaxCheck($file);
+                if ($check !== null) {
+                    $checks['twig'] = $check;
+                }
+                break;
+        }
+
+        return $checks;
+    }
+
+    /**
+     * Run Symfony's lint:twig on a freshly-updated Twig template.
+     *
+     * @return array{checked: bool, valid: bool, output: string}|null
+     */
+    private function runTwigSyntaxCheck($file): ?array
+    {
+        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+        if ($extension !== 'twig') {
+            return null;
+        }
+
+        $absolutePath = $this->projectFileService->getFileAbsolutePath($file->getId());
+        if (!$absolutePath || !is_file($absolutePath)) {
+            return null;
+        }
+
+        $projectDir = dirname(__DIR__, 2);
+        $consolePath = $projectDir . '/bin/console';
+        $command = 'php ' . escapeshellarg($consolePath) . ' lint:twig ' . escapeshellarg($absolutePath);
+        $result = $this->commandService->runShell($command, $projectDir, 30);
 
         $output = trim(($result['stdout'] ?? '') . "\n" . ($result['stderr'] ?? ''));
         // Strip the absolute path from output to avoid leaking server filesystem layout.
@@ -812,7 +878,7 @@ HTML;
     /**
      * Build frontend data for fileUpdate results
      */
-    private function buildUpdateFrontendData($file, array $updates, ?array $phpSyntaxCheck = null): string
+    private function buildUpdateFrontendData($file, array $updates, array $syntaxChecks = []): string
     {
         $name = htmlspecialchars($file->getName());
         $path = htmlspecialchars($file->getPath());
@@ -865,7 +931,7 @@ HTML;
             }
         }
         $detailsHtml = implode('', $details);
-        $syntaxHtml = $this->buildPhpSyntaxCheckHtml($phpSyntaxCheck);
+        $syntaxHtml = $this->buildSyntaxChecksHtml($syntaxChecks);
         $editLink = $this->buildFileEditLink($file);
 
         return <<<HTML
@@ -873,7 +939,7 @@ HTML;
     <div class="d-flex align-items-center">
         <i class="mdi mdi-file-edit-outline text-cyber me-2"></i>
         <strong>fileUpdate</strong>
-        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>{# $count op(s) applied #}</span>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code>$editLink</div>
     <div class="mt-2">$detailsHtml</div>
@@ -883,28 +949,48 @@ HTML;
     }
 
     /**
-     * Build a compact PHP syntax-check badge for the fileUpdate frontend card.
-     * Returns empty string when no check was performed (non-PHP files).
+     * Build compact syntax-check badges for the fileUpdate frontend card.
+     * Supports PHP, Twig and JavaScript. Returns empty string when no checks
+     * were performed.
      */
-    private function buildPhpSyntaxCheckHtml(?array $phpSyntaxCheck): string
+    private function buildSyntaxChecksHtml(array $syntaxChecks): string
     {
-        if ($phpSyntaxCheck === null) {
+        if (empty($syntaxChecks)) {
             return '';
         }
 
-        if ($phpSyntaxCheck['valid']) {
-            return <<<HTML
-<div class="small text-success mt-2"><i class="mdi mdi-language-php me-1"></i><i class="mdi mdi-check-circle me-1"></i>PHP syntax OK</div>
-HTML;
-        }
+        $html = '';
+        foreach ($syntaxChecks as $type => $check) {
+            $type = strtolower($type);
+            $label = match ($type) {
+                'php' => 'PHP',
+                'twig' => 'Twig',
+                'js' => 'JS',
+                default => ucfirst($type),
+            };
+            $icon = match ($type) {
+                'php' => 'mdi-language-php',
+                'twig' => 'mdi-xml',
+                'js' => 'mdi-nodejs',
+                default => 'mdi-code-tags',
+            };
 
-        $errorEsc = htmlspecialchars($phpSyntaxCheck['output']);
-        return <<<HTML
+            if ($check['valid']) {
+                $html .= <<<HTML
+<div class="small text-success mt-2"><i class="{$icon} me-1"></i><i class="mdi mdi-check-circle me-1"></i>{$label} syntax OK</div>
+HTML;
+            } else {
+                $errorEsc = htmlspecialchars($check['output']);
+                $html .= <<<HTML
 <div class="mt-2">
-    <div class="small text-danger"><i class="mdi mdi-language-php me-1"></i><i class="mdi mdi-alert-circle me-1"></i>PHP syntax error</div>
+    <div class="small text-danger"><i class="{$icon} me-1"></i><i class="mdi mdi-alert-circle me-1"></i>{$label} syntax error</div>
     <pre class="bg-black bg-opacity-50 rounded p-2 mb-0 small text-danger" style="max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-word;">$errorEsc</pre>
 </div>
 HTML;
+            }
+        }
+
+        return $html;
     }
 
     /**
@@ -1118,7 +1204,7 @@ HTML;
     /**
      * Build frontend data for create/copy/rename_move/delete operations
      */
-    private function buildFileOperationFrontendData(string $operation, array $params, ?array $result = null): string
+    private function buildFileOperationFrontendData(string $operation, array $params, ?array $result = null, array $syntaxChecks = []): string
     {
         $source = $params['source'] ?? null;
         $dest = $params['destination'] ?? null;
@@ -1144,6 +1230,8 @@ HTML;
                     }
                 }
 
+                $syntaxHtml = $this->buildSyntaxChecksHtml($syntaxChecks);
+
                 $header = <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div class="d-flex align-items-center">
@@ -1152,6 +1240,7 @@ HTML;
         <span class="ms-2 text-success">+$contentLen chars</span>
     </div>
     <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code>$editLink</div>
+    $syntaxHtml
 </div>
 HTML;
 
@@ -1266,12 +1355,31 @@ HTML;
         // Execute the operation
         $result = $this->projectFileService->manageFile($projectId, $operation, $params);
 
-        return [
+        // Run syntax checks for newly created PHP/Twig files.
+        $syntaxChecks = [];
+        if ($operation === 'create' && isset($params['destination']['path'], $params['destination']['name'])) {
+            $createdFile = $this->projectFileService->findByPathAndName(
+                $projectId,
+                $params['destination']['path'],
+                $params['destination']['name']
+            );
+            if ($createdFile) {
+                $syntaxChecks = $this->runFileSyntaxChecks($createdFile);
+            }
+        }
+
+        $response = [
             'success' => true,
             'operation' => $operation,
             'result' => $result,
-            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params, $result)
+            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params, $result, $syntaxChecks)
         ];
+
+        if (!empty($syntaxChecks)) {
+            $response['syntaxChecks'] = $syntaxChecks;
+        }
+
+        return $response;
     }
 
     /**
