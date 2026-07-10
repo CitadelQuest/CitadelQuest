@@ -1916,8 +1916,6 @@ class SpiritConversationService
             <spirit-memory-system version=\"cq-memory\">
                 <overview>
                     Your memory is powered by **CQ Memory** - a graph-based knowledge system.
-                    " . ($includeTools ? "Use the memory tools to store, recall, update, and forget information. " : "") . "
-                    Memories are automatically scored by importance, recency, and relevance.
                 </overview>
                 
                 <automatic-recall>
@@ -1929,9 +1927,7 @@ class SpiritConversationService
                 </automatic-recall>
                 " . ($includeTools ? "
                 <best-practices>
-                    - Use tags for easy retrieval (e.g., 'work', 'family', 'hobbies')
                     - When automatic recall provides relevant context, use it naturally
-                    - Use memoryRecall tool for deeper/specific searches beyond automatic recall
                     - Always use sourceType=\"spirit_conversation\" for extracting conversation content - on User's request only! Usually at the ver end of conversation.
                 </best-practices>
                 " : "") . "
@@ -2097,6 +2093,8 @@ class SpiritConversationService
      */
     public function buildToolsSection(): string
     {
+        return '';
+        /*
         $aiToolManagementTools = $this->aiToolService->findAll(true);
         
         if (!isset($aiToolManagementTools) || count($aiToolManagementTools) === 0) {
@@ -2118,6 +2116,7 @@ class SpiritConversationService
                     If tool call result is negative 3x, do not call the tool again.
                 </important>
             </ai-tools-instructions>";
+        */
     }
     
     /**
