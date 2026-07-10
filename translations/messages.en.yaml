@@ -465,6 +465,18 @@ spirit:
             delete_success: 'Pack deleted successfully'
             delete_error: 'Failed to delete pack'
 
+    tabs:
+        overview: 'Overview'
+        memory: 'Memory'
+        settings: 'Settings'
+        activity: 'Activity'
+        conversations: 'Conversations'
+    sidebar:
+        all_spirits: 'All Spirits'
+        chat: 'Chat with Spirit'
+    overview:
+        quick_actions: 'Quick Actions'
+
 spirits:
     title: 'Spirits'
     manage: 'Manage Spirits'

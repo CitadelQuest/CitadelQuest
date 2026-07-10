@@ -9,80 +9,135 @@
 {% endblock %}
 
 {% block body %}
-<div class="container mt-3">
+<div class="container mt-4">
     <input type="hidden" id="spirit-id" value="{{ spiritId is defined ? spiritId : '' }}">
-    <div class="glass-panel_pt-4">
-        {# <div class="text-white p-4">
-            <h2 class="mb-0">{{ 'spirit.title'|trans }}</h2>
-        </div> #}
-        <div class="px-4_ pb-4 pt-1 mb-2">
-            <div id="spirit-container">
-                <div class="text-center mb-4" id="spirit-loading">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+    
+    {# Block 1: Spirit Info Header - full width, 3 cols #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card__glass-panel">
+                <div class="card-body p-4">
+                    <div id="spirit-loading" class="text-center py-3">
+                        <div class="spinner-border text-primary spinner-border-sm" role="status">
+                            <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                        </div>
+                        <p class="mt-2 mb-0 small">{{ 'spirit.detail.connecting'|trans }}</p>
                     </div>
-                    <p class="mt-2">{{ 'spirit.detail.connecting'|trans }}</p>
-                </div>
-                
-                <div id="spirit-display" class="d-none">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="w-50 float-start">
-                                <div class="spirit-avatar-container big">
-                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary cursor-pointer" >
+                    
+                    <div id="spirit-sidebar-info" class="d-none">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 col-lg-3 text-center mb-3 mb-md-0">
+                                <div class="spirit-avatar-container big mx-auto">
+                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary cursor-pointer">
                                         <i class="mdi mdi-ghost spirit-detail-icon"></i>
                                     </div>
                                 </div>
                             </div>
-                            <div class="w-50 float-end">
-                                <div class="text-start">
-                                    <h3 id="spirit-name-display" class="mb-2">{{ 'spirit.name'|trans }}</h3>
-                                    <span class="badge bg-dark bg-opacity-25 text-cyber">{{ 'spirit.level'|trans }} <span id="spirit-level">1</span></span>                                    
-                                </div>
-                                <div class="progress mt-3">
-                                    <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                                            role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
-                                            style="width: 0%">
+                            <div class="col-md-4 col-lg-5">
+                                <div class="text-center text-md-start">
+                                    <h3 id="spirit-name-display" class="mb-1">{{ 'spirit.name'|trans }}</h3>
+                                    <div class="mb-3">
+                                        <span class="badge bg-dark bg-opacity-25 text-cyber">{{ 'spirit.level'|trans }} <span id="spirit-level">1</span></span>
                                     </div>
+                                    <div class="progress mb-2" style="height: 8px; max-width: 300px;">
+                                        <div id="spirit-experience-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-cyber" 
+                                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                                             style="width: 0%">
+                                        </div>
+                                    </div>
+                                    <p class="small text-light mb-3">
+                                        <span id="spirit-experience">0</span> / <span id="spirit-next-level">100</span> XP
+                                    </p>
                                 </div>
-                                <p class="text-start mt-1">
-                                    <small>{{ 'spirit.experience'|trans }}: <span id="spirit-experience">0</span>/<span id="spirit-next-level">100</span></small>
-                                </p>
                             </div>
-                            <div style="clear:both;"></div>
-
-                            {# Memory Explorer Section #}
-                            <div class="mt-4 mb-2 glass-panel p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="col-md-4 col-lg-4">
+                                <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-md-end">
+                                    <button type="button" id="spirit-sidebar-chat-btn" class="btn btn-sm btn-cyber">
+                                        <i class="mdi mdi-message-text me-2"></i>{{ 'spirit.sidebar.chat'|trans|default('Chat with Spirit') }}
+                                    </button>
+                                    <button type="button" id="newConversationBtnProfile" class="btn btn-sm btn-outline-primary" title="{{ 'spirit.chat.new_conversation'|trans }}">
+                                        <i class="mdi mdi-message-plus me-2"></i>{{ 'spirit.chat.new_conversation'|trans }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {# Block 2: Main Tabs - full width row #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="glass-panel rounded p-4 px-2 px-sm-4 mb-5">
+            <div id="spirit-container">
+                <div id="spirit-display" class="d-none">
+                    
+                    {# Bootstrap Tabs #}
+                    <ul class="nav nav-tabs cq-tabs mb-3" id="spirit-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active px-3 py-1" id="tab-settings" data-bs-toggle="tab" data-bs-target="#panel-settings" type="button" role="tab">
+                                <i class="mdi mdi-cog me-1"></i>{{ 'spirit.tabs.settings'|trans|default('Settings') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-memory" data-bs-toggle="tab" data-bs-target="#panel-memory" type="button" role="tab">
+                                <i class="mdi mdi-brain me-1"></i>{{ 'spirit.tabs.memory'|trans|default('Memory') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-activity" data-bs-toggle="tab" data-bs-target="#panel-activity" type="button" role="tab">
+                                <i class="mdi mdi-pulse me-1"></i>{{ 'spirit.tabs.activity'|trans|default('Activity') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-conversations" data-bs-toggle="tab" data-bs-target="#panel-conversations" type="button" role="tab">
+                                <i class="mdi mdi-forum me-1"></i>{{ 'spirit.tabs.conversations'|trans|default('Conversations') }}
+                                {% if conversations is defined and conversations|length > 0 %}
+                                    <span class="badge bg-dark bg-opacity-25 ms-1">{{ conversations|length }}</span>
+                                {% endif %}
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content">
+                        {# Memory Tab #}
+                        <div class="tab-pane fade" id="panel-memory" role="tabpanel">
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0">
                                         <i class="mdi mdi-graph text-cyber me-2"></i>{{ 'spirit.memory.title'|trans }}
                                     </h5>
-                                    <a href="{{ path('cq_memory_explorer', {spirit: spiritId}) }}" class="btn btn-sm btn-outline-primary" id="btn-open-memory-explorer">
+                                    <a href="{{ path('cq_memory_explorer', {spirit: spiritId}) }}" class="btn btn-sm btn-outline-primary" id="btn-open-memory-explorer-tab">
                                         <i class="mdi mdi-arrow-expand-all me-1"></i>{{ 'spirit.memory.explore'|trans }}
                                     </a>
-                                </div>
-                                <div class="memory-graph-preview rounded" style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
-                                    <div id="profile-memory-loading" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
-                                        <div class="spinner-border spinner-border-sm text-cyber" role="status">
-                                            <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
-                                        </div>
-                                        <p class="mt-2 small text-secondary">{{ 'spirit.memory.loading_graph'|trans }}</p>
                                     </div>
-                                    <canvas id="profile-memory-canvas" class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                                    <div class="memory-graph-preview rounded" style="height: 250px; background: rgba(10, 10, 15, 0.6); position: relative;">
+                                        <div id="profile-memory-loading" class="position-absolute top-50 start-50 translate-middle text-center" style="z-index: 10;">
+                                            <div class="spinner-border spinner-border-sm text-cyber" role="status">
+                                                <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                                            </div>
+                                            <p class="mt-2 small text-secondary">{{ 'spirit.memory.loading_graph'|trans }}</p>
+                                        </div>
+                                        <canvas id="profile-memory-canvas" class="rounded" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+                                    </div>
+                                    <div class="d-flex justify-content-center align-items-center mt-2">
+                                        <small class="text-secondary">
+                                            <i class="mdi mdi-package-variant text-cyber opacity-25"></i>
+                                            <span id="profile-stats-packs">0</span>x {{ 'spirit.memory.packs'|trans|default('packs') }} &nbsp; · &nbsp;
+                                            <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
+                                            <span id="profile-stats-nodes">0</span>x {{ 'spirit.memory.nodes'|trans }} &nbsp; · &nbsp; 
+                                            <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
+                                            <span id="profile-stats-edges">0</span>x {{ 'spirit.memory.relationships'|trans }}
+                                        </small>
+                                    </div>
                                 </div>
-                                <div class="d-flex justify-content-center align-items-center mt-2">
-                                    <small class="text-secondary">
-                                        <i class="mdi mdi-package-variant text-cyber opacity-25"></i>
-                                        <span id="profile-stats-packs">0</span>x {{ 'spirit.memory.packs'|trans|default('packs') }} &nbsp; · &nbsp;
-                                        <i class="mdi mdi-circle-multiple text-cyber opacity-25"></i>
-                                        <span id="profile-stats-nodes">0</span>x {{ 'spirit.memory.nodes'|trans }} &nbsp; · &nbsp; 
-                                        <i class="mdi mdi-link-variant text-cyber opacity-25"></i>
-                                        <span id="profile-stats-edges">0</span>x {{ 'spirit.memory.relationships'|trans }}
-                                    </small>
-                                </div>
-
+                                
+                                <hr class="border-secondary border-opacity-25">
+                                
                                 {# Memory Type Settings #}
-                                <div class="mt-3 pt-3 border-top border-secondary border-opacity-25">
+                                <div class="mb-3">
                                     <div class="d-flex align-items-center justify-content-between">
                                         <label for="profileMemoryTypeSelect" class="form-label small text-secondary mb-0">
                                             <i class="mdi mdi-memory me-1"></i>{{ 'spirit.memory.type'|trans|default('Spirit Memory Type') }}
@@ -90,7 +145,6 @@
                                         <select class="form-select form-select-sm bg-dark bg-opacity-50 text-light border-secondary" 
                                                 id="profileMemoryTypeSelect" style="width: auto; min-width: 180px;">
                                             <option value="0">🚫 No Memory</option>
-                                            {# <option value="-1">📄 .md File Memory</option> #}
                                             <option value="1">🧠 Reflexes</option>
                                             <option value="2">🤖 Memory Agent</option>
                                         </select>
@@ -118,32 +172,44 @@
                                 </div>
                             </div>
                             
-                        </div>
-                        <div class="col-md-6">
-                            <div class="glass-panel p-3 h-100">
-                                <div class="form-group mb-3">
-                                    <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-robot-outline me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
-                                    <input type="hidden" id="spirit-ai-model" value="{{ spirit.settings.aiModel ?? '' }}">
-                                    <button type="button" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
-                                        <span id="spirit-ai-model-display">
-                                            {% if spirit.settings.aiModel is defined and spirit.settings.aiModel %}
-                                                {% for model in aiModels %}
-                                                    {% if model.id == spirit.settings.aiModel %}
-                                                        {{ model.modelName }}
-                                                    {% endif %}
-                                                {% endfor %}
-                                            {% else %}
-                                                {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
-                                            {% endif %}
-                                        </span>
-                                        <i class="mdi mdi-chevron-down"></i>
-                                    </button>
-                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
+                            {# Settings Tab #}
+                            <div class="tab-pane fade show active" id="panel-settings" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-robot-outline me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
+                                        <input type="hidden" id="spirit-ai-model" value="{{ spirit.settings.aiModel ?? '' }}">
+                                        <button type="button" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
+                                            <span id="spirit-ai-model-display">
+                                                {% if spirit.settings.aiModel is defined and spirit.settings.aiModel %}
+                                                    {% for model in aiModels %}
+                                                        {% if model.id == spirit.settings.aiModel %}
+                                                            {{ model.modelName }}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% else %}
+                                                    {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
+                                                {% endif %}
+                                            </span>
+                                            <i class="mdi mdi-chevron-down"></i>
+                                        </button>
+                                        <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
+                                    </div>
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <label class="form-label d-flex justify-content-between align-items-center" for="spirit-temperature">
+                                            <span><i class="mdi mdi-thermometer me-2 text-cyber"></i>{{ 'spirit.chat.response_temperature'|trans|default('Temperature') }}</span>
+                                            <span id="spirit-temperature-value" class="badge fw-normal bg-secondary bg-opacity-25">{{ spirit.settings.temperature ?? '0.7' }}</span>
+                                        </label>
+                                        <input type="range" class="form-range-input w-100" id="spirit-temperature" min="0" max="1" value="{{ spirit.settings.temperature ?? '0.7' }}" step="0.1">
+                                        <div class="d-flex justify-content-between small text-secondary mt-1 mx-2">
+                                            <span>0 ({{ 'spirit.chat.temperature_precise'|trans|default('Precise') }})</span>
+                                            <span>1 ({{ 'spirit.chat.temperature_creative'|trans|default('Creative') }})</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="form-group mb-1">
                                     <label for="spirit-system-prompt" class="form-label"><i class="mdi mdi-message-text-outline me-2 text-cyber"></i>{{ 'spirit.settings.system_prompt'|trans|default('System Prompt') }}</label>
                                     <div class="position-relative">
-                                        <textarea id="spirit-system-prompt" class="form-control" rows="18"
+                                        <textarea id="spirit-system-prompt" class="form-control" rows="14"
                                             placeholder="{{ 'spirit.settings.system_prompt_placeholder'|trans|default('Define how your Spirit should behave and what knowledge it should have...') }}"
                                             oninput="let saveBtn = document.getElementById('update-spirit-settings'); saveBtn.disabled = false;"></textarea>
                                         <button type="button" id="spirit-system-prompt-add-file"
@@ -163,89 +229,72 @@
                                     <button id="update-spirit-settings" class="btn btn-sm btn-cyber" disabled><i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}</button>
                                 </div>
                             </div>
+                            
+                            {# Activity Tab #}
+                            <div class="tab-pane fade" id="panel-activity" role="tabpanel">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0"><i class="mdi mdi-pulse text-cyber me-2"></i>{{ 'spirit.spirit_detail.interactions'|trans }}</h5>
+                                </div>
+                                <div id="spirit-interactions" class="rounded">
+                                    {% if interactions is defined and interactions|length > 0 %}
+                                        <ul class="list-group list-group-flush bg-dark bg-opacity-25 rounded">
+                                            {% for interaction in interactions %}
+                                                <li class="list-group-item bg-transparent border-secondary border-opacity-25">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <small class="badge bg-success bg-opacity-50">+{{ interaction.experienceGained }} XP</small>
+                                                        </div>
+                                                        <div>
+                                                            <span class="badge bg-secondary bg-opacity-50 me-2">{{ interaction.type }}</span>
+                                                            {% if interaction.context %}
+                                                                <small class="text-muted">{{ interaction.context }}</small>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div class="text-end">
+                                                            <small class="text-muted" style="font-size: xx-small;">{{ interaction.createdAt }}</small>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted small">{{ 'spirit.no_interactions'|trans }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {# Conversations Tab #}
+                            <div class="tab-pane fade" id="panel-conversations" role="tabpanel">
+                                <div id="conversations-list" class="rounded">
+                                    {% if conversations is defined and conversations|length > 0 %}
+                                        <ul class="list-group list-group-flush bg-dark bg-opacity-50 rounded">
+                                            {% for conversation in conversations %}
+                                                <li class="list-group-item bg-transparent border-secondary border-opacity-25 cursor-pointer conversation-item" data-conversation-id="{{ conversation.id }}">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div class="w-100">
+                                                            <i class="mdi mdi-message-outline me-2 text-cyber"></i><strong>{{ conversation.title }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">{{ conversation.messagesCount }} {{ 'spirit.messages'|trans|default('messages') }}</small>
+                                                            <small class="text-muted float-end">{{ conversation.lastInteraction }}</small>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted small">{{ 'spirit.no_conversations'|trans|default('No conversations yet') }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
+                        
                     </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col-md-6 mt-2 pe-1">
-            <div class="glass-panel p-4">
-                <h4 class="">{{ 'spirit.spirit_detail.interactions'|trans }}</h4>
-                <div id="spirit-interactions" class="rounded">
-                    {% if interactions is defined and interactions|length > 0 %}
-                        <ul class="list-group list-group-flush bg-dark bg-opacity-25 rounded">
-                            {% for interaction in interactions %}
-                                <li class="list-group-item bg-transparent border-secondary border-opacity-25">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <small class="badge bg-success bg-opacity-50">+{{ interaction.experienceGained }} XP</small>
-                                        </div>
-                                        <div>
-                                            <span class="badge bg-secondary bg-opacity-50 me-2">{{ interaction.type }}</span>
-                                            {% if interaction.context %}
-                                                <small class="text-muted">{{ interaction.context }}</small>
-                                            {% endif %}
-                                        </div>
-                                        <div class="text-end">
-                                            <small class="text-muted" style="font-size: xx-small;">{{ interaction.createdAt }}</small>
-                                        </div>
-                                    </div>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted small">{{ 'spirit.no_interactions'|trans }}</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 mt-2 ps-1">
-            <div class="glass-panel p-4 pt-3">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <div>
-                        <h4 class="d-inline-block mb-0">
-                            <i class="mdi mdi-forum-outline text-cyber me-2"></i>
-                            {{ 'spirit.spirit_detail.conversations'|trans }}
-                        </h4>
-                        <span class="text-secondary ms-2">({{ conversations|length }})</span>
-                    </div>
-                    <button id="newConversationBtnProfile" class="btn btn-sm btn-cyber mb-2" title="{{ 'spirit.chat.new_conversation'|trans }}">
-                        <i class="mdi mdi-message-plus"></i>
-                    </button>
-                </div>
-
-                <div id="conversations-list" class="rounded">
-                    {% if conversations is defined and conversations|length > 0 %}
-                        <ul class="list-group list-group-flush bg-dark bg-opacity-50 rounded">
-                            {% for conversation in conversations %}
-                                <li class="list-group-item bg-transparent border-secondary border-opacity-25 cursor-pointer conversation-item" data-conversation-id="{{ conversation.id }}">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div class="w-100">
-                                            <i class="mdi mdi-message-outline me-2 text-cyber"></i><strong>{{ conversation.title }}</strong>
-                                            <br>
-                                            <small class="text-muted">{{ conversation.messagesCount }} {{ 'spirit.messages'|trans|default('messages') }}</small>
-                                        {# </div>
-                                        <div class="text-end"> #}
-                                            <small class="text-muted float-end">{{ conversation.lastInteraction }}</small>
-                                        </div>
-                                    </div>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="text-muted small">{{ 'spirit.no_conversations'|trans|default('No conversations yet') }}</p>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-
-    {# All Spirits List #}
+    
+    {# Block 3: Spirits List - full width row, original UX/UI #}
     {% include 'spirits/_spirit_list.html.twig' with { allSpirits: allSpirits, currentSpiritId: spiritId } %}
 </div>
 

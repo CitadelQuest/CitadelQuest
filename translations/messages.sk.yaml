@@ -457,6 +457,18 @@ spirit:
             delete_success: 'Pack úspešne zmazaný'
             delete_error: 'Nepodarilo sa zmazať pack'
 
+    tabs:
+        overview: 'Prehľad'
+        memory: 'Pamäť'
+        settings: 'Nastavenia'
+        activity: 'Aktivita'
+        conversations: 'Konverzácie'
+    sidebar:
+        all_spirits: 'Všetky Spiriti'
+        chat: 'Chatovať so Spiritom'
+    overview:
+        quick_actions: 'Rýchle akcie'
+
 spirits:
     title: 'Spiriti'
     manage: 'Spravovať Spiritov'

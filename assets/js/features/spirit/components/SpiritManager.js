@@ -25,9 +25,19 @@ export class SpiritManager {
         this.experienceDisplay = document.getElementById('spirit-experience');
         this.nextLevelDisplay = document.getElementById('spirit-next-level');
         this.interactionsContainer = document.getElementById('spirit-interactions');
+        this.sidebarInfo = document.getElementById('spirit-sidebar-info');
+        this.overviewName = document.getElementById('spirit-overview-name');
+        this.overviewLevel = document.getElementById('spirit-overview-level');
+        this.overviewExperience = document.getElementById('spirit-overview-experience');
+        this.overviewNextLevel = document.getElementById('spirit-overview-next-level');
+        this.overviewExperienceBar = document.getElementById('spirit-overview-experience-bar');
+        this.overviewExperienceText = document.getElementById('spirit-overview-experience-text');
+        this.overviewNextLevelText = document.getElementById('spirit-overview-next-level-text');
         this.systemPromptInput = document.getElementById('spirit-system-prompt');
         this.aiModelSelect = document.getElementById('spirit-ai-model');
         this.subconsciousnessAgentAiModelSelect = document.getElementById('spirit-subconsciousness-agent-ai-model');
+        this.temperatureInput = document.getElementById('spirit-temperature');
+        this.temperatureValue = document.getElementById('spirit-temperature-value');
         this.updateSettingsBtn = document.getElementById('update-spirit-settings');
         this.conversationsList = document.getElementById('conversations-list');
         
@@ -84,6 +94,40 @@ export class SpiritManager {
         if (spiritAvatar) {
             spiritAvatar.addEventListener('click', () => {
                 this.openSpiritChat();
+            });
+        }
+        
+        // Chat buttons in sidebar and overview tab
+        const sidebarChatBtn = document.getElementById('spirit-sidebar-chat-btn');
+        if (sidebarChatBtn) {
+            sidebarChatBtn.addEventListener('click', () => {
+                this.openSpiritChat();
+            });
+        }
+        const overviewChatBtn = document.getElementById('spirit-overview-chat-btn');
+        if (overviewChatBtn) {
+            overviewChatBtn.addEventListener('click', () => {
+                this.openSpiritChat();
+            });
+        }
+        
+        // Initialize memory graph when the Memory tab becomes visible
+        const memoryTab = document.getElementById('tab-memory');
+        if (memoryTab) {
+            memoryTab.addEventListener('shown.bs.tab', () => {
+                this.initProfileMemoryGraphIfVisible();
+            });
+        }
+        
+        // Live temperature value update and enable save button
+        if (this.temperatureInput) {
+            this.temperatureInput.addEventListener('input', () => {
+                if (this.temperatureValue) {
+                    this.temperatureValue.textContent = this.temperatureInput.value;
+                }
+                if (this.updateSettingsBtn) {
+                    this.updateSettingsBtn.disabled = false;
+                }
             });
         }
     }
@@ -272,6 +316,11 @@ export class SpiritManager {
             loadingElement.classList.add('d-none');
         }
         
+        // Show sidebar info card
+        if (this.sidebarInfo) {
+            this.sidebarInfo.classList.remove('d-none');
+        }
+        
         if (this.spiritDisplay) {
             this.spiritDisplay.classList.remove('d-none');
             this.updateSpiritDisplay();
@@ -288,19 +337,25 @@ export class SpiritManager {
         const progression = this.spirit.progression || {};
         const settings = this.spirit.settings || {};
 
+        // Extract spirit color from settings
+        let visualState = settings.visualState || '{"color":"#95ec86"}';
+        let color = null;
+        try {
+            color = JSON.parse(visualState)?.color || null;
+        } catch (e) {
+            color = '#95ec86';
+        }
+
         // Update Spirit icon color
         const spiritIcon = document.querySelector('#spiritChatAvatar .spirit-detail-icon');
-        if (spiritIcon) {
-            let visualState = settings.visualState || '{"color":"#95ec86"}';
-            let color = null;
-            try {
-                color = JSON.parse(visualState)?.color || null;
-            } catch (e) {
-                color = '#95ec86';
-            }
-            if (color) {
-                spiritIcon.style.color = color;
-            }
+        if (spiritIcon && color) {
+            spiritIcon.style.color = color;
+        }
+
+        // Update overview avatar icon color
+        const overviewIcon = document.querySelector('#spiritOverviewAvatar .spirit-detail-icon');
+        if (overviewIcon && color) {
+            overviewIcon.style.color = color;
         }
 
         // Update basic info
@@ -327,8 +382,32 @@ export class SpiritManager {
             this.nextLevelDisplay.textContent = progression.nextLevelThreshold;
         }
 
-        // Initialize Profile Memory Graph after UI is rendered
-        this.initProfileMemoryGraph();
+        // Update overview tab fields
+        if (this.overviewName) {
+            this.overviewName.textContent = this.spirit.name;
+        }
+        if (this.overviewLevel) {
+            this.overviewLevel.textContent = progression.level;
+        }
+        if (this.overviewExperience) {
+            this.overviewExperience.textContent = progression.experience;
+        }
+        if (this.overviewNextLevel) {
+            this.overviewNextLevel.textContent = progression.nextLevelThreshold;
+        }
+        if (this.overviewExperienceBar && progression.percentage !== undefined) {
+            this.overviewExperienceBar.style.width = `${progression.percentage}%`;
+            this.overviewExperienceBar.setAttribute('aria-valuenow', progression.percentage);
+        }
+        if (this.overviewExperienceText) {
+            this.overviewExperienceText.textContent = progression.experience;
+        }
+        if (this.overviewNextLevelText) {
+            this.overviewNextLevelText.textContent = progression.nextLevelThreshold;
+        }
+
+        // Initialize Profile Memory Graph only when its tab is visible
+        this.initProfileMemoryGraphIfVisible();
 
         // Update system prompt and AI model fields
         if (this.systemPromptInput) {
@@ -351,6 +430,15 @@ export class SpiritManager {
             
             // Update the display button text with model name
             this.updateSubconsciousnessAgentAiModelDisplay(modelId);
+        }
+
+        // Set temperature value
+        if (this.temperatureInput) {
+            const temperature = settings.temperature ?? '0.7';
+            this.temperatureInput.value = temperature;
+            if (this.temperatureValue) {
+                this.temperatureValue.textContent = temperature;
+            }
         }
 
         // Disable save button after loading
@@ -441,6 +529,29 @@ export class SpiritManager {
 
         // Initialize Memory Type select
         this.initProfileMemoryType();
+    }
+
+    /**
+     * Initialize the profile memory graph only when its container is visible
+     */
+    initProfileMemoryGraphIfVisible() {
+        const memoryCanvas = document.getElementById('profile-memory-canvas');
+        if (!memoryCanvas || !this.spirit?.id) {
+            return;
+        }
+
+        const container = memoryCanvas.closest('.memory-graph-preview');
+        if (!container) {
+            return;
+        }
+
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            // Container is hidden; defer until the Memory tab is shown
+            return;
+        }
+
+        this.initProfileMemoryGraph();
     }
 
     /**
@@ -570,27 +681,6 @@ export class SpiritManager {
 
 
     /**
-                    if (item.dataset.id) {
-                        // wait for loading to finish
-                        while (window.spiritChatManager.isLoadingConversations || window.spiritChatManager.isLoadingMessages) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        }
-                        window.spiritChatManager.loadConversation(item.dataset.id);
-                    }
-                }, { once: true });
-
-            });
-            conversationsList.appendChild(item);
-        });
-        
-        this.conversationsList.innerHTML = '';
-        this.conversationsList.appendChild(conversationsList);
-    }
-
-    /**
-     
-    
-    /**
      * Show an error message
      * @param {string} message - The error message to display
      */
@@ -634,6 +724,7 @@ export class SpiritManager {
             const systemPrompt = this.systemPromptInput.value.trim();
             const aiModel = this.aiModelSelect.value;
             const subconsciousnessAgentAiModel = this.subconsciousnessAgentAiModelSelect?.value ?? '';
+            const temperature = this.temperatureInput?.value ?? '0.7';
             
             // Send the update to the server
             const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
@@ -644,7 +735,8 @@ export class SpiritManager {
                 body: JSON.stringify({
                     systemPrompt,
                     aiModel,
-                    subconsciousnessAgentAiModel
+                    subconsciousnessAgentAiModel,
+                    temperature
                 })
             });
             

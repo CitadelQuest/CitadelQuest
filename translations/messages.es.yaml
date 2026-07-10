@@ -463,6 +463,18 @@ spirit:
             delete_success: 'Paquete eliminado exitosamente'
             delete_error: 'Error al eliminar el paquete'
 
+    tabs:
+        overview: 'Overview'
+        memory: 'Memory'
+        settings: 'Settings'
+        activity: 'Activity'
+        conversations: 'Conversations'
+    sidebar:
+        all_spirits: 'All Spirits'
+        chat: 'Chat with Spirit'
+    overview:
+        quick_actions: 'Quick Actions'
+
 spirits:
     title: 'Espíritus'
     manage: 'Gestionar Espíritus'

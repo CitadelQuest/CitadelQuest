@@ -463,6 +463,18 @@ spirit:
             delete_success: 'Pakiet usunięty pomyślnie'
             delete_error: 'Nie udało się usunąć pakietu'
 
+    tabs:
+        overview: 'Overview'
+        memory: 'Memory'
+        settings: 'Settings'
+        activity: 'Activity'
+        conversations: 'Conversations'
+    sidebar:
+        all_spirits: 'All Spirits'
+        chat: 'Chat with Spirit'
+    overview:
+        quick_actions: 'Quick Actions'
+
 spirits:
     title: 'Duchy'
     manage: 'Zarządzaj Duchami'

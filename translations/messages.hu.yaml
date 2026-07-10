@@ -463,6 +463,18 @@ spirit:
             delete_success: 'Csomag sikeresen törölve'
             delete_error: 'Nem sikerült törölni a csomagot'
 
+    tabs:
+        overview: 'Overview'
+        memory: 'Memory'
+        settings: 'Settings'
+        activity: 'Activity'
+        conversations: 'Conversations'
+    sidebar:
+        all_spirits: 'All Spirits'
+        chat: 'Chat with Spirit'
+    overview:
+        quick_actions: 'Quick Actions'
+
 spirits:
     title: 'Szellemek'
     manage: 'Szellemek kezelése'

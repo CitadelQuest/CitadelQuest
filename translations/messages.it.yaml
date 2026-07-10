@@ -463,6 +463,18 @@ spirit:
             delete_success: 'Pacchetto eliminato con successo'
             delete_error: 'Impossibile eliminare il pacchetto'
 
+    tabs:
+        overview: 'Overview'
+        memory: 'Memory'
+        settings: 'Settings'
+        activity: 'Activity'
+        conversations: 'Conversations'
+    sidebar:
+        all_spirits: 'All Spirits'
+        chat: 'Chat with Spirit'
+    overview:
+        quick_actions: 'Quick Actions'
+
 spirits:
     title: 'Spiriti'
     manage: 'Gestisci Spiriti'

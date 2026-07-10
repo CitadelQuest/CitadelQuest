@@ -596,9 +596,11 @@ export class SpiritChatManager {
         // Load secondary AI model info
         await this.loadSecondaryModelInfo();
 
-        // set response temperature
+        // set response temperature from spirit settings (fall back to localStorage/default)
         if (this.responseTemperatureSlider) {
-            this.responseTemperatureSlider.value = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
+            const spiritTemperature = spirit?.settings?.temperature;
+            const defaultTemp = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
+            this.responseTemperatureSlider.value = spiritTemperature ?? defaultTemp;
             localStorage.setItem('config.chat.settings.responseTemperature.value', this.responseTemperatureSlider.value);
 
             this.responseTemperatureValue.textContent = this.responseTemperatureSlider.value;
@@ -611,8 +613,25 @@ export class SpiritChatManager {
     async openChatSettingsModal() {
         if (!this.chatSettingsModal || !this.currentSpiritId) return;
 
+        // Fetch the latest spirit settings so temperature changes on the Spirit page are reflected immediately
+        let currentTemp = '0.7';
+        try {
+            const response = await fetch(`/api/spirit/${this.currentSpiritId}/settings`);
+            if (response.ok) {
+                const settings = await response.json();
+                currentTemp = settings.temperature ?? localStorage.getItem('config.chat.settings.responseTemperature.value') ?? '0.7';
+                if (this.currentSpirit) {
+                    this.currentSpirit.settings = { ...this.currentSpirit.settings, ...settings };
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to refresh spirit settings for chat modal:', error);
+            currentTemp = this.currentSpirit?.settings?.temperature
+                ?? localStorage.getItem('config.chat.settings.responseTemperature.value')
+                ?? '0.7';
+        }
+
         // Sync temperature slider with current value
-        const currentTemp = localStorage.getItem('config.chat.settings.responseTemperature.value') || '0.7';
         if (this.chatSettingsTemperature) {
             this.chatSettingsTemperature.value = currentTemp;
         }
@@ -857,6 +876,17 @@ export class SpiritChatManager {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ includeMemory, memoryType, includeTools, aiToolsDataOptimization })
             });
+
+            // Save temperature to spirit settings
+            await fetch(`/api/spirit/${this.currentSpiritId}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temperature: newTemp })
+            });
+            if (this.currentSpirit) {
+                this.currentSpirit.settings = this.currentSpirit.settings || {};
+                this.currentSpirit.settings.temperature = newTemp;
+            }
 
             // Save per-spirit active tools
             await this.apiService.saveSpiritTools(this.currentSpiritId, activeToolIds);
