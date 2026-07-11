@@ -166,6 +166,35 @@
                                     </a>
                                 </div>
                             </div>
+
+                            <hr class="border-secondary border-opacity-25">
+
+                            <div class="row">
+                                <div class="col-12 col-md-6 mb-3">
+                                    <h6 class="mb-2">
+                                        <i class="mdi mdi-bookshelf me-2 text-cyber"></i>{{ 'spirit.memory.library_packs'|trans|default('Spirit Memory Library Packs') }}
+                                    </h6>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <span class="input-group-text bg-dark border-secondary border-opacity-25 bg-opacity-50"><i class="mdi mdi-magnify text-cyber"></i></span>
+                                        <input type="text" class="form-control bg-dark bg-opacity-50 border-secondary border-opacity-25 text-light" id="spirit-memory-library-packs-filter" placeholder="{{ 'spirit.memory.filter_packs'|trans|default('Filter packs...') }}">
+                                    </div>
+                                    <div id="spirit-memory-library-packs" class="spirit-memory-pack-list list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                        <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6 mb-3">
+                                    <h6 class="mb-2">
+                                        <i class="mdi mdi-package-variant me-2 text-cyber"></i>{{ 'spirit.memory.available_packs'|trans|default('All Available Memory Packs') }}
+                                    </h6>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <span class="input-group-text bg-dark border-secondary border-opacity-25 bg-opacity-50"><i class="mdi mdi-magnify text-cyber"></i></span>
+                                        <input type="text" class="form-control bg-dark bg-opacity-50 border-secondary border-opacity-25 text-light" id="spirit-memory-available-packs-filter" placeholder="{{ 'spirit.memory.filter_packs'|trans|default('Filter packs...') }}">
+                                    </div>
+                                    <div id="spirit-memory-available-packs" class="spirit-memory-pack-list list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                        <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                             
                             {# Settings Tab #}
@@ -347,6 +376,15 @@
     |merge({'ui.copied': 'Copied to clipboard'|trans})
     |merge({'error.copy_failed': 'Failed to copy to clipboard'|trans})
     |merge({'spirit.prompt_builder.no_tools': 'No AI tools available'|trans})
+    |merge({'spirit.memory.library_packs': 'Spirit Memory Library Packs'|trans})
+    |merge({'spirit.memory.available_packs': 'All Available Memory Packs'|trans})
+    |merge({'spirit.memory.add_to_library': 'Add to library'|trans})
+    |merge({'spirit.memory.remove_from_library': 'Remove from library'|trans})
+    |merge({'spirit.memory.no_library_packs': 'No packs in library'|trans})
+    |merge({'spirit.memory.no_available_packs': 'No available packs'|trans})
+    |merge({'error.loading_memory_packs': 'Failed to load memory packs'|trans})
+    |merge({'error.adding_memory_pack': 'Failed to add pack to library'|trans})
+    |merge({'error.removing_memory_pack': 'Failed to remove pack from library'|trans})
     |merge({'ai_tools.settings.saved': 'ai_tools.settings.saved'|trans|default('Settings saved')})
     |merge({'ai_tools.settings.error': 'ai_tools.settings.error'|trans|default('Failed to save settings')})
     |merge({'ai_tools.settings.no_tools': 'ai_tools.settings.no_tools'|trans|default('No AI tools available')})

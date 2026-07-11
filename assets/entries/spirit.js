@@ -35,7 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 systemPromptPreview: '/api/spirit/{id}/system-prompt-preview',
                 systemPromptConfig: '/api/spirit/{id}/system-prompt-config',
                 tools: '/api/spirit/{id}/tools',
-                aiTool: '/api/ai/tool'
+                aiTool: '/api/ai/tool',
+                memoryLibraryPacks: '/spirit/{id}/memory/library-packs',
+                memoryAvailablePacks: '/spirit/{id}/memory/available-packs',
+                memoryAddPack: '/spirit/{id}/memory/library/add-pack',
+                memoryRemovePack: '/spirit/{id}/memory/library/remove-pack'
             }
         });
         

@@ -305,6 +305,13 @@ spirit:
         packs: 'csomagok'
         nodes: 'csomópontok'
         relationships: 'kapcsolatok'
+        library_packs: 'A Szellem memória könyvtárának csomagjai'
+        available_packs: 'Összes elérhető memória csomag'
+        add_to_library: 'Hozzáadás a könyvtárhoz'
+        remove_from_library: 'Eltávolítás a könyvtárból'
+        no_library_packs: 'Nincsenek csomagok a könyvtárban'
+        no_available_packs: 'Nincsenek elérhető csomagok'
+        filter_packs: 'Csomagok szűrése...'
         type: 'Szellem memória típus'
         type_saved: 'Memória típus frissítve'
         type_none: 'Nincs memória'
@@ -652,6 +659,11 @@ dashboard:
         enable_title: 'Értesítések az új CQ Chat üzenetekről'
         enabled: 'Értesítések engedélyezve!'
         denied: 'Értesítési engedély megtagadva. A böngésző beállításaiban engedélyezheted.'
+
+error:
+    loading_memory_packs: 'Nem sikerült betölteni a memória csomagokat'
+    adding_memory_pack: 'Nem sikerült hozzáadni a csomagot a könyvtárhoz'
+    removing_memory_pack: 'Nem sikerült eltávolítani a csomagot a könyvtárból'
 
 cq_memory:
     page_title: 'CQ Memória'

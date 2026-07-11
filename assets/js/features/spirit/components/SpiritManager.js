@@ -47,6 +47,13 @@ export class SpiritManager {
         this.aiToolsData = []; // cached AI tools with active state
         this.currentToolId = null;
 
+        // Memory pack lists
+        this.memoryLibraryPacksList = document.getElementById('spirit-memory-library-packs');
+        this.memoryAvailablePacksList = document.getElementById('spirit-memory-available-packs');
+        this.memoryLibraryPacksFilter = document.getElementById('spirit-memory-library-packs-filter');
+        this.memoryAvailablePacksFilter = document.getElementById('spirit-memory-available-packs-filter');
+        this.memoryPacksLoaded = false;
+
         // Tool settings modal refs
         this.toolSettingsModal = document.getElementById('spiritToolSettingsModal');
         this.toolSettingsModalTitle = document.getElementById('spiritToolSettingsModalTitle');
@@ -147,12 +154,25 @@ export class SpiritManager {
             });
         }
         
-        // Initialize memory graph/stats and memory type when the Memory tab becomes visible
+        // Initialize memory graph/stats, memory type and pack lists when the Memory tab becomes visible
         const memoryTab = document.getElementById('tab-memory');
         if (memoryTab) {
             memoryTab.addEventListener('shown.bs.tab', () => {
                 this.initProfileMemoryType();
                 this.initProfileMemoryGraphIfVisible();
+                this.loadMemoryPacks();
+            });
+        }
+
+        // Memory pack list filters
+        if (this.memoryLibraryPacksFilter) {
+            this.memoryLibraryPacksFilter.addEventListener('input', () => {
+                this.filterMemoryPacks(this.memoryLibraryPacksFilter.value, this.memoryLibraryPacksList);
+            });
+        }
+        if (this.memoryAvailablePacksFilter) {
+            this.memoryAvailablePacksFilter.addEventListener('input', () => {
+                this.filterMemoryPacks(this.memoryAvailablePacksFilter.value, this.memoryAvailablePacksList);
             });
         }
 
@@ -684,7 +704,257 @@ export class SpiritManager {
 
         infoEl.innerHTML = descriptions[String(memoryType)] || '';
     }
-    
+
+    /**
+     * Load both library packs and available packs for the Memory tab
+     */
+    async loadMemoryPacks() {
+        if (!this.spirit?.id || this.memoryPacksLoaded) return;
+
+        await Promise.all([
+            this.loadLibraryPacks(),
+            this.loadAvailablePacks()
+        ]);
+
+        this.memoryPacksLoaded = true;
+    }
+
+    /**
+     * Load packs currently in the Spirit's memory library
+     */
+    async loadLibraryPacks() {
+        if (!this.memoryLibraryPacksList || !this.spirit?.id) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.memoryLibraryPacks.replace('{id}', this.spirit.id));
+            if (!response.ok) throw new Error('Failed to load library packs');
+
+            const data = await response.json();
+            this.renderLibraryPacks(data.packs || []);
+        } catch (error) {
+            console.error('Error loading library packs:', error);
+            this.memoryLibraryPacksList.innerHTML = `
+                <div class="text-secondary small p-3">
+                    <i class="mdi mdi-alert-circle-outline me-1"></i>${this.translate('error.loading_memory_packs', 'Failed to load memory packs')}
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Load all available memory packs across the project
+     */
+    async loadAvailablePacks() {
+        if (!this.memoryAvailablePacksList || !this.spirit?.id) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.memoryAvailablePacks.replace('{id}', this.spirit.id));
+            if (!response.ok) throw new Error('Failed to load available packs');
+
+            const data = await response.json();
+            this.renderAvailablePacks(data.packs || []);
+        } catch (error) {
+            console.error('Error loading available packs:', error);
+            this.memoryAvailablePacksList.innerHTML = `
+                <div class="text-secondary small p-3">
+                    <i class="mdi mdi-alert-circle-outline me-1"></i>${this.translate('error.loading_memory_packs', 'Failed to load memory packs')}
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Render the Spirit memory library pack list
+     */
+    renderLibraryPacks(packs) {
+        if (!this.memoryLibraryPacksList) return;
+
+        if (packs.length === 0) {
+            this.memoryLibraryPacksList.innerHTML = `
+                <div class="text-secondary small p-3">
+                    ${this.translate('spirit.memory.no_library_packs', 'No packs in library')}
+                </div>
+            `;
+            return;
+        }
+
+        this.memoryLibraryPacksList.innerHTML = packs.map(pack => {
+            const packRelPath = pack.path || '';
+            const fileName = packRelPath.split('/').pop() || '';
+            const displayName = pack.name || pack.displayName || fileName.replace(/\.[^.]+$/, '');
+            const nodes = pack.nodes ?? pack.totalNodes ?? 0;
+            const relationships = pack.relationships ?? pack.totalRelationships ?? 0;
+
+            return `
+                <div class="list-group-item bg-dark bg-opacity-25 text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+                    <div class="me-2 overflow-hidden">
+                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}</div>
+                        <div class="text-secondary small">
+                            <i class="mdi mdi-circle-multiple me-1 text-cyber opacity-50"></i>${nodes}x ${this.translate('spirit.memory.nodes', 'nodes')}
+                            <i class="mdi mdi-link-variant ms-2 me-1 text-cyber opacity-50"></i>${relationships}x ${this.translate('spirit.memory.relationships', 'relationships')}
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-warning border-0" title="${this.translate('spirit.memory.remove_from_library', 'Remove from library')}"
+                            data-pack-path="${this.escapeHtml(packRelPath)}">
+                        <i class="mdi mdi-book-remove-outline"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        this.memoryLibraryPacksList.querySelectorAll('button[data-pack-path]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const packRelPath = btn.dataset.packPath;
+                if (packRelPath) this.removePackFromLibrary(packRelPath);
+            });
+        });
+
+        if (this.memoryLibraryPacksFilter) {
+            this.filterMemoryPacks(this.memoryLibraryPacksFilter.value, this.memoryLibraryPacksList);
+        }
+    }
+
+    /**
+     * Render the available memory pack list
+     */
+    renderAvailablePacks(packs) {
+        if (!this.memoryAvailablePacksList) return;
+
+        if (packs.length === 0) {
+            this.memoryAvailablePacksList.innerHTML = `
+                <div class="text-secondary small p-3">
+                    ${this.translate('spirit.memory.no_available_packs', 'No available packs')}
+                </div>
+            `;
+            return;
+        }
+
+        this.memoryAvailablePacksList.innerHTML = packs.map(pack => {
+            const packPath = pack.path || '';
+            const packName = pack.name || '';
+            const displayName = pack.displayName || packName.replace('.' + (pack.name?.split('.').pop() || ''), '') || packName;
+            const nodes = pack.totalNodes ?? 0;
+            const relationships = pack.totalRelationships ?? 0;
+            const inLibrary = pack.inLibrary;
+
+            return `
+                <div class="list-group-item bg-dark bg-opacity-25 text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center ${inLibrary ? 'opacity-75' : ''}">
+                    <div class="me-2 overflow-hidden">
+                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}</div>
+                        <div class="text-secondary small">
+                            <i class="mdi mdi-circle-multiple me-1 text-cyber opacity-50"></i>${nodes}x ${this.translate('spirit.memory.nodes', 'nodes')}
+                            <i class="mdi mdi-link-variant ms-2 me-1 text-cyber opacity-50"></i>${relationships}x ${this.translate('spirit.memory.relationships', 'relationships')}
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm ${inLibrary ? 'btn-outline-secondary' : 'btn-outline-success'} border-0" title="${this.translate('spirit.memory.add_to_library', 'Add to library')}"
+                            data-pack-path="${this.escapeHtml(packPath)}" data-pack-name="${this.escapeHtml(packName)}" ${inLibrary ? 'disabled' : ''}>
+                        <i class="mdi ${inLibrary ? 'mdi-check' : 'mdi-book-plus-outline'}"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        this.memoryAvailablePacksList.querySelectorAll('button[data-pack-path]:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const packPath = btn.dataset.packPath;
+                const packName = btn.dataset.packName;
+                if (packPath && packName) this.addPackToLibrary(packPath, packName);
+            });
+        });
+
+        if (this.memoryAvailablePacksFilter) {
+            this.filterMemoryPacks(this.memoryAvailablePacksFilter.value, this.memoryAvailablePacksList);
+        }
+    }
+
+    /**
+     * Add a pack to the Spirit's memory library
+     */
+    async addPackToLibrary(packPath, packName) {
+        if (!this.spirit?.id || !packPath || !packName) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.memoryAddPack.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packPath, packName })
+            });
+
+            if (!response.ok) throw new Error('Failed to add pack');
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.memory.add_to_library', 'Pack added to library'));
+            }
+
+            // Refresh both lists
+            this.memoryPacksLoaded = false;
+            await this.loadMemoryPacks();
+            // Also refresh the memory stats at the top
+            this.initProfileMemoryGraph();
+        } catch (error) {
+            console.error('Error adding pack to library:', error);
+            if (window.toast) {
+                window.toast.error(this.translate('error.adding_memory_pack', 'Failed to add pack to library'));
+            }
+        }
+    }
+
+    /**
+     * Remove a pack from the Spirit's memory library
+     */
+    async removePackFromLibrary(packRelPath) {
+        if (!this.spirit?.id || !packRelPath) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.memoryRemovePack.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packPath: packRelPath })
+            });
+
+            if (!response.ok) throw new Error('Failed to remove pack');
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.memory.remove_from_library', 'Pack removed from library'));
+            }
+
+            // Refresh both lists
+            this.memoryPacksLoaded = false;
+            await this.loadMemoryPacks();
+            // Also refresh the memory stats at the top
+            this.initProfileMemoryGraph();
+        } catch (error) {
+            console.error('Error removing pack from library:', error);
+            if (window.toast) {
+                window.toast.error(this.translate('error.removing_memory_pack', 'Failed to remove pack from library'));
+            }
+        }
+    }
+
+    /**
+     * Filter a memory pack list by display name (case-insensitive)
+     */
+    filterMemoryPacks(query, listElement) {
+        if (!listElement) return;
+
+        const term = (query || '').toLowerCase().trim();
+        listElement.querySelectorAll('.list-group-item').forEach(item => {
+            const nameEl = item.querySelector('.fw-medium');
+            const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+            item.classList.toggle('d-none', term && !name.includes(term));
+        });
+    }
+
+    /**
+     * Escape HTML special characters to prevent XSS
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     /**
      * Initialize the spirit visualization using Three.js
      */

@@ -305,6 +305,13 @@ spirit:
         packs: 'pakiety'
         nodes: 'węzły'
         relationships: 'relacje'
+        library_packs: 'Pakiety pamięci Ducha w bibliotece'
+        available_packs: 'Wszystkie dostępne pakiety pamięci'
+        add_to_library: 'Dodaj do biblioteki'
+        remove_from_library: 'Usuń z biblioteki'
+        no_library_packs: 'Brak pakietów w bibliotece'
+        no_available_packs: 'Brak dostępnych pakietów'
+        filter_packs: 'Filtruj pakiety...'
         type: 'Typ pamięci Ducha'
         type_saved: 'Typ pamięci zaktualizowany'
         type_none: 'Bez pamięci'
@@ -652,6 +659,11 @@ dashboard:
         enable_title: 'Otrzymuj powiadomienia o nowych wiadomościach CQ Chat'
         enabled: 'Powiadomienia włączone!'
         denied: 'Uprawnienie do powiadomień odrzucone. Możesz je włączyć w ustawieniach przeglądarki.'
+
+error:
+    loading_memory_packs: 'Nie udało się załadować pakietów pamięci'
+    adding_memory_pack: 'Nie udało się dodać pakietu do biblioteki'
+    removing_memory_pack: 'Nie udało się usunąć pakietu z biblioteki'
 
 cq_memory:
     page_title: 'CQ Pamięć'

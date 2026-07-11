@@ -307,6 +307,13 @@ spirit:
         packs: 'packs'
         nodes: 'nodes'
         relationships: 'relationships'
+        library_packs: 'Spirit Memory Library Packs'
+        available_packs: 'All Available Memory Packs'
+        add_to_library: 'Add to library'
+        remove_from_library: 'Remove from library'
+        no_library_packs: 'No packs in library'
+        no_available_packs: 'No available packs'
+        filter_packs: 'Filter packs...'
         type: 'Spirit Memory Type'
         type_saved: 'Memory type updated'
         type_none: 'No Memory'
@@ -654,6 +661,11 @@ dashboard:
         enable_title: 'Get notified about new CQ Chat messages'
         enabled: 'Notifications enabled!'
         denied: 'Notification permission denied. You can enable them in your browser settings.'
+
+error:
+    loading_memory_packs: 'Failed to load memory packs'
+    adding_memory_pack: 'Failed to add pack to library'
+    removing_memory_pack: 'Failed to remove pack from library'
 
 cq_memory:
     page_title: 'CQ Memory'

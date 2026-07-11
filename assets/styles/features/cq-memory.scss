@@ -744,3 +744,21 @@ $panel-min-height: 500px;
         color: colors.$text-light;
     }
 }
+
+// Spirit profile memory pack lists
+.spirit-memory-pack-list {
+    max-height: 50vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    @include mix.cyber-scrollbar;
+
+    .list-group-item {
+        background-color: rgba(colors.$dark, 0.5);
+        border-color: rgba(colors.$cyber, 0.1);
+        transition: background-color 0.15s ease;
+
+        &:hover {
+            background-color: rgba(colors.$cyber, 0.1);
+        }
+    }
+}

@@ -299,6 +299,13 @@ spirit:
         packs: 'balíčky'
         nodes: 'uzly'
         relationships: 'vzťahy'
+        library_packs: 'Pamäťové balíčky Spirita v knižnici'
+        available_packs: 'Všetky dostupné pamäťové balíčky'
+        add_to_library: 'Pridať do knižnice'
+        remove_from_library: 'Odstrániť z knižnice'
+        no_library_packs: 'V knižnici nie sú žiadne balíčky'
+        no_available_packs: 'Nie sú dostupné žiadne balíčky'
+        filter_packs: 'Filtrovať balíčky...'
         type: 'Typ Pamäte Spirita'
         type_saved: 'Typ pamäte aktualizovaný'
         type_none: 'Bez pamäte'
@@ -646,6 +653,11 @@ dashboard:
         enable_title: 'Dostávajte upozornenia na nové CQ Chat správy'
         enabled: 'Notifikácie povolené!'
         denied: 'Notifikácie zamietnuté. Môžete ich povoliť v nastaveniach prehliadača.'
+
+error:
+    loading_memory_packs: 'Nepodarilo sa načítať pamäťové balíčky'
+    adding_memory_pack: 'Nepodarilo sa pridať balíček do knižnice'
+    removing_memory_pack: 'Nepodarilo sa odstrániť balíček z knižnice'
 
 cq_memory:
     page_title: 'CQ Pamäť'
