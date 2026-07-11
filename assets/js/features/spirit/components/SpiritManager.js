@@ -147,11 +147,20 @@ export class SpiritManager {
             });
         }
         
-        // Initialize memory graph when the Memory tab becomes visible
+        // Initialize memory graph/stats and memory type when the Memory tab becomes visible
         const memoryTab = document.getElementById('tab-memory');
         if (memoryTab) {
             memoryTab.addEventListener('shown.bs.tab', () => {
+                this.initProfileMemoryType();
                 this.initProfileMemoryGraphIfVisible();
+            });
+        }
+
+        // Persist active tab to localStorage whenever the user switches tabs
+        const spiritTabs = document.getElementById('spirit-tabs');
+        if (spiritTabs) {
+            spiritTabs.addEventListener('shown.bs.tab', (e) => {
+                localStorage.setItem('spirit-last-active-tab', e.target.id);
             });
         }
         
@@ -381,6 +390,24 @@ export class SpiritManager {
             this.updateSpiritDisplay();
             //this.initSpiritVisualization();
         }
+
+        // Restore last active tab after async content is rendered
+        this.restoreActiveTab();
+    }
+
+    /**
+     * Restore the last active spirit tab from localStorage
+     */
+    restoreActiveTab() {
+        const lastTabId = localStorage.getItem('spirit-last-active-tab');
+        if (!lastTabId) return;
+
+        const tabTrigger = document.getElementById(lastTabId);
+        if (!tabTrigger) return;
+
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(tabTrigger).show();
+        }
     }
     
     /**
@@ -565,44 +592,28 @@ export class SpiritManager {
     }
 
     /**
-     * Initialize the profile memory graph visualization
+     * Initialize or refresh the profile memory stats/graph loader
      */
     initProfileMemoryGraph() {
-        // Only initialize once
+        if (!this.spirit?.id) {
+            return;
+        }
+
         if (this.profileMemoryGraph) {
+            // Already initialized; just refresh stats
+            this.profileMemoryGraph.refresh();
             return;
         }
 
-        // Check if memory canvas exists
-        const memoryCanvas = document.getElementById('profile-memory-canvas');
-        if (!memoryCanvas || !this.spirit?.id) {
-            return;
-        }
-
-        // Initialize the memory graph
+        // Initialize the memory graph/stats loader
         this.profileMemoryGraph = new ProfileMemoryGraph(this.spirit.id);
-
-        // Initialize Memory Type select
-        this.initProfileMemoryType();
     }
 
     /**
-     * Initialize the profile memory graph only when its container is visible
+     * Initialize the profile memory graph when the Memory tab is visible
      */
     initProfileMemoryGraphIfVisible() {
-        const memoryCanvas = document.getElementById('profile-memory-canvas');
-        if (!memoryCanvas || !this.spirit?.id) {
-            return;
-        }
-
-        const container = memoryCanvas.closest('.memory-graph-preview');
-        if (!container) {
-            return;
-        }
-
-        const rect = container.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) {
-            // Container is hidden; defer until the Memory tab is shown
+        if (!this.spirit?.id) {
             return;
         }
 

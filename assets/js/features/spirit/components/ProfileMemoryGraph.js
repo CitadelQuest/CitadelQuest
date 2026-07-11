@@ -10,16 +10,19 @@ export class ProfileMemoryGraph {
         this.graphView = null;
         this.graphData = null;
         this.container = document.querySelector('.memory-graph-preview');
-        
+
+        // Always load stats; only initialize the 3D graph if the container/canvas exist
+        this.loadGraphData();
+
         if (!this.container) {
             console.warn('Profile memory graph container not found');
             return;
         }
 
-        this.init();
+        this.initGraph();
     }
 
-    async init() {
+    async initGraph() {
         const canvas = document.getElementById('profile-memory-canvas');
         if (!canvas) {
             console.error('Profile memory canvas not found');
@@ -45,9 +48,6 @@ export class ProfileMemoryGraph {
 
         // Disable node selection (profile is read-only preview)
         this.graphView.setOnNodeSelect(null);
-        
-        // Load graph data
-        await this.loadGraphData();
 
         // Auto-rotate for visual interest
         this.startAutoRotate();
@@ -55,7 +55,7 @@ export class ProfileMemoryGraph {
 
     async loadGraphData() {
         const loadingEl = document.getElementById('profile-memory-loading');
-        
+
         try {
             // Load merged graph from all packs in Spirit's library
             const response = await fetch(`/spirit/${this.spiritId}/memory/library-graph`);
@@ -71,19 +71,21 @@ export class ProfileMemoryGraph {
                 packs: data.packs || {}
             };
 
-            // Update stats
+            // Update stats (always, even when graph is hidden)
             this.updateStats();
 
-            // Load into graph view
-            this.graphView.loadGraph(this.graphData);
+            // Load into graph view only if it was initialized
+            if (this.graphView) {
+                this.graphView.loadGraph(this.graphData);
 
-            // Hide loading
-            if (loadingEl) {
-                loadingEl.classList.add('d-none');
+                // Hide loading
+                if (loadingEl) {
+                    loadingEl.classList.add('d-none');
+                }
+
+                // Start gentle rotation
+                this.graphView.resetView();
             }
-
-            // Start gentle rotation
-            this.graphView.resetView();
 
         } catch (error) {
             console.error('Failed to load profile memory graph:', error);
@@ -113,6 +115,10 @@ export class ProfileMemoryGraph {
             const packCount = this.graphData.stats?.packCount || Object.keys(this.graphData.packs || {}).length || 0;
             packsEl.textContent = packCount;
         }
+    }
+
+    refresh() {
+        this.loadGraphData();
     }
 
     startAutoRotate() {
