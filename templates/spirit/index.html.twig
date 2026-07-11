@@ -455,6 +455,8 @@
     |merge({'spirit.skills.saved': 'spirit.skills.saved'|trans|default('Skill saved')})
     |merge({'spirit.skills.deleted': 'spirit.skills.deleted'|trans|default('Skill deleted')})
     |merge({'spirit.skills.name_required': 'spirit.skills.name_required'|trans|default('Skill name is required')})
+    |merge({'spirit.skills.start_with_template': 'spirit.skills.start_with_template'|trans|default('Start with template')})
+    |merge({'spirit.skills.template': 'spirit.skills.template'|trans|default('')})
     |merge({'error.loading_skills': 'error.loading_skills'|trans|default('Failed to load skills')})
     |merge({'error.saving_skill': 'error.saving_skill'|trans|default('Failed to save skill')})
     |merge({'error.deleting_skill': 'error.deleting_skill'|trans|default('Failed to delete skill')})
@@ -514,9 +516,14 @@
                     <div class="form-text text-muted">{{ 'spirit.skills.name_hint'|trans|default('A .md file will be created from this name.') }}</div>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label" for="spirit-skill-content">
-                        <i class="mdi mdi-text me-1 text-cyber"></i>{{ 'spirit.skills.content'|trans|default('Content (Markdown)') }}
-                    </label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label mb-0" for="spirit-skill-content">
+                            <i class="mdi mdi-text me-1 text-cyber"></i>{{ 'spirit.skills.content'|trans|default('Content (Markdown)') }}
+                        </label>
+                        <button type="button" class="btn btn-xs btn-outline-cyber border-0 py-0 px-2" id="spirit-skill-template-btn">
+                            <i class="mdi mdi-file-document-edit-outline me-1"></i>{{ 'spirit.skills.start_with_template'|trans|default('Start with template') }}
+                        </button>
+                    </div>
                     <textarea class="form-control bg-dark bg-opacity-50 text-light border-secondary font-monospace" id="spirit-skill-content" rows="16"
                         placeholder="{{ 'spirit.skills.content_placeholder'|trans|default('# Skill notes\nTips, tricks, verified commands...') }}"></textarea>
                 </div>

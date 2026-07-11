@@ -64,6 +64,7 @@ export class SpiritManager {
         this.skillNameGroup = document.getElementById('spirit-skill-name-group');
         this.skillNameInput = document.getElementById('spirit-skill-name');
         this.skillContentInput = document.getElementById('spirit-skill-content');
+        this.skillTemplateBtn = document.getElementById('spirit-skill-template-btn');
         this.skillSaveBtn = document.getElementById('spirit-skill-save-btn');
         this.skillsLoaded = false;
 
@@ -247,6 +248,13 @@ export class SpiritManager {
         if (this.skillSaveBtn) {
             this.skillSaveBtn.addEventListener('click', () => {
                 this.saveSkill();
+            });
+        }
+
+        // Start with template button
+        if (this.skillTemplateBtn) {
+            this.skillTemplateBtn.addEventListener('click', () => {
+                this.fillSkillTemplate();
             });
         }
     }
@@ -1258,7 +1266,25 @@ export class SpiritManager {
         if (this.skillModalTitle) {
             this.skillModalTitle.innerHTML = `<i class="mdi mdi-lightbulb-on-outline me-2"></i>${this.translate('spirit.skills.new', 'New Skill')}`;
         }
+        if (this.skillTemplateBtn) this.skillTemplateBtn.classList.remove('d-none');
         new bootstrap.Modal(this.skillModal).show();
+    }
+
+    /**
+     * Fill the skill content textarea with the default template,
+     * replacing {AppName} with the current skill name if available.
+     */
+    fillSkillTemplate() {
+        if (!this.skillContentInput) return;
+
+        let template = this.translate('spirit.skills.template', '');
+        if (!template) {
+            template = "# {AppName} Notes\nTips, tricks, and verified know-how for {AppName}.\n\n## About this skill\nThis is a persistent context document. It is automatically included in my system prompt every time we talk, so I can build and reuse verified knowledge across conversations.\n\n## How to update this skill\n- Use the `fileManage` AI tool to read the current content first.\n- Use the `fileUpdate` AI tool to append new discoveries or replace outdated sections.\n- Mark critical warnings with `⚠️ CRITICAL`.\n- Keep commands copy-paste ready.\n\n## When to update\n- ✅ You share a useful command, parameter, or workflow.\n- ✅ We discover a gotcha or quirk that should be remembered.\n- ✅ A pattern is used repeatedly and is worth documenting.\n- ✅ You explicitly ask me to save something.\n\n## When NOT to update\n- ❌ One-off experiments that will not be repeated.\n- ❌ Speculation that has not been verified.\n- ❌ Temporary task state — that belongs in the chat, not here.\n\n## Starter sections\n\n### Local system\nImportant paths, config files, and environment details.\n\n### Tips & tricks\nUseful shortcuts, workarounds, and non-obvious features.\n\n### Critical rules / gotchas\n⚠️ CRITICAL: things that are easy to get wrong and break.\n\n### Verified commands / recipes\nCommands that have been tested and are copy-paste ready.\n\n### Conventions\nNaming, formatting, or style rules specific to this project.\n\n---\n💡 Best practices: keep it concise, verify before saving, and update as we learn.";
+        }
+
+        const rawName = this.skillNameInput ? this.skillNameInput.value.trim() : '';
+        const appName = rawName || 'AppName';
+        this.skillContentInput.value = template.replace(/\{AppName\}/g, appName);
     }
 
     /**
@@ -1270,6 +1296,7 @@ export class SpiritManager {
         if (this.skillFileIdInput) this.skillFileIdInput.value = fileId;
         if (this.skillNameGroup) this.skillNameGroup.classList.add('d-none');
         if (this.skillContentInput) this.skillContentInput.value = '';
+        if (this.skillTemplateBtn) this.skillTemplateBtn.classList.add('d-none');
         if (this.skillModalTitle) {
             this.skillModalTitle.innerHTML = `<i class="mdi mdi-pencil me-2"></i>${this.translate('spirit.skills.edit', 'Edit Skill')}: ${this.escapeHtml(displayName || '')}`;
         }
