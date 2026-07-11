@@ -273,7 +273,6 @@ spirit:
         extract_memory_started: 'Ekstrakcja pamięci rozpoczęta!'
         conversation_closed: 'Konwersacja zamknięta — pamięć wyodrębniona'
         settings: 'Ustawienia czatu'
-        ai_tools: 'Narzędzia AI'
         temperature_precise: 'Precyzyjne'
         temperature_creative: 'Kreatywne'
     prompt_builder:
@@ -469,6 +468,7 @@ spirit:
         settings: 'Settings'
         activity: 'Activity'
         conversations: 'Conversations'
+        ai_tools: 'Narzędzia AI'
     sidebar:
         all_spirits: 'All Spirits'
         chat: 'Chat with Spirit'

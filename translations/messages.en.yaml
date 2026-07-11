@@ -273,7 +273,6 @@ spirit:
         extract_memory_started: 'Memory extraction started!'
         conversation_closed: 'Conversation closed — memory extracted'
         settings: 'Chat Settings'
-        ai_tools: 'AI Tools'
         ai_tools_data_optimization: 'AI Tools Data Optimization'
         ai_tools_data_optimization_info: 'Replaces outdated tool call data from previous turns with a placeholder before sending to AI. Keeps tool-call structure intact. Reduces tokens & context noise when Spirit re-reads/updates files.'
         temperature_precise: 'Precise'
@@ -471,6 +470,7 @@ spirit:
         settings: 'Settings'
         activity: 'Activity'
         conversations: 'Conversations'
+        ai_tools: 'AI Tools'
     sidebar:
         all_spirits: 'All Spirits'
         chat: 'Chat with Spirit'

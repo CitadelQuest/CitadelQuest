@@ -31,7 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactions: '/api/spirit/interactions',
                 settings: '/api/spirit/{id}/settings',
                 updateSettings: '/api/spirit/{id}/settings',
-                conversations: '/api/spirit-conversation/list/{id}'
+                conversations: '/api/spirit-conversation/list/{id}',
+                systemPromptPreview: '/api/spirit/{id}/system-prompt-preview',
+                systemPromptConfig: '/api/spirit/{id}/system-prompt-config',
+                tools: '/api/spirit/{id}/tools',
+                aiTool: '/api/ai/tool'
             }
         });
         

@@ -82,6 +82,11 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-ai-tools" data-bs-toggle="tab" data-bs-target="#panel-ai-tools" type="button" role="tab">
+                                <i class="mdi mdi-tools me-1"></i>{{ 'spirit.tabs.ai_tools'|trans|default('AI Tools') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link px-3 py-1" id="tab-memory" data-bs-toggle="tab" data-bs-target="#panel-memory" type="button" role="tab">
                                 <i class="mdi mdi-brain me-1"></i>{{ 'spirit.tabs.memory'|trans|default('Memory') }}
                             </button>
@@ -230,6 +235,41 @@
                                 </div>
                             </div>
                             
+                            {# AI Tools Tab #}
+                            <div class="tab-pane fade" id="panel-ai-tools" role="tabpanel">
+                                <div class="row">
+                                    <div class="col-12 col-md-8 mb-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <label for="spirit-include-ai-tools" class="form-label mb-0">
+                                                <i class="mdi mdi-tools text-cyber me-1"></i> {{ 'spirit.tabs.ai_tools'|trans|default('AI Tools') }}
+                                            </label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" role="switch" id="spirit-include-ai-tools" checked>
+                                            </div>
+                                        </div>
+                                        <div id="spirit-ai-tools-list" class="d-flex flex-column gap-1">
+                                            <div class="text-center p-3">
+                                                <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-4 mb-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <label for="spirit-ai-tools-data-optimization" class="form-label mb-0">
+                                                <i class="mdi mdi-broom text-cyber me-1"></i> {{ 'spirit.chat.ai_tools_data_optimization'|trans|default('AI Tools Data Optimization') }}
+                                            </label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" role="switch" id="spirit-ai-tools-data-optimization">
+                                            </div>
+                                        </div>
+                                        <div class="small">
+                                            <i class="mdi mdi-information-outline me-1"></i>
+                                            {{ 'spirit.chat.ai_tools_data_optimization_info'|trans|default('Replaces outdated tool call data from previous turns with a placeholder before sending to AI. Keeps tool-call structure intact. Reduces tokens & context noise when Spirit re-reads/updates files.') }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             {# Activity Tab #}
                             <div class="tab-pane fade" id="panel-activity" role="tabpanel">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -305,13 +345,35 @@
     |merge({'error.interaction_failed': 'Failed to interact with spirit'|trans})
     |merge({'error.loading_interactions': 'Failed to load interactions'|trans})
     |merge({'spirit.prompt_builder.saved': 'Configuration saved successfully'|trans})
+    |merge({'spirit.temperature_saved': 'Temperature saved'|trans})
+    |merge({'error.saving_temperature': 'Failed to save temperature'|trans})
     |merge({'error.loading_prompt': 'Failed to load prompt data'|trans})
     |merge({'error.saving_config': 'Failed to save configuration'|trans})
     |merge({'ui.saving': 'Saving...'|trans})
     |merge({'ui.save': 'Save'|trans})
+    |merge({'ui.cancel': 'ui.cancel'|trans|default('Cancel')})
+    |merge({'ui.close': 'ui.close'|trans|default('Close')})
     |merge({'ui.copied': 'Copied to clipboard'|trans})
     |merge({'error.copy_failed': 'Failed to copy to clipboard'|trans})
     |merge({'spirit.prompt_builder.no_tools': 'No AI tools available'|trans})
+    |merge({'ai_tools.settings.saved': 'ai_tools.settings.saved'|trans|default('Settings saved')})
+    |merge({'ai_tools.settings.error': 'ai_tools.settings.error'|trans|default('Failed to save settings')})
+    |merge({'ai_tools.settings.no_tools': 'ai_tools.settings.no_tools'|trans|default('No AI tools available')})
+    |merge({'ai_tools.settings.tool_settings': 'ai_tools.settings.tool_settings'|trans|default('Tool Settings')})
+    |merge({'ai_tools.settings.no_settings': 'ai_tools.settings.no_settings'|trans|default('No configurable settings for this tool')})
+    |merge({'ai_tools.settings.parameters': 'ai_tools.settings.parameters'|trans|default('Parameters')})
+    |merge({'ai_tools.settings.required': 'ai_tools.settings.required'|trans|default('required')})
+    |merge({'ai_tools.settings.select_model': 'ai_tools.settings.select_model'|trans|default('Select Model')})
+    |merge({'ai_tools.settings.default_model': 'ai_tools.settings.default_model'|trans|default('Default (auto)')})
+    |merge({'ai_tools.category.file': 'ai_tools.category.file'|trans|default('File Management')})
+    |merge({'ai_tools.category.web': 'ai_tools.category.web'|trans|default('Web Tools')})
+    |merge({'ai_tools.category.image': 'ai_tools.category.image'|trans|default('Image Generation')})
+    |merge({'ai_tools.category.memory': 'ai_tools.category.memory'|trans|default('Memory')})
+    |merge({'ai_tools.category.profile': 'ai_tools.category.profile'|trans|default('Profile')})
+    |merge({'ai_tools.category.development': 'ai_tools.category.development'|trans|default('Development')})
+    |merge({'ai_tools.category.spirit': 'ai_tools.category.spirit'|trans|default('Spirit')})
+    |merge({'ai_tools.category.utility': 'ai_tools.category.utility'|trans|default('Utility')})
+    |merge({'ai_tools.category.general': 'ai_tools.category.general'|trans|default('General')})
     |json_encode|e('html_attr') }}">
 </div>
 
@@ -320,6 +382,32 @@
 
 {# AI Model Selector Modal #}
 {% include 'components/_ai_model_selector.html.twig' %}
+
+{# Tool Settings Modal #}
+<div class="modal modal-lg fade" id="spiritToolSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="spiritToolSettingsModalTitle">
+                    <i class="mdi mdi-cog me-2"></i>{{ 'ai_tools.settings.tool_settings'|trans|default('Tool Settings') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans|default('Close') }}"></button>
+            </div>
+            <div class="modal-body" id="spiritToolSettingsModalBody">
+                {# Dynamic content rendered by JS #}
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans|default('Cancel') }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="spirit-btn-save-tool-settings">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                    <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans|default('Save') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}

@@ -39,7 +39,43 @@ export class SpiritManager {
         this.temperatureInput = document.getElementById('spirit-temperature');
         this.temperatureValue = document.getElementById('spirit-temperature-value');
         this.updateSettingsBtn = document.getElementById('update-spirit-settings');
+        this.aiToolsTab = document.getElementById('tab-ai-tools');
+        this.aiToolsDataOptimization = document.getElementById('spirit-ai-tools-data-optimization');
+        this.includeAiTools = document.getElementById('spirit-include-ai-tools');
+        this.aiToolsList = document.getElementById('spirit-ai-tools-list');
         this.conversationsList = document.getElementById('conversations-list');
+        this.aiToolsData = []; // cached AI tools with active state
+        this.currentToolId = null;
+
+        // Tool settings modal refs
+        this.toolSettingsModal = document.getElementById('spiritToolSettingsModal');
+        this.toolSettingsModalTitle = document.getElementById('spiritToolSettingsModalTitle');
+        this.toolSettingsModalBody = document.getElementById('spiritToolSettingsModalBody');
+        this.saveToolSettingsBtn = document.getElementById('spirit-btn-save-tool-settings');
+
+        // Category display config for AI Tools
+        this.categoryLabels = {
+            file: this.translate('ai_tools.category.file', 'File Management'),
+            web: this.translate('ai_tools.category.web', 'Web Tools'),
+            image: this.translate('ai_tools.category.image', 'Image Generation'),
+            memory: this.translate('ai_tools.category.memory', 'Memory'),
+            profile: this.translate('ai_tools.category.profile', 'Profile'),
+            development: this.translate('ai_tools.category.development', 'Development'),
+            spirit: this.translate('ai_tools.category.spirit', 'Spirit'),
+            utility: this.translate('ai_tools.category.utility', 'Utility'),
+            general: this.translate('ai_tools.category.general', 'General'),
+        };
+        this.categoryIcons = {
+            file: 'mdi-folder-open',
+            web: 'mdi-web',
+            image: 'mdi-image',
+            memory: 'mdi-brain',
+            profile: 'mdi-account-box',
+            development: 'mdi-code-braces',
+            spirit: 'mdi-ghost',
+            utility: 'mdi-wrench',
+            general: 'mdi-tools',
+        };
         
         // Initialize
         this.initEventListeners();
@@ -128,6 +164,25 @@ export class SpiritManager {
                 if (this.updateSettingsBtn) {
                     this.updateSettingsBtn.disabled = false;
                 }
+            });
+
+            // Auto-save temperature when user releases the slider
+            this.temperatureInput.addEventListener('change', () => {
+                this.saveTemperature();
+            });
+        }
+
+        // Load AI Tools config and tools when the AI Tools tab becomes visible
+        if (this.aiToolsTab) {
+            this.aiToolsTab.addEventListener('shown.bs.tab', () => {
+                this.loadAiToolsTab();
+            });
+        }
+
+        // AI Tool settings save button
+        if (this.saveToolSettingsBtn) {
+            this.saveToolSettingsBtn.addEventListener('click', () => {
+                this.saveToolSettings();
             });
         }
     }
@@ -761,6 +816,576 @@ export class SpiritManager {
         } catch (error) {
             console.error('Error updating spirit settings:', error);
             this.showError(this.translate('error.updating_settings', 'Failed to update spirit settings'));
+        }
+    }
+
+    /**
+     * Auto-save only the temperature setting when the slider changes
+     */
+    async saveTemperature() {
+        if (!this.spirit || !this.temperatureInput) return;
+
+        try {
+            const temperature = this.temperatureInput.value;
+            const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ temperature })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update temperature');
+            }
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.temperature_saved', 'Temperature saved'));
+            }
+        } catch (error) {
+            console.error('Error saving temperature:', error);
+            if (window.toast) {
+                window.toast.error(this.translate('error.saving_temperature', 'Failed to save temperature'));
+            }
+        }
+    }
+
+    /**
+     * Load AI Tools config and tool list when the AI Tools tab is shown
+     */
+    async loadAiToolsTab() {
+        if (!this.spirit) return;
+        const spiritId = this.spirit.id;
+
+        // Show loading state
+        if (this.aiToolsList) {
+            this.aiToolsList.innerHTML = `
+                <div class="text-center p-3">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            `;
+        }
+
+        // Load prompt config
+        try {
+            const configResponse = await fetch(this.apiEndpoints.systemPromptPreview.replace('{id}', spiritId));
+            if (configResponse.ok) {
+                const configData = await configResponse.json();
+                const config = configData.config || {};
+
+                if (this.aiToolsDataOptimization) {
+                    this.aiToolsDataOptimization.checked = !!config.aiToolsDataOptimization;
+                }
+                if (this.includeAiTools) {
+                    this.includeAiTools.checked = config.includeTools ?? true;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading AI tools config:', error);
+        }
+
+        // Load tools
+        try {
+            const toolsResponse = await fetch(this.apiEndpoints.tools.replace('{id}', spiritId));
+            if (toolsResponse.ok) {
+                const data = await toolsResponse.json();
+                this.aiToolsData = data.tools || [];
+                this.renderAiTools();
+            }
+        } catch (error) {
+            console.error('Error loading AI tools:', error);
+            if (this.aiToolsList) {
+                this.aiToolsList.innerHTML = `
+                    <div class="alert alert-danger small py-1 mb-0">${error.message || 'Failed to load tools'}</div>
+                `;
+            }
+        }
+
+        // Wire up master toggle to show/hide tool list and auto-save
+        if (this.includeAiTools) {
+            this.includeAiTools.onchange = () => {
+                this.renderAiTools();
+                this.updateAiTools();
+            };
+        }
+        if (this.aiToolsDataOptimization) {
+            this.aiToolsDataOptimization.onchange = () => {
+                this.updateAiTools();
+            };
+        }
+    }
+
+    /**
+     * Render AI Tools list in the Spirit AI Tools tab, grouped by category
+     */
+    renderAiTools() {
+        if (!this.aiToolsList) return;
+
+        const includeTools = this.includeAiTools ? this.includeAiTools.checked : true;
+        if (!includeTools) {
+            this.aiToolsList.classList.add('d-none');
+            this.aiToolsList.classList.remove('d-flex');
+            return;
+        }
+        this.aiToolsList.classList.remove('d-none');
+        this.aiToolsList.classList.add('d-flex');
+
+        if (!this.aiToolsData || this.aiToolsData.length === 0) {
+            this.aiToolsList.innerHTML = `
+                <div class="text-secondary small py-2">${this.translate('ai_tools.settings.no_tools', 'No AI tools available')}</div>
+            `;
+            return;
+        }
+
+        this.aiToolsList.innerHTML = '';
+
+        // Group by category
+        const groups = {};
+        this.aiToolsData.forEach(tool => {
+            const cat = tool.category || 'general';
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(tool);
+        });
+
+        // Render each category group in preferred order
+        const categoryOrder = ['file', 'web', 'image', 'memory', 'profile', 'development', 'spirit', 'utility', 'general'];
+        categoryOrder.forEach(cat => {
+            if (!groups[cat] || groups[cat].length === 0) return;
+            this.renderAiToolsCategoryGroup(cat, groups[cat]);
+        });
+
+        // Render any remaining categories not in the predefined order
+        Object.keys(groups).forEach(cat => {
+            if (!categoryOrder.includes(cat)) {
+                this.renderAiToolsCategoryGroup(cat, groups[cat]);
+            }
+        });
+    }
+
+    renderAiToolsCategoryGroup(category, tools) {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'mb-3';
+
+        const icon = this.categoryIcons[category] || 'mdi-tools';
+        const label = this.categoryLabels[category] || category;
+
+        groupEl.innerHTML = `
+            <div class="text-cyber mb-2 d-flex align-items-center gap-2">
+                <i class="mdi ${icon}"></i>
+                <span class="text-light opacity-75 small">${label}</span>
+                <span class="badge bg-secondary bg-opacity-25 text-secondary small">${tools.length}</span>
+            </div>
+        `;
+
+        const toolsContainer = document.createElement('div');
+        toolsContainer.className = 'd-flex flex-column gap-1';
+
+        tools.sort((a, b) => a.name.localeCompare(b.name)).forEach(tool => {
+            toolsContainer.appendChild(this.renderAiToolCard(tool));
+        });
+
+        groupEl.appendChild(toolsContainer);
+        this.aiToolsList.appendChild(groupEl);
+    }
+
+    renderAiToolCard(tool) {
+        const cardEl = document.createElement('div');
+        cardEl.className = `border rounded p-2 ${tool.isActiveForSpirit ? 'border-success border-opacity-25 bg-success bg-opacity-10' : 'border-secondary border-opacity-25 bg-secondary bg-opacity-10'}`;
+        cardEl.dataset.toolId = tool.id;
+
+        // Format parameters for display
+        let paramsHtml = '';
+        const params = tool.parameters;
+        if (params && params.properties) {
+            const props = params.properties;
+            const required = params.required || [];
+            paramsHtml = Object.entries(props).map(([name, prop]) => {
+                const isRequired = required.includes(name);
+                return `
+                    <div class="d-flex gap-2 align-items-start py-1">
+                        <code class="text-cyber small">${name}</code>
+                        <span class="text-secondary" style="font-size: 0.7rem;">${prop.type || ''}${isRequired ? ' <span class="text-warning">*</span>' : ''}</span>
+                    </div>
+                    ${prop.description ? `<div class="text-light opacity-50" style="font-size: 0.7rem; margin-top: -4px; margin-bottom: 4px;">${prop.description}</div>` : ''}
+                `;
+            }).join('');
+        }
+
+        cardEl.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <span class="cursor-pointer tool-name-toggle text-cyber fw-semibold small" data-tool-id="${tool.id}" title="Show details">
+                        <i class="mdi mdi-chevron-right tool-chevron me-1 text-secondary" style="transition: transform 0.2s;"></i>${tool.name}
+                    </span>
+                    <button class="btn btn-sm btn-outline-info border-0 tool-settings-btn d-none py-0 px-1" data-tool-id="${tool.id}" title="${this.translate('ai_tools.settings.tool_settings', 'Tool Settings')}">
+                        <i class="mdi mdi-cog"></i>
+                    </button>
+                </div>
+                <div class="form-check form-switch mb-0 ms-1">
+                    <input class="form-check-input tool-active-toggle" type="checkbox" role="switch"
+                        data-tool-id="${tool.id}" ${tool.isActiveForSpirit ? 'checked' : ''}>
+                </div>
+            </div>
+            <div class="tool-details d-none mt-2 ms-3 ps-2 border-start border-secondary border-opacity-25">
+                <div class="text-light opacity-75 small mb-1">${tool.description}</div>
+                ${paramsHtml ? `
+                    <div class="mt-1">
+                        <div class="text-secondary small mb-1"><i class="mdi mdi-code-json me-1"></i>${this.translate('ai_tools.settings.parameters', 'Parameters')}</div>
+                        <div class="d-flex flex-column">${paramsHtml}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        // Toggle details on name click
+        const nameToggle = cardEl.querySelector('.tool-name-toggle');
+        const details = cardEl.querySelector('.tool-details');
+        const chevron = cardEl.querySelector('.tool-chevron');
+        nameToggle.addEventListener('click', () => {
+            const isOpen = !details.classList.contains('d-none');
+            details.classList.toggle('d-none');
+            chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+        });
+
+        // Toggle active state
+        const activeToggle = cardEl.querySelector('.tool-active-toggle');
+        activeToggle.addEventListener('change', (e) => {
+            tool.isActiveForSpirit = e.target.checked;
+            if (e.target.checked) {
+                cardEl.className = cardEl.className.replace('border-secondary', 'border-success').replace('bg-secondary', 'bg-success');
+            } else {
+                cardEl.className = cardEl.className.replace('border-success', 'border-secondary').replace('bg-success', 'bg-secondary');
+            }
+            this.updateAiTools();
+        });
+
+        // Settings button — load settings to check if tool has any
+        this.checkToolSettings(tool.id, cardEl.querySelector('.tool-settings-btn'));
+
+        return cardEl;
+    }
+
+    // =====================
+    // Tool Settings Modal
+    // =====================
+
+    async checkToolSettings(toolId, settingsBtn) {
+        if (!settingsBtn) return;
+        try {
+            const response = await fetch(`${this.apiEndpoints.aiTool}/${toolId}/settings`);
+            const data = await response.json();
+            if (data.settings && data.settings.length > 0) {
+                settingsBtn.classList.remove('d-none');
+                settingsBtn.addEventListener('click', () => this.openToolSettingsModal(toolId));
+            }
+        } catch (error) {
+            // No settings available — button stays hidden
+        }
+    }
+
+    async openToolSettingsModal(toolId) {
+        if (!this.toolSettingsModal) return;
+        this.currentToolId = toolId;
+
+        const tool = this.aiToolsData.find(t => t.id === toolId);
+        if (this.toolSettingsModalTitle) {
+            this.toolSettingsModalTitle.innerHTML = `<i class="mdi mdi-cog me-2"></i>${tool ? tool.name : this.translate('ai_tools.settings.tool_settings', 'Tool Settings')}`;
+        }
+
+        if (this.toolSettingsModalBody) {
+            this.toolSettingsModalBody.innerHTML = `
+                <div class="text-center p-3">
+                    <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                </div>
+            `;
+        }
+
+        const modal = new bootstrap.Modal(this.toolSettingsModal);
+        modal.show();
+
+        try {
+            const response = await fetch(`${this.apiEndpoints.aiTool}/${toolId}/settings`);
+            const data = await response.json();
+            this.renderToolSettingsForm(data.settings || []);
+        } catch (error) {
+            console.error('Error loading tool settings:', error);
+            if (this.toolSettingsModalBody) {
+                this.toolSettingsModalBody.innerHTML = `<div class="alert alert-danger small py-2 mb-0">${error.message || 'Failed to load settings'}</div>`;
+            }
+        }
+    }
+
+    renderToolSettingsForm(settings) {
+        if (!this.toolSettingsModalBody) return;
+
+        if (settings.length === 0) {
+            this.toolSettingsModalBody.innerHTML = `<div class="text-secondary small py-2">${this.translate('ai_tools.settings.no_settings', 'No configurable settings for this tool')}</div>`;
+            return;
+        }
+
+        let html = '';
+        settings.forEach(setting => {
+            html += this.renderToolSettingInput(setting);
+        });
+
+        this.toolSettingsModalBody.innerHTML = html;
+        this.bindAiModelSelectors(settings);
+    }
+
+    bindAiModelSelectors(settings) {
+        this.toolSettingsModalBody.querySelectorAll('.ai-model-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inputId = btn.dataset.inputId;
+                const hiddenInput = document.getElementById(inputId);
+                const displayEl = document.getElementById(`${inputId}-display`);
+                const currentModelId = hiddenInput ? hiddenInput.value : null;
+
+                if (window.aiModelSelector) {
+                    const toolModal = bootstrap.Modal.getInstance(this.toolSettingsModal);
+                    if (toolModal) toolModal.hide();
+
+                    window.aiModelSelector.open('primary', (model) => {
+                        if (hiddenInput) hiddenInput.value = model.id;
+                        if (displayEl) displayEl.textContent = model.modelName;
+                        setTimeout(() => {
+                            const toolModal2 = new bootstrap.Modal(this.toolSettingsModal);
+                            toolModal2.show();
+                        }, 300);
+                    }, currentModelId || null);
+                }
+            });
+        });
+
+        this.toolSettingsModalBody.querySelectorAll('.ai-model-clear-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inputId = btn.dataset.inputId;
+                const hiddenInput = document.getElementById(inputId);
+                const displayEl = document.getElementById(`${inputId}-display`);
+                if (hiddenInput) hiddenInput.value = '';
+                if (displayEl) displayEl.textContent = this.translate('ai_tools.settings.default_model', 'Default (auto)');
+                btn.remove();
+            });
+        });
+
+        settings.filter(s => s.type === 'aiModel' && s.value).forEach(setting => {
+            this.resolveModelName(setting.key, setting.value);
+        });
+    }
+
+    async resolveModelName(settingKey, modelId) {
+        if (!modelId) return;
+        const displayEl = document.getElementById(`tool-setting-${settingKey}-display`);
+        if (!displayEl) return;
+
+        try {
+            const response = await fetch(`/api/ai/model/${modelId}`);
+            const data = await response.json();
+            if (data.model && data.model.modelName) {
+                displayEl.textContent = data.model.modelName;
+            } else {
+                displayEl.textContent = modelId.substring(0, 12) + '...';
+            }
+        } catch (e) {
+            displayEl.textContent = modelId.substring(0, 12) + '...';
+        }
+    }
+
+    renderToolSettingInput(setting) {
+        const label = setting.label || setting.key;
+        const desc = setting.description ? `<div class="form-text text-muted small">${setting.description}</div>` : '';
+        const inputId = `tool-setting-${setting.key}`;
+
+        switch (setting.type) {
+            case 'boolean':
+                return `
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input tool-setting-input" type="checkbox" id="${inputId}" 
+                                data-key="${setting.key}" data-type="boolean" ${setting.value === '1' || setting.value === 'true' ? 'checked' : ''}>
+                            <label class="form-check-label text-light small" for="${inputId}">${label}</label>
+                        </div>
+                        ${desc}
+                    </div>
+                `;
+
+            case 'number':
+                return `
+                    <div class="mb-3">
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-numeric me-1 text-cyber"></i>${label}</label>
+                        <input type="number" class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="number" value="${setting.value || ''}">
+                        ${desc}
+                    </div>
+                `;
+
+            case 'textarea':
+                return `
+                    <div class="mb-3">
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-text me-1 text-cyber"></i>${label}</label>
+                        <textarea class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="textarea" rows="8">${setting.value || ''}</textarea>
+                        ${desc}
+                    </div>
+                `;
+
+            case 'aiModel':
+                return `
+                    <div class="mb-3">
+                        <label class="form-label"><i class="mdi mdi-robot me-1 text-cyber"></i>${label}</label>
+                        <input type="hidden" class="tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="aiModel" value="${setting.value || ''}">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-light small ai-model-display" id="${inputId}-display">${setting.value ? '...' : this.translate('ai_tools.settings.default_model', 'Default (auto)')}</span>
+                            <button type="button" class="btn btn-sm btn-outline-cyber ai-model-select-btn" data-input-id="${inputId}">
+                                <i class="mdi mdi-swap-horizontal me-1"></i>${this.translate('ai_tools.settings.select_model', 'Select Model')}
+                            </button>
+                            ${setting.value ? `<button type="button" class="btn btn-sm btn-outline-secondary ai-model-clear-btn" data-input-id="${inputId}" title="Reset to default">
+                                <i class="mdi mdi-close"></i>
+                            </button>` : ''}
+                        </div>
+                        ${desc}
+                    </div>
+                `;
+
+            case 'select':
+                let options = '';
+                try {
+                    const choices = JSON.parse(setting.description || '{}');
+                    if (typeof choices === 'object' && !Array.isArray(choices)) {
+                        Object.entries(choices).forEach(([val, lbl]) => {
+                            options += `<option value="${val}" ${setting.value === val ? 'selected' : ''}>${lbl}</option>`;
+                        });
+                    }
+                } catch (e) {
+                    // fallback: no options
+                }
+                return `
+                    <div class="mb-3">
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-menu me-1 text-cyber"></i>${label}</label>
+                        <select class="form-select form-select-sm glass-input tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="select">
+                            ${options}
+                        </select>
+                    </div>
+                `;
+
+            case 'json':
+                return `
+                    <div class="mb-3">
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-code-json me-1 text-cyber"></i>${label}</label>
+                        <textarea class="form-control form-control-sm glass-input font-monospace tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="json" rows="4">${setting.value || ''}</textarea>
+                        ${desc}
+                    </div>
+                `;
+
+            default: // text
+                return `
+                    <div class="mb-3">
+                        <label class="form-label" for="${inputId}"><i class="mdi mdi-form-textbox me-1 text-cyber"></i>${label}</label>
+                        <input type="text" class="form-control form-control-sm glass-input tool-setting-input" id="${inputId}"
+                            data-key="${setting.key}" data-type="text" value="${setting.value || ''}">
+                        ${desc}
+                    </div>
+                `;
+        }
+    }
+
+    async saveToolSettings() {
+        if (!this.currentToolId) return;
+
+        const inputs = this.toolSettingsModalBody.querySelectorAll('.tool-setting-input');
+        const settings = {};
+
+        inputs.forEach(input => {
+            const key = input.dataset.key;
+            const type = input.dataset.type;
+
+            if (type === 'boolean') {
+                settings[key] = input.checked ? '1' : '0';
+            } else {
+                settings[key] = input.value;
+            }
+        });
+
+        if (this.saveToolSettingsBtn) {
+            this.saveToolSettingsBtn.disabled = true;
+            this.saveToolSettingsBtn.querySelector('.spinner-border')?.classList.remove('d-none');
+        }
+
+        try {
+            const response = await fetch(`${this.apiEndpoints.aiTool}/${this.currentToolId}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ settings })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                if (window.toast) {
+                    window.toast.success(this.translate('ai_tools.settings.saved', 'Settings saved'));
+                }
+                const modalInstance = bootstrap.Modal.getInstance(this.toolSettingsModal);
+                if (modalInstance) modalInstance.hide();
+            } else {
+                if (window.toast) {
+                    window.toast.error(data.error || this.translate('ai_tools.settings.error', 'Failed to save settings'));
+                }
+            }
+        } catch (error) {
+            console.error('Error saving tool settings:', error);
+            if (window.toast) {
+                window.toast.error(this.translate('ai_tools.settings.error', 'Failed to save settings'));
+            }
+        } finally {
+            if (this.saveToolSettingsBtn) {
+                this.saveToolSettingsBtn.disabled = false;
+                this.saveToolSettingsBtn.querySelector('.spinner-border')?.classList.add('d-none');
+            }
+        }
+    }
+
+    /**
+     * Update AI Tools config and active tools
+     */
+    async updateAiTools() {
+        if (!this.spirit) return;
+        const spiritId = this.spirit.id;
+
+        const includeTools = this.includeAiTools ? this.includeAiTools.checked : true;
+        const aiToolsDataOptimization = this.aiToolsDataOptimization ? this.aiToolsDataOptimization.checked : false;
+        const activeToolIds = this.aiToolsData
+            .filter(t => t.isActiveForSpirit)
+            .map(t => t.id);
+
+        try {
+            // Save prompt config (includeTools + aiToolsDataOptimization)
+            // We preserve memory config by fetching first, or just send what the endpoint expects
+            const configResponse = await fetch(this.apiEndpoints.systemPromptConfig.replace('{id}', spiritId), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ includeTools, aiToolsDataOptimization })
+            });
+
+            if (!configResponse.ok) {
+                throw new Error('Failed to update AI tools config');
+            }
+
+            // Save active tools
+            const toolsResponse = await fetch(this.apiEndpoints.tools.replace('{id}', spiritId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activeToolIds })
+            });
+
+            if (!toolsResponse.ok) {
+                throw new Error('Failed to update active tools');
+            }
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.ai_tools_updated', 'AI Tools updated successfully'));
+            }
+        } catch (error) {
+            console.error('Error updating AI tools:', error);
+            this.showError(this.translate('error.updating_ai_tools', 'Failed to update AI tools'));
         }
     }
 }
