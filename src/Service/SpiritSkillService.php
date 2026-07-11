@@ -243,7 +243,7 @@ class SpiritSkillService
 
             <spirit-skills>
                 (internal note: The following are your active Skills — dynamic persistent context documents that live in your File Browser under `{$paths['activePath']}`. Each skill is a Markdown file you carry across every conversation. Treat them as your accumulated, verified know-how.
-                Whenever you learn something new, useful and repeatable during a conversation — a command, parameter, workflow, gotcha, or the user explicitly asks you to remember it — grow the relevant skill file using the `fileUpdate` AI Tool (use `fileManage read` first to see current content). Keep skills accurate, concise and copy-paste ready. Do NOT store one-off/temporary state here.)
+                The complete current content of each active skill is shown below, so you already see its full state. Whenever you learn something new, useful and repeatable during a conversation — a command, parameter, workflow, gotcha, or the user explicitly asks you to remember it — update the relevant skill file directly using the `fileUpdate` AI Tool. Keep skills accurate, concise and copy-paste ready. Do NOT store one-off/temporary state here.)
                 {$blocks}
             </spirit-skills>";
     }
