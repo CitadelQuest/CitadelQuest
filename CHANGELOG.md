@@ -1,5 +1,25 @@
 # CitadelQuest Changelog
 
+## v0.7.66-beta (2026-07-11)
+
+### New Features
+- **Spirit Skills** — dynamic persistent context documents for Spirits
+  - File-based skills living in `/spirit/{spirit}/skill/{active|available}/`
+  - Full CRUD UI on the Spirit Detail page with Active/Available skill lists
+  - Active skills are automatically injected into the Spirit's system prompt every conversation
+  - Spirits can grow and refine active skills using the `fileUpdate` AI tool
+  - New skill modal includes a "Start with template" button with a shorter default template
+
+### Improvements
+- Full English, Czech, and Slovak translations for the new Spirit Skills UI
+- Clarified active skills system prompt note so Spirits use `fileUpdate` directly (skill content is already injected)
+
+### Technical Changes
+- Added `SpiritSkillService` for skill directory management, CRUD, state toggling, and prompt injection
+- Added `SpiritSkillApiController` with REST endpoints for skill management
+- Extended `SpiritConversationService` to inject active skills into the system prompt
+- Updated `SpiritManager.js` and `spirit/index.html.twig` for the Skills tab and editor modal
+
 ## v0.7.38-beta (2026-04-27)
 
 ### New Features
