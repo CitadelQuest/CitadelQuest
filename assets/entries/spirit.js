@@ -39,7 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 memoryLibraryPacks: '/spirit/{id}/memory/library-packs',
                 memoryAvailablePacks: '/spirit/{id}/memory/available-packs',
                 memoryAddPack: '/spirit/{id}/memory/library/add-pack',
-                memoryRemovePack: '/spirit/{id}/memory/library/remove-pack'
+                memoryRemovePack: '/spirit/{id}/memory/library/remove-pack',
+                skills: '/api/spirit/{id}/skills',
+                skillContent: '/api/spirit/{id}/skills/content',
+                skillState: '/api/spirit/{id}/skills/state'
             }
         });
         

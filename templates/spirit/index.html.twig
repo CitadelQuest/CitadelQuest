@@ -92,6 +92,11 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-skills" data-bs-toggle="tab" data-bs-target="#panel-skills" type="button" role="tab">
+                                <i class="mdi mdi-lightbulb-on-outline me-1"></i>{{ 'spirit.tabs.skills'|trans|default('Skills') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link px-3 py-1" id="tab-conversations" data-bs-toggle="tab" data-bs-target="#panel-conversations" type="button" role="tab">
                                 <i class="mdi mdi-forum me-1"></i>{{ 'spirit.tabs.conversations'|trans|default('Conversations') }}
                                 {% if conversations is defined and conversations|length > 0 %}
@@ -191,6 +196,40 @@
                                         <input type="text" class="form-control bg-dark bg-opacity-50 border-secondary border-opacity-25 text-light" id="spirit-memory-available-packs-filter" placeholder="{{ 'spirit.memory.filter_packs'|trans|default('Filter packs...') }}">
                                     </div>
                                     <div id="spirit-memory-available-packs" class="spirit-memory-pack-list list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                        <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Skills Tab #}
+                        <div class="tab-pane fade" id="panel-skills" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                <h5 class="mb-0">
+                                    <i class="mdi mdi-lightbulb-on-outline text-cyber me-2"></i>{{ 'spirit.skills.title'|trans|default('Spirit Skills') }}
+                                </h5>
+                                <button type="button" class="btn btn-sm btn-cyber" id="spirit-skill-new-btn">
+                                    <i class="mdi mdi-plus me-1"></i>{{ 'spirit.skills.new'|trans|default('New Skill') }}
+                                </button>
+                            </div>
+                            <p class="small">
+                                <i class="mdi mdi-information-outline me-1"></i>{{ 'spirit.skills.info'|trans|default('Skills are dynamic persistent context documents. Active skills are auto-injected into your Spirit\'s system prompt in every conversation. The Spirit can grow and refine active skills anytime using the fileUpdate tool.') }}
+                            </p>
+                            <hr class="border-secondary border-opacity-25">
+                            <div class="row">
+                                <div class="col-12 col-md-6 mb-3">
+                                    <h6 class="mb-2">
+                                        <i class="mdi mdi-lightning-bolt me-2 text-cyber"></i>{{ 'spirit.skills.active'|trans|default('Active Skills') }}
+                                    </h6>
+                                    <div id="spirit-skills-active" class="spirit-skill-list list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                        <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6 mb-3">
+                                    <h6 class="mb-2">
+                                        <i class="mdi mdi-lightbulb-outline me-2 text-cyber"></i>{{ 'spirit.skills.available'|trans|default('Available Skills') }}
+                                    </h6>
+                                    <div id="spirit-skills-available" class="spirit-skill-list list-group list-group-flush rounded border border-secondary border-opacity-25">
                                         <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
                                     </div>
                                 </div>
@@ -403,6 +442,22 @@
     |merge({'ai_tools.category.spirit': 'ai_tools.category.spirit'|trans|default('Spirit')})
     |merge({'ai_tools.category.utility': 'ai_tools.category.utility'|trans|default('Utility')})
     |merge({'ai_tools.category.general': 'ai_tools.category.general'|trans|default('General')})
+    |merge({'spirit.skills.title': 'spirit.skills.title'|trans|default('Spirit Skills')})
+    |merge({'spirit.skills.new': 'spirit.skills.new'|trans|default('New Skill')})
+    |merge({'spirit.skills.edit': 'spirit.skills.edit'|trans|default('Edit Skill')})
+    |merge({'spirit.skills.active': 'spirit.skills.active'|trans|default('Active Skills')})
+    |merge({'spirit.skills.available': 'spirit.skills.available'|trans|default('Available Skills')})
+    |merge({'spirit.skills.no_active': 'spirit.skills.no_active'|trans|default('No active skills')})
+    |merge({'spirit.skills.no_available': 'spirit.skills.no_available'|trans|default('No available skills')})
+    |merge({'spirit.skills.activate': 'spirit.skills.activate'|trans|default('Activate')})
+    |merge({'spirit.skills.deactivate': 'spirit.skills.deactivate'|trans|default('Deactivate')})
+    |merge({'spirit.skills.delete_confirm': 'spirit.skills.delete_confirm'|trans|default('Delete this skill? This cannot be undone.')})
+    |merge({'spirit.skills.saved': 'spirit.skills.saved'|trans|default('Skill saved')})
+    |merge({'spirit.skills.deleted': 'spirit.skills.deleted'|trans|default('Skill deleted')})
+    |merge({'spirit.skills.name_required': 'spirit.skills.name_required'|trans|default('Skill name is required')})
+    |merge({'error.loading_skills': 'error.loading_skills'|trans|default('Failed to load skills')})
+    |merge({'error.saving_skill': 'error.saving_skill'|trans|default('Failed to save skill')})
+    |merge({'error.deleting_skill': 'error.deleting_skill'|trans|default('Failed to delete skill')})
     |json_encode|e('html_attr') }}">
 </div>
 
@@ -432,6 +487,47 @@
                 <button type="button" class="btn btn-cyber" id="spirit-btn-save-tool-settings">
                     <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
                     <i class="mdi mdi-check me-2"></i>{{ 'ui.save'|trans|default('Save') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Skill Editor Modal #}
+<div class="modal modal-lg fade" id="spiritSkillModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content glass-panel">
+            <div class="modal-header bg-cyber-g border-success">
+                <h5 class="modal-title" id="spiritSkillModalTitle">
+                    <i class="mdi mdi-lightbulb-on-outline me-2"></i>{{ 'spirit.skills.title'|trans|default('Spirit Skills') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'ui.close'|trans|default('Close') }}"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="spirit-skill-file-id" value="">
+                <div class="mb-3" id="spirit-skill-name-group">
+                    <label class="form-label" for="spirit-skill-name">
+                        <i class="mdi mdi-tag-outline me-1 text-cyber"></i>{{ 'spirit.skills.name'|trans|default('Skill name') }}
+                    </label>
+                    <input type="text" class="form-control bg-dark bg-opacity-50 text-light border-secondary" id="spirit-skill-name"
+                        placeholder="{{ 'spirit.skills.name_placeholder'|trans|default('e.g. Astrolog8 Notes') }}">
+                    <div class="form-text text-muted">{{ 'spirit.skills.name_hint'|trans|default('A .md file will be created from this name.') }}</div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label" for="spirit-skill-content">
+                        <i class="mdi mdi-text me-1 text-cyber"></i>{{ 'spirit.skills.content'|trans|default('Content (Markdown)') }}
+                    </label>
+                    <textarea class="form-control bg-dark bg-opacity-50 text-light border-secondary font-monospace" id="spirit-skill-content" rows="16"
+                        placeholder="{{ 'spirit.skills.content_placeholder'|trans|default('# Skill notes\nTips, tricks, verified commands...') }}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="mdi mdi-close me-2"></i>{{ 'ui.cancel'|trans|default('Cancel') }}
+                </button>
+                <button type="button" class="btn btn-cyber" id="spirit-skill-save-btn">
+                    <span class="spinner-border spinner-border-sm d-none me-1" role="status"></span>
+                    <i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}
                 </button>
             </div>
         </div>

@@ -41,7 +41,8 @@ class SpiritConversationService
         private readonly CQMemoryLibraryService $libraryService,
         private readonly LoggerInterface $logger,
         private readonly AnnoService $annoService,
-        private readonly SluggerInterface $slugger
+        private readonly SluggerInterface $slugger,
+        private readonly SpiritSkillService $spiritSkillService
     ) {
         $this->user = $security->getUser();
     }
@@ -1774,9 +1775,14 @@ class SpiritConversationService
         // of pasting walls of text into the prompt.
         $customPrompt = $this->expandCqFileTokens($customPrompt);
 
+        // Inject active Spirit Skills (dynamic persistent context documents).
+        // Always included when the Spirit has active skills.
+        $skillsSection = $this->spiritSkillService->buildActiveSkillsSection($spirit);
+
         return "
             You are {$spirit->getName()}, {$guideText} 
             {$customPrompt}
+            {$skillsSection}
             
             (internal note: Your level is {$spiritLevel}.)";
     }

@@ -54,6 +54,19 @@ export class SpiritManager {
         this.memoryAvailablePacksFilter = document.getElementById('spirit-memory-available-packs-filter');
         this.memoryPacksLoaded = false;
 
+        // Skills refs
+        this.skillsActiveList = document.getElementById('spirit-skills-active');
+        this.skillsAvailableList = document.getElementById('spirit-skills-available');
+        this.skillNewBtn = document.getElementById('spirit-skill-new-btn');
+        this.skillModal = document.getElementById('spiritSkillModal');
+        this.skillModalTitle = document.getElementById('spiritSkillModalTitle');
+        this.skillFileIdInput = document.getElementById('spirit-skill-file-id');
+        this.skillNameGroup = document.getElementById('spirit-skill-name-group');
+        this.skillNameInput = document.getElementById('spirit-skill-name');
+        this.skillContentInput = document.getElementById('spirit-skill-content');
+        this.skillSaveBtn = document.getElementById('spirit-skill-save-btn');
+        this.skillsLoaded = false;
+
         // Tool settings modal refs
         this.toolSettingsModal = document.getElementById('spiritToolSettingsModal');
         this.toolSettingsModalTitle = document.getElementById('spiritToolSettingsModalTitle');
@@ -212,6 +225,28 @@ export class SpiritManager {
         if (this.saveToolSettingsBtn) {
             this.saveToolSettingsBtn.addEventListener('click', () => {
                 this.saveToolSettings();
+            });
+        }
+
+        // Load skills when the Skills tab becomes visible
+        const skillsTab = document.getElementById('tab-skills');
+        if (skillsTab) {
+            skillsTab.addEventListener('shown.bs.tab', () => {
+                this.loadSkills();
+            });
+        }
+
+        // New skill button
+        if (this.skillNewBtn) {
+            this.skillNewBtn.addEventListener('click', () => {
+                this.openSkillModal();
+            });
+        }
+
+        // Save skill button
+        if (this.skillSaveBtn) {
+            this.skillSaveBtn.addEventListener('click', () => {
+                this.saveSkill();
             });
         }
     }
@@ -1126,6 +1161,231 @@ export class SpiritManager {
             if (window.toast) {
                 window.toast.error(this.translate('error.saving_temperature', 'Failed to save temperature'));
             }
+        }
+    }
+
+    // =====================
+    // Spirit Skills
+    // =====================
+
+    /**
+     * Load active + available skills for the Skills tab
+     */
+    async loadSkills() {
+        if (!this.spirit?.id) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.skills.replace('{id}', this.spirit.id));
+            if (!response.ok) throw new Error('Failed to load skills');
+
+            const data = await response.json();
+            this.renderSkillList(this.skillsActiveList, data.active || [], 'active');
+            this.renderSkillList(this.skillsAvailableList, data.available || [], 'available');
+            this.skillsLoaded = true;
+        } catch (error) {
+            console.error('Error loading skills:', error);
+            const msg = `<div class="text-secondary small p-3"><i class="mdi mdi-alert-circle-outline me-1"></i>${this.translate('error.loading_skills', 'Failed to load skills')}</div>`;
+            if (this.skillsActiveList) this.skillsActiveList.innerHTML = msg;
+            if (this.skillsAvailableList) this.skillsAvailableList.innerHTML = msg;
+        }
+    }
+
+    /**
+     * Render a skill list column (active or available)
+     */
+    renderSkillList(container, skills, state) {
+        if (!container) return;
+
+        if (skills.length === 0) {
+            const emptyKey = state === 'active' ? 'spirit.skills.no_active' : 'spirit.skills.no_available';
+            const emptyDefault = state === 'active' ? 'No active skills' : 'No available skills';
+            container.innerHTML = `<div class="text-secondary small p-3">${this.translate(emptyKey, emptyDefault)}</div>`;
+            return;
+        }
+
+        const isActive = state === 'active';
+        const toggleIcon = isActive ? 'mdi-lightbulb-off-outline' : 'mdi-lightning-bolt';
+        const toggleTitle = isActive
+            ? this.translate('spirit.skills.deactivate', 'Deactivate')
+            : this.translate('spirit.skills.activate', 'Activate');
+        const targetState = isActive ? 'available' : 'active';
+
+        container.innerHTML = skills.map(skill => `
+            <div class="list-group-item bg-dark bg-opacity-25 text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
+                <div class="me-2 overflow-hidden">
+                    <div class="small fw-medium text-truncate">
+                        <i class="mdi mdi-file-document-outline text-cyber opacity-75 me-1"></i>${this.escapeHtml(skill.displayName)}
+                    </div>
+                    <div class="text-secondary small">${skill.size} ${this.translate('spirit.skills.bytes', 'bytes')}</div>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-outline-primary border-0 skill-edit-btn" title="${this.translate('spirit.skills.edit', 'Edit Skill')}"
+                            data-skill-id="${skill.id}" data-skill-name="${this.escapeHtml(skill.displayName)}">
+                        <i class="mdi mdi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success border-0 skill-toggle-btn" title="${toggleTitle}"
+                            data-skill-id="${skill.id}" data-target-state="${targetState}">
+                        <i class="mdi ${toggleIcon}"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 skill-delete-btn" title="${this.translate('ui.delete', 'Delete')}"
+                            data-skill-id="${skill.id}">
+                        <i class="mdi mdi-trash-can-outline"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.skill-edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.editSkill(btn.dataset.skillId, btn.dataset.skillName));
+        });
+        container.querySelectorAll('.skill-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setSkillState(btn.dataset.skillId, btn.dataset.targetState));
+        });
+        container.querySelectorAll('.skill-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.deleteSkill(btn.dataset.skillId));
+        });
+    }
+
+    /**
+     * Open the skill modal for creating a new skill
+     */
+    openSkillModal() {
+        if (!this.skillModal) return;
+        if (this.skillFileIdInput) this.skillFileIdInput.value = '';
+        if (this.skillNameGroup) this.skillNameGroup.classList.remove('d-none');
+        if (this.skillNameInput) this.skillNameInput.value = '';
+        if (this.skillContentInput) this.skillContentInput.value = '';
+        if (this.skillModalTitle) {
+            this.skillModalTitle.innerHTML = `<i class="mdi mdi-lightbulb-on-outline me-2"></i>${this.translate('spirit.skills.new', 'New Skill')}`;
+        }
+        new bootstrap.Modal(this.skillModal).show();
+    }
+
+    /**
+     * Open the skill modal to edit an existing skill's content
+     */
+    async editSkill(fileId, displayName) {
+        if (!this.skillModal || !this.spirit?.id) return;
+
+        if (this.skillFileIdInput) this.skillFileIdInput.value = fileId;
+        if (this.skillNameGroup) this.skillNameGroup.classList.add('d-none');
+        if (this.skillContentInput) this.skillContentInput.value = '';
+        if (this.skillModalTitle) {
+            this.skillModalTitle.innerHTML = `<i class="mdi mdi-pencil me-2"></i>${this.translate('spirit.skills.edit', 'Edit Skill')}: ${this.escapeHtml(displayName || '')}`;
+        }
+
+        const modal = new bootstrap.Modal(this.skillModal);
+        modal.show();
+
+        try {
+            const url = `${this.apiEndpoints.skillContent.replace('{id}', this.spirit.id)}?fileId=${encodeURIComponent(fileId)}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to load skill content');
+            const data = await response.json();
+            if (this.skillContentInput) this.skillContentInput.value = data.content || '';
+        } catch (error) {
+            console.error('Error loading skill content:', error);
+            if (window.toast) window.toast.error(this.translate('error.loading_skills', 'Failed to load skills'));
+        }
+    }
+
+    /**
+     * Create a new skill or update an existing one (depending on hidden file id)
+     */
+    async saveSkill() {
+        if (!this.spirit?.id) return;
+
+        const fileId = this.skillFileIdInput ? this.skillFileIdInput.value : '';
+        const content = this.skillContentInput ? this.skillContentInput.value : '';
+        const spiritId = this.spirit.id;
+
+        if (this.skillSaveBtn) {
+            this.skillSaveBtn.disabled = true;
+            this.skillSaveBtn.querySelector('.spinner-border')?.classList.remove('d-none');
+        }
+
+        try {
+            let response;
+            if (fileId) {
+                // Update existing skill content
+                response = await fetch(this.apiEndpoints.skillContent.replace('{id}', spiritId), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileId, content })
+                });
+            } else {
+                // Create new skill (default: available)
+                const name = this.skillNameInput ? this.skillNameInput.value.trim() : '';
+                if (!name) {
+                    if (window.toast) window.toast.error(this.translate('spirit.skills.name_required', 'Skill name is required'));
+                    return;
+                }
+                response = await fetch(this.apiEndpoints.skills.replace('{id}', spiritId), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, content, state: 'available' })
+                });
+            }
+
+            const data = await response.json();
+            if (!response.ok || data.error) {
+                throw new Error(data.error || 'Failed to save skill');
+            }
+
+            if (window.toast) window.toast.success(this.translate('spirit.skills.saved', 'Skill saved'));
+            bootstrap.Modal.getInstance(this.skillModal)?.hide();
+            await this.loadSkills();
+        } catch (error) {
+            console.error('Error saving skill:', error);
+            if (window.toast) window.toast.error(error.message || this.translate('error.saving_skill', 'Failed to save skill'));
+        } finally {
+            if (this.skillSaveBtn) {
+                this.skillSaveBtn.disabled = false;
+                this.skillSaveBtn.querySelector('.spinner-border')?.classList.add('d-none');
+            }
+        }
+    }
+
+    /**
+     * Move a skill between active/available
+     */
+    async setSkillState(fileId, state) {
+        if (!this.spirit?.id || !fileId || !state) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.skillState.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileId, state })
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Failed to update skill');
+
+            await this.loadSkills();
+        } catch (error) {
+            console.error('Error updating skill state:', error);
+            if (window.toast) window.toast.error(error.message || this.translate('error.saving_skill', 'Failed to save skill'));
+        }
+    }
+
+    /**
+     * Delete a skill
+     */
+    async deleteSkill(fileId) {
+        if (!this.spirit?.id || !fileId) return;
+        if (!confirm(this.translate('spirit.skills.delete_confirm', 'Delete this skill? This cannot be undone.'))) return;
+
+        try {
+            const url = `${this.apiEndpoints.skills.replace('{id}', this.spirit.id)}?fileId=${encodeURIComponent(fileId)}`;
+            const response = await fetch(url, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Failed to delete skill');
+
+            if (window.toast) window.toast.success(this.translate('spirit.skills.deleted', 'Skill deleted'));
+            await this.loadSkills();
+        } catch (error) {
+            console.error('Error deleting skill:', error);
+            if (window.toast) window.toast.error(error.message || this.translate('error.deleting_skill', 'Failed to delete skill'));
         }
     }
 
