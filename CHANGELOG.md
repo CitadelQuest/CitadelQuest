@@ -1,5 +1,15 @@
 # CitadelQuest Changelog
 
+## v0.7.68-beta (2026-07-12)
+
+### Fixes & Improvements
+- **Spirit-to-Spirit — full answers, no truncation** — the consulted (callee) Spirit now runs at its model's full output capacity instead of a fixed 2000-token cap, so its answer is returned complete in one turn (previously long answers were cut off, prompting Spirits to fetch the rest in parts)
+- **Longer request timeouts** — bumped Apache/PHP timeouts from `900s` to `36000s` (10h) across CitadelQuest and CQ AI Gateway configs. Nested Spirit-to-Spirit consultations (AI request within an AI request) can take significantly longer, and the old 15-min ceiling could cut them off
+
+### Technical Changes
+- `AIToolSpiritService`: derive callee max output from `SpiritService::getSpiritAiModel()->getMaxOutput()` (fallback `8192`) instead of the removed `CALLEE_MAX_OUTPUT` constant
+- Timeout config bumped in `docker/apache.conf`, `docker/Dockerfile`, `php.ini` (CitadelQuest) and `docker/apache.conf`, `docker/php-custom.ini` (CQ AI Gateway)
+
 ## v0.7.67-beta (2026-07-12)
 
 ### New Features

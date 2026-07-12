@@ -24,7 +24,12 @@ use Symfony\Contracts\Service\ServiceSubscriberInterface;
  */
 class AIToolSpiritService implements ServiceSubscriberInterface
 {
-    private const CALLEE_MAX_OUTPUT = 2000;
+    /**
+     * Fallback max output tokens for the callee's turn when its model does not
+     * expose a max-output capacity. The callee always runs at its model's full
+     * output capacity so its answer is never artificially truncated.
+     */
+    private const CALLEE_MAX_OUTPUT_FALLBACK = 8192;
     private const CALLEE_TEMPERATURE = 0.7;
     private const CALLEE_TOOL_TEMPERATURE = 0.5;
 
@@ -158,13 +163,25 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                 [['type' => 'text', 'text' => $message]]
             );
 
+            // Run the callee at its model's full output capacity so its answer
+            // is never artificially truncated (S2S always returns the full answer).
+            $calleeMaxOutput = self::CALLEE_MAX_OUTPUT_FALLBACK;
+            try {
+                $calleeModelMax = $this->spiritService->getSpiritAiModel($calleeId)?->getMaxOutput();
+                if ($calleeModelMax !== null && $calleeModelMax > 0) {
+                    $calleeMaxOutput = $calleeModelMax;
+                }
+            } catch (\Throwable $e) {
+                // No model configured / lookup failed — keep the generous fallback.
+            }
+
             $this->spiritCallContext->enter($calleeId);
             try {
                 $result = $this->conversationService()->runTurnSync(
                     $conversation->getId(),
                     $callerMessage->getId(),
                     $lang,
-                    self::CALLEE_MAX_OUTPUT,
+                    $calleeMaxOutput,
                     self::CALLEE_TEMPERATURE,
                     self::CALLEE_TOOL_TEMPERATURE
                 );
