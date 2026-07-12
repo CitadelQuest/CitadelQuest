@@ -76,6 +76,9 @@ export class SpiritChatManager {
         this.chatSettingsMemoryTypeInfo = document.getElementById('chatSettingsMemoryTypeInfo');
         this.chatSettingsIncludeTools = document.getElementById('chatSettingsIncludeTools');
         this.chatSettingsAiToolsDataOptimization = document.getElementById('chatSettingsAiToolsDataOptimization');
+        this.chatSettingsS2sEnabled = document.getElementById('chatSettingsS2sEnabled');
+        this.chatSettingsS2sCallable = document.getElementById('chatSettingsS2sCallable');
+        this.chatSettingsS2sSpecialty = document.getElementById('chatSettingsS2sSpecialty');
         this.chatSettingsToolsData = []; // Loaded tools with toggle state
         this.spiritChatToolsAndConversationsToggle = document.getElementById('spiritChatToolsAndConversationsToggle');
         this.spiritChatToolsAndConversations = document.getElementById('spiritChatToolsAndConversations');
@@ -534,23 +537,11 @@ export class SpiritChatManager {
         // Store spirit data for reuse
         this.currentSpirit = spirit;
         
-        // Update Spirit color immediately (before any async operations)
-        let spiritAvatar = document.querySelectorAll('.spiritChatButtonIcon');
+        // Use the color provided by the backend as the single source of truth.
+        this.currentSpiritColor = spirit.color || '#95ec86';
+        const spiritAvatar = document.querySelectorAll('.spiritChatButtonIcon');
         if (spiritAvatar) {
-            let visualState = spirit.settings?.visualState || '{"color":"#95ec86"}';
-            let color = null;
-            try {
-                color = JSON.parse(visualState)?.color || null;
-            } catch (e) {
-                // visualState might be just a string, use default
-                color = '#95ec86';
-            }
-            this.currentSpiritColor = color || '#95ec86';
-            if (color) {
-                spiritAvatar.forEach(icon => icon.style.color = color);
-            }
-        } else {
-            this.currentSpiritColor = '#95ec86';
+            spiritAvatar.forEach(icon => icon.style.color = this.currentSpiritColor);
         }
         
         // Update UI with spirit info
@@ -697,6 +688,20 @@ export class SpiritChatManager {
                 // AI Tools Data Optimization toggle
                 if (this.chatSettingsAiToolsDataOptimization) {
                     this.chatSettingsAiToolsDataOptimization.checked = !!config.aiToolsDataOptimization;
+                }
+
+                // S2S settings — loaded from spirit settings (fetched earlier into currentSpirit.settings)
+                const s2sEnabled = this.currentSpirit?.settings?.['s2s.enabled'] ?? '1';
+                const s2sCallable = this.currentSpirit?.settings?.['s2s.callable'] ?? '1';
+                const s2sSpecialty = this.currentSpirit?.settings?.['s2s.specialty'] ?? '';
+                if (this.chatSettingsS2sEnabled) {
+                    this.chatSettingsS2sEnabled.checked = s2sEnabled === '1';
+                }
+                if (this.chatSettingsS2sCallable) {
+                    this.chatSettingsS2sCallable.checked = s2sCallable === '1';
+                }
+                if (this.chatSettingsS2sSpecialty) {
+                    this.chatSettingsS2sSpecialty.value = s2sSpecialty;
                 }
 
                 // includeTools toggle
@@ -888,6 +893,29 @@ export class SpiritChatManager {
                 this.currentSpirit.settings.temperature = newTemp;
             }
 
+            // Save S2S settings
+            const s2sSettings = {};
+            if (this.chatSettingsS2sEnabled) {
+                s2sSettings['s2s.enabled'] = this.chatSettingsS2sEnabled.checked ? '1' : '0';
+            }
+            if (this.chatSettingsS2sCallable) {
+                s2sSettings['s2s.callable'] = this.chatSettingsS2sCallable.checked ? '1' : '0';
+            }
+            if (this.chatSettingsS2sSpecialty) {
+                s2sSettings['s2s.specialty'] = this.chatSettingsS2sSpecialty.value.trim();
+            }
+            if (Object.keys(s2sSettings).length > 0) {
+                await fetch(`/api/spirit/${this.currentSpiritId}/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(s2sSettings)
+                });
+                if (this.currentSpirit) {
+                    this.currentSpirit.settings = this.currentSpirit.settings || {};
+                    Object.assign(this.currentSpirit.settings, s2sSettings);
+                }
+            }
+
             // Save per-spirit active tools
             await this.apiService.saveSpiritTools(this.currentSpiritId, activeToolIds);
 
@@ -999,6 +1027,7 @@ export class SpiritChatManager {
                 item.innerHTML = `
                     <div class="cursor-pointer w-100">
                         <span class="text-light">
+                            ${conversation.origin === 'spirit' ? '<i class="mdi mdi-account-group-outline text-cyber me-1" title="' + (window.translations?.['spirit.chat.s2s_consultation'] || 'Spirit-to-Spirit consultation') + '"></i>' : ''}
                             ${conversation.title}
                         </span>
                         

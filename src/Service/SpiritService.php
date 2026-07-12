@@ -553,6 +553,24 @@ class SpiritService
     }
 
     /**
+     * Get the spirit's display color from the visualState setting.
+     *
+     * This is the single source of truth for the spirit color used across
+     * controllers and AI tool services.
+     */
+    public function getSpiritColor(string $spiritId, string $default = '#95ec86'): string
+    {
+        $visualState = $this->getSpiritSetting($spiritId, 'visualState');
+        if ($visualState) {
+            $parsed = json_decode($visualState, true);
+            if (is_array($parsed) && !empty($parsed['color'])) {
+                return $parsed['color'];
+            }
+        }
+        return $default;
+    }
+
+    /**
      * Set a spirit setting value
      */
     public function setSpiritSetting(string $spiritId, string $key, ?string $value): void

@@ -277,6 +277,20 @@ spirit:
         ai_tools_data_optimization_info: 'Nahradí zastaralá data volání nástrojů z předchozích kol placeholder-em před odesláním do AI. Zachová strukturu tool-call neporušenou. Snižuje počet tokenů a šum v kontextu, když Spirit opakovaně čte/upravuje soubory.'
         temperature_precise: 'Přesné'
         temperature_creative: 'Kreativní'
+        s2s_title: 'Spirit-to-Spirit'
+        s2s_enabled: 'Může konzultovat jiné Spirity'
+        s2s_callable: 'Dostupný pro ostatní Spirity'
+        s2s_specialty: 'Specializace (zobrazená ostatním Spiritům)'
+        s2s_specialty_placeholder: 'např. revize kódu, kreativní psaní, výzkum'
+        s2s_consultation: 'Spirit-to-Spirit konzultace'
+    s2s:
+        initiated_conversations: 'Konverzace iniciované Spiritorem'
+        received_conversations: 'Konverzace přijaté od Spiritů'
+        no_conversations: 'Zatím žádné S2S konverzace'
+        with: 's'
+        from: 'od'
+        outgoing: 'Odchozí'
+        incoming: 'Příchozí'
     prompt_builder:
         title: 'Stavitel systémového promptu Spirita'
         button: 'Pokročilý stavitel promptu'
@@ -472,6 +486,7 @@ spirit:
         conversations: 'Konverzace'
         ai_tools: 'AI Nástroje'
         skills: 'Dovednosti'
+        s2s: 'S2S'
     skills:
         title: 'Dovednosti Spirita'
         new: 'Nová dovednost'

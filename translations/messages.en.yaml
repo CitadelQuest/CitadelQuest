@@ -277,6 +277,20 @@ spirit:
         ai_tools_data_optimization_info: 'Replaces outdated tool call data from previous turns with a placeholder before sending to AI. Keeps tool-call structure intact. Reduces tokens & context noise when Spirit re-reads/updates files.'
         temperature_precise: 'Precise'
         temperature_creative: 'Creative'
+        s2s_title: 'Spirit-to-Spirit'
+        s2s_enabled: 'Can consult other Spirits'
+        s2s_callable: 'Receivable by other Spirits'
+        s2s_specialty: 'Specialty (shown to other Spirits)'
+        s2s_specialty_placeholder: 'e.g. code review, creative writing, research'
+        s2s_consultation: 'Spirit-to-Spirit consultation'
+    s2s:
+        initiated_conversations: 'Conversations initiated by Spirit'
+        received_conversations: 'Conversations received from Spirits'
+        no_conversations: 'No S2S conversations yet'
+        with: 'with'
+        from: 'from'
+        outgoing: 'Outgoing'
+        incoming: 'Incoming'
     prompt_builder:
         title: 'Spirit System Prompt Builder'
         button: 'Advanced Prompt Builder'
@@ -479,6 +493,7 @@ spirit:
         conversations: 'Conversations'
         ai_tools: 'AI Tools'
         skills: 'Skills'
+        s2s: 'S2S'
     skills:
         title: 'Spirit Skills'
         new: 'New Skill'

@@ -38,8 +38,38 @@ class SpiritConversationApiController extends AbstractController
     {
         try {
             // Get conversations, without 'messages' field
-            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);            
-            
+            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
+
+            // S2S conversations are shown in the dedicated S2S tab, hide them here
+            $conversations = array_values(array_filter(
+                $conversations,
+                static fn (array $conversation) => ($conversation['origin'] ?? 'user') !== 'spirit'
+            ));
+
+            return $this->json($conversations);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/s2s-initiated/{spiritId}', name: 'api_spirit_conversation_s2s_initiated', methods: ['GET'])]
+    public function listS2sConversationsInitiatedBySpirit(string $spiritId): JsonResponse
+    {
+        try {
+            $conversations = $this->conversationService->getS2sConversationsInitiatedBySpirit($spiritId);
+
+            return $this->json($conversations);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/s2s-received/{spiritId}', name: 'api_spirit_conversation_s2s_received', methods: ['GET'])]
+    public function listS2sConversationsReceivedBySpirit(string $spiritId): JsonResponse
+    {
+        try {
+            $conversations = $this->conversationService->getS2sConversationsReceivedBySpirit($spiritId);
+
             return $this->json($conversations);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);

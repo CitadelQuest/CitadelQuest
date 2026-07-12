@@ -827,7 +827,6 @@ class CQProfileController extends AbstractController
             // Get level and experience from spirit_settings
             $level = 1;
             $experience = 0;
-            $spiritColor = '#95ec86';
 
             $settings = $userDb->executeQuery(
                 'SELECT key, value FROM spirit_settings WHERE spirit_id = ?',
@@ -839,13 +838,6 @@ class CQProfileController extends AbstractController
                     $level = (int) $setting['value'];
                 } elseif ($setting['key'] === 'experience') {
                     $experience = (int) $setting['value'];
-                } elseif ($setting['key'] === 'visualState') {
-                    try {
-                        $parsed = json_decode($setting['value'], true);
-                        if (!empty($parsed['color'])) {
-                            $spiritColor = $parsed['color'];
-                        }
-                    } catch (\Exception $e) {}
                 }
             }
 
@@ -853,7 +845,7 @@ class CQProfileController extends AbstractController
                 'name' => $row['name'],
                 'level' => $level,
                 'experience' => $experience,
-                'color' => $spiritColor,
+                'color' => $this->spiritService->getSpiritColor($spiritId),
                 'isPrimary' => $spiritId === $primaryId,
             ];
         }

@@ -21,6 +21,9 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 class SpiritConversationService
 {
     private $user;
+
+    /** @var array{name:string, spiritId:string}|null Transient S2S framing for buildSystemInfoSection */
+    private ?array $pendingS2SContext = null;
     
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
@@ -42,7 +45,8 @@ class SpiritConversationService
         private readonly LoggerInterface $logger,
         private readonly AnnoService $annoService,
         private readonly SluggerInterface $slugger,
-        private readonly SpiritSkillService $spiritSkillService
+        private readonly SpiritSkillService $spiritSkillService,
+        private readonly SpiritCallContext $spiritCallContext
     ) {
         $this->user = $security->getUser();
     }
@@ -55,27 +59,99 @@ class SpiritConversationService
         return $this->userDatabaseManager->getDatabaseConnection($this->user);
     }
     
-    public function createConversation(string $spiritId, string $title): SpiritConversation
-    {
+    public function createConversation(
+        string $spiritId,
+        string $title,
+        string $origin = 'user',
+        ?string $initiatorSpiritId = null
+    ): SpiritConversation {
         $db = $this->getUserDb();
         
         // Create a new conversation
-        $conversation = new SpiritConversation($spiritId, $title);
+        $conversation = new SpiritConversation($spiritId, $title, [], $origin, $initiatorSpiritId);
         
         // Insert into database
         $db->executeStatement(
-            'INSERT INTO spirit_conversation (id, spirit_id, title, messages, created_at, last_interaction) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO spirit_conversation (id, spirit_id, title, messages, origin, initiator_spirit_id, created_at, last_interaction) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $conversation->getId(),
                 $conversation->getSpiritId(),
                 $conversation->getTitle(),
                 $conversation->getMessages() ? json_encode($conversation->getMessages()) : '[]',
+                $conversation->getOrigin(),
+                $conversation->getInitiatorSpiritId(),
                 $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 $conversation->getLastInteraction()->format('Y-m-d H:i:s')
             ]
         );
         
         return $conversation;
+    }
+
+    /**
+     * Get an existing Spirit-to-Spirit conversation (validated), or create a new
+     * one owned by the callee spirit with the caller recorded as initiator.
+     *
+     * @param string      $callerSpiritId  The Spirit initiating the consultation
+     * @param string      $calleeSpiritId  The Spirit being consulted (conversation owner)
+     * @param string|null $conversationId  Optional existing S2S conversation to continue
+     */
+    public function getOrCreateS2SConversation(
+        string $callerSpiritId,
+        string $calleeSpiritId,
+        ?string $conversationId = null
+    ): SpiritConversation {
+        // conversationId semantics:
+        //   null | 'continue-last' -> continue the most recent S2S thread (default)
+        //   'new'                  -> force a fresh S2S conversation
+        //   uuid                   -> use that specific S2S conversation
+        $mode = $conversationId ?? 'continue-last';
+
+        if ($mode !== 'new' && $mode !== 'continue-last') {
+            $existing = $this->getConversation($mode);
+            // Only reuse if it is a valid S2S thread between the same two Spirits.
+            if ($existing
+                && $existing->isSpiritToSpirit()
+                && $existing->getSpiritId() === $calleeSpiritId
+                && $existing->getInitiatorSpiritId() === $callerSpiritId
+            ) {
+                return $existing;
+            }
+            // Invalid UUID falls through to continue-last behavior.
+        }
+
+        if ($mode === 'new') {
+            // Force a fresh S2S conversation.
+            $callerName = $this->spiritService->getSpirit($callerSpiritId)?->getName() ?? 'Spirit';
+            $calleeName = $this->spiritService->getSpirit($calleeSpiritId)?->getName() ?? 'Spirit';
+            $title = $callerName . ' → ' . $calleeName;
+            return $this->createConversation($calleeSpiritId, $title, 'spirit', $callerSpiritId);
+        }
+
+        // continue-last (default): reuse the most recent S2S thread between these
+        // two Spirits so context is preserved across calls. Only reuse threads that
+        // were active within the last 24 hours.
+        $db = $this->getUserDb();
+        $recent = $db->executeQuery(
+            'SELECT id FROM spirit_conversation
+             WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id = ?
+               AND last_interaction > datetime(\'now\', \'-24 hours\')
+             ORDER BY last_interaction DESC
+             LIMIT 1',
+            ['spirit', $calleeSpiritId, $callerSpiritId]
+        )->fetchOne();
+        if ($recent) {
+            $existing = $this->getConversation($recent);
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        $callerName = $this->spiritService->getSpirit($callerSpiritId)?->getName() ?? 'Spirit';
+        $calleeName = $this->spiritService->getSpirit($calleeSpiritId)?->getName() ?? 'Spirit';
+        $title = $callerName . ' → ' . $calleeName;
+
+        return $this->createConversation($calleeSpiritId, $title, 'spirit', $callerSpiritId);
     }
     
     public function getConversation(string $conversationId): ?SpiritConversation
@@ -107,7 +183,7 @@ class SpiritConversationService
         $db = $this->getUserDb();
         
         $result = $db->executeQuery(
-            'SELECT id, spirit_id, title, created_at, last_interaction FROM spirit_conversation ORDER BY last_interaction DESC'
+            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation ORDER BY last_interaction DESC'
         );
         $results = $result->fetchAllAssociative();
         
@@ -220,7 +296,7 @@ class SpiritConversationService
         
         // Use LENGTH() to get byte size of messages column (works in SQLite)
         $result = $db->executeQuery(
-            'SELECT id, spirit_id, title, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', 
+            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', 
             [$spiritId]
         );
         $results = $result->fetchAllAssociative();
@@ -323,6 +399,8 @@ class SpiritConversationService
                 'id' => $data['id'],
                 'spiritId' => $data['spirit_id'],
                 'title' => $data['title'],
+                'origin' => $data['origin'] ?? 'user',
+                'initiatorSpiritId' => $data['initiator_spirit_id'] ?? null,
                 'createdAt' => $data['created_at'],
                 'lastInteraction' => $data['last_interaction'],
                 'messagesCount' => $messagesCount,
@@ -347,6 +425,110 @@ class SpiritConversationService
         }
         //
         
+        return $conversations;
+    }
+
+    /**
+     * Get S2S conversations where the given Spirit is the initiator (caller).
+     * Returns lightweight conversation metadata including the callee Spirit name.
+     */
+    public function getS2sConversationsInitiatedBySpirit(string $spiritId): array
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
+             WHERE origin = ? AND initiator_spirit_id = ?
+             ORDER BY last_interaction DESC',
+            ['spirit', $spiritId]
+        );
+        $results = $result->fetchAllAssociative();
+
+        $conversations = [];
+        foreach ($results as $data) {
+            $conversationId = $data['id'];
+
+            $messageCount = (int) $db->executeQuery(
+                'SELECT COUNT(*) FROM spirit_conversation_message WHERE conversation_id = ?',
+                [$conversationId]
+            )->fetchOne();
+
+            if ($messageCount === 0) {
+                $messagesJson = $db->executeQuery(
+                    'SELECT messages FROM spirit_conversation WHERE id = ?',
+                    [$conversationId]
+                )->fetchOne();
+                $messageCount = count(json_decode($messagesJson, true) ?? []);
+            }
+
+            $calleeId = $data['spirit_id'];
+            $calleeName = $this->spiritService->getSpirit($calleeId)?->getName() ?? 'Spirit';
+
+            $conversations[] = [
+                'id' => $conversationId,
+                'spiritId' => $calleeId,
+                'spiritName' => $calleeName,
+                'title' => $data['title'],
+                'origin' => $data['origin'] ?? 'spirit',
+                'initiatorSpiritId' => $data['initiator_spirit_id'] ?? null,
+                'createdAt' => $data['created_at'],
+                'lastInteraction' => $data['last_interaction'],
+                'messagesCount' => $messageCount,
+            ];
+        }
+
+        return $conversations;
+    }
+
+    /**
+     * Get S2S conversations where the given Spirit is the callee (received from other Spirits).
+     * Returns lightweight conversation metadata including the caller Spirit name.
+     */
+    public function getS2sConversationsReceivedBySpirit(string $spiritId): array
+    {
+        $db = $this->getUserDb();
+
+        $result = $db->executeQuery(
+            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
+             WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL
+             ORDER BY last_interaction DESC',
+            ['spirit', $spiritId]
+        );
+        $results = $result->fetchAllAssociative();
+
+        $conversations = [];
+        foreach ($results as $data) {
+            $conversationId = $data['id'];
+
+            $messageCount = (int) $db->executeQuery(
+                'SELECT COUNT(*) FROM spirit_conversation_message WHERE conversation_id = ?',
+                [$conversationId]
+            )->fetchOne();
+
+            if ($messageCount === 0) {
+                $messagesJson = $db->executeQuery(
+                    'SELECT messages FROM spirit_conversation WHERE id = ?',
+                    [$conversationId]
+                )->fetchOne();
+                $messageCount = count(json_decode($messagesJson, true) ?? []);
+            }
+
+            $callerId = $data['initiator_spirit_id'];
+            $callerName = $this->spiritService->getSpirit($callerId)?->getName() ?? 'Spirit';
+
+            $conversations[] = [
+                'id' => $conversationId,
+                'spiritId' => $callerId,
+                'spiritName' => $callerName,
+                'title' => $data['title'],
+                'origin' => $data['origin'] ?? 'spirit',
+                'initiatorSpiritId' => $data['initiator_spirit_id'],
+                'createdAt' => $data['created_at'],
+                'lastInteraction' => $data['last_interaction'],
+                'messagesCount' => $messageCount,
+            ];
+        }
+
         return $conversations;
     }
     
@@ -816,7 +998,8 @@ class SpiritConversationService
         array $toolCalls,
         string $lang = 'English',
         int $maxOutput = 500,
-        float $temperature = 0.7
+        float $temperature = 0.7,
+        ?string $cachedSystemPrompt = null
     ): array {
         $db = $this->getUserDb();
         
@@ -853,7 +1036,7 @@ class SpiritConversationService
         $aiServiceModel = $this->spiritService->getSpiritAiModel($spirit->getId());
         
         // Prepare messages including tool results
-        $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang);
+        $messages = $this->prepareMessagesForAiRequestFromMessageTable($conversationId, $spirit, $lang, $cachedSystemPrompt);
         
         // Add tools (per-spirit filtering)
         $tools = $this->getAvailableToolsForSpirit($spirit->getId());
@@ -964,6 +1147,13 @@ class SpiritConversationService
     ): void {
         $shouldStop = $shouldStop ?? static fn (): bool => false;
 
+        // Seed the Spirit-to-Spirit call context/guard for this top-level turn so
+        // nested callSpirit chains are depth/cycle/budget bounded.
+        $topConversation = $this->getConversation($conversationId);
+        if ($topConversation) {
+            $this->spiritCallContext->begin($topConversation->getSpiritId());
+        }
+
         // Load the user message that initiated this turn
         $messageService = new SpiritConversationMessageService(
             $this->userDatabaseManager,
@@ -1071,6 +1261,207 @@ class SpiritConversationService
 
             $iterations++;
         }
+    }
+
+    /**
+     * Run a full Spirit turn SYNCHRONOUSLY and return the final assistant text.
+     *
+     * Used by Spirit-to-Spirit consultations (`callSpirit`): the callee Spirit
+     * runs its complete stack — inline CQ Memory recall + Memory Agent enrichment,
+     * initial AI response, and full tool-execution loop — using its own model,
+     * system prompt and active tools. Unlike runFullTurn(), recall is computed
+     * inline (there is no HTTP pre-send for a nested call) and the final text is
+     * returned to the caller instead of relying on browser polling.
+     *
+     * Safe to run inside the detached turn worker (no time limit).
+     *
+     * @param callable|null $shouldStop Returns true when the chain should stop.
+     * @return array ['answer' => string, 'assistantMessageId' => ?string, 'iterations' => int]
+     */
+    public function runTurnSync(
+        string $conversationId,
+        string $userMessageId,
+        string $lang = 'English',
+        int $maxOutput = 500,
+        float $temperature = 0.7,
+        float $toolTemperature = 0.5,
+        ?callable $shouldStop = null
+    ): array {
+        $shouldStop = $shouldStop ?? static fn (): bool => false;
+
+        $messageService = new SpiritConversationMessageService(
+            $this->userDatabaseManager,
+            $this->security,
+            $this->logger
+        );
+        $userMessage = $messageService->getMessageById($userMessageId);
+        if (!$userMessage) {
+            throw new \Exception('Caller message not found: ' . $userMessageId);
+        }
+
+        $userMessageText = $this->extractUserMessageText($userMessage);
+
+        // Inline recall (no HTTP pre-send for nested calls).
+        $cachedSystemPrompt = null;
+        try {
+            $conversation = $this->getConversation($conversationId);
+            if ($conversation && $conversation->isSpiritToSpirit()) {
+                $callerId = $conversation->getInitiatorSpiritId();
+                $callerName = $callerId
+                    ? ($this->spiritService->getSpirit($callerId)?->getName() ?? 'a fellow Spirit')
+                    : 'a fellow Spirit';
+                $this->pendingS2SContext = [
+                    'name' => $callerName,
+                    'spiritId' => $callerId ?? 'unknown',
+                ];
+            }
+
+            $recall = $this->preProcessRecall($conversationId, $userMessageText, $lang);
+            $cachedSystemPrompt = $recall['systemPrompt'] ?? null;
+            $this->pendingS2SContext = null;
+
+            $finalRecallData = [
+                'recalledNodes' => $recall['recalledNodes'] ?? [],
+                'keywords' => $recall['keywords'] ?? [],
+                'packInfo' => $recall['packInfo'] ?? [],
+                'synthesis' => '',
+                'confidence' => '',
+                'subAgentUsage' => null,
+            ];
+
+            // Memory Agent enrichment (full-stack callee).
+            if (!empty($recall['shouldTriggerSubAgent']) && $cachedSystemPrompt !== null) {
+                try {
+                    $subAgentResult = $this->runSubconsciousnessAgent(
+                        $conversationId,
+                        $userMessageText,
+                        $cachedSystemPrompt,
+                        $recall['recalledNodes'] ?? [],
+                        $recall['keywords'] ?? [],
+                        $recall['rootNodes'] ?? [],
+                        $recall['packsToSearch'] ?? []
+                    );
+                    $cachedSystemPrompt = $subAgentResult['systemPrompt'];
+                    $finalRecallData['recalledNodes'] = $subAgentResult['recalledNodes'];
+                    $finalRecallData['synthesis'] = $subAgentResult['synthesis'] ?? '';
+                    $finalRecallData['confidence'] = $subAgentResult['confidence'] ?? '';
+                    $finalRecallData['subAgentUsage'] = $subAgentResult['usage'] ?? null;
+                } catch (\Throwable $e) {
+                    $this->logger->warning('S2S sub-agent enrichment failed: {error}', ['error' => $e->getMessage()]);
+                }
+            }
+
+            if (!empty($finalRecallData['recalledNodes']) || !empty($finalRecallData['synthesis'])) {
+                $messageService->createMessage($conversationId, 'assistant', 'memory_recall', $finalRecallData, $userMessageId);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('S2S inline recall failed: {error}', ['error' => $e->getMessage()]);
+        }
+
+        // Initial AI response.
+        $response = $this->sendMessageAsync(
+            $conversationId,
+            $userMessage,
+            $lang,
+            $maxOutput,
+            $temperature,
+            $cachedSystemPrompt
+        );
+
+        // Tool-execution loop.
+        $maxIterations = 222;
+        $iterations = 0;
+        while (
+            ($response['requiresToolExecution'] ?? false)
+            && !empty($response['toolCalls'])
+            && !$shouldStop()
+            && $iterations < $maxIterations
+        ) {
+            $assistantMessage = $response['message'];
+            $assistantMessageId = is_array($assistantMessage)
+                ? ($assistantMessage['id'] ?? null)
+                : $assistantMessage->getId();
+            if (!$assistantMessageId) {
+                break;
+            }
+            $response = $this->executeToolsAsync(
+                $conversationId,
+                $assistantMessageId,
+                $response['toolCalls'],
+                $lang,
+                $maxOutput,
+                $toolTemperature,
+                $cachedSystemPrompt
+            );
+            $iterations++;
+        }
+
+        $finalMessage = $response['message'] ?? null;
+        $finalMessageId = null;
+        if (is_array($finalMessage)) {
+            $finalMessageId = $finalMessage['id'] ?? null;
+        } elseif ($finalMessage !== null) {
+            $finalMessageId = $finalMessage->getId();
+        }
+
+        return [
+            'answer' => $this->extractAssistantMessageText($finalMessage),
+            'assistantMessageId' => $finalMessageId,
+            'iterations' => $iterations,
+        ];
+    }
+
+    /**
+     * Transparent framing prepended to the callee's system prompt for a
+     * Spirit-to-Spirit consultation, so it knows it is collaborating with a peer.
+     */
+    private function buildFellowSpiritFraming(string $callerName, string $callerSpiritId): string
+    {
+        $callerName = htmlspecialchars($callerName, ENT_QUOTES);
+        $callerSpiritId = htmlspecialchars($callerSpiritId, ENT_QUOTES);
+        return <<<PROMPT
+                <fellow-spirit-consultation>
+                    You are being consulted by your fellow Spirit "{$callerName}", who serves the same human user.
+                    They are asking for your help because of your specific skills. Answer as a knowledgeable peer:
+                    be direct, share your expertise, and return a self-contained answer they can use. You may use
+                    your own tools and memory. If the request is outside your abilities, say so plainly.
+                    <spirit>
+                        <name>{$callerName}</name>
+                        <status>active</status>
+                    </spirit>
+                </fellow-spirit-consultation>
+
+PROMPT;
+    }
+
+    /**
+     * Extract plain text from an assistant message (entity or array form) as
+     * produced by sendMessageAsync()/executeToolsAsync().
+     */
+    private function extractAssistantMessageText($message): string
+    {
+        if ($message === null) {
+            return '';
+        }
+        $content = is_array($message)
+            ? ($message['content'] ?? null)
+            : $message->getContent();
+
+        if (is_string($content)) {
+            return $content;
+        }
+        if (is_array($content)) {
+            $texts = [];
+            foreach ($content as $item) {
+                if (is_string($item)) {
+                    $texts[] = $item;
+                } elseif (isset($item['text'])) {
+                    $texts[] = $item['text'];
+                }
+            }
+            return trim(implode("\n", $texts));
+        }
+        return '';
     }
 
     /**
@@ -1857,6 +2248,16 @@ class SpiritConversationService
         // background worker (no web request). Fall back gracefully.
         $host = $_SERVER['SERVER_NAME'] ?? $_SERVER['HTTP_HOST'] ?? (gethostname() ?: 'localhost');
 
+        $s2sBlock = '';
+        $userStatus = '';
+        if ($this->pendingS2SContext !== null) {
+            $s2sBlock = $this->buildFellowSpiritFraming(
+                $this->pendingS2SContext['name'],
+                $this->pendingS2SContext['spiritId']
+            );
+            $userStatus = "\n                    <status>inactive</status>";
+        }
+
         return "
 
             <current-system-info>
@@ -1864,9 +2265,10 @@ class SpiritConversationService
                     <host>{$host}</host>
                     <version>{$this->citadelVersion->getVersion()}</version>
                 </CitadelQuest-app>
+                {$s2sBlock}
                 <user>
                     <username>{$this->user->getUsername()}</username>
-                    <email>{$this->user->getEmail()}</email>
+                    <email>{$this->user->getEmail()}</email>{$userStatus}
                 </user>
                 <datetime>
                     {$currentDateTime}

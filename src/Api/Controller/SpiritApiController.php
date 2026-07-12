@@ -40,6 +40,7 @@ class SpiritApiController extends AbstractController
             $spiritData = $spirit->jsonSerialize();
             $spiritData['settings'] = $settings;
             $spiritData['progression'] = $this->spiritService->getLevelProgression($spirit->getId());
+            $spiritData['color'] = $this->spiritService->getSpiritColor($spirit->getId());
 
             return $this->json($spiritData);
         } catch (\Exception $e) {
@@ -62,6 +63,7 @@ class SpiritApiController extends AbstractController
                 $spiritData['settings'] = $settings;
                 $spiritData['progression'] = $progression;
                 $spiritData['isPrimary'] = $this->spiritService->isPrimarySpirit($spirit->getId());
+                $spiritData['color'] = $this->spiritService->getSpiritColor($spirit->getId());
 
                 $spiritsData[] = $spiritData;
             }
@@ -87,6 +89,7 @@ class SpiritApiController extends AbstractController
 
             $spiritData = $spirit->jsonSerialize();
             $spiritData['settings'] = $settings;
+            $spiritData['color'] = $this->spiritService->getSpiritColor($spirit->getId());
 
             return $this->json($spiritData, Response::HTTP_CREATED);
         } catch (\Exception $e) {
@@ -203,6 +206,8 @@ class SpiritApiController extends AbstractController
             $spiritData = $spirit->jsonSerialize();
             $spiritData['settings'] = $settings;
             $spiritData['progression'] = $this->spiritService->getLevelProgression($spirit->getId());
+            $spiritData['color'] = $this->spiritService->getSpiritColor($spirit->getId());
+            $spiritData['isPrimary'] = $this->spiritService->isPrimarySpirit($spirit->getId());
 
             return $this->json($spiritData);
         } catch (\Exception $e) {

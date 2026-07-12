@@ -23,23 +23,14 @@ class SpiritsController extends AbstractController
         $allSpirits = [];
         foreach ($spirits as $spirit) {
             $settings = $this->spiritService->getSpiritSettings($spirit->getId());
-            
-            // Extract spirit color from visualState
-            $spiritColor = '#95ec86'; // default
-            if (isset($settings['visualState'])) {
-                $visualState = json_decode($settings['visualState'], true);
-                if (isset($visualState['color'])) {
-                    $spiritColor = $visualState['color'];
-                }
-            }
-            
+
             $allSpirits[] = [
                 'id' => $spirit->getId(),
                 'name' => $spirit->getName(),
                 'isPrimary' => $this->spiritService->isPrimarySpirit($spirit->getId()),
                 'progression' => $this->spiritService->getLevelProgression($spirit->getId()),
                 'settings' => $settings,
-                'color' => $spiritColor
+                'color' => $this->spiritService->getSpiritColor($spirit->getId())
             ];
         }
 

@@ -42,7 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 memoryRemovePack: '/spirit/{id}/memory/library/remove-pack',
                 skills: '/api/spirit/{id}/skills',
                 skillContent: '/api/spirit/{id}/skills/content',
-                skillState: '/api/spirit/{id}/skills/state'
+                skillState: '/api/spirit/{id}/skills/state',
+                s2sConversations: '/api/spirit-conversation/s2s-initiated/{id}',
+                s2sConversationsReceived: '/api/spirit-conversation/s2s-received/{id}'
             }
         });
         

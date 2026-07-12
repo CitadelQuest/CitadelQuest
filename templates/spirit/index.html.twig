@@ -97,6 +97,11 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link px-3 py-1" id="tab-s2s" data-bs-toggle="tab" data-bs-target="#panel-s2s" type="button" role="tab">
+                                <i class="mdi mdi-account-group-outline me-1"></i>{{ 'spirit.tabs.s2s'|trans|default('S2S') }}
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link px-3 py-1" id="tab-conversations" data-bs-toggle="tab" data-bs-target="#panel-conversations" type="button" role="tab">
                                 <i class="mdi mdi-forum me-1"></i>{{ 'spirit.tabs.conversations'|trans|default('Conversations') }}
                                 {% if conversations is defined and conversations|length > 0 %}
@@ -231,6 +236,84 @@
                                     </h6>
                                     <div id="spirit-skills-available" class="spirit-skill-list list-group list-group-flush rounded border border-secondary border-opacity-25">
                                         <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Spirit-to-Spirit Tab #}
+                        <div class="tab-pane fade" id="panel-s2s" role="tabpanel">
+                            <div class="row">
+                                {# S2S settings #}
+                                <div class="col-12 col-md-6">
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <i class="mdi mdi-account-group-outline text-cyber"></i>
+                                        <span class="form-label mb-0">{{ 'spirit.chat.s2s_title'|trans|default('Spirit-to-Spirit') }}</span>
+                                    </div>
+
+                                    {# s2s.enabled #}
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <label for="spirit-s2s-enabled" class="form-label mb-0 small">
+                                                <i class="mdi mdi-phone-outgoing text-cyber me-1"></i> {{ 'spirit.chat.s2s_enabled'|trans|default('Can consult other Spirits') }}
+                                            </label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" role="switch" id="spirit-s2s-enabled">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {# s2s.callable #}
+                                    <div class="mb-3">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <label for="spirit-s2s-callable" class="form-label mb-0 small">
+                                                <i class="mdi mdi-phone-incoming text-cyber me-1"></i> {{ 'spirit.chat.s2s_callable'|trans|default('Receivable by other Spirits') }}
+                                            </label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" role="switch" id="spirit-s2s-callable">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {# s2s.specialty #}
+                                    <div class="mb-3">
+                                        <label for="spirit-s2s-specialty" class="form-label small">
+                                            <i class="mdi mdi-star-outline text-cyber me-1"></i> {{ 'spirit.chat.s2s_specialty'|trans|default('Specialty (shown to other Spirits)') }}
+                                        </label>
+                                        <input type="text" class="form-control form-control-sm bg-dark bg-opacity-50 border-secondary text-light" id="spirit-s2s-specialty" placeholder="{{ 'spirit.chat.s2s_specialty_placeholder'|trans|default('e.g. code review, creative writing, research') }}">
+                                    </div>
+
+                                    <button type="button" id="spirit-s2s-save-btn" class="btn btn-sm btn-cyber">
+                                        <i class="mdi mdi-content-save me-2"></i>{{ 'ui.save'|trans|default('Save') }}
+                                    </button>
+                                </div>
+
+                                {# S2S conversations lists #}
+                                <div class="col-12 col-md-6">
+                                    <ul class="nav nav-tabs cq-tabs mb-3" id="spirit-s2s-conversations-tabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active px-3 py-1" id="spirit-s2s-tab-outgoing" data-bs-toggle="tab" data-bs-target="#spirit-s2s-pane-outgoing" type="button" role="tab">
+                                                <i class="mdi mdi-phone-outgoing me-1"></i>{{ 'spirit.s2s.outgoing'|trans|default('Outgoing') }}
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link px-3 py-1" id="spirit-s2s-tab-incoming" data-bs-toggle="tab" data-bs-target="#spirit-s2s-pane-incoming" type="button" role="tab">
+                                                <i class="mdi mdi-phone-incoming me-1"></i>{{ 'spirit.s2s.incoming'|trans|default('Incoming') }}
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content" id="spirit-s2s-conversations-content">
+                                        <div class="tab-pane fade show active" id="spirit-s2s-pane-outgoing" role="tabpanel">
+                                            <div id="spirit-s2s-conversations-outgoing" class="list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                                <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="tab-pane fade" id="spirit-s2s-pane-incoming" role="tabpanel">
+                                            <div id="spirit-s2s-conversations-incoming" class="list-group list-group-flush rounded border border-secondary border-opacity-25">
+                                                <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

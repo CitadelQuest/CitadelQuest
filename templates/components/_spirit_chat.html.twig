@@ -293,6 +293,50 @@
                         </div>
                     </div>
                 </div>
+
+                <hr class="border-secondary border-opacity-25 my-3">
+
+                {# Spirit-to-Spirit settings #}
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="mdi mdi-account-group-outline text-cyber"></i>
+                        <span class="form-label mb-0">{{ 'spirit.chat.s2s_title'|trans|default('Spirit-to-Spirit') }}</span>
+                    </div>
+
+                    {# s2s.enabled — can this Spirit call others #}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <label for="chatSettingsS2sEnabled" class="form-label mb-0 small">
+                                <i class="mdi mdi-phone-outgoing text-cyber me-1"></i> {{ 'spirit.chat.s2s_enabled'|trans|default('Can consult other Spirits') }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="chatSettingsS2sEnabled">
+                            </div>
+                        </div>
+                    </div>
+
+                    {# s2s.callable — can others call this Spirit #}
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <label for="chatSettingsS2sCallable" class="form-label mb-0 small">
+                                <i class="mdi mdi-phone-incoming text-cyber me-1"></i> {{ 'spirit.chat.s2s_callable'|trans|default('Receivable by other Spirits') }}
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="chatSettingsS2sCallable">
+                            </div>
+                        </div>
+                    </div>
+
+                    {# s2s.specialty — what this Spirit is good at #}
+                    <div class="mb-2">
+                        <label for="chatSettingsS2sSpecialty" class="form-label mb-0 small">
+                            <i class="mdi mdi-tag-outline text-cyber me-1"></i> {{ 'spirit.chat.s2s_specialty'|trans|default('Specialty (shown to other Spirits)') }}
+                        </label>
+                        <input type="text" class="form-control form-control-sm bg-dark bg-opacity-50 text-light border-secondary mt-1"
+                               id="chatSettingsS2sSpecialty" maxlength="200"
+                               placeholder="{{ 'spirit.chat.s2s_specialty_placeholder'|trans|default('e.g. code review, creative writing, research') }}">
+                    </div>
+                </div>
             </div>
             <div class="modal-footer d-flex justify-content-between border-secondary border-opacity-25">
                 <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">

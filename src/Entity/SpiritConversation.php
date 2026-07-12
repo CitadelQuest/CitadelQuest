@@ -11,17 +11,48 @@ class SpiritConversation implements JsonSerializable
     private ?Spirit $spirit = null;
     private string $title;
     private string $messages; // JSON encoded array of messages
+    private string $origin = 'user'; // 'user' (Human -> Spirit) | 'spirit' (Spirit -> Spirit)
+    private ?string $initiatorSpiritId = null; // caller spirit id when origin='spirit'
     private \DateTimeInterface $createdAt;
     private \DateTimeInterface $lastInteraction;
     
-    public function __construct(string $spiritId, string $title, array $messages = [])
+    public function __construct(string $spiritId, string $title, array $messages = [], string $origin = 'user', ?string $initiatorSpiritId = null)
     {
         $this->id = uuid_create();
         $this->spiritId = $spiritId;
         $this->title = $title;
         $this->messages = json_encode($messages);
+        $this->origin = $origin;
+        $this->initiatorSpiritId = $initiatorSpiritId;
         $this->createdAt = new \DateTime();
         $this->lastInteraction = new \DateTime();
+    }
+
+    public function getOrigin(): string
+    {
+        return $this->origin;
+    }
+
+    public function setOrigin(string $origin): self
+    {
+        $this->origin = $origin;
+        return $this;
+    }
+
+    public function isSpiritToSpirit(): bool
+    {
+        return $this->origin === 'spirit';
+    }
+
+    public function getInitiatorSpiritId(): ?string
+    {
+        return $this->initiatorSpiritId;
+    }
+
+    public function setInitiatorSpiritId(?string $initiatorSpiritId): self
+    {
+        $this->initiatorSpiritId = $initiatorSpiritId;
+        return $this;
     }
     
     public function getId(): string
@@ -152,6 +183,8 @@ class SpiritConversation implements JsonSerializable
             'id' => $this->id,
             'spiritId' => $this->spiritId,
             'title' => $this->title,
+            'origin' => $this->origin,
+            'initiatorSpiritId' => $this->initiatorSpiritId,
             'messages' => $this->getMessages(),
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM),
             'lastInteraction' => $this->lastInteraction->format(\DateTimeInterface::ATOM)
@@ -163,7 +196,9 @@ class SpiritConversation implements JsonSerializable
         $conversation = new self(
             $data['spirit_id'],
             $data['title'],
-            json_decode($data['messages']??'[]', true) ?? []
+            json_decode($data['messages']??'[]', true) ?? [],
+            $data['origin'] ?? 'user',
+            $data['initiator_spirit_id'] ?? null
         );
         
         $conversation->setId($data['id']);

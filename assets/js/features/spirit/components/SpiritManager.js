@@ -47,6 +47,17 @@ export class SpiritManager {
         this.aiToolsData = []; // cached AI tools with active state
         this.currentToolId = null;
 
+        // S2S refs
+        this.s2sTab = document.getElementById('tab-s2s');
+        this.s2sEnabledInput = document.getElementById('spirit-s2s-enabled');
+        this.s2sCallableInput = document.getElementById('spirit-s2s-callable');
+        this.s2sSpecialtyInput = document.getElementById('spirit-s2s-specialty');
+        this.s2sSaveBtn = document.getElementById('spirit-s2s-save-btn');
+        this.s2sConversationsOutgoingList = document.getElementById('spirit-s2s-conversations-outgoing');
+        this.s2sConversationsIncomingList = document.getElementById('spirit-s2s-conversations-incoming');
+        this.s2sConversationsOutgoingLoaded = false;
+        this.s2sConversationsIncomingLoaded = false;
+
         // Memory pack lists
         this.memoryLibraryPacksList = document.getElementById('spirit-memory-library-packs');
         this.memoryAvailablePacksList = document.getElementById('spirit-memory-available-packs');
@@ -234,6 +245,20 @@ export class SpiritManager {
         if (skillsTab) {
             skillsTab.addEventListener('shown.bs.tab', () => {
                 this.loadSkills();
+            });
+        }
+
+        // Load S2S settings when the S2S tab becomes visible
+        if (this.s2sTab) {
+            this.s2sTab.addEventListener('shown.bs.tab', () => {
+                this.loadS2sSettings();
+            });
+        }
+
+        // Save S2S settings button
+        if (this.s2sSaveBtn) {
+            this.s2sSaveBtn.addEventListener('click', () => {
+                this.saveS2sSettings();
             });
         }
 
@@ -482,25 +507,25 @@ export class SpiritManager {
         const progression = this.spirit.progression || {};
         const settings = this.spirit.settings || {};
 
-        // Extract spirit color from settings
-        let visualState = settings.visualState || '{"color":"#95ec86"}';
-        let color = null;
-        try {
-            color = JSON.parse(visualState)?.color || null;
-        } catch (e) {
-            color = '#95ec86';
-        }
+        // Use the color provided by the backend as the single source of truth.
+        const color = this.spirit.color || '#95ec86';
 
         // Update Spirit icon color
         const spiritIcon = document.querySelector('#spiritChatAvatar .spirit-detail-icon');
-        if (spiritIcon && color) {
+        if (spiritIcon) {
             spiritIcon.style.color = color;
         }
 
         // Update overview avatar icon color
         const overviewIcon = document.querySelector('#spiritOverviewAvatar .spirit-detail-icon');
-        if (overviewIcon && color) {
+        if (overviewIcon) {
             overviewIcon.style.color = color;
+        }
+
+        // Populate S2S controls and conversations if the S2S tab is currently active
+        const s2sTabActive = this.s2sTab?.classList.contains('active');
+        if (s2sTabActive) {
+            this.loadS2sSettings();
         }
 
         // Update basic info
@@ -1169,6 +1194,177 @@ export class SpiritManager {
             if (window.toast) {
                 window.toast.error(this.translate('error.saving_temperature', 'Failed to save temperature'));
             }
+        }
+    }
+
+    // =====================
+    // Spirit-to-Spirit
+    // =====================
+
+    /**
+     * Load S2S settings into the S2S tab controls
+     */
+    loadS2sSettings() {
+        if (!this.spirit) return;
+
+        const settings = this.spirit.settings || {};
+        const s2sEnabled = settings['s2s.enabled'] ?? '1';
+        const s2sCallable = settings['s2s.callable'] ?? '1';
+        const s2sSpecialty = settings['s2s.specialty'] ?? '';
+
+        if (this.s2sEnabledInput) {
+            this.s2sEnabledInput.checked = s2sEnabled === '1';
+        }
+        if (this.s2sCallableInput) {
+            this.s2sCallableInput.checked = s2sCallable === '1';
+        }
+        if (this.s2sSpecialtyInput) {
+            this.s2sSpecialtyInput.value = s2sSpecialty;
+        }
+
+        this.loadS2sConversations();
+    }
+
+    /**
+     * Fetch and render both outgoing and incoming S2S conversations
+     */
+    async loadS2sConversations() {
+        if (!this.spirit?.id) return;
+
+        await Promise.all([
+            this.loadS2sConversationsOutgoing(),
+            this.loadS2sConversationsIncoming(),
+        ]);
+    }
+
+    /**
+     * Fetch and render outgoing S2S conversations (initiated by this Spirit)
+     */
+    async loadS2sConversationsOutgoing() {
+        if (!this.spirit?.id || !this.s2sConversationsOutgoingList) return;
+        if (this.s2sConversationsOutgoingLoaded) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.s2sConversations.replace('{id}', this.spirit.id));
+            if (!response.ok) throw new Error('Failed to load outgoing S2S conversations');
+
+            const conversations = await response.json();
+            this.renderS2sConversations(this.s2sConversationsOutgoingList, conversations, 'with');
+            this.s2sConversationsOutgoingLoaded = true;
+        } catch (error) {
+            console.error('Error loading outgoing S2S conversations:', error);
+            this.s2sConversationsOutgoingList.innerHTML = `
+                <div class="alert alert-danger small py-2 mb-0">${error.message || 'Failed to load conversations'}</div>
+            `;
+        }
+    }
+
+    /**
+     * Fetch and render incoming S2S conversations (received from other Spirits)
+     */
+    async loadS2sConversationsIncoming() {
+        if (!this.spirit?.id || !this.s2sConversationsIncomingList) return;
+        if (this.s2sConversationsIncomingLoaded) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.s2sConversationsReceived.replace('{id}', this.spirit.id));
+            if (!response.ok) throw new Error('Failed to load incoming S2S conversations');
+
+            const conversations = await response.json();
+            this.renderS2sConversations(this.s2sConversationsIncomingList, conversations, 'from');
+            this.s2sConversationsIncomingLoaded = true;
+        } catch (error) {
+            console.error('Error loading incoming S2S conversations:', error);
+            this.s2sConversationsIncomingList.innerHTML = `
+                <div class="alert alert-danger small py-2 mb-0">${error.message || 'Failed to load conversations'}</div>
+            `;
+        }
+    }
+
+    /**
+     * Render a list of S2S conversations into the given container
+     */
+    renderS2sConversations(container, conversations, peerLabel) {
+        if (!container) return;
+
+        if (!Array.isArray(conversations) || conversations.length === 0) {
+            container.innerHTML = `
+                <div class="text-secondary small p-3">${this.translate('spirit.s2s.no_conversations', 'No S2S conversations yet')}</div>
+            `;
+            return;
+        }
+
+        const peerTranslationKey = peerLabel === 'from' ? 'spirit.s2s.from' : 'spirit.s2s.with';
+        const peerDefault = peerLabel === 'from' ? 'from' : 'with';
+
+        container.innerHTML = '';
+        conversations.forEach(conversation => {
+            const item = document.createElement('a');
+            item.className = 'list-group-item list-group-item-action bg-transparent text-light border-secondary border-opacity-25 cursor-pointer conversation-item';
+            item.dataset.conversationId = conversation.id;
+
+            const title = conversation.title || 'S2S conversation';
+            const peerName = conversation.spiritName || 'Spirit';
+            const messagesCount = conversation.messagesCount || 0;
+            const lastInteraction = conversation.lastInteraction
+                ? new Date(conversation.lastInteraction).toLocaleString()
+                : '-';
+
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="mdi mdi-account-group-outline me-2 text-cyber"></i><strong>${this.escapeHtml(title)}</strong>
+                        <br>
+                        <small class="text-muted">${this.translate(peerTranslationKey, peerDefault)} ${this.escapeHtml(peerName)} · ${messagesCount} ${this.translate('spirit.messages', 'messages')}</small>
+                    </div>
+                    <small class="text-muted text-nowrap ms-2">${lastInteraction}</small>
+                </div>
+            `;
+
+            container.appendChild(item);
+        });
+    }
+
+    /**
+     * Save S2S settings from the S2S tab controls
+     */
+    async saveS2sSettings() {
+        if (!this.spirit?.id) return;
+
+        const s2sSettings = {};
+        if (this.s2sEnabledInput) {
+            s2sSettings['s2s.enabled'] = this.s2sEnabledInput.checked ? '1' : '0';
+        }
+        if (this.s2sCallableInput) {
+            s2sSettings['s2s.callable'] = this.s2sCallableInput.checked ? '1' : '0';
+        }
+        if (this.s2sSpecialtyInput) {
+            s2sSettings['s2s.specialty'] = this.s2sSpecialtyInput.value.trim();
+        }
+
+        if (Object.keys(s2sSettings).length === 0) return;
+
+        try {
+            const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(s2sSettings)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save S2S settings');
+            }
+
+            // Update cached settings so the chat settings modal sees the new values
+            this.spirit.settings = this.spirit.settings || {};
+            Object.assign(this.spirit.settings, s2sSettings);
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.s2s_saved', 'Spirit-to-Spirit settings saved'));
+            }
+        } catch (error) {
+            console.error('Error saving S2S settings:', error);
+            this.showError(this.translate('error.saving_s2s', 'Failed to save Spirit-to-Spirit settings'));
         }
     }
 

@@ -87,23 +87,14 @@ class SpiritController extends AbstractController
         $allSpirits = [];
         foreach ($spirits as $spirit) {
             $settings = $this->spiritService->getSpiritSettings($spirit->getId());
-            
-            // Extract spirit color from visualState
-            $spiritColor = '#95ec86'; // default
-            if (isset($settings['visualState'])) {
-                $visualState = json_decode($settings['visualState'], true);
-                if (isset($visualState['color'])) {
-                    $spiritColor = $visualState['color'];
-                }
-            }
-            
+
             $spiritData = [
                 'id' => $spirit->getId(),
                 'name' => $spirit->getName(),
                 'isPrimary' => $this->spiritService->isPrimarySpirit($spirit->getId()),
                 'progression' => $this->spiritService->getLevelProgression($spirit->getId()),
                 'settings' => $settings,
-                'color' => $spiritColor
+                'color' => $this->spiritService->getSpiritColor($spirit->getId())
             ];
             $allSpirits[] = $spiritData;
         }
@@ -122,7 +113,13 @@ class SpiritController extends AbstractController
         
         // Get conversations for this spirit (returns array of arrays)
         $conversationsData = $this->spiritConversationService->getConversationsBySpirit($id);
-        
+
+        // S2S conversations are shown in the dedicated S2S tab, hide them here
+        $conversationsData = array_values(array_filter(
+            $conversationsData,
+            static fn (array $conversation) => ($conversation['origin'] ?? 'user') !== 'spirit'
+        ));
+
         $settings = $this->spiritService->getSpiritSettings($id);
         
         return $this->render('spirit/index.html.twig', [

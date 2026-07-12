@@ -32,6 +32,7 @@ class AIToolCallService
         private readonly AIToolGitService $aiToolGitService,
         private readonly AIToolCommandService $aiToolCommandService,
         private readonly AiToolPolicyService $aiToolPolicyService,
+        private readonly AIToolSpiritService $aiToolSpiritService,
         private readonly Security $security
     ) {
     }
@@ -105,6 +106,11 @@ class AIToolCallService
             // For shell command tool, delegate to AIToolCommandService
             if ($toolName === 'runCommand') {
                 return $this->aiToolCommandService->runCommand($arguments);
+            }
+
+            // For Spirit-to-Spirit tools, delegate to AIToolSpiritService
+            if (in_array($toolName, ['callSpirit', 'listSpirits'])) {
+                return $this->aiToolSpiritService->{$toolName}($arguments);
             }
 
             // createSepaEuroPaymentQrCode

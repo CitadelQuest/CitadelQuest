@@ -58,21 +58,11 @@ export class SpiritDropdownManager {
         a.dataset.spiritId = spirit.id;
 
         const progression = spirit.progression || {};
-        const settings = spirit.settings || {};
         const isPrimary = spirit.isPrimary || false;
         const isSelected = this.selectedSpiritId === spirit.id;
 
-        // Get spirit color for dynamic styling
-        let spiritColor = '#95ec86';
-        try {
-            const visualState = settings.visualState || 'initial';
-            const parsed = JSON.parse(visualState);
-            if (parsed.color) {
-                spiritColor = parsed.color;
-            }
-        } catch (e) {
-            // visualState might be just a string
-        }
+        // Use the color provided by the backend as the single source of truth.
+        const spiritColor = spirit.color || '#95ec86';
 
         a.innerHTML = `
             <div class="d-flex align-items-center">

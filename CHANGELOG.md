@@ -1,5 +1,29 @@
 # CitadelQuest Changelog
 
+## v0.7.67-beta (2026-07-12)
+
+### New Features
+- **Spirit-to-Spirit Chat (`callSpirit` / `listSpirits`)** — a Spirit can now consult a fellow Spirit owned by the same user
+  - The calling Spirit becomes the "user" of the callee; the callee runs a **full turn** with its own model, system prompt, active tools and CQ Memory recall/enrichment
+  - Runs **synchronously in-process** inside the existing detached turn worker via `SpiritConversationService::runTurnSync()` — no extra HTTP request held open, no gateway timeouts
+  - `listSpirits` lets a Spirit discover consultable fellow Spirits and their specialties
+  - Transparent framing: when a conversation `origin='spirit'`, the callee's system prompt is injected with a "you are being consulted by fellow Spirit «A»" block
+  - Full safeguards: depth cap, cycle guard (blocks A→B→A), per-turn call budget, and per-Spirit permission gates
+- **S2S tab on the Spirit Detail page** — dedicated 50/50 layout with S2S settings on the left and Outgoing/Incoming consultation conversation lists on the right (styled with the shared `cq-tabs` nav)
+- **Consulted-Spirit chat badges** — expandable badges in the caller's chat show who was consulted, the request/answer, and the nested consultation cost (colored per-Spirit `mdi-ghost` icons)
+
+### Improvements
+- S2S consultation conversations are now grouped under the S2S tab and hidden from the general Conversations tab and the Spirit Chat modal conversation list
+- Unified Spirit color source: backend now exposes `spirit.color` via API/controllers (`SpiritService::getSpiritColor()`), replacing scattered inline `visualState` JSON parsing across `SpiritManager`, `SpiritDropdownManager`, `SpiritChatManager`
+- Full English, Czech, and Slovak translations for all new S2S UI strings
+
+### Technical Changes
+- New `src/Service/AIToolSpiritService.php` implementing `callSpirit()` + `listSpirits()` (lazy `SpiritConversationService` via service-subscriber locator to break the constructor cycle)
+- New `src/Service/SpiritCallContext.php` — per-turn chain/depth/budget guard (`MAX_DEPTH=2`, `MAX_CALLS_PER_TURN=5`)
+- Extended `SpiritConversation` entity + `SpiritConversationService` with `origin` / `initiatorSpiritId`, `getOrCreateS2SConversation()`, `runTurnSync()`, and S2S initiated/received conversation queries
+- New user migrations: `Version20260711220000` (S2S columns + `callSpirit`/`listSpirits` tools) and `Version20260712150000` (updated `callSpirit` `conversationId` options: `continue-last` / `new` / UUID)
+- Added `SpiritService::getSpiritColor()` and exposed color in `SpiritApiController` responses
+
 ## v0.7.66-beta (2026-07-11)
 
 ### New Features
