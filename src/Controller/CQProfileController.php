@@ -833,11 +833,22 @@ class CQProfileController extends AbstractController
                 [$spiritId]
             )->fetchAllAssociative();
 
+            $visualState = null;
             foreach ($settings as $setting) {
                 if ($setting['key'] === 'level') {
                     $level = (int) $setting['value'];
                 } elseif ($setting['key'] === 'experience') {
                     $experience = (int) $setting['value'];
+                } elseif ($setting['key'] === 'visualState') {
+                    $visualState = $setting['value'];
+                }
+            }
+
+            $color = '#95ec86';
+            if ($visualState) {
+                $parsed = json_decode($visualState, true);
+                if (is_array($parsed) && !empty($parsed['color'])) {
+                    $color = $parsed['color'];
                 }
             }
 
@@ -845,7 +856,7 @@ class CQProfileController extends AbstractController
                 'name' => $row['name'],
                 'level' => $level,
                 'experience' => $experience,
-                'color' => $this->spiritService->getSpiritColor($spiritId),
+                'color' => $color,
                 'isPrimary' => $spiritId === $primaryId,
             ];
         }
