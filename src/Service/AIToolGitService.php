@@ -22,6 +22,9 @@ class AIToolGitService
     {
         $projectId = $arguments['projectId'] ?? 'general';
         $operation = $arguments['operation'] ?? null;
+        $repoPathOverride = isset($arguments['localRepoPath'])
+            ? $this->sanitizeRelativePath($arguments['localRepoPath'])
+            : null;
         
         if (!$operation) {
             return [
@@ -31,12 +34,12 @@ class AIToolGitService
         }
         
         return match($operation) {
-            'clone' => $this->handleClone($projectId, $arguments),
-            'pull' => $this->handlePull($projectId, $arguments),
-            'commitAndPush' => $this->handleCommitAndPush($projectId, $arguments),
-            'status' => $this->handleStatus($projectId, $arguments),
-            'diff' => $this->handleDiff($projectId, $arguments),
-            'log' => $this->handleLog($projectId, $arguments),
+            'clone' => $this->handleClone($projectId, $arguments, $repoPathOverride),
+            'pull' => $this->handlePull($projectId, $arguments, $repoPathOverride),
+            'commitAndPush' => $this->handleCommitAndPush($projectId, $arguments, $repoPathOverride),
+            'status' => $this->handleStatus($projectId, $arguments, $repoPathOverride),
+            'diff' => $this->handleDiff($projectId, $arguments, $repoPathOverride),
+            'log' => $this->handleLog($projectId, $arguments, $repoPathOverride),
             default => [
                 'success' => false,
                 'error' => "Unknown git operation: {$operation}"
@@ -97,6 +100,11 @@ class AIToolGitService
             $this->settingsService->setSetting("git.credentials.{$projectId}.user_email", $arguments['userEmail']);
         }
         
+        if (isset($arguments['localRepoPath'])) {
+            $repoPath = $this->sanitizeRelativePath($arguments['localRepoPath']);
+            $this->settingsService->setSetting("git.credentials.{$projectId}.repo_path", $repoPath);
+        }
+        
         return [
             'success' => true,
             'message' => 'Git credentials stored successfully',
@@ -106,7 +114,7 @@ class AIToolGitService
         ];
     }
 
-    private function handleClone(string $projectId, array $arguments): array
+    private function handleClone(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
         $repoUrl = $arguments['cloneRepoUrl'] ?? null;
         $branch = $arguments['branch'] ?? null;
@@ -119,7 +127,7 @@ class AIToolGitService
             ];
         }
         
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!is_dir($projectDir)) {
             mkdir($projectDir, 0755, true);
@@ -138,7 +146,7 @@ class AIToolGitService
             return $result;
         }
         
-        $syncResult = $this->syncRepositoryToDatabase($projectId, $projectDir);
+        $syncResult = $this->syncRepositoryToDatabase($projectId, $projectDir, $repoPathOverride);
         
         $remoteUrl = $this->gitService->getRemoteUrl($projectDir);
         
@@ -154,12 +162,12 @@ class AIToolGitService
         ];
     }
 
-    private function handlePull(string $projectId, array $arguments): array
+    private function handlePull(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
         $remote = $arguments['pullRemote'] ?? null;
         $branch = $arguments['branch'] ?? null;
         
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!$this->gitService->isGitRepo($projectDir)) {
             return [
@@ -175,7 +183,7 @@ class AIToolGitService
         }
         
         $changes = $result['changes'] ?? ['added' => [], 'modified' => [], 'deleted' => []];
-        $this->syncChangesToDatabase($projectId, $projectDir, $changes);
+        $this->syncChangesToDatabase($projectId, $projectDir, $changes, $repoPathOverride);
         
         $totalChanges = count($changes['added']) + count($changes['modified']) + count($changes['deleted']);
         
@@ -189,7 +197,7 @@ class AIToolGitService
         ];
     }
 
-    private function handleCommitAndPush(string $projectId, array $arguments): array
+    private function handleCommitAndPush(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
         $message = $arguments['commitMessage'] ?? null;
         $files = $arguments['commitFiles'] ?? 'all';
@@ -202,7 +210,7 @@ class AIToolGitService
             ];
         }
         
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!$this->gitService->isGitRepo($projectDir)) {
             return [
@@ -245,9 +253,9 @@ class AIToolGitService
         ];
     }
 
-    private function handleStatus(string $projectId, array $arguments): array
+    private function handleStatus(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!$this->gitService->isGitRepo($projectDir)) {
             return [
@@ -277,12 +285,12 @@ class AIToolGitService
         ];
     }
 
-    private function handleDiff(string $projectId, array $arguments): array
+    private function handleDiff(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
         $file = $arguments['diffFile'] ?? null;
         $staged = $arguments['diffStaged'] ?? false;
         
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!$this->gitService->isGitRepo($projectDir)) {
             return [
@@ -309,11 +317,11 @@ class AIToolGitService
         ];
     }
 
-    private function handleLog(string $projectId, array $arguments): array
+    private function handleLog(string $projectId, array $arguments, ?string $repoPathOverride = null): array
     {
         $count = $arguments['logCount'] ?? 10;
         
-        $projectDir = $this->getProjectDir($projectId);
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
         
         if (!$this->gitService->isGitRepo($projectDir)) {
             return [
@@ -336,9 +344,10 @@ class AIToolGitService
         ];
     }
 
-    private function syncRepositoryToDatabase(string $projectId, string $repoDir): array
+    private function syncRepositoryToDatabase(string $projectId, string $repoDir, ?string $repoPathOverride = null): array
     {
         $filesRegistered = 0;
+        $dbBase = '/' . $this->getRepoPath($projectId, $repoPathOverride);
         
         try {
             $iterator = new \RecursiveIteratorIterator(
@@ -347,9 +356,9 @@ class AIToolGitService
             );
             
             foreach ($iterator as $file) {
-                $relativePath = str_replace($repoDir, '/repo', $file->getPathname());
+                $relativePath = str_replace($repoDir, $dbBase, $file->getPathname());
                 
-                if (str_contains($relativePath, '/.git/') || str_starts_with($relativePath, '/repo/.git')) {
+                if (str_contains($relativePath, '/.git/') || str_starts_with($relativePath, $dbBase . '/.git')) {
                     continue;
                 }
                 
@@ -380,8 +389,10 @@ class AIToolGitService
         return ['filesRegistered' => $filesRegistered];
     }
 
-    private function syncChangesToDatabase(string $projectId, string $repoDir, array $changes): void
+    private function syncChangesToDatabase(string $projectId, string $repoDir, array $changes, ?string $repoPathOverride = null): void
     {
+        $dbBase = '/' . $this->getRepoPath($projectId, $repoPathOverride);
+        
         foreach ($changes['added'] as $file) {
             $fullPath = $repoDir . '/' . $file;
             if (!file_exists($fullPath)) {
@@ -390,7 +401,7 @@ class AIToolGitService
             
             $pathParts = explode('/', trim($file, '/'));
             $name = array_pop($pathParts);
-            $path = '/repo/' . implode('/', $pathParts);
+            $path = rtrim($dbBase . '/' . implode('/', $pathParts), '/');
             
             $existing = $this->projectFileService->findByPathAndName($projectId, $path, $name);
             if (!$existing) {
@@ -411,7 +422,7 @@ class AIToolGitService
             
             $pathParts = explode('/', trim($file, '/'));
             $name = array_pop($pathParts);
-            $path = '/repo/' . implode('/', $pathParts);
+            $path = rtrim($dbBase . '/' . implode('/', $pathParts), '/');
             
             $existing = $this->projectFileService->findByPathAndName($projectId, $path, $name);
             if ($existing) {
@@ -422,7 +433,7 @@ class AIToolGitService
         foreach ($changes['deleted'] as $file) {
             $pathParts = explode('/', trim($file, '/'));
             $name = array_pop($pathParts);
-            $path = '/repo/' . implode('/', $pathParts);
+            $path = rtrim($dbBase . '/' . implode('/', $pathParts), '/');
             
             $existing = $this->projectFileService->findByPathAndName($projectId, $path, $name);
             if ($existing) {
@@ -452,19 +463,62 @@ class AIToolGitService
         return $keyPath;
     }
 
-    private function getProjectDir(string $projectId): string
+    private function getProjectDir(string $projectId, ?string $repoPathOverride = null): string
     {
         $user = $this->security->getUser();
         if (!$user) {
             throw new \RuntimeException('User not authenticated');
         }
 
-        if (!$this->projectFileService->findByPathAndName($projectId, '/', 'repo')) {
-            $this->projectFileService->createDirectory($projectId, '/', 'repo');
-        }
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+        $this->ensureDbDirectory($projectId, $repoPath);
         
         $userDataDir = $this->params->get('kernel.project_dir') . '/var/user_data';
-        return $userDataDir . '/' . $user->getId() . '/p/' . $projectId . '/repo';
+        return $userDataDir . '/' . $user->getId() . '/p/' . $projectId . '/' . $repoPath;
+    }
+
+    /**
+     * Resolve the configured local repo path for a project (relative to the project dir).
+     * Defaults to "repo" to preserve backward compatibility.
+     */
+    private function getRepoPath(string $projectId, ?string $override = null): string
+    {
+        if ($override !== null) {
+            return $override;
+        }
+        $repoPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.repo_path") ?? 'repo';
+        return $this->sanitizeRelativePath($repoPath);
+    }
+
+    /**
+     * Sanitize a user-supplied relative path: normalize slashes, strip empty,
+     * "." and ".." segments (path-traversal safe). Falls back to "repo".
+     */
+    private function sanitizeRelativePath(string $path): string
+    {
+        $path = str_replace('\\', '/', $path);
+        $parts = array_filter(
+            explode('/', $path),
+            fn($p) => $p !== '' && $p !== '.' && $p !== '..'
+        );
+        $clean = implode('/', $parts);
+        return $clean === '' ? 'repo' : $clean;
+    }
+
+    /**
+     * Ensure every segment of a relative directory path is registered in the
+     * project_file DB (source of truth for File Browser / AI file tools).
+     */
+    private function ensureDbDirectory(string $projectId, string $relativePath): void
+    {
+        $pathParts = explode('/', trim($relativePath, '/'));
+        $currentPath = '/';
+        foreach ($pathParts as $part) {
+            if (!$this->projectFileService->findByPathAndName($projectId, $currentPath, $part)) {
+                $this->projectFileService->createDirectory($projectId, $currentPath, $part);
+            }
+            $currentPath = rtrim($currentPath, '/') . '/' . $part;
+        }
     }
 
     private function buildCloneFrontendData(string $projectId, string $repoUrl, array $syncResult): string
@@ -733,6 +787,7 @@ HTML;
     private function buildCredentialsFrontendData(string $projectId, string $authMethod): string
     {
         $methodDisplay = $authMethod === 'https' ? 'HTTPS (username + token)' : 'SSH (private key)';
+        $repoPath = htmlspecialchars($this->getRepoPath($projectId));
         
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -741,6 +796,7 @@ HTML;
         <strong>Git credentials stored</strong>
     </div>
     <div class="small text-muted mt-1">Method: $methodDisplay</div>
+    <div class="small text-muted"><i class="mdi mdi-folder-outline me-1"></i>Local repo path: <code>$repoPath</code></div>
 </div>
 HTML;
     }

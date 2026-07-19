@@ -278,15 +278,10 @@ class GitService
             ];
         }
         
-        $command = ['git', 'push', '--set-upstream', 'origin', 'main'];
+        $remote = $remote ?: 'origin';
+        $branch = $branch ?: $this->getCurrentBranch($repoDir);
         
-        if ($remote) {
-            $command[] = $remote;
-        }
-        
-        if ($branch) {
-            $command[] = $branch;
-        }
+        $command = ['git', 'push', '--set-upstream', $remote, $branch];
         
         $env = $this->getCredentialEnv($projectId);
         
@@ -444,6 +439,17 @@ BASH;
             return trim($result['output']);
         } catch (\Exception $e) {
             return '';
+        }
+    }
+
+    public function getCurrentBranch(string $repoDir): string
+    {
+        try {
+            $result = $this->runGitCommand(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoDir);
+            $branch = trim($result['output']);
+            return $branch !== '' && $branch !== 'HEAD' ? $branch : 'main';
+        } catch (\Exception $e) {
+            return 'main';
         }
     }
 
