@@ -33,6 +33,9 @@ class AIToolCallService
         private readonly AIToolCommandService $aiToolCommandService,
         private readonly AiToolPolicyService $aiToolPolicyService,
         private readonly AIToolSpiritService $aiToolSpiritService,
+        private readonly AIToolGiteaService $aiToolGiteaService,
+        private readonly AIToolCoolifyService $aiToolCoolifyService,
+        private readonly AIToolHostingerService $aiToolHostingerService,
         private readonly Security $security
     ) {
     }
@@ -111,6 +114,21 @@ class AIToolCallService
             // For Spirit-to-Spirit tools, delegate to AIToolSpiritService
             if (in_array($toolName, ['callSpirit', 'listSpirits'])) {
                 return $this->aiToolSpiritService->{$toolName}($arguments);
+            }
+
+            // For Gitea tools, delegate to AIToolGiteaService
+            if ($toolName === 'giteaManage') {
+                return $this->aiToolGiteaService->giteaManage($arguments);
+            }
+
+            // For Coolify tools, delegate to AIToolCoolifyService
+            if ($toolName === 'coolifyManage') {
+                return $this->aiToolCoolifyService->coolifyManage($arguments);
+            }
+
+            // For Hostinger tools, delegate to AIToolHostingerService
+            if ($toolName === 'hostingerManage') {
+                return $this->aiToolHostingerService->hostingerManage($arguments);
             }
 
             // createSepaEuroPaymentQrCode
