@@ -162,11 +162,14 @@ class HostingerApiService
     public function updateNameservers(string $token, string $domain, array $nameservers): array
     {
         $body = [
-            'ns1' => $nameservers['ns1'] ?? null,
-            'ns2' => $nameservers['ns2'] ?? null,
-            'ns3' => $nameservers['ns3'] ?? null,
-            'ns4' => $nameservers['ns4'] ?? null,
+            'ns1' => $nameservers['ns1'],
+            'ns2' => $nameservers['ns2'],
         ];
+        foreach (['ns3', 'ns4'] as $field) {
+            if (!empty($nameservers[$field])) {
+                $body[$field] = $nameservers[$field];
+            }
+        }
         return $this->request('PUT', '/api/domains/v1/portfolio/' . urlencode($domain) . '/nameservers', [
             'json' => $body,
         ], $token);
