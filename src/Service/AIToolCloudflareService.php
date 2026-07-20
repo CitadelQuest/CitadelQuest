@@ -123,18 +123,44 @@ class AIToolCloudflareService
             return $config;
         }
 
-        $result = $this->cloudflareApiService->verifyToken($config['token']);
-        if (!$result['success']) {
-            return $result;
+        $token = $config['token'];
+
+        // The /user/tokens/verify endpoint only works for classic User API tokens (cfut_).
+        // Account API tokens (cfat_) return 401 there even when valid, so we fall back to
+        // a lightweight /zones health check that works for both token types.
+        $result = $this->cloudflareApiService->verifyToken($token);
+        if ($result['success']) {
+            $data = $result['data'] ?? [];
+            return [
+                'success' => true,
+                'status' => $data['status'] ?? 'active',
+                'tokenId' => $data['id'] ?? null,
+                'tokenType' => 'user',
+                'message' => 'Cloudflare API token is valid (User API token)',
+                '_frontendData' => $this->buildFrontendData('Token verified', 'Cloudflare User API token', $data['status'] ?? 'active'),
+            ];
         }
 
-        $data = $result['data'] ?? [];
+        // Fallback: verify via /zones (works for Account API tokens with Zone permissions)
+        $zones = $this->cloudflareApiService->listZones($token, null, 1, 1);
+        if ($zones['success']) {
+            $zoneCount = $zones['resultInfo']['total_count'] ?? count($zones['data'] ?? []);
+            return [
+                'success' => true,
+                'status' => 'active',
+                'tokenType' => 'account',
+                'zoneCount' => $zoneCount,
+                'message' => 'Cloudflare API token is valid (Account API token, verified via /zones)',
+                '_frontendData' => $this->buildFrontendData('Token verified', 'Cloudflare Account API token', $zoneCount . ' zone(s) accessible'),
+            ];
+        }
+
+        // Both checks failed — token is genuinely invalid or lacks Zone:Read
         return [
-            'success' => true,
-            'status' => $data['status'] ?? null,
-            'tokenId' => $data['id'] ?? null,
-            'message' => 'Cloudflare API token is valid',
-            '_frontendData' => $this->buildFrontendData('Token verified', 'Cloudflare API', $data['status'] ?? null),
+            'success' => false,
+            'error' => 'Cloudflare token verification failed. The /user/tokens/verify check returned: ' . ($result['error'] ?? 'unknown')
+                . '. The /zones fallback returned: ' . ($zones['error'] ?? 'unknown')
+                . '. Ensure the token is valid and scoped Zone:Read + DNS:Edit.',
         ];
     }
 
