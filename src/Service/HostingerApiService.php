@@ -153,6 +153,19 @@ class HostingerApiService
         ], $token);
     }
 
+    public function updateNameservers(string $token, string $domain, array $nameservers): array
+    {
+        $body = [];
+        foreach (['ns1', 'ns2', 'ns3', 'ns4'] as $field) {
+            if (!empty($nameservers[$field])) {
+                $body[$field] = $nameservers[$field];
+            }
+        }
+        return $this->request('PUT', '/api/domains/v1/portfolio/' . urlencode($domain) . '/nameservers', [
+            'json' => $body,
+        ], $token);
+    }
+
     public function listVps(string $token): array
     {
         return $this->request('GET', '/api/vps/v1/virtual-machines', [], $token);

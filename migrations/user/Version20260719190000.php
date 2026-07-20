@@ -106,22 +106,26 @@ class UserMigration_20260719190000
 
         // ── hostingerManage ──
         $hostingerId = $this->addTool($db, 'hostingerManage',
-            'Manage Hostinger domains, DNS records, and VPS instances. Operations: checkDomain, listDomains, registerDomain, getDns, setDns, listVps, getVps. Requires hostinger.api_token in tool settings. Note: Hostinger API has a 10 requests/min rate limit.',
+            'Manage Hostinger domains, DNS records, nameservers, and VPS instances. Operations: checkDomain, listDomains, registerDomain, getDns, setDns, updateNameservers, listVps, getVps. Requires hostinger.api_token in tool settings. Note: Hostinger API has a 10 requests/min rate limit.',
             [
                 'type' => 'object',
                 'properties' => [
                     'operation' => [
                         'type' => 'string',
                         'description' => 'Operation to perform',
-                        'enum' => ['checkDomain', 'listDomains', 'registerDomain', 'getDns', 'setDns', 'listVps', 'getVps']
+                        'enum' => ['checkDomain', 'listDomains', 'registerDomain', 'getDns', 'setDns', 'updateNameservers', 'listVps', 'getVps']
                     ],
-                    'domain' => ['type' => 'string', 'description' => 'Domain name (for checkDomain, registerDomain, getDns, setDns)'],
+                    'domain' => ['type' => 'string', 'description' => 'Domain name (for checkDomain, registerDomain, getDns, setDns, updateNameservers)'],
                     'withAlternatives' => ['type' => 'boolean', 'description' => 'Include alternative domain suggestions (for checkDomain)'],
                     'paymentMethodId' => ['type' => 'integer', 'description' => 'Payment method ID (for registerDomain)'],
                     'whoisProfileId' => ['type' => 'integer', 'description' => 'WHOIS profile ID (for registerDomain)'],
                     'records' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['type' => ['type' => 'string'], 'name' => ['type' => 'string'], 'content' => ['type' => 'string'], 'ttl' => ['type' => 'integer']]], 'description' => 'DNS records (for setDns)'],
                     'overwrite' => ['type' => 'boolean', 'description' => 'Overwrite existing DNS records (for setDns, default: false)'],
                     'vmId' => ['type' => 'string', 'description' => 'VPS VM ID (for getVps)'],
+                    'ns1' => ['type' => 'string', 'description' => 'Primary nameserver (for updateNameservers, required)'],
+                    'ns2' => ['type' => 'string', 'description' => 'Secondary nameserver (for updateNameservers, required)'],
+                    'ns3' => ['type' => 'string', 'description' => 'Third nameserver (for updateNameservers, optional)'],
+                    'ns4' => ['type' => 'string', 'description' => 'Fourth nameserver (for updateNameservers, optional)'],
                 ],
                 'required' => ['operation']
             ],

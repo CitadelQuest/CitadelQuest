@@ -64,6 +64,7 @@ class AIToolHostingerService
             'setDns' => $this->handleSetDns($arguments),
             'listVps' => $this->handleListVps($arguments),
             'getVps' => $this->handleGetVps($arguments),
+            'updateNameservers' => $this->handleUpdateNameservers($arguments),
             default => ['success' => false, 'error' => "Unknown Hostinger operation: {$operation}"],
         };
     }
@@ -297,6 +298,42 @@ class AIToolHostingerService
                 'status' => $status,
             ],
             '_frontendData' => $this->buildFrontendData('VPS', (string) $vpsName, $vpsMeta !== '' ? $vpsMeta : null),
+        ];
+    }
+
+    private function handleUpdateNameservers(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$config['token'] ?? false) {
+            return $config;
+        }
+
+        $domain = $args['domain'] ?? null;
+        $ns1 = $args['ns1'] ?? null;
+        $ns2 = $args['ns2'] ?? null;
+        if (!$domain || !$ns1 || !$ns2) {
+            return ['success' => false, 'error' => 'Missing required parameters: domain, ns1, ns2 (ns3 and ns4 are optional)'];
+        }
+
+        $nameservers = ['ns1' => $ns1, 'ns2' => $ns2];
+        foreach (['ns3', 'ns4'] as $field) {
+            if (!empty($args[$field])) {
+                $nameservers[$field] = $args[$field];
+            }
+        }
+
+        $result = $this->hostingerApiService->updateNameservers($config['token'], $domain, $nameservers);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $nsList = implode(', ', array_filter($nameservers));
+        return [
+            'success' => true,
+            'message' => "Nameservers updated for '{$domain}'",
+            'domain' => $domain,
+            'nameservers' => $nameservers,
+            '_frontendData' => $this->buildFrontendData('Nameservers updated', $domain, $nsList),
         ];
     }
 
