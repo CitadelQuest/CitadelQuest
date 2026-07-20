@@ -36,6 +36,7 @@ class AIToolCallService
         private readonly AIToolGiteaService $aiToolGiteaService,
         private readonly AIToolCoolifyService $aiToolCoolifyService,
         private readonly AIToolHostingerService $aiToolHostingerService,
+        private readonly AIToolCloudflareService $aiToolCloudflareService,
         private readonly Security $security
     ) {
     }
@@ -129,6 +130,11 @@ class AIToolCallService
             // For Hostinger tools, delegate to AIToolHostingerService
             if ($toolName === 'hostingerManage') {
                 return $this->aiToolHostingerService->hostingerManage($arguments);
+            }
+
+            // For Cloudflare tools, delegate to AIToolCloudflareService
+            if ($toolName === 'cloudflareManage') {
+                return $this->aiToolCloudflareService->cloudflareManage($arguments);
             }
 
             // createSepaEuroPaymentQrCode
