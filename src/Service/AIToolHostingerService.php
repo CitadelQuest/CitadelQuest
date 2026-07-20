@@ -87,12 +87,17 @@ class AIToolHostingerService
         }
 
         $data = $result['data'] ?? [];
+        // Availability API returns a per-TLD list, e.g. [{domain, tld, is_available, ...}]
+        $first = (is_array($data) && isset($data[0]) && is_array($data[0])) ? $data[0] : $data;
+        $available = $first['is_available'] ?? $first['available'] ?? null;
+        $alternatives = $data['alternatives'] ?? $first['alternatives'] ?? [];
+
         return [
             'success' => true,
             'domain' => $domain,
-            'available' => $data['available'] ?? null,
-            'alternatives' => $data['alternatives'] ?? [],
-            '_frontendData' => $this->buildFrontendData('Domain check', $domain, ($data['available'] ?? false) ? 'Available' : 'Not available'),
+            'available' => $available,
+            'alternatives' => $alternatives,
+            '_frontendData' => $this->buildFrontendData('Domain check', $domain, $available === null ? 'Unknown' : ($available ? 'Available' : 'Not available')),
         ];
     }
 
@@ -241,10 +246,10 @@ class AIToolHostingerService
 
         $vpsList = $result['data'] ?? [];
         $list = array_map(fn($v) => [
-            'vmId' => $v['vm_id'] ?? $v['id'] ?? null,
-            'name' => $v['name'] ?? null,
-            'ipv4' => $v['ipv4'] ?? $v['ip'] ?? null,
-            'status' => $v['status'] ?? null,
+            'vmId' => $v['id'] ?? $v['vm_id'] ?? null,
+            'name' => $v['hostname'] ?? $v['name'] ?? null,
+            'ipv4' => $this->extractIpv4($v),
+            'status' => $v['state'] ?? $v['status'] ?? null,
         ], is_array($vpsList) ? $vpsList : []);
 
         $items = array_map(fn($v) => [
@@ -279,18 +284,38 @@ class AIToolHostingerService
         }
 
         $vps = $result['data'] ?? [];
-        $vpsName = $vps['name'] ?? ($vps['vm_id'] ?? $vps['id'] ?? $vmId);
-        $vpsMeta = trim(($vps['ipv4'] ?? $vps['ip'] ?? '') . ' ' . ($vps['status'] ?? ''));
+        $ipv4 = $this->extractIpv4($vps);
+        $status = $vps['state'] ?? $vps['status'] ?? null;
+        $vpsName = $vps['hostname'] ?? $vps['name'] ?? ($vps['id'] ?? $vps['vm_id'] ?? $vmId);
+        $vpsMeta = trim(($ipv4 ?? '') . ' ' . ($status ?? ''));
         return [
             'success' => true,
             'vps' => [
-                'vmId' => $vps['vm_id'] ?? $vps['id'] ?? $vmId,
-                'name' => $vps['name'] ?? null,
-                'ipv4' => $vps['ipv4'] ?? $vps['ip'] ?? null,
-                'status' => $vps['status'] ?? null,
+                'vmId' => $vps['id'] ?? $vps['vm_id'] ?? $vmId,
+                'name' => $vps['hostname'] ?? $vps['name'] ?? null,
+                'ipv4' => $ipv4,
+                'status' => $status,
             ],
             '_frontendData' => $this->buildFrontendData('VPS', (string) $vpsName, $vpsMeta !== '' ? $vpsMeta : null),
         ];
+    }
+
+    /**
+     * Extract a printable IPv4 address from a Hostinger VPS object.
+     * Hostinger returns `ipv4` as an array of objects: [{id, address, ptr}, ...].
+     * Falls back to a plain `ip`/string value from other shapes.
+     */
+    private function extractIpv4(array $vps): ?string
+    {
+        $ipv4 = $vps['ipv4'] ?? $vps['ip'] ?? null;
+        if (is_array($ipv4)) {
+            $first = $ipv4[0] ?? null;
+            if (is_array($first)) {
+                return $first['address'] ?? null;
+            }
+            return is_string($first) ? $first : null;
+        }
+        return is_string($ipv4) ? $ipv4 : null;
     }
 
     private const TOOL_ICON = 'mdi-earth';

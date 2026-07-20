@@ -85,9 +85,23 @@ class HostingerApiService
 
     public function checkDomainAvailability(string $token, string $domain, bool $withAlternatives = false): array
     {
+        // Hostinger's availability API expects the SLD and TLD(s) separately,
+        // e.g. {"domain": "nabike", "tlds": ["sk"]} — not the full "nabike.sk".
+        $domain = strtolower(trim($domain));
+        $dotPos = strpos($domain, '.');
+        if ($dotPos === false) {
+            return [
+                'success' => false,
+                'error' => "Invalid domain '{$domain}': expected a name with a TLD, e.g. 'example.com'.",
+            ];
+        }
+        $sld = substr($domain, 0, $dotPos);
+        $tld = substr($domain, $dotPos + 1);
+
         return $this->request('POST', '/api/domains/v1/availability', [
             'json' => [
-                'domain' => $domain,
+                'domain' => $sld,
+                'tlds' => [$tld],
                 'with_alternatives' => $withAlternatives,
             ],
         ], $token);
