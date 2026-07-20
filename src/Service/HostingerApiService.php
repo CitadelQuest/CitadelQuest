@@ -54,6 +54,12 @@ class HostingerApiService
             if ($statusCode >= 400) {
                 $body = $response->toArray(false);
                 $msg = $body['message'] ?? $response->getContent(false);
+                $this->logger->error('Hostinger API error response', [
+                    'method' => $method,
+                    'url' => $url,
+                    'statusCode' => $statusCode,
+                    'body' => is_array($body) ? json_encode($body) : (string) $body,
+                ]);
                 return [
                     'success' => false,
                     'error' => "Hostinger API error (HTTP $statusCode): $msg",
@@ -155,12 +161,12 @@ class HostingerApiService
 
     public function updateNameservers(string $token, string $domain, array $nameservers): array
     {
-        $body = [];
-        foreach (['ns1', 'ns2', 'ns3', 'ns4'] as $field) {
-            if (!empty($nameservers[$field])) {
-                $body[$field] = $nameservers[$field];
-            }
-        }
+        $body = [
+            'ns1' => $nameservers['ns1'] ?? null,
+            'ns2' => $nameservers['ns2'] ?? null,
+            'ns3' => $nameservers['ns3'] ?? null,
+            'ns4' => $nameservers['ns4'] ?? null,
+        ];
         return $this->request('PUT', '/api/domains/v1/portfolio/' . urlencode($domain) . '/nameservers', [
             'json' => $body,
         ], $token);
