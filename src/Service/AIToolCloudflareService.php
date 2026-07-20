@@ -203,10 +203,17 @@ class AIToolCloudflareService
             'status' => $z['status'] ?? null,
         ], is_array($zones) ? $zones : []);
 
+        $items = array_map(fn($z) => [
+            'icon' => 'mdi-web',
+            'label' => $z['name'] ?? '(unknown)',
+            'meta' => $z['status'] ?? null,
+        ], $list);
+
         return [
             'success' => true,
             'zones' => $list,
             'count' => count($list),
+            '_frontendData' => $this->buildListFrontendData('listZones', count($list) . ' zone(s)', $items),
         ];
     }
 
@@ -245,11 +252,18 @@ class AIToolCloudflareService
             'proxied' => $r['proxied'] ?? null,
         ], is_array($records) ? $records : []);
 
+        $items = array_map(fn($r) => [
+            'icon' => 'mdi-dns-outline',
+            'label' => trim(($r['type'] ?? '') . ' ' . ($r['name'] ?? '')),
+            'meta' => $r['content'] ?? null,
+        ], $list);
+
         return [
             'success' => true,
             'zoneId' => $resolved['zoneId'],
             'records' => $list,
             'count' => count($list),
+            '_frontendData' => $this->buildListFrontendData('listDns', count($list) . ' record(s)', $items),
         ];
     }
 
@@ -413,17 +427,86 @@ class AIToolCloudflareService
         ];
     }
 
-    private function buildFrontendData(string $action, string $primary, ?string $secondary): string
+    private const TOOL_ICON = 'mdi-cloud-outline';
+    private const SECONDARY_ICON = 'mdi-dns-outline';
+
+    private function buildFrontendData(string $action, string $primary, ?string $secondary = null): string
     {
-        $displayPrimary = htmlspecialchars($primary);
-        $secondaryLine = $secondary ? '<div class="small text-muted"><i class="mdi mdi-dns-outline me-1"></i>' . htmlspecialchars($secondary) . '</div>' : '';
+        $toolIcon = self::TOOL_ICON;
+        $toolLabel = self::TOOL_NAME;
+        $secondaryIcon = self::SECONDARY_ICON;
+        $actionEsc = htmlspecialchars($action);
+        $primaryEsc = htmlspecialchars($primary);
+        $secondaryLine = $secondary !== null && $secondary !== ''
+            ? '<div class="small text-muted"><i class="mdi ' . $secondaryIcon . ' me-1"></i>' . htmlspecialchars($secondary) . '</div>'
+            : '';
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div class="d-flex align-items-center">
-        <i class="mdi mdi-cloud-check-outline text-cyber me-2"></i>
-        <strong>$displayPrimary</strong>
+        <i class="mdi $toolIcon text-cyber me-2"></i>
+        <strong>$toolLabel</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
+        <span class="ms-2 text-muted">$actionEsc</span>
     </div>
+    <div class="small text-muted mt-1">$primaryEsc</div>
     $secondaryLine
+</div>
+HTML;
+    }
+
+    /**
+     * Build a frontend card for list/collection results, with a collapsible item list.
+     * @param array $items each: ['icon' => 'mdi-...', 'label' => string, 'meta' => ?string]
+     */
+    private function buildListFrontendData(string $action, string $summary, array $items): string
+    {
+        $toolIcon = self::TOOL_ICON;
+        $toolLabel = self::TOOL_NAME;
+        $actionEsc = htmlspecialchars($action);
+        $summaryEsc = htmlspecialchars($summary);
+        $count = count($items);
+
+        $itemsHtml = '';
+        foreach (array_slice($items, 0, 20) as $it) {
+            $icon = $it['icon'] ?? 'mdi-circle-small';
+            $label = htmlspecialchars((string) ($it['label'] ?? ''));
+            $meta = isset($it['meta']) && $it['meta'] !== null && $it['meta'] !== ''
+                ? ' <span class="text-cyber">' . htmlspecialchars((string) $it['meta']) . '</span>'
+                : '';
+            $itemsHtml .= "<div class=\"small text-muted\"><i class=\"mdi {$icon} me-1\"></i><code>{$label}</code>{$meta}</div>";
+        }
+        $more = $count > 20 ? '<div class="small text-muted mt-1">… and ' . ($count - 20) . ' more</div>' : '';
+
+        $listHtml = $count > 0
+            ? $this->renderCollapsible("<i class=\"mdi mdi-format-list-bulleted me-1\"></i><strong>{$count} item(s)</strong>", $itemsHtml . $more, true)
+            : '<div class="small text-muted mt-1"><i class="mdi mdi-information-outline me-1"></i>No results</div>';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi $toolIcon text-cyber me-2"></i>
+        <strong>$toolLabel</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
+        <span class="ms-2 text-muted">$actionEsc</span>
+    </div>
+    <div class="small text-muted mt-1">$summaryEsc</div>
+    <div class="mt-2">$listHtml</div>
+</div>
+HTML;
+    }
+
+    private function renderCollapsible(string $summaryHtml, string $bodyHtml, bool $expanded = false): string
+    {
+        $chevClass = $expanded ? 'mdi-chevron-down' : 'mdi-chevron-right';
+        $bodyHidden = $expanded ? '' : 'd-none';
+        return <<<HTML
+<div class="cq-collapsible mt-1">
+    <div class="small text-muted cursor-pointer d-flex align-items-center"
+         onclick="this.querySelector('.cq-chev').classList.toggle('mdi-chevron-down');this.querySelector('.cq-chev').classList.toggle('mdi-chevron-right');this.nextElementSibling.classList.toggle('d-none');">
+        <i class="mdi $chevClass cq-chev me-1"></i>
+        <span>$summaryHtml</span>
+    </div>
+    <div class="$bodyHidden mt-1 ps-3">$bodyHtml</div>
 </div>
 HTML;
     }

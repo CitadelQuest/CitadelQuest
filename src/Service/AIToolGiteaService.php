@@ -307,16 +307,18 @@ class AIToolGiteaService
         }
 
         $repoData = $result['data'];
+        $fullName = $repoData['full_name'] ?? "{$owner}/{$repo}";
         return [
             'success' => true,
             'repo' => [
                 'id' => $repoData['id'] ?? null,
                 'name' => $repoData['name'] ?? $repo,
-                'fullName' => $repoData['full_name'] ?? "{$owner}/{$repo}",
+                'fullName' => $fullName,
                 'cloneUrl' => $repoData['clone_url'] ?? null,
                 'private' => $repoData['private'] ?? null,
                 'defaultBranch' => $repoData['default_branch'] ?? null,
             ],
+            '_frontendData' => $this->buildFrontendData('Repository', $fullName, $repoData['clone_url'] ?? null),
         ];
     }
 
@@ -370,24 +372,100 @@ class AIToolGiteaService
             'private' => $r['private'] ?? null,
         ], $repos);
 
+        $items = array_map(fn($r) => [
+            'icon' => 'mdi-source-repository',
+            'label' => $r['fullName'] ?? '(unknown)',
+            'meta' => ($r['private'] ?? false) ? 'private' : 'public',
+        ], $list);
+
         return [
             'success' => true,
             'repos' => $list,
             'count' => count($list),
+            '_frontendData' => $this->buildListFrontendData('searchRepos', count($list) . ' repo(s) for "' . $query . '"', $items),
         ];
     }
 
-    private function buildFrontendData(string $action, string $primary, ?string $secondary): string
+    private const TOOL_ICON = 'mdi-git';
+    private const SECONDARY_ICON = 'mdi-link-variant';
+
+    private function buildFrontendData(string $action, string $primary, ?string $secondary = null): string
     {
-        $displayPrimary = htmlspecialchars($primary);
-        $secondaryLine = $secondary ? '<div class="small text-muted"><i class="mdi mdi-link-variant me-1"></i>' . htmlspecialchars($secondary) . '</div>' : '';
+        $toolIcon = self::TOOL_ICON;
+        $toolLabel = self::TOOL_NAME;
+        $secondaryIcon = self::SECONDARY_ICON;
+        $actionEsc = htmlspecialchars($action);
+        $primaryEsc = htmlspecialchars($primary);
+        $secondaryLine = $secondary !== null && $secondary !== ''
+            ? '<div class="small text-muted"><i class="mdi ' . $secondaryIcon . ' me-1"></i>' . htmlspecialchars($secondary) . '</div>'
+            : '';
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div class="d-flex align-items-center">
-        <i class="mdi mdi-git text-cyber me-2"></i>
-        <strong>$displayPrimary</strong>
+        <i class="mdi $toolIcon text-cyber me-2"></i>
+        <strong>$toolLabel</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
+        <span class="ms-2 text-muted">$actionEsc</span>
     </div>
+    <div class="small text-muted mt-1">$primaryEsc</div>
     $secondaryLine
+</div>
+HTML;
+    }
+
+    /**
+     * Build a frontend card for list/collection results, with a collapsible item list.
+     * @param array $items each: ['icon' => 'mdi-...', 'label' => string, 'meta' => ?string]
+     */
+    private function buildListFrontendData(string $action, string $summary, array $items): string
+    {
+        $toolIcon = self::TOOL_ICON;
+        $toolLabel = self::TOOL_NAME;
+        $actionEsc = htmlspecialchars($action);
+        $summaryEsc = htmlspecialchars($summary);
+        $count = count($items);
+
+        $itemsHtml = '';
+        foreach (array_slice($items, 0, 20) as $it) {
+            $icon = $it['icon'] ?? 'mdi-circle-small';
+            $label = htmlspecialchars((string) ($it['label'] ?? ''));
+            $meta = isset($it['meta']) && $it['meta'] !== null && $it['meta'] !== ''
+                ? ' <span class="text-cyber">' . htmlspecialchars((string) $it['meta']) . '</span>'
+                : '';
+            $itemsHtml .= "<div class=\"small text-muted\"><i class=\"mdi {$icon} me-1\"></i><code>{$label}</code>{$meta}</div>";
+        }
+        $more = $count > 20 ? '<div class="small text-muted mt-1">… and ' . ($count - 20) . ' more</div>' : '';
+
+        $listHtml = $count > 0
+            ? $this->renderCollapsible("<i class=\"mdi mdi-format-list-bulleted me-1\"></i><strong>{$count} item(s)</strong>", $itemsHtml . $more, true)
+            : '<div class="small text-muted mt-1"><i class="mdi mdi-information-outline me-1"></i>No results</div>';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi $toolIcon text-cyber me-2"></i>
+        <strong>$toolLabel</strong>
+        <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
+        <span class="ms-2 text-muted">$actionEsc</span>
+    </div>
+    <div class="small text-muted mt-1">$summaryEsc</div>
+    <div class="mt-2">$listHtml</div>
+</div>
+HTML;
+    }
+
+    private function renderCollapsible(string $summaryHtml, string $bodyHtml, bool $expanded = false): string
+    {
+        $chevClass = $expanded ? 'mdi-chevron-down' : 'mdi-chevron-right';
+        $bodyHidden = $expanded ? '' : 'd-none';
+        return <<<HTML
+<div class="cq-collapsible mt-1">
+    <div class="small text-muted cursor-pointer d-flex align-items-center"
+         onclick="this.querySelector('.cq-chev').classList.toggle('mdi-chevron-down');this.querySelector('.cq-chev').classList.toggle('mdi-chevron-right');this.nextElementSibling.classList.toggle('d-none');">
+        <i class="mdi $chevClass cq-chev me-1"></i>
+        <span>$summaryHtml</span>
+    </div>
+    <div class="$bodyHidden mt-1 ps-3">$bodyHtml</div>
 </div>
 HTML;
     }
