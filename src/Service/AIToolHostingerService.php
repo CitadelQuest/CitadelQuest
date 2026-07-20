@@ -64,7 +64,7 @@ class AIToolHostingerService
             'setDns' => $this->handleSetDns($arguments),
             'listVps' => $this->handleListVps($arguments),
             'getVps' => $this->handleGetVps($arguments),
-            'updateNameservers' => $this->handleUpdateNameservers($arguments),
+            // 'updateNameservers' => $this->handleUpdateNameservers($arguments), // Disabled: Hostinger API returns 500 [Domains:9999] — reported to Hostinger Support
             default => ['success' => false, 'error' => "Unknown Hostinger operation: {$operation}"],
         };
     }
