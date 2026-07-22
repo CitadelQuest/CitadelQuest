@@ -1892,6 +1892,45 @@ class CQMemoryPackService
     }
 
     /**
+     * Recursively build a descendant tree from a node.
+     * Returns nested array: [node, children: [[node, children: [...]], ...]]
+     * Max depth prevents infinite recursion on malformed data.
+     */
+    public function getDescendantsTree(string $nodeId, int $maxDepth = 10, int $currentDepth = 0): ?array
+    {
+        $db = $this->getConnection();
+
+        $row = $db->executeQuery(
+            'SELECT * FROM memory_nodes WHERE id = ? AND is_active = 1',
+            [$nodeId]
+        )->fetchAssociative();
+
+        if (!$row) {
+            return null;
+        }
+
+        $node = MemoryNode::fromArray($row);
+
+        $result = [
+            'node' => $node,
+            'depth' => $currentDepth,
+            'children' => [],
+        ];
+
+        if ($currentDepth < $maxDepth) {
+            $children = $this->getChildNodes($nodeId);
+            foreach ($children as $child) {
+                $subtree = $this->getDescendantsTree($child->getId(), $maxDepth, $currentDepth + 1);
+                if ($subtree !== null) {
+                    $result['children'][] = $subtree;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Check if a root node (depth=0) exists for a given source_ref.
      * Used as idempotency guard against concurrent extraction creating duplicates.
      */

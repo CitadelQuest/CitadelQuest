@@ -3870,4 +3870,648 @@ PROMPT;
             return true;
         }
     }
+
+    // ========================================
+    // memoryMap & memoryReadNode Tools
+    // ========================================
+
+    /**
+     * memoryMap — structural tree view of CQ Memory hierarchy.
+     *
+     * Shows the Library → Pack → Root Nodes → Child Nodes hierarchy
+     * as a compact ASCII tree (similar to fileManage tree).
+     *
+     * @param array $arguments Tool arguments:
+     *   - source: string (required) — what to map:
+     *       "full"           → all libraries in Spirit's memory directory
+     *       "xxx.cqmlib"     → specific library: its packs + root nodes
+     *       "xxx.cqmpack"    → specific pack: root nodes + their children
+     *       memoryNodeID     → specific node: its descendant subtree
+     *   - maxDepth: int (optional, default 0 (root nodes only)) — max child depth to show
+     */
+    public function memoryMap(array $arguments): array
+    {
+        try {
+            $source = $arguments['source'] ?? null;
+            if (empty($source)) {
+                return [
+                    'success' => false,
+                    'error' => 'Source parameter is required ("full", library name, pack name, or memory node ID)'
+                ];
+            }
+
+            $maxDepth = (int)($arguments['maxDepth'] ?? 0);
+            $spiritId = $arguments['spiritId'] ?? null;
+            if (!$spiritId) {
+                return ['success' => false, 'error' => 'No Spirit found'];
+            }
+
+            $spirit = $this->spiritService->findById($spiritId);
+            if (!$spirit) {
+                return ['success' => false, 'error' => 'Spirit not found'];
+            }
+
+            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+            $projectId = $memoryInfo['projectId'];
+            $memoryPath = $memoryInfo['memoryPath'];
+
+            // Determine the source type and build the tree
+            $sourceLower = strtolower($source);
+
+            if ($source === 'full') {
+                $tree = $this->buildFullMemoryMap($projectId, $memoryPath, $memoryInfo, $maxDepth);
+            } elseif (str_ends_with($sourceLower, '.cqmlib')) {
+                $tree = $this->buildLibraryMap($projectId, $memoryPath, $source, $maxDepth);
+            } elseif (str_ends_with($sourceLower, '.cqmpack')) {
+                $tree = $this->buildPackMap($projectId, $source, $maxDepth, $spiritId, $memoryInfo);
+            } else {
+                // Treat as memory node ID — find it across all packs
+                $tree = $this->buildNodeSubtreeMap($projectId, $source, $maxDepth, $spiritId, $memoryInfo);
+            }
+
+            if ($tree === null) {
+                return [
+                    'success' => false,
+                    'error' => "Could not build memory map for source: {$source}"
+                ];
+            }
+
+            $counts = $this->countMemoryTreeNodes($tree);
+            $ascii = $this->formatMemoryAsciiTree($tree);
+
+            return [
+                'success' => true,
+                'map' => $ascii,
+                'packCount' => $counts['packs'] ?? 0,
+                'rootNodeCount' => $counts['rootNodes'] ?? 0,
+                'totalNodeCount' => $counts['totalNodes'] ?? 0,
+                '_frontendData' => $this->buildMemoryMapFrontendData($ascii, $counts)
+            ];
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            $this->logger->error('Error building memory map', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'error' => 'Error building memory map: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * memoryReadNode — read a memory node's full content + subtree map + relationships.
+     *
+     * @param array $arguments Tool arguments:
+     *   - memoryId: string (required) — memory node UUID
+     *   - includeContent: bool (optional, default true) — include full node content
+     */
+    public function memoryReadNode(array $arguments): array
+    {
+        try {
+            $memoryId = $arguments['memoryId'] ?? null;
+            if (empty($memoryId)) {
+                return [
+                    'success' => false,
+                    'error' => 'Memory ID (memoryId parameter) is required'
+                ];
+            }
+
+            $includeContent = ($arguments['includeContent'] ?? true) !== false;
+            $spiritId = $arguments['spiritId'] ?? null;
+            if (!$spiritId) {
+                return ['success' => false, 'error' => 'No Spirit found'];
+            }
+
+            $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
+
+            // Find the node across all packs
+            $foundNode = null;
+            $foundPackRef = null;
+            foreach ($packsToSearch as $packRef) {
+                try {
+                    $this->packService->open($packRef['projectId'], $packRef['path'], $packRef['name']);
+                    $node = $this->packService->findNodeById($memoryId);
+                    if ($node) {
+                        $foundNode = $node;
+                        $foundPackRef = $packRef;
+                        break;
+                    }
+                    $this->packService->close();
+                } catch (\Exception $e) {
+                    $this->packService->close();
+                }
+            }
+
+            if (!$foundNode) {
+                return [
+                    'success' => false,
+                    'error' => "Memory node not found: {$memoryId}"
+                ];
+            }
+
+            // Node is found, pack is still open
+            try {
+                // Get tags
+                $tags = $this->packService->getTagsForNode($memoryId);
+
+                // Get descendant subtree
+                $subtree = $this->packService->getDescendantsTree($memoryId, 10, 0);
+                $subtreeAscii = '';
+                $childCount = 0;
+                if ($subtree && !empty($subtree['children'])) {
+                    $mapNode = $this->descendantsTreeToMapNode($subtree);
+                    $subtreeAscii = $this->formatMemoryAsciiTree($mapNode);
+                    $childCounts = $this->countMemoryTreeNodes($mapNode);
+                    $childCount = $childCounts['totalNodes'] ?? 0;
+                }
+
+                // Get relationships (non-PART_OF), filter out NOT_DETECTED
+                $neighborhood = $this->packService->getNodeNeighborhood($memoryId, 20);
+                $neighborhood = array_filter($neighborhood, fn($n) => ($n['relationType'] ?? '') !== MemoryNode::RELATION_NOT_DETECTED);
+                $relationshipsAscii = '';
+                $relCount = 0;
+                if (!empty($neighborhood)) {
+                    $relationshipsAscii = $this->formatRelationshipsTree($neighborhood, $foundNode->getSummary() ?? $foundNode->getContent());
+                    $relCount = count($neighborhood);
+                }
+
+                $this->packService->close();
+
+                // Build node info
+                $nodeInfo = [
+                    'id' => $foundNode->getId(),
+                    'summary' => $foundNode->getSummary(),
+                    'category' => $foundNode->getCategory(),
+                    'importance' => $foundNode->getImportance(),
+                    'confidence' => $foundNode->getConfidence(),
+                    'sourceType' => $foundNode->getSourceType(),
+                    'sourceRef' => $foundNode->getSourceRef(),
+                    'sourceRange' => $foundNode->getSourceRange(),
+                    'depth' => $foundNode->getDepth(),
+                    'createdAt' => $foundNode->getCreatedAt()->format('c'),
+                    'accessCount' => $foundNode->getAccessCount(),
+                    'tags' => $tags,
+                ];
+
+                if ($includeContent) {
+                    $nodeInfo['content'] = $foundNode->getContent();
+                }
+
+                return [
+                    'success' => true,
+                    'node' => $nodeInfo,
+                    'childCount' => $childCount,
+                    'relationshipCount' => $relCount,
+                    'subTreeMap' => $subtreeAscii ?: null,
+                    'relationshipsMap' => $relationshipsAscii ?: null,
+                    '_frontendData' => $this->buildMemoryReadNodeFrontendData($foundNode, $tags, $childCount, $relCount, $subtreeAscii, $relationshipsAscii)
+                ];
+
+            } catch (\Exception $e) {
+                $this->packService->close();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            $this->packService->close();
+            $this->logger->error('Error reading memory node', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'error' => 'Error reading memory node: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    // --- memoryMap helpers ---
+
+    /**
+     * Build full memory map: all libraries → packs → root nodes → children.
+     */
+    private function buildFullMemoryMap(string $projectId, string $memoryPath, array $memoryInfo, int $maxDepth): ?array
+    {
+        // Find all libraries in the memory directory
+        $libraries = $this->libraryService->findLibrariesInDirectory($projectId, $memoryPath, true);
+
+        $children = [];
+        foreach ($libraries as $libInfo) {
+            $libTree = $this->buildLibraryMap($projectId, $memoryPath, $libInfo['name'], $maxDepth);
+            if ($libTree) {
+                $children[] = $libTree;
+            }
+        }
+
+        // If no libraries found, fall back to root pack
+        if (empty($children)) {
+            $packTree = $this->buildPackMap($projectId, $memoryInfo['rootPackName'], $maxDepth, null, $memoryInfo);
+            if ($packTree) {
+                return [
+                    'type' => 'directory',
+                    'label' => basename($memoryPath),
+                    'children' => [$packTree],
+                ];
+            }
+            return null;
+        }
+
+        return [
+            'type' => 'directory',
+            'label' => basename($memoryPath),
+            'children' => $children,
+        ];
+    }
+
+    /**
+     * Build library map: library → packs → root nodes → children.
+     */
+    private function buildLibraryMap(string $projectId, string $memoryPath, string $libraryName, int $maxDepth): ?array
+    {
+        try {
+            $library = $this->libraryService->loadLibrary($projectId, $memoryPath, $libraryName);
+        } catch (\Exception $e) {
+            // Try finding it anywhere in the project
+            $allLibs = $this->libraryService->findLibrariesInDirectory($projectId, '/', true);
+            $found = false;
+            foreach ($allLibs as $lib) {
+                if ($lib['name'] === $libraryName || basename($lib['name']) === basename($libraryName)) {
+                    try {
+                        $library = $this->libraryService->loadLibrary($projectId, $lib['path'], $lib['name']);
+                        $found = true;
+                        break;
+                    } catch (\Exception $e2) {}
+                }
+            }
+            if (!$found) {
+                return null;
+            }
+        }
+
+        $packChildren = [];
+        foreach ($library['packs'] ?? [] as $packEntry) {
+            if (!($packEntry['enabled'] ?? true)) {
+                continue;
+            }
+            $packPath = $packEntry['path'] ?? '';
+            if (empty($packPath)) {
+                continue;
+            }
+            $packDir = dirname($packPath);
+            $packName = basename($packPath);
+
+            $packTree = $this->buildPackTreeFromRef($projectId, $packDir, $packName, $maxDepth);
+            if ($packTree) {
+                $packChildren[] = $packTree;
+            }
+        }
+
+        return [
+            'type' => 'library',
+            'label' => $library['name'] ?? basename($libraryName, '.cqmlib'),
+            'fileName' => $libraryName,
+            'children' => $packChildren,
+        ];
+    }
+
+    /**
+     * Build pack map: pack → root nodes → children.
+     */
+    private function buildPackMap(string $projectId, string $packName, int $maxDepth, ?string $spiritId, array $memoryInfo): ?array
+    {
+        // Try to find the pack file in the project
+        $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
+        foreach ($packFiles as $pf) {
+            if ($pf['name'] === $packName || basename($pf['name']) === basename($packName)) {
+                return $this->buildPackTreeFromRef($projectId, $pf['path'], $pf['name'], $maxDepth);
+            }
+        }
+
+        // Fallback: Spirit's root pack
+        return $this->buildPackTreeFromRef($projectId, $memoryInfo['packsPath'], $memoryInfo['rootPackName'], $maxDepth);
+    }
+
+    /**
+     * Build pack tree from a specific pack reference.
+     */
+    private function buildPackTreeFromRef(string $projectId, string $packDir, string $packName, int $maxDepth): ?array
+    {
+        try {
+            $this->packService->open($projectId, $packDir, $packName);
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        try {
+            $metadata = $this->packService->getAllMetadata();
+            $packLabel = $metadata['name'] ?? basename($packName, '.cqmpack');
+            $rootNodes = $this->packService->getRootNodes();
+            $stats = $this->packService->getStats();
+            $this->packService->close();
+
+            $rootChildren = [];
+            foreach ($rootNodes as $rootNode) {
+                $nodeTree = $this->buildNodeTree($projectId, $packDir, $packName, $rootNode, $maxDepth, 0);
+                if ($nodeTree) {
+                    $rootChildren[] = $nodeTree;
+                }
+            }
+
+            return [
+                'type' => 'pack',
+                'label' => $packLabel,
+                'fileName' => $packName,
+                'totalPackNodes' => $stats['totalNodes'] ?? 0,
+                'children' => $rootChildren,
+            ];
+        } catch (\Exception $e) {
+            $this->packService->close();
+            return null;
+        }
+    }
+
+    /**
+     * Build a node's subtree map (for when source is a memoryNodeID).
+     */
+    private function buildNodeSubtreeMap(string $projectId, string $nodeId, int $maxDepth, ?string $spiritId, array $memoryInfo): ?array
+    {
+        $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
+
+        foreach ($packsToSearch as $packRef) {
+            try {
+                $this->packService->open($packRef['projectId'], $packRef['path'], $packRef['name']);
+                $node = $this->packService->findNodeById($nodeId);
+                if ($node) {
+                    $subtree = $this->packService->getDescendantsTree($nodeId, $maxDepth, 0);
+                    // Get full-depth tree to count all descendants regardless of maxDepth
+                    $fullTree = $this->packService->getDescendantsTree($nodeId, 100, 0);
+                    $this->packService->close();
+
+                    if (!$subtree) {
+                        return null;
+                    }
+
+                    $mapNode = $this->descendantsTreeToMapNode($subtree);
+                    $mapNode['totalSubtreeNodes'] = $fullTree ? $this->countDescendantsInTree($fullTree) : 1;
+                    return $mapNode;
+                }
+                $this->packService->close();
+            } catch (\Exception $e) {
+                $this->packService->close();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert a getDescendantsTree() result into a map node structure.
+     */
+    private function descendantsTreeToMapNode(array $subtree): array
+    {
+        $node = $subtree['node'];
+        $children = [];
+        foreach ($subtree['children'] ?? [] as $child) {
+            $children[] = $this->descendantsTreeToMapNode($child);
+        }
+
+        return [
+            'type' => 'node',
+            'label' => $node->getSummary() ?? mb_substr($node->getContent(), 0, 60),
+            'nodeId' => $node->getId(),
+            'depth' => $node->getDepth(),
+            'children' => $children,
+        ];
+    }
+
+    /**
+     * Build a single node's tree entry with children (recursively opens pack).
+     */
+    private function buildNodeTree(string $projectId, string $packDir, string $packName, MemoryNode $node, int $maxDepth, int $currentDepth): ?array
+    {
+        $label = $node->getSummary() ?? mb_substr($node->getContent(), 0, 60);
+        $result = [
+            'type' => 'node',
+            'label' => $label,
+            'nodeId' => $node->getId(),
+            'depth' => $node->getDepth(),
+            'children' => [],
+        ];
+
+        if ($currentDepth >= $maxDepth) {
+            return $result;
+        }
+
+        try {
+            $this->packService->open($projectId, $packDir, $packName);
+            $children = $this->packService->getChildNodes($node->getId());
+            $this->packService->close();
+
+            foreach ($children as $child) {
+                $childTree = $this->buildNodeTree($projectId, $packDir, $packName, $child, $maxDepth, $currentDepth + 1);
+                if ($childTree) {
+                    $result['children'][] = $childTree;
+                }
+            }
+        } catch (\Exception $e) {
+            $this->packService->close();
+        }
+
+        return $result;
+    }
+
+    /**
+     * Format a memory map tree as ASCII (similar to fileManage tree output).
+     *
+     * Symbols:
+     *   =  Library
+     *   -  Pack
+     *   *  Memory node
+     */
+    private function formatMemoryAsciiTree(array $node, string $prefix = '', bool $isLast = true, bool $isRoot = true): string
+    {
+        $lines = [];
+
+        $symbol = match ($node['type'] ?? 'node') {
+            'library' => '=',
+            'pack' => '-',
+            'directory' => '/',
+            default => '*',
+        };
+
+        $label = $node['label'] ?? 'unknown';
+        $nodeId = $node['nodeId'] ?? null;
+        $idSuffix = $nodeId ? " ({$nodeId})" : '';
+
+        if ($isRoot) {
+            $lines[] = "{$symbol} {$label}{$idSuffix}";
+        } else {
+            $connector = $isLast ? '└── ' : '├── ';
+            $lines[] = "{$prefix}{$connector}{$symbol} {$label}{$idSuffix}";
+        }
+
+        $children = $node['children'] ?? [];
+        $childCount = count($children);
+        $childPrefix = $isRoot ? '' : ($prefix . ($isLast ? '    ' : '│   '));
+
+        foreach ($children as $i => $child) {
+            $isLastChild = ($i === $childCount - 1);
+            $lines[] = $this->formatMemoryAsciiTree($child, $childPrefix, $isLastChild, false);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Format relationships as a compact ASCII tree.
+     */
+    private function formatRelationshipsTree(array $neighborhood, string $sourceLabel): string
+    {
+        $lines = [];
+        $lines[] = "* " . mb_substr($sourceLabel, 0, 60) . " (this node)";
+
+        $childPrefix = '    ';
+        $count = count($neighborhood);
+        foreach ($neighborhood as $i => $neighbor) {
+            $isLast = ($i === $count - 1);
+            $connector = $isLast ? '└── ' : '├── ';
+            $relType = $neighbor['relationType'] ?? 'RELATED';
+            $direction = $neighbor['direction'] ?? 'outgoing';
+            $dirSymbol = $direction === 'outgoing' ? '→' : '←';
+            $summary = $neighbor['summary'] ?? mb_substr($neighbor['content'] ?? '', 0, 60);
+            $strength = number_format($neighbor['relationStrength'] ?? 1.0, 1);
+
+            $lines[] = "{$childPrefix}{$connector}[{$relType} {$dirSymbol} {$strength}] {$summary} ({$neighbor['id']})";
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Count all nodes in a getDescendantsTree() result (including the root node).
+     */
+    private function countDescendantsInTree(array $subtree): int
+    {
+        $count = 1;
+        foreach ($subtree['children'] ?? [] as $child) {
+            $count += $this->countDescendantsInTree($child);
+        }
+        return $count;
+    }
+
+    /**
+     * Count packs, root nodes, and total nodes in a memory map tree.
+     */
+    private function countMemoryTreeNodes(array $node): array
+    {
+        $packs = 0;
+        $rootNodes = 0;
+        $totalNodes = 0;
+
+        $type = $node['type'] ?? 'node';
+        $hasTotalOverride = false;
+
+        if ($type === 'pack') {
+            $packs++;
+            if (isset($node['totalPackNodes'])) {
+                $totalNodes += $node['totalPackNodes'];
+                $hasTotalOverride = true;
+            }
+        }
+        if ($type === 'node') {
+            if (isset($node['totalSubtreeNodes'])) {
+                $totalNodes += $node['totalSubtreeNodes'];
+                $hasTotalOverride = true;
+            } else {
+                $totalNodes++;
+            }
+            if (($node['depth'] ?? null) === 0 || ($node['depth'] ?? null) === null) {
+                $rootNodes++;
+            }
+        }
+
+        // Only recurse into children for counting if parent doesn't already include them
+        if (!$hasTotalOverride) {
+            foreach ($node['children'] ?? [] as $child) {
+                $sub = $this->countMemoryTreeNodes($child);
+                $packs += $sub['packs'] ?? 0;
+                $rootNodes += $sub['rootNodes'] ?? 0;
+                $totalNodes += $sub['totalNodes'] ?? 0;
+            }
+        } else {
+            // Still count rootNodes from children (packs' direct children are root nodes)
+            if ($type === 'pack') {
+                foreach ($node['children'] ?? [] as $child) {
+                    $rootNodes++;
+                }
+            }
+        }
+
+        return ['packs' => $packs, 'rootNodes' => $rootNodes, 'totalNodes' => $totalNodes];
+    }
+
+    /**
+     * Build frontend HTML card for memoryMap tool.
+     */
+    private function buildMemoryMapFrontendData(string $ascii, array $counts): string
+    {
+        $packCount = $counts['packs'] ?? 0;
+        $rootCount = $counts['rootNodes'] ?? 0;
+        $totalCount = $counts['totalNodes'] ?? 0;
+        $treeEsc = htmlspecialchars(preg_replace('/ \([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/', '', $ascii));
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-graph text-info me-2"></i>
+        <strong>memoryMap</strong>
+        <span class="ms-2 text-muted">{$packCount} packs, {$rootCount} roots, {$totalCount} total nodes</span>
+    </div>
+    <pre class="small text-info bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0" style="max-height:400px; overflow-y:auto; line-height:1.4;">{$treeEsc}</pre>
+</div>
+HTML;
+    }
+
+    /**
+     * Build frontend HTML card for memoryReadNode tool.
+     */
+    private function buildMemoryReadNodeFrontendData(MemoryNode $node, array $tags, int $childCount, int $relCount, string $subTreeMap, string $relationshipsMap): string
+    {
+        $summary = htmlspecialchars($node->getSummary() ?? mb_substr($node->getContent(), 0, 80));
+        $category = htmlspecialchars($node->getCategory());
+        $importance = number_format($node->getImportance(), 1);
+        $tagsStr = !empty($tags) ? htmlspecialchars(implode(', ', $tags)) : '<span class="text-muted">none</span>';
+        $nodeId = htmlspecialchars($node->getId());
+        $subTreeEsc = htmlspecialchars(preg_replace('/ \([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/', '', $subTreeMap));
+        $relEsc = htmlspecialchars(preg_replace('/ \([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/', '', $relationshipsMap));
+
+        $subTreeHtml = $subTreeMap
+            ? "<pre class=\"small text-info bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0\" style=\"max-height:200px; overflow-y:auto; line-height:1.4;\">{$subTreeEsc}</pre>"
+            : '<div class="small text-muted mt-2">No children</div>';
+        $relHtml = $relationshipsMap
+            ? "<pre class=\"small text-warning bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0\" style=\"max-height:200px; overflow-y:auto; line-height:1.4;\">{$relEsc}</pre>"
+            : '<div class="small text-muted mt-2">No relationships</div>';
+
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-graph text-info me-2"></i>
+        <strong>memoryReadNode</strong>
+        <span class="ms-2 text-muted">{$childCount} children, {$relCount} relationships</span>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-identifier me-1"></i><code>{$nodeId}</code></div>
+    <div class="small mt-1">
+        <span class="text-muted">Summary:</span> {$summary}
+    </div>
+    <div class="small">
+        <span class="text-muted">Category:</span> <span class="badge bg-secondary">{$category}</span>
+        <span class="text-muted ms-2">Importance:</span> {$importance}
+    </div>
+    <div class="small">
+        <span class="text-muted">Tags:</span> {$tagsStr}
+    </div>
+    <div class="row mt-2">
+        <div class="col-6">{$subTreeHtml}</div>
+        <div class="col-6">{$relHtml}</div>
+    </div>
+</div>
+HTML;
+    }
 }
