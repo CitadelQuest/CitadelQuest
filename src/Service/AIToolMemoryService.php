@@ -3964,6 +3964,7 @@ PROMPT;
      * @param array $arguments Tool arguments:
      *   - memoryId: string (required) — memory node UUID
      *   - includeContent: bool (optional, default true) — include full node content
+     *   - cqmpackPath: string (optional) — pack path (e.g. "/memory/packs/Foo.cqmpack") to search in non-library packs
      */
     public function memoryReadNode(array $arguments): array
     {
@@ -3983,6 +3984,30 @@ PROMPT;
             }
 
             $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
+
+            // If cqmpackPath is provided, add the specified pack to the search list
+            // (enables reading nodes from packs not in the Spirit's library)
+            $cqmpackPath = $arguments['cqmpackPath'] ?? null;
+            if (!empty($cqmpackPath)) {
+                $spirit = $this->spiritService->findById($spiritId);
+                if ($spirit) {
+                    $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+                    $projectId = $memoryInfo['projectId'];
+
+                    // Find the pack file in the project
+                    $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
+                    foreach ($packFiles as $pf) {
+                        if ($pf['name'] === $cqmpackPath || basename($pf['name']) === basename($cqmpackPath)) {
+                            $packsToSearch[] = [
+                                'projectId' => $projectId,
+                                'path' => $pf['path'],
+                                'name' => $pf['name'],
+                            ];
+                            break;
+                        }
+                    }
+                }
+            }
 
             // Find the node across all packs
             $foundNode = null;
