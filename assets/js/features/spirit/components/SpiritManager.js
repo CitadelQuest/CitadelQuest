@@ -57,6 +57,8 @@ export class SpiritManager {
         this.s2sConversationsIncomingList = document.getElementById('spirit-s2s-conversations-incoming');
         this.s2sConversationsOutgoingLoaded = false;
         this.s2sConversationsIncomingLoaded = false;
+        this.s2sOutgoingCountBadge = document.getElementById('spirit-s2s-outgoing-count');
+        this.s2sIncomingCountBadge = document.getElementById('spirit-s2s-incoming-count');
 
         // Memory pack lists
         this.memoryLibraryPacksList = document.getElementById('spirit-memory-library-packs');
@@ -1250,6 +1252,7 @@ export class SpiritManager {
 
             const conversations = await response.json();
             this.renderS2sConversations(this.s2sConversationsOutgoingList, conversations, 'with');
+            this.updateS2sCountBadge(this.s2sOutgoingCountBadge, conversations.length);
             this.s2sConversationsOutgoingLoaded = true;
         } catch (error) {
             console.error('Error loading outgoing S2S conversations:', error);
@@ -1272,6 +1275,7 @@ export class SpiritManager {
 
             const conversations = await response.json();
             this.renderS2sConversations(this.s2sConversationsIncomingList, conversations, 'from');
+            this.updateS2sCountBadge(this.s2sIncomingCountBadge, conversations.length);
             this.s2sConversationsIncomingLoaded = true;
         } catch (error) {
             console.error('Error loading incoming S2S conversations:', error);
@@ -1326,7 +1330,21 @@ export class SpiritManager {
     }
 
     /**
-     * Save S2S settings from the S2S tab controls
+     * Show or hide the S2S conversation count badge on a tab button
+     */
+    updateS2sCountBadge(badgeEl, count) {
+        if (!badgeEl) return;
+        if (count > 0) {
+            badgeEl.textContent = count;
+            badgeEl.classList.remove('d-none');
+        } else {
+            badgeEl.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Save S2S settings from the S2S tab controls.
+     * When s2s.enabled changes, also toggle the listSpirits and callSpirit AI tools.
      */
     async saveS2sSettings() {
         if (!this.spirit?.id) return;
@@ -1344,6 +1362,13 @@ export class SpiritManager {
 
         if (Object.keys(s2sSettings).length === 0) return;
 
+        // Detect whether s2s.enabled changed so we can sync AI tools afterwards
+        const prevEnabled = (this.spirit.settings?.['s2s.enabled'] ?? '1') === '1';
+        const newEnabled = s2sSettings['s2s.enabled'] !== undefined
+            ? s2sSettings['s2s.enabled'] === '1'
+            : prevEnabled;
+        const enabledChanged = s2sSettings['s2s.enabled'] !== undefined && prevEnabled !== newEnabled;
+
         try {
             const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
                 method: 'POST',
@@ -1359,12 +1384,61 @@ export class SpiritManager {
             this.spirit.settings = this.spirit.settings || {};
             Object.assign(this.spirit.settings, s2sSettings);
 
+            // Sync listSpirits & callSpirit AI tools with s2s.enabled
+            if (enabledChanged) {
+                await this.syncS2sAiTools(newEnabled);
+            }
+
             if (window.toast) {
                 window.toast.success(this.translate('spirit.s2s_saved', 'Spirit-to-Spirit settings saved'));
             }
         } catch (error) {
             console.error('Error saving S2S settings:', error);
             this.showError(this.translate('error.saving_s2s', 'Failed to save Spirit-to-Spirit settings'));
+        }
+    }
+
+    /**
+     * Enable or disable the listSpirits and callSpirit AI tools to match
+     * the s2s.enabled setting. Loads tools data lazily if needed.
+     */
+    async syncS2sAiTools(enabled) {
+        if (!this.spirit?.id) return;
+
+        // Load AI tools data if not already loaded
+        if (!this.aiToolsData || this.aiToolsData.length === 0) {
+            try {
+                const toolsResponse = await fetch(this.apiEndpoints.tools.replace('{id}', this.spirit.id));
+                if (toolsResponse.ok) {
+                    const data = await toolsResponse.json();
+                    this.aiToolsData = data.tools || [];
+                }
+            } catch (error) {
+                console.error('Error loading AI tools for S2S sync:', error);
+                return;
+            }
+        }
+
+        const s2sToolNames = ['listSpirits', 'callSpirit'];
+        let changed = false;
+        this.aiToolsData.forEach(tool => {
+            if (s2sToolNames.includes(tool.name)) {
+                if (tool.isActiveForSpirit !== enabled) {
+                    tool.isActiveForSpirit = enabled;
+                    changed = true;
+                }
+            }
+        });
+
+        if (changed) {
+            // Persist the updated active tool states
+            await this.updateAiTools();
+
+            // Re-render the AI tools list if the tab is currently visible
+            const aiToolsPane = document.getElementById('panel-ai-tools');
+            if (aiToolsPane && !aiToolsPane.classList.contains('d-none')) {
+                this.renderAiTools();
+            }
         }
     }
 
@@ -1710,7 +1784,7 @@ export class SpiritManager {
         });
 
         // Render each category group in preferred order
-        const categoryOrder = ['file', 'web', 'image', 'memory', 'profile', 'development', 'spirit', 'utility', 'general'];
+        const categoryOrder = ['general', 'file', 'web', 'image', 'memory', 'profile', 'development', 'spirit', 'utility'];
         categoryOrder.forEach(cat => {
             if (!groups[cat] || groups[cat].length === 0) return;
             this.renderAiToolsCategoryGroup(cat, groups[cat]);

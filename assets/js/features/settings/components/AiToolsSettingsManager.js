@@ -116,7 +116,7 @@ export default class AiToolsSettingsManager {
         });
 
         // Render each category group
-        const categoryOrder = ['file', 'web', 'image', 'memory', 'profile', 'development', 'spirit', 'utility', 'general'];
+        const categoryOrder = ['general', 'file', 'web', 'image', 'memory', 'profile', 'development', 'spirit', 'utility'];
         categoryOrder.forEach(cat => {
             if (!groups[cat] || groups[cat].length === 0) return;
             this.renderCategoryGroup(cat, groups[cat]);
