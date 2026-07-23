@@ -389,7 +389,13 @@ class CQAIGateway implements AiGatewayInterface
             if (!$host) {
                 return null;
             }
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+                $scheme = 'https';
+            } elseif (str_contains($host, '.local') || $host === 'localhost' || str_starts_with($host, '127.')) {
+                $scheme = 'http';
+            } else {
+                $scheme = 'https';
+            }
             $port = (int) ($_SERVER['SERVER_PORT'] ?? ($scheme === 'https' ? 443 : 80));
         }
 
