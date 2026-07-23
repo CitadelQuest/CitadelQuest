@@ -9,6 +9,7 @@ use App\Entity\SpiritSettings;
 use App\Entity\User;
 use App\Entity\AiServiceModel;
 use App\Service\ProjectFileService;
+use App\Service\SettingsService;
 use PDO;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Uid\Uuid;
@@ -30,6 +31,7 @@ class SpiritService
         private CQMemoryPackService $packService,
         private CQMemoryLibraryService $libraryService,
         private TranslatorInterface $translator,
+        private SettingsService $settingsService,
     ) {}
     
     /**
