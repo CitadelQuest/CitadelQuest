@@ -122,7 +122,7 @@ class AdminLogsController extends AbstractController
         $parsedLines = [];
         foreach ($paginatedLines as $index => $line) {
             $jsonData = json_decode($line, true);
-            if ($jsonData) {
+            if (is_array($jsonData)) {
                 $parsedLines[] = [
                     'raw' => $line,
                     'parsed' => $jsonData,

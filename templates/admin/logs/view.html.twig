@@ -106,7 +106,7 @@
                         {% else %}
                             {% for line in lines %}
                                 <div class="log-entry mb-2 p-2 border-start border-3 
-                                    {% if line.parsed and line.parsed.level %}
+                                    {% if line.parsed is iterable and line.parsed.level %}
                                         {% if line.parsed.level == 'ERROR' %}border-danger bg-danger bg-opacity-10
                                         {% elseif line.parsed.level == 'WARNING' %}border-warning bg-warning bg-opacity-10
                                         {% elseif line.parsed.level == 'INFO' %}border-info bg-info bg-opacity-10
@@ -117,12 +117,12 @@
                                     
                                     <div class="d-flex justify-content-between align-items-start">
                                         <small class="text-muted">Line {{ line.line_number }}</small>
-                                        {% if line.parsed and line.parsed.datetime %}
+                                        {% if line.parsed is iterable and line.parsed.datetime %}
                                             <small class="text-muted">{{ line.parsed.datetime }}</small>
                                         {% endif %}
                                     </div>
                                     
-                                    {% if line.parsed %}
+                                    {% if line.parsed is iterable %}
                                         <div class="mt-1">
                                             {% if line.parsed.level %}
                                                 <span class="badge 
@@ -142,7 +142,7 @@
                                             <strong>{{ line.parsed.message }}</strong>
                                         </div>
                                         
-                                        {% if line.parsed.context and line.parsed.context is not empty %}
+                                        {% if line.parsed.context is defined and line.parsed.context is not empty %}
                                             <details class="mt-2">
                                                 <summary class="text-cyber" style="cursor: pointer;">
                                                     <i class="mdi mdi-code-braces me-1"></i>
