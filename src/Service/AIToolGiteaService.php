@@ -122,15 +122,15 @@ class AIToolGiteaService
     private function handleCreateUserToken(array $args): array
     {
         $config = $this->ensureConfig();
-        if (!$config['baseUrl'] ?? false) {
+        if (!isset($config['baseUrl'])) {
             return $config;
         }
 
-        $username = $args['username'] ?? null;
-        $password = $args['password'] ?? null;
+        $username = $args['username'] ?? $this->getSetting('gitea.admin_user');
+        $password = $args['password'] ?? $this->getSetting('gitea.admin_password');
         $tokenName = $args['tokenName'] ?? 'cq-spirit';
         if (!$username || !$password) {
-            return ['success' => false, 'error' => 'Missing required parameters: username, password'];
+            return ['success' => false, 'error' => 'Missing required parameters: username, password (or set gitea.admin_user and gitea.admin_password in tool settings)'];
         }
 
         $scopes = $args['scopes'] ?? ['read:repository', 'write:repository', 'read:user', 'write:user'];

@@ -126,6 +126,15 @@ class AIToolCallService
             if ($toolName === 'coolifyManage') {
                 return $this->aiToolCoolifyService->coolifyManage($arguments);
             }
+            if ($toolName === 'coolifyManageApplications') {
+                return $this->aiToolCoolifyService->coolifyManageApplications($arguments);
+            }
+            if ($toolName === 'coolifyManageDeployments') {
+                return $this->aiToolCoolifyService->coolifyManageDeployments($arguments);
+            }
+            if ($toolName === 'coolifyManageProjects') {
+                return $this->aiToolCoolifyService->coolifyManageProjects($arguments);
+            }
 
             // For Hostinger tools, delegate to AIToolHostingerService
             if ($toolName === 'hostingerManage') {

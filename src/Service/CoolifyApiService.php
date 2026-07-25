@@ -53,11 +53,26 @@ class CoolifyApiService
             if ($statusCode >= 400) {
                 $body = $response->toArray(false);
                 $msg = $body['message'] ?? $response->getContent(false);
-                return [
+                $errorDetail = [
                     'success' => false,
                     'error' => "Coolify API error (HTTP $statusCode): $msg",
                     'statusCode' => $statusCode,
                 ];
+                if (isset($body['errors']) && is_array($body['errors'])) {
+                    $errorDetail['validationErrors'] = $body['errors'];
+                    $fieldErrors = [];
+                    foreach ($body['errors'] as $field => $messages) {
+                        if (is_array($messages)) {
+                            $fieldErrors[] = $field . ': ' . implode(', ', $messages);
+                        } else {
+                            $fieldErrors[] = $field . ': ' . $messages;
+                        }
+                    }
+                    if (!empty($fieldErrors)) {
+                        $errorDetail['error'] .= ' | Validation: ' . implode('; ', $fieldErrors);
+                    }
+                }
+                return $errorDetail;
             }
 
             if ($statusCode === 204) {
@@ -157,21 +172,24 @@ class CoolifyApiService
         return $this->request('DELETE', $baseUrl, '/applications/' . urlencode($uuid), [], $token);
     }
 
-    public function setEnv(string $baseUrl, string $token, string $appUuid, string $key, string $value, bool $buildTime = false): array
+    public function setEnv(string $baseUrl, string $token, string $appUuid, string $key, string $value, ?bool $buildTime = null): array
     {
+        $payload = [
+            'key' => $key,
+            'value' => $value,
+        ];
+        if ($buildTime !== null) {
+            $payload['is_build_time'] = $buildTime;
+        }
         return $this->request('POST', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs', [
-            'json' => [
-                'key' => $key,
-                'value' => $value,
-                'is_build_time' => $buildTime,
-            ],
+            'json' => $payload,
         ], $token);
     }
 
     public function bulkSetEnv(string $baseUrl, string $token, string $appUuid, array $envs): array
     {
-        return $this->request('POST', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs/bulk', [
-            'json' => ['envs' => $envs],
+        return $this->request('PATCH', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs/bulk', [
+            'json' => ['data' => $envs],
         ], $token);
     }
 
@@ -179,7 +197,7 @@ class CoolifyApiService
     {
         return $this->request('POST', $baseUrl, '/deploy', [
             'json' => [
-                'application_uuid' => $appUuid,
+                'uuid' => $appUuid,
                 'force' => $force,
             ],
         ], $token);
@@ -210,5 +228,105 @@ class CoolifyApiService
     public function stopApp(string $baseUrl, string $token, string $uuid): array
     {
         return $this->request('POST', $baseUrl, '/applications/' . urlencode($uuid) . '/stop', [], $token);
+    }
+
+    // ── Applications: list, create variants, logs, envs ──
+
+    public function listApps(string $baseUrl, string $token): array
+    {
+        return $this->request('GET', $baseUrl, '/applications', [], $token);
+    }
+
+    public function createAppPublic(string $baseUrl, string $token, array $config): array
+    {
+        return $this->request('POST', $baseUrl, '/applications/public', [
+            'json' => $config,
+        ], $token);
+    }
+
+    public function createAppDockerfile(string $baseUrl, string $token, array $config): array
+    {
+        return $this->request('POST', $baseUrl, '/applications/dockerfile', [
+            'json' => $config,
+        ], $token);
+    }
+
+    public function createAppDockerImage(string $baseUrl, string $token, array $config): array
+    {
+        return $this->request('POST', $baseUrl, '/applications/dockerimage', [
+            'json' => $config,
+        ], $token);
+    }
+
+    public function createAppGithubApp(string $baseUrl, string $token, array $config): array
+    {
+        return $this->request('POST', $baseUrl, '/applications/private-github-app', [
+            'json' => $config,
+        ], $token);
+    }
+
+    public function getAppLogs(string $baseUrl, string $token, string $uuid): array
+    {
+        return $this->request('GET', $baseUrl, '/applications/' . urlencode($uuid) . '/logs', [], $token);
+    }
+
+    public function listEnvs(string $baseUrl, string $token, string $appUuid): array
+    {
+        return $this->request('GET', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs', [], $token);
+    }
+
+    public function updateEnv(string $baseUrl, string $token, string $appUuid, string $envUuid, array $data): array
+    {
+        return $this->request('PATCH', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs/' . urlencode($envUuid), [
+            'json' => $data,
+        ], $token);
+    }
+
+    public function deleteEnv(string $baseUrl, string $token, string $appUuid, string $envUuid): array
+    {
+        return $this->request('DELETE', $baseUrl, '/applications/' . urlencode($appUuid) . '/envs/' . urlencode($envUuid), [], $token);
+    }
+
+    // ── Projects: update, delete, environments ──
+
+    public function updateProject(string $baseUrl, string $token, string $uuid, array $data): array
+    {
+        return $this->request('PATCH', $baseUrl, '/projects/' . urlencode($uuid), [
+            'json' => $data,
+        ], $token);
+    }
+
+    public function deleteProject(string $baseUrl, string $token, string $uuid): array
+    {
+        return $this->request('DELETE', $baseUrl, '/projects/' . urlencode($uuid), [], $token);
+    }
+
+    public function listEnvironments(string $baseUrl, string $token, string $projectUuid): array
+    {
+        return $this->request('GET', $baseUrl, '/projects/' . urlencode($projectUuid) . '/environments', [], $token);
+    }
+
+    public function createEnvironment(string $baseUrl, string $token, string $projectUuid, string $name): array
+    {
+        return $this->request('POST', $baseUrl, '/projects/' . urlencode($projectUuid) . '/environments', [
+            'json' => ['name' => $name],
+        ], $token);
+    }
+
+    public function getEnvironment(string $baseUrl, string $token, string $projectUuid, string $envNameOrUuid): array
+    {
+        return $this->request('GET', $baseUrl, '/projects/' . urlencode($projectUuid) . '/' . urlencode($envNameOrUuid), [], $token);
+    }
+
+    public function deleteEnvironment(string $baseUrl, string $token, string $projectUuid, string $envNameOrUuid): array
+    {
+        return $this->request('DELETE', $baseUrl, '/projects/' . urlencode($projectUuid) . '/environments/' . urlencode($envNameOrUuid), [], $token);
+    }
+
+    // ── Deployments: cancel ──
+
+    public function cancelDeployment(string $baseUrl, string $token, string $deploymentUuid): array
+    {
+        return $this->request('POST', $baseUrl, '/deployments/' . urlencode($deploymentUuid) . '/cancel', [], $token);
     }
 }
