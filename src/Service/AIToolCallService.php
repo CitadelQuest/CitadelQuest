@@ -113,7 +113,7 @@ class AIToolCallService
             }
 
             // For Spirit-to-Spirit tools, delegate to AIToolSpiritService
-            if (in_array($toolName, ['callSpirit', 'listSpirits'])) {
+            if (in_array($toolName, ['spiritCall', 'spiritManage'])) {
                 return $this->aiToolSpiritService->{$toolName}($arguments);
             }
 

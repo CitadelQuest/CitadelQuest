@@ -5,12 +5,12 @@ namespace App\Service;
 /**
  * Spirit-to-Spirit call context / guard.
  *
- * Tracks the chain of Spirits involved in a nested `callSpirit` chain within a
+ * Tracks the chain of Spirits involved in a nested `spiritCall` chain within a
  * single top-level turn, and enforces the safeguards documented in
  * /docs/features/Spirit2SpiritChat.md:
  *   - depth cap        (how deep nested consultations may go)
  *   - cycle guard      (block A -> B -> A)
- *   - per-turn budget  (max number of callSpirit calls per top-level turn)
+ *   - per-turn budget  (max number of spiritCall calls per top-level turn)
  *
  * A Spirit Chat turn runs in its own detached CLI worker process, so a single
  * shared instance is effectively per-turn. `begin()` (re)initialises it, making

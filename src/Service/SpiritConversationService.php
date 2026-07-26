@@ -1148,7 +1148,7 @@ class SpiritConversationService
         $shouldStop = $shouldStop ?? static fn (): bool => false;
 
         // Seed the Spirit-to-Spirit call context/guard for this top-level turn so
-        // nested callSpirit chains are depth/cycle/budget bounded.
+        // nested spiritCall chains are depth/cycle/budget bounded.
         $topConversation = $this->getConversation($conversationId);
         if ($topConversation) {
             $this->spiritCallContext->begin($topConversation->getSpiritId());
@@ -1266,7 +1266,7 @@ class SpiritConversationService
     /**
      * Run a full Spirit turn SYNCHRONOUSLY and return the final assistant text.
      *
-     * Used by Spirit-to-Spirit consultations (`callSpirit`): the callee Spirit
+     * Used by Spirit-to-Spirit consultations (`spiritCall`): the callee Spirit
      * runs its complete stack — inline CQ Memory recall + Memory Agent enrichment,
      * initial AI response, and full tool-execution loop — using its own model,
      * system prompt and active tools. Unlike runFullTurn(), recall is computed

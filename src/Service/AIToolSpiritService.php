@@ -7,10 +7,16 @@ use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Service\ServiceSubscriberInterface;
 
 /**
- * Spirit-to-Spirit Chat tools: `callSpirit` and `listSpirits`.
+ * Spirit-to-Spirit Chat tools: `spiritCall` and `spiritManage`.
  *
- * Lets one Spirit consult a fellow Spirit (owned by the same user) for help with
- * a task that benefits from the fellow Spirit's own model, memory and tools.
+ * `spiritCall` lets one Spirit consult a fellow Spirit (owned by the same user)
+ * for help with a task that benefits from the fellow Spirit's own model, memory
+ * and tools.
+ *
+ * `spiritManage` provides read-only management operations:
+ *   - listSpirits:      list fellow Spirits available for consultation
+ *   - listConversations: list S2S conversations for a given Spirit
+ *   - getConversation:   retrieve a specific S2S conversation (full or compact)
  *
  * The consultation runs SYNCHRONOUSLY inside the already-running turn worker
  * (no HTTP request held open) via SpiritConversationService::runTurnSync(), and
@@ -60,9 +66,28 @@ class AIToolSpiritService implements ServiceSubscriberInterface
     }
 
     /**
-     * List fellow Spirits the caller may consult.
+     * Spirit management tool with operations pattern.
+     * Operations: listSpirits, listConversations, getConversation
      */
-    public function listSpirits(array $arguments): array
+    public function spiritManage(array $arguments): array
+    {
+        $operation = $arguments['operation'] ?? null;
+        if (!$operation) {
+            return ['success' => false, 'error' => 'Missing required parameter: operation'];
+        }
+
+        return match ($operation) {
+            'listSpirits' => $this->handleListSpirits($arguments),
+            'listConversations' => $this->handleListConversations($arguments),
+            'getConversation' => $this->handleGetConversation($arguments),
+            default => ['success' => false, 'error' => "Unknown spiritManage operation: {$operation}"],
+        };
+    }
+
+    /**
+     * Operation: listSpirits — list fellow Spirits the caller may consult.
+     */
+    private function handleListSpirits(array $arguments): array
     {
         $callerId = $arguments['spiritId'] ?? null;
         if (!$callerId) {
@@ -99,9 +124,203 @@ class AIToolSpiritService implements ServiceSubscriberInterface
     }
 
     /**
+     * Operation: listConversations — list S2S conversations for the caller Spirit.
+     * With filterSpiritId/filterSpiritName, returns only conversations between
+     * the caller and that specific other Spirit.
+     * Returns title, date, and first/last 250 chars of conversation content.
+     * Paginated: 10 results per page, newest first.
+     */
+    private function handleListConversations(array $arguments): array
+    {
+        $callerId = $arguments['spiritId'] ?? null;
+        if (!$callerId) {
+            return ['success' => false, 'error' => 'Caller Spirit context missing.'];
+        }
+
+        $caller = $this->spiritService->getSpirit($callerId);
+        if (!$caller) {
+            return ['success' => false, 'error' => 'Caller Spirit not found.'];
+        }
+
+        $filterSpiritId = $arguments['filterSpiritId'] ?? null;
+        $filterSpiritName = isset($arguments['filterSpiritName']) ? trim((string) $arguments['filterSpiritName']) : null;
+
+        // Resolve filter spirit if provided
+        $filterSpirit = null;
+        if ($filterSpiritId || $filterSpiritName) {
+            if ($filterSpiritId) {
+                $filterSpirit = $this->spiritService->getSpirit($filterSpiritId);
+            } else {
+                foreach ($this->spiritService->findAll() as $s) {
+                    if (mb_strtolower($s->getName()) === mb_strtolower($filterSpiritName)) {
+                        $filterSpirit = $s;
+                        break;
+                    }
+                }
+            }
+            if (!$filterSpirit) {
+                return ['success' => false, 'error' => 'Filter Spirit not found.'];
+            }
+        }
+
+        // Get both initiated and received S2S conversations for the caller
+        $initiated = $this->conversationService()->getS2sConversationsInitiatedBySpirit($callerId);
+        $received = $this->conversationService()->getS2sConversationsReceivedBySpirit($callerId);
+
+        $conversations = [];
+        $messageService = $this->messageService();
+
+        foreach (array_merge($initiated, $received) as $conv) {
+            // If filtering by a specific other Spirit, skip conversations not involving that Spirit
+            if ($filterSpirit) {
+                $filterId = $filterSpirit->getId();
+                $convInitiator = $conv['initiatorSpiritId'] ?? null;
+                $convSpiritId = $conv['spiritId'] ?? null;
+                // The conversation must involve both the caller and the filter spirit
+                $involvesCaller = ($convInitiator === $callerId) || ($convSpiritId === $callerId);
+                $involvesFilter = ($convInitiator === $filterId) || ($convSpiritId === $filterId);
+                if (!$involvesCaller || !$involvesFilter) {
+                    continue;
+                }
+            }
+
+            $messages = $messageService->getMessagesByConversation($conv['id']);
+
+            // Extract text content from messages
+            $allText = [];
+            foreach ($messages as $msg) {
+                $text = $this->extractTextFromContent($msg->getContent());
+                if ($text !== '') {
+                    $allText[] = $text;
+                }
+            }
+
+            $firstSnippet = mb_substr($allText[0] ?? '(no content)', 0, 250);
+            $lastSnippet = mb_substr($allText[count($allText) - 1] ?? '(no content)', 0, 250);
+
+            $conversations[] = [
+                'conversationId' => $conv['id'],
+                'title' => $conv['title'],
+                'date' => $conv['lastInteraction'] ?? $conv['createdAt'],
+                'messagesCount' => $conv['messagesCount'] ?? count($messages),
+                'firstSnippet' => $firstSnippet,
+                'lastSnippet' => $lastSnippet,
+            ];
+        }
+
+        // Sort by date descending (newest first)
+        usort($conversations, fn($a, $b) => strcmp($b['date'] ?? '', $a['date'] ?? ''));
+
+        // Pagination: 10 per page, default page 1
+        $perPage = 10;
+ $page = max(1, (int) ($arguments['page'] ?? 1));
+        $totalCount = count($conversations);
+        $totalPages = (int) ceil($totalCount / $perPage);
+        $offset = ($page - 1) * $perPage;
+        $pagedConversations = array_slice($conversations, $offset, $perPage);
+
+        $badgeLabel = $filterSpirit
+            ? $caller->getName() . ' ↔ ' . $filterSpirit->getName()
+            : $caller->getName() . ' (all)';
+
+        return [
+            'success' => true,
+            'spiritId' => $callerId,
+            'spiritName' => $caller->getName(),
+            'filterSpiritId' => $filterSpirit?->getId(),
+            'filterSpiritName' => $filterSpirit?->getName(),
+            'conversations' => $pagedConversations,
+            'count' => count($pagedConversations),
+            'totalCount' => $totalCount,
+            'page' => $page,
+            'perPage' => $perPage,
+            'totalPages' => $totalPages,
+            '_frontendData' => $this->buildListConversationsBadge($badgeLabel, $pagedConversations),
+        ];
+    }
+
+    /**
+     * Operation: getConversation — retrieve a specific S2S conversation.
+     * resultType: 'full' (all messages) or 'compact' (first and last message only).
+     */
+    private function handleGetConversation(array $arguments): array
+    {
+        $conversationId = $arguments['conversationId'] ?? null;
+        $resultType = $arguments['resultType'] ?? 'compact';
+
+        if (!$conversationId) {
+            return ['success' => false, 'error' => 'Missing required parameter: conversationId'];
+        }
+
+        $conversation = $this->conversationService()->getConversation($conversationId);
+        if (!$conversation) {
+            return ['success' => false, 'error' => 'Conversation not found.'];
+        }
+
+        if (!$conversation->isSpiritToSpirit()) {
+            return ['success' => false, 'error' => 'This conversation is not a Spirit-to-Spirit conversation.'];
+        }
+
+        $messageService = $this->messageService();
+        $messages = $messageService->getMessagesByConversation($conversationId);
+
+        if ($resultType === 'compact') {
+            // Only first and last message
+            $compactMessages = [];
+            if (count($messages) > 0) {
+                $compactMessages[] = $messages[0];
+                if (count($messages) > 1) {
+                    $compactMessages[] = $messages[count($messages) - 1];
+                }
+            }
+            $messages = $compactMessages;
+        }
+
+        $messagesData = [];
+        foreach ($messages as $msg) {
+            $messagesData[] = [
+                'id' => $msg->getId(),
+                'role' => $msg->getRole(),
+                'type' => $msg->getType(),
+                'content' => $msg->getContent(),
+                'createdAt' => $msg->getCreatedAt()->format('c'),
+            ];
+        }
+
+        $callerId = $conversation->getInitiatorSpiritId();
+        $calleeId = $conversation->getSpiritId();
+        $callerName = $this->spiritService->getSpirit($callerId)?->getName() ?? 'Spirit';
+        $calleeName = $this->spiritService->getSpirit($calleeId)?->getName() ?? 'Spirit';
+        $callerColor = $this->spiritService->getSpiritColor($callerId);
+        $calleeColor = $this->spiritService->getSpiritColor($calleeId);
+
+        return [
+            'success' => true,
+            'conversationId' => $conversationId,
+            'title' => $conversation->getTitle(),
+            'caller' => ['spiritId' => $callerId, 'name' => $callerName],
+            'callee' => ['spiritId' => $calleeId, 'name' => $calleeName],
+            'resultType' => $resultType,
+            'messages' => $messagesData,
+            'messagesCount' => $messageService->countMessagesByConversation($conversationId),
+            'createdAt' => $conversation->getCreatedAt()->format('c'),
+            'lastInteraction' => $conversation->getLastInteraction()->format('c'),
+            '_frontendData' => $this->buildGetConversationBadge(
+                $conversation->getTitle(),
+                $callerName,
+                $callerColor,
+                $calleeName,
+                $calleeColor,
+                $resultType,
+                $messagesData
+            ),
+        ];
+    }
+
+    /**
      * Consult a fellow Spirit and return its answer.
      */
-    public function callSpirit(array $arguments): array
+    public function spiritCall(array $arguments): array
     {
         $callerId = $arguments['spiritId'] ?? null;
         $message = trim((string) ($arguments['message'] ?? ''));
@@ -116,7 +335,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
         }
 
         // Master permission gate for the caller. Defaults to enabled: activating the
-        // callSpirit tool per-Spirit is itself the explicit opt-in. Set s2s.enabled='0'
+        // spiritCall tool per-Spirit is itself the explicit opt-in. Set s2s.enabled='0'
         // to hard-disable consultations for a Spirit even if the tool is active.
         if ($this->spiritService->getSpiritSetting($callerId, 's2s.enabled', '1') !== '1') {
             return ['success' => false, 'error' => 'You are not permitted to consult other Spirits.'];
@@ -223,7 +442,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                 ),
             ];
         } catch (\Throwable $e) {
-            $this->logger->error('callSpirit failed: {error}', ['error' => $e->getMessage()]);
+            $this->logger->error('spiritCall failed: {error}', ['error' => $e->getMessage()]);
             return ['success' => false, 'error' => 'The consultation failed: ' . $e->getMessage()];
         }
     }
@@ -257,7 +476,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                 }
             }
             if (count($matches) === 0) {
-                return ['ok' => false, 'error' => 'No Spirit named "' . $targetName . '" found. Use listSpirits to see who you can consult.'];
+                return ['ok' => false, 'error' => 'No Spirit named "' . $targetName . '" found. Use spiritManage (op: listSpirits) to see who you can consult.'];
             }
             if (count($matches) > 1) {
                 return ['ok' => false, 'error' => 'Multiple Spirits named "' . $targetName . '"; specify targetSpiritId instead.'];
@@ -269,11 +488,11 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             return ['ok' => true, 'id' => $spirit->getId(), 'name' => $spirit->getName()];
         }
 
-        return ['ok' => false, 'error' => 'Provide targetSpiritId or targetSpiritName. Use listSpirits to discover fellow Spirits.'];
+        return ['ok' => false, 'error' => 'Provide targetSpiritId or targetSpiritName. Use spiritManage (op: listSpirits) to discover fellow Spirits.'];
     }
 
     /**
-     * Expandable badge listing the fellow Spirits discovered by listSpirits.
+     * Expandable badge listing the fellow Spirits discovered by spiritManage (op: listSpirits).
      */
     private function buildListSpiritsBadge(array $spirits): string
     {
@@ -300,6 +519,107 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             . '<div class="small text-cyber fw-bold mb-1"><i class="mdi mdi-account-group-outline me-1"></i>Fellow Spirits available</div>'
             . '<details><summary class="small opacity-75" style="cursor:pointer;">View ' . count($spirits) . ' Spirit' . (count($spirits) === 1 ? '' : 's') . '</summary>'
             . '<ul class="list-group list-group-flush mt-2">' . $items . '</ul>'
+            . '</details>'
+            . '</div></div>';
+    }
+
+    /**
+     * Extract plain text from a message content array.
+     * Content is typically [{type: 'text', text: '...'}, ...].
+     */
+    private function extractTextFromContent(array $content): string
+    {
+        $parts = [];
+        foreach ($content as $item) {
+            if (is_array($item) && ($item['type'] ?? '') === 'text' && isset($item['text'])) {
+                $parts[] = (string) $item['text'];
+            }
+        }
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Frontend badge for listConversations operation.
+     */
+    private function buildListConversationsBadge(string $spiritName, array $conversations): string
+    {
+        if ($conversations === []) {
+            return '<div class="s2s-list-badge card border-0 bg-dark my-2"><div class="card-body p-2">'
+                . '<div class="small text-cyber fw-bold mb-1"><i class="mdi mdi-forum-outline me-1"></i>No S2S conversations for ' . htmlspecialchars($spiritName) . '</div>'
+                . '</div></div>';
+        }
+
+        $items = '';
+        foreach (array_slice($conversations, 0, 10) as $conv) {
+            $title = htmlspecialchars($conv['title']);
+            $date = htmlspecialchars($conv['date'] ?? '');
+            $first = htmlspecialchars(mb_substr($conv['firstSnippet'], 0, 200));
+            $last = htmlspecialchars(mb_substr($conv['lastSnippet'], 0, 200));
+            $items .= '<div class="small text-muted border-bottom border-secondary py-1">'
+                . '<div class="fw-bold text-light">' . $title . ' <span class="opacity-50">(' . $date . ')</span></div>'
+                . '<div class="opacity-75">First: ' . $first . '...</div>'
+                . '<div class="opacity-75">Last: ' . $last . '...</div>'
+                . '</div>';
+        }
+        $more = count($conversations) > 10 ? '<div class="small text-muted mt-1">… and ' . (count($conversations) - 10) . ' more</div>' : '';
+
+        return '<div class="s2s-list-badge card border-0 bg-dark my-2">'
+            . '<div class="card-body p-2">'
+            . '<div class="small text-cyber fw-bold mb-1"><i class="mdi mdi-forum-outline me-1"></i>S2S Conversations: ' . htmlspecialchars($spiritName) . ' (' . count($conversations) . ')</div>'
+            . '<details><summary class="small opacity-75" style="cursor:pointer;">View conversations</summary>'
+            . '<div class="mt-2">' . $items . $more . '</div>'
+            . '</details>'
+            . '</div></div>';
+    }
+
+    /**
+     * Frontend badge for getConversation operation — collapsible conversation content.
+     */
+    private function buildGetConversationBadge(
+        string $title,
+        string $callerName,
+        string $callerColor,
+        string $calleeName,
+        string $calleeColor,
+        string $resultType,
+        array $messagesData
+    ): string {
+        $callerNameHtml = htmlspecialchars($callerName, ENT_QUOTES);
+        $calleeNameHtml = htmlspecialchars($calleeName, ENT_QUOTES);
+        $callerColorHtml = htmlspecialchars($callerColor, ENT_QUOTES);
+        $calleeColorHtml = htmlspecialchars($calleeColor, ENT_QUOTES);
+        $titleHtml = htmlspecialchars($title, ENT_QUOTES);
+
+        $callerIcon = '<i class="mdi mdi-ghost me-1" style="color:' . $callerColorHtml . ';"></i>';
+        $calleeIcon = '<i class="mdi mdi-ghost me-1" style="color:' . $calleeColorHtml . ';"></i>';
+
+        // Build message rows
+        $messageRows = '';
+        foreach ($messagesData as $msg) {
+            $role = $msg['role'];
+            $text = $this->extractTextFromContent($msg['content']);
+            $textHtml = nl2br(htmlspecialchars($text, ENT_QUOTES));
+
+            if ($role === 'user') {
+                $messageRows .= '<div class="mt-2 small">' . $callerIcon . '<strong>' . $callerNameHtml . ':</strong><br>' . $textHtml . '</div>';
+            } elseif ($role === 'assistant') {
+                $messageRows .= '<div class="mt-2 small">' . $calleeIcon . '<strong>' . $calleeNameHtml . ':</strong><br>' . $textHtml . '</div>';
+            } else {
+                $messageRows .= '<div class="mt-2 small opacity-50"><strong>' . htmlspecialchars(ucfirst($role), ENT_QUOTES) . ':</strong><br>' . $textHtml . '</div>';
+            }
+        }
+
+        if ($messageRows === '') {
+            $messageRows = '<div class="mt-2 small opacity-50">(no messages)</div>';
+        }
+
+        return '<div class="s2s-consult-badge card border-0 bg-dark my-2">'
+            . '<div class="card-body p-2">'
+            . '<div class="small text-cyber fw-bold mb-1"><i class="mdi mdi-message-text-outline me-1"></i>' . $titleHtml . '</div>'
+            . '<div class="small opacity-75 mb-1">' . $callerNameHtml . ' → ' . $calleeNameHtml . ' · ' . $resultType . ' · ' . count($messagesData) . ' message(s)</div>'
+            . '<details>'
+            . '<summary class="small opacity-75" style="cursor:pointer;">View conversation</summary>'
+            . '<div class="mt-2">' . $messageRows . '</div>'
             . '</details>'
             . '</div></div>';
     }

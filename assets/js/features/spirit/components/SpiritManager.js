@@ -1344,7 +1344,7 @@ export class SpiritManager {
 
     /**
      * Save S2S settings from the S2S tab controls.
-     * When s2s.enabled changes, also toggle the listSpirits and callSpirit AI tools.
+     * When s2s.enabled changes, also toggle the spiritManage and spiritCall AI tools.
      */
     async saveS2sSettings() {
         if (!this.spirit?.id) return;
@@ -1384,7 +1384,7 @@ export class SpiritManager {
             this.spirit.settings = this.spirit.settings || {};
             Object.assign(this.spirit.settings, s2sSettings);
 
-            // Sync listSpirits & callSpirit AI tools with s2s.enabled
+            // Sync spiritManage & spiritCall AI tools with s2s.enabled
             if (enabledChanged) {
                 await this.syncS2sAiTools(newEnabled);
             }
@@ -1399,7 +1399,7 @@ export class SpiritManager {
     }
 
     /**
-     * Enable or disable the listSpirits and callSpirit AI tools to match
+     * Enable or disable the spiritManage and spiritCall AI tools to match
      * the s2s.enabled setting. Loads tools data lazily if needed.
      */
     async syncS2sAiTools(enabled) {
@@ -1419,7 +1419,7 @@ export class SpiritManager {
             }
         }
 
-        const s2sToolNames = ['listSpirits', 'callSpirit'];
+        const s2sToolNames = ['spiritManage', 'spiritCall'];
         let changed = false;
         this.aiToolsData.forEach(tool => {
             if (s2sToolNames.includes(tool.name)) {
