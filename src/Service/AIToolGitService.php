@@ -159,7 +159,7 @@ class AIToolGitService
             'branch' => $result['branch'],
             'filesRegistered' => $syncResult['filesRegistered'] ?? 0,
             'output' => $result['output'],
-            '_frontendData' => $this->buildCloneFrontendData($projectId, $repoUrl, $syncResult)
+            '_frontendData' => $this->buildCloneFrontendData($projectId, $repoUrl, $syncResult, $repoPath)
         ];
     }
 
@@ -195,7 +195,7 @@ class AIToolGitService
             'changes' => $changes,
             'totalChanges' => $totalChanges,
             'output' => $result['output'],
-            '_frontendData' => $this->buildPullFrontendData($changes, $totalChanges)
+            '_frontendData' => $this->buildPullFrontendData($changes, $totalChanges, $repoPath)
         ];
     }
 
@@ -252,7 +252,7 @@ class AIToolGitService
             'message' => $push ? 'Committed and pushed successfully' : 'Committed successfully',
             'commitHash' => $commitResult['hash'],
             'pushed' => $push,
-            '_frontendData' => $this->buildCommitFrontendData($commitResult['hash'], $message, $push)
+            '_frontendData' => $this->buildCommitFrontendData($commitResult['hash'], $message, $push, $repoPath)
         ];
     }
 
@@ -273,6 +273,7 @@ class AIToolGitService
             return $result;
         }
         
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
         $totalChanges = count($result['modified']) + count($result['staged']) + 
                        count($result['untracked']) + count($result['deleted']);
         
@@ -284,7 +285,7 @@ class AIToolGitService
             'untracked' => $result['untracked'],
             'deleted' => $result['deleted'],
             'totalChanges' => $totalChanges,
-            '_frontendData' => $this->buildStatusFrontendData($result, $totalChanges)
+            '_frontendData' => $this->buildStatusFrontendData($result, $totalChanges, $repoPath)
         ];
     }
 
@@ -308,6 +309,7 @@ class AIToolGitService
             return $result;
         }
         
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
         $diffLines = count(explode("\n", $result['diff']));
         
         return [
@@ -316,7 +318,7 @@ class AIToolGitService
             'file' => $file ?? 'all changes',
             'staged' => $staged,
             'diffLines' => $diffLines,
-            '_frontendData' => $this->buildDiffFrontendData($file, $staged, $diffLines, $result['diff'])
+            '_frontendData' => $this->buildDiffFrontendData($file, $staged, $diffLines, $result['diff'], $repoPath)
         ];
     }
 
@@ -347,12 +349,14 @@ class AIToolGitService
             return $result;
         }
 
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+
         return [
             'success' => true,
             'message' => $result['message'],
             'remoteName' => $remoteName,
             'remoteUrl' => $remoteUrl,
-            '_frontendData' => '<div class="bg-dark bg-opacity-50 rounded p-2"><div class="d-flex align-items-center"><i class="mdi mdi-source-branch text-cyber me-2"></i><strong>Remote ' . htmlspecialchars($remoteName) . ' added</strong></div><div class="small text-muted mt-1"><code>' . htmlspecialchars($remoteUrl) . '</code></div></div>'
+            '_frontendData' => $this->buildRemoteFrontendData($remoteName, $remoteUrl, $repoPath)
         ];
     }
 
@@ -375,11 +379,13 @@ class AIToolGitService
             return $result;
         }
         
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+        
         return [
             'success' => true,
             'commits' => $result['commits'],
             'count' => count($result['commits']),
-            '_frontendData' => $this->buildLogFrontendData($result['commits'])
+            '_frontendData' => $this->buildLogFrontendData($result['commits'], $repoPath)
         ];
     }
 
@@ -561,10 +567,11 @@ class AIToolGitService
         }
     }
 
-    private function buildCloneFrontendData(string $projectId, string $repoUrl, array $syncResult): string
+    private function buildCloneFrontendData(string $projectId, string $repoUrl, array $syncResult, string $repoPath = 'repo'): string
     {
         $filesCount = $syncResult['filesRegistered'] ?? 0;
         $displayUrl = htmlspecialchars($repoUrl);
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -574,22 +581,25 @@ class AIToolGitService
     </div>
     <div class="small text-muted mt-1">
         <div><i class="mdi mdi-link-variant me-1"></i>$displayUrl</div>
+        <div><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
         <div><i class="mdi mdi-file-multiple me-1"></i>$filesCount files registered</div>
     </div>
 </div>
 HTML;
     }
 
-    private function buildPullFrontendData(array $changes, int $totalChanges): string
+    private function buildPullFrontendData(array $changes, int $totalChanges, string $repoPath = 'repo'): string
     {
         $added = count($changes['added']);
         $modified = count($changes['modified']);
         $deleted = count($changes['deleted']);
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         if ($totalChanges === 0) {
             return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <i class="mdi mdi-check-circle text-success me-1"></i>Already up to date
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
 </div>
 HTML;
         }
@@ -601,6 +611,7 @@ HTML;
         <strong>Repository updated</strong>
     </div>
     <div class="small text-muted mt-1">
+        <div><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
         <span class="text-success"><i class="mdi mdi-plus-circle me-1"></i>$added added</span>
         <span class="text-warning ms-2"><i class="mdi mdi-pencil me-1"></i>$modified modified</span>
         <span class="text-danger ms-2"><i class="mdi mdi-delete me-1"></i>$deleted deleted</span>
@@ -609,10 +620,11 @@ HTML;
 HTML;
     }
 
-    private function buildCommitFrontendData(string $hash, string $message, bool $pushed): string
+    private function buildCommitFrontendData(string $hash, string $message, bool $pushed, string $repoPath = 'repo'): string
     {
         $shortHash = substr($hash, 0, 7);
         $displayMessage = htmlspecialchars($message);
+        $repoPathDisplay = htmlspecialchars($repoPath);
         $pushStatus = $pushed ? '<i class="mdi mdi-cloud-upload text-success ms-2 me-1"></i>Pushed' : '';
         
         return <<<HTML
@@ -622,20 +634,25 @@ HTML;
         <strong>$shortHash</strong>
         $pushStatus
     </div>
-    <div class="small text-muted mt-1">$displayMessage</div>
+    <div class="small text-muted mt-1">
+        <div><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
+        <div>$displayMessage</div>
+    </div>
 </div>
 HTML;
     }
 
-    private function buildStatusFrontendData(array $status, int $totalChanges): string
+    private function buildStatusFrontendData(array $status, int $totalChanges, string $repoPath = 'repo'): string
     {
         $branch = htmlspecialchars($status['branch']);
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         if ($totalChanges === 0) {
             return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <i class="mdi mdi-source-branch text-cyber me-1"></i><strong>$branch</strong>
     <span class="text-success ms-2"><i class="mdi mdi-check-circle me-1"></i>Working tree clean</span>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
 </div>
 HTML;
         }
@@ -662,6 +679,7 @@ HTML;
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <div><i class="mdi mdi-source-branch text-cyber me-1"></i><strong>$branch</strong></div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
     <div class="small mt-1">$statusDisplay</div>
     <div class="mt-2">$sections</div>
 </div>
@@ -689,10 +707,11 @@ HTML;
         return $this->renderCollapsible($summary, $items, true);
     }
 
-    private function buildDiffFrontendData(?string $file, bool $staged, int $diffLines, string $diff = ''): string
+    private function buildDiffFrontendData(?string $file, bool $staged, int $diffLines, string $diff = '', string $repoPath = 'repo'): string
     {
         $fileDisplay = $file ? htmlspecialchars($file) : 'all changes';
         $stagedText = $staged ? ' (staged)' : '';
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         $diffBody = $this->renderColorizedDiff($diff);
         $summary = "<i class='mdi mdi-file-compare me-1'></i><strong>diff</strong> <span class='text-muted'>($diffLines lines)</span>";
@@ -704,7 +723,7 @@ HTML;
         <i class="mdi mdi-file-compare text-cyber me-2"></i>
         <strong>Diff: $fileDisplay</strong>$stagedText
     </div>
-    <div class="small text-muted mt-1">$diffLines lines</div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay · $diffLines lines</div>
     <div class="mt-2">$collapsible</div>
 </div>
 HTML;
@@ -802,14 +821,16 @@ HTML;
 HTML;
     }
 
-    private function buildLogFrontendData(array $commits): string
+    private function buildLogFrontendData(array $commits, string $repoPath = 'repo'): string
     {
         $count = count($commits);
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         if ($count === 0) {
             return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
     <i class="mdi mdi-history text-muted me-1"></i>No commits
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
 </div>
 HTML;
         }
@@ -819,6 +840,27 @@ HTML;
     <div class="d-flex align-items-center">
         <i class="mdi mdi-history text-cyber me-2"></i>
         <strong>$count commits</strong>
+    </div>
+    <div class="small text-muted mt-1"><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
+</div>
+HTML;
+    }
+
+    private function buildRemoteFrontendData(string $remoteName, string $remoteUrl, string $repoPath = 'repo'): string
+    {
+        $nameDisplay = htmlspecialchars($remoteName);
+        $urlDisplay = htmlspecialchars($remoteUrl);
+        $repoPathDisplay = htmlspecialchars($repoPath);
+        
+        return <<<HTML
+<div class="bg-dark bg-opacity-50 rounded p-2">
+    <div class="d-flex align-items-center">
+        <i class="mdi mdi-source-branch text-cyber me-2"></i>
+        <strong>Remote $nameDisplay added</strong>
+    </div>
+    <div class="small text-muted mt-1">
+        <div><i class="mdi mdi-link-variant me-1"></i>$urlDisplay</div>
+        <div><i class="mdi mdi-folder me-1"></i>/$repoPathDisplay</div>
     </div>
 </div>
 HTML;

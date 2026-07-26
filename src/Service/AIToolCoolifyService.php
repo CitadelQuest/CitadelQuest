@@ -852,24 +852,28 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameter: appUuid'];
         }
 
-        $result = $this->coolifyApiService->listDeployments($config['baseUrl'], $config['token'], $appUuid);
+        $result = $this->coolifyApiService->listAppDeployments($config['baseUrl'], $config['token'], $appUuid);
         if (!$result['success']) {
             return $result;
         }
 
-        $deployments = $result['data'] ?? [];
-        $items = array_map(fn($d) => [
-            'icon' => 'mdi-rocket-launch',
-            'label' => $d['deployment_uuid'] ?? ($d['uuid'] ?? '?'),
-            'meta' => $d['status'] ?? null,
-        ], is_array($deployments) ? $deployments : []);
+        $rawData = $result['data'] ?? [];
+        $deployments = $rawData['deployments'] ?? (is_array($rawData) ? $rawData : []);
+        $deployments = array_slice(is_array($deployments) ? $deployments : [], 0, 10);
+
+        $items = array_map(fn($d) => $this->buildDeploymentItem($d), $deployments);
+
+        $cleanDeployments = array_map(function ($d) {
+            unset($d['logs']);
+            return $d;
+        }, $deployments);
 
         return [
             'success' => true,
             'appUuid' => $appUuid,
-            'deployments' => $deployments,
-            'count' => count($deployments),
-            '_frontendData' => $this->buildListFrontendData('coolifyManageDeployments', 'listByApp', count($deployments) . ' deployment(s)', $items),
+            'deployments' => $cleanDeployments,
+            'count' => count($cleanDeployments),
+            '_frontendData' => $this->buildListFrontendData('coolifyManageDeployments', 'listByApp', count($cleanDeployments) . ' deployment(s)', $items),
         ];
     }
 
@@ -885,18 +889,21 @@ class AIToolCoolifyService
             return $result;
         }
 
-        $deployments = $result['data'] ?? [];
-        $items = array_map(fn($d) => [
-            'icon' => 'mdi-rocket-launch',
-            'label' => $d['deployment_uuid'] ?? ($d['uuid'] ?? '?'),
-            'meta' => $d['status'] ?? null,
-        ], is_array($deployments) ? $deployments : []);
+        $rawData = $result['data'] ?? [];
+        $deployments = $rawData['deployments'] ?? (is_array($rawData) ? $rawData : []);
+
+        $items = array_map(fn($d) => $this->buildDeploymentItem($d), is_array($deployments) ? $deployments : []);
+
+        $cleanDeployments = array_map(function ($d) {
+            unset($d['logs']);
+            return $d;
+        }, is_array($deployments) ? $deployments : []);
 
         return [
             'success' => true,
-            'deployments' => $deployments,
-            'count' => count($deployments),
-            '_frontendData' => $this->buildListFrontendData('coolifyManageDeployments', 'listRunning', count($deployments) . ' running deployment(s)', $items),
+            'deployments' => $cleanDeployments,
+            'count' => count($cleanDeployments),
+            '_frontendData' => $this->buildListFrontendData('coolifyManageDeployments', 'listRunning', count($cleanDeployments) . ' running deployment(s)', $items),
         ];
     }
 
@@ -1223,6 +1230,50 @@ HTML;
     }
 
     /**
+     * Build a human-readable frontend item for a deployment.
+     */
+    private function buildDeploymentItem(array $d): array
+    {
+        $status = $d['status'] ?? null;
+        $commit = $d['commit'] ?? null;
+        $commitMsg = $d['commit_message'] ?? null;
+        $source = ($d['is_webhook'] ?? false) ? 'webhook' : (($d['is_api'] ?? false) ? 'API' : null);
+        $appName = $d['application_name'] ?? null;
+        $createdAt = $d['created_at'] ?? null;
+
+        $icon = match ($status) {
+            'finished' => 'mdi-check-circle text-success',
+            'in_progress' => 'mdi-loading text-warning',
+            'cancelled-by-user', 'cancelled' => 'mdi-close-circle text-danger',
+            'failed' => 'mdi-alert-circle text-danger',
+            default => 'mdi-rocket-launch text-cyber',
+        };
+
+        $depId = $d['id'] ?? '?';
+        $depUuid = $d['deployment_uuid'] ?? ($d['uuid'] ?? '?');
+        $label = $appName ? "{$appName} #{$depId}" : $depUuid;
+        if ($commit) {
+            $shortCommit = substr($commit, 0, 7);
+            $label .= " — {$shortCommit}";
+            if ($commitMsg) {
+                $label .= " ({$commitMsg})";
+            }
+        }
+
+        $metaParts = array_filter([
+            $status,
+            $source,
+            $createdAt ? substr($createdAt, 0, 16) . 'Z' : null,
+        ], fn($v) => $v !== null && $v !== '');
+
+        return [
+            'icon' => $icon,
+            'label' => $label,
+            'meta' => implode(' · ', $metaParts),
+        ];
+    }
+
+    /**
      * Build a frontend card for list/collection results, with a collapsible item list.
      * @param array $items each: ['icon' => 'mdi-...', 'label' => string, 'meta' => ?string]
      */
@@ -1238,11 +1289,11 @@ HTML;
             $icon = $it['icon'] ?? 'mdi-circle-small';
             $label = htmlspecialchars((string) ($it['label'] ?? ''));
             $meta = isset($it['meta']) && $it['meta'] !== null && $it['meta'] !== ''
-                ? ' <span class="text-cyber">' . htmlspecialchars((string) $it['meta']) . '</span>'
+                ? ' <span class="text-muted">' . htmlspecialchars((string) $it['meta']) . '</span>'
                 : '';
-            $itemsHtml .= "<div class=\"small text-muted\"><i class=\"mdi {$icon} me-1\"></i><code>{$label}</code>{$meta}</div>";
+            $itemsHtml .= "<div class=\"small\"><i class=\"mdi {$icon} me-1\"></i><code>{$label}</code>{$meta}</div>";
         }
-        $more = $count > 20 ? '<div class="small text-muted mt-1">… and ' . ($count - 20) . ' more</div>' : '';
+        $more = $count > 20 ? '<div class="small mt-1">… and ' . ($count - 20) . ' more</div>' : '';
 
         $listHtml = $count > 0
             ? $this->renderCollapsible("<i class=\"mdi mdi-format-list-bulleted me-1\"></i><strong>{$count} item(s)</strong>", $itemsHtml . $more, true)

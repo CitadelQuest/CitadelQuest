@@ -208,10 +208,21 @@ class CoolifyApiService
         return $this->request('GET', $baseUrl, '/deployments/' . urlencode($deploymentUuid), [], $token);
     }
 
-    public function listDeployments(string $baseUrl, string $token, string $appUuid): array
+    public function listDeployments(string $baseUrl, string $token, string $appUuid = ''): array
     {
+        $query = [];
+        if ($appUuid !== '') {
+            $query['application_uuid'] = $appUuid;
+        }
         return $this->request('GET', $baseUrl, '/deployments', [
-            'query' => ['application_uuid' => $appUuid],
+            'query' => $query,
+        ], $token);
+    }
+
+    public function listAppDeployments(string $baseUrl, string $token, string $appUuid, int $take = 10): array
+    {
+        return $this->request('GET', $baseUrl, '/deployments/applications/' . urlencode($appUuid), [
+            'query' => ['take' => $take],
         ], $token);
     }
 
