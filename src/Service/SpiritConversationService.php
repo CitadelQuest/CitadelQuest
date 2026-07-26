@@ -464,6 +464,16 @@ class SpiritConversationService
             $calleeId = $data['spirit_id'];
             $calleeName = $this->spiritService->getSpirit($calleeId)?->getName() ?? 'Spirit';
 
+            // Get last message usage (context window)
+            $lastMsgUsage = [];
+            $lastMsg = $db->executeQuery(
+                'SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_request_id IS NOT NULL ORDER BY created_at DESC LIMIT 1',
+                [$conversationId]
+            )->fetchAssociative();
+            if ($lastMsg && isset($lastMsg['ai_service_request_id'])) {
+                $lastMsgUsage = $this->aiServiceUseLogService->getUsageByRequestId($lastMsg['ai_service_request_id']);
+            }
+
             $conversations[] = [
                 'id' => $conversationId,
                 'spiritId' => $calleeId,
@@ -474,6 +484,9 @@ class SpiritConversationService
                 'createdAt' => $data['created_at'],
                 'lastInteraction' => $data['last_interaction'],
                 'messagesCount' => $messageCount,
+                'tokens' => $this->getConversationTokens($conversationId),
+                'price' => $this->getConversationPrice($conversationId),
+                'lastMsgUsage' => $lastMsgUsage,
             ];
         }
 
@@ -516,6 +529,16 @@ class SpiritConversationService
             $callerId = $data['initiator_spirit_id'];
             $callerName = $this->spiritService->getSpirit($callerId)?->getName() ?? 'Spirit';
 
+            // Get last message usage (context window)
+            $lastMsgUsage = [];
+            $lastMsg = $db->executeQuery(
+                'SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_request_id IS NOT NULL ORDER BY created_at DESC LIMIT 1',
+                [$conversationId]
+            )->fetchAssociative();
+            if ($lastMsg && isset($lastMsg['ai_service_request_id'])) {
+                $lastMsgUsage = $this->aiServiceUseLogService->getUsageByRequestId($lastMsg['ai_service_request_id']);
+            }
+
             $conversations[] = [
                 'id' => $conversationId,
                 'spiritId' => $callerId,
@@ -526,6 +549,9 @@ class SpiritConversationService
                 'createdAt' => $data['created_at'],
                 'lastInteraction' => $data['last_interaction'],
                 'messagesCount' => $messageCount,
+                'tokens' => $this->getConversationTokens($conversationId),
+                'price' => $this->getConversationPrice($conversationId),
+                'lastMsgUsage' => $lastMsgUsage,
             ];
         }
 

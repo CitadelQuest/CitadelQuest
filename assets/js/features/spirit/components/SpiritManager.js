@@ -1314,12 +1314,23 @@ export class SpiritManager {
                 ? new Date(conversation.lastInteraction).toLocaleString()
                 : '-';
 
+            const contextWindow = conversation.lastMsgUsage?.totalTokensFormatted || '0';
+            const totalTokens = conversation.tokens?.total_tokens_formatted || '0';
+            const totalPrice = conversation.price?.total_price != null
+                ? conversation.price.total_price.toFixed(0)
+                : '0';
+
             item.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
+                    <div class="w-100">
                         <i class="mdi mdi-account-group-outline me-2 text-cyber"></i><strong>${this.escapeHtml(title)}</strong>
                         <br>
-                        <small class="text-muted">${this.translate(peerTranslationKey, peerDefault)} ${this.escapeHtml(peerName)} · ${messagesCount} ${this.translate('spirit.messages', 'messages')}</small>
+                        <small class="text-muted">
+                            <span title="${this.translate('spirit.messages', 'messages')} "><i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-1"></i>${messagesCount}</span>
+                            <span title="Context window size"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1 ms-2"></i>${contextWindow}</span>
+                            <span title="Total tokens"><i class="mdi mdi-tally-mark-5 text-cyber opacity-75 me-1 ms-2"></i>${totalTokens}</span>
+                            <span title="Credits used"><i class="mdi mdi-circle-multiple-outline text-cyber opacity-75 me-1 ms-2"></i>${totalPrice}</span>
+                        </small>
                     </div>
                     <small class="text-muted text-nowrap ms-2">${lastInteraction}</small>
                 </div>
