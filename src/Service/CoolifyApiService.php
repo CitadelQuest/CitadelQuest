@@ -340,4 +340,30 @@ class CoolifyApiService
     {
         return $this->request('POST', $baseUrl, '/deployments/' . urlencode($deploymentUuid) . '/cancel', [], $token);
     }
+
+    // ── Applications: persistent storages ──
+
+    public function listStorages(string $baseUrl, string $token, string $appUuid): array
+    {
+        return $this->request('GET', $baseUrl, '/applications/' . urlencode($appUuid) . '/storages', [], $token);
+    }
+
+    public function createStorage(string $baseUrl, string $token, string $appUuid, array $data): array
+    {
+        return $this->request('POST', $baseUrl, '/applications/' . urlencode($appUuid) . '/storages', [
+            'json' => $data,
+        ], $token);
+    }
+
+    public function updateStorage(string $baseUrl, string $token, string $appUuid, string $storageUuid, array $data): array
+    {
+        return $this->request('PATCH', $baseUrl, '/applications/' . urlencode($appUuid) . '/storages/' . urlencode($storageUuid), [
+            'json' => $data,
+        ], $token);
+    }
+
+    public function deleteStorage(string $baseUrl, string $token, string $appUuid, string $storageUuid): array
+    {
+        return $this->request('DELETE', $baseUrl, '/applications/' . urlencode($appUuid) . '/storages/' . urlencode($storageUuid), [], $token);
+    }
 }

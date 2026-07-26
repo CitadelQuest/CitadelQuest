@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
  *
  * Tools:
  *   coolifyManage             - listServers, createSshKey
- *   coolifyManageApplications - list, get, create*, update, delete, start, stop, restart, logs, envs
+ *   coolifyManageApplications - list, get, create*, update, delete, start, stop, restart, logs, envs, storages
  *   coolifyManageDeployments  - deploy, get, listByApp, listRunning, cancel
  *   coolifyManageProjects     - list, get, create, update, delete, listEnvironments, createEnvironment, getEnvironment, deleteEnvironment
  *
@@ -177,6 +177,10 @@ class AIToolCoolifyService
             'updateEnv' => $this->handleAppUpdateEnv($arguments),
             'deleteEnv' => $this->handleAppDeleteEnv($arguments),
             'bulkSetEnvs' => $this->handleAppBulkSetEnvs($arguments),
+            'listStorages' => $this->handleAppListStorages($arguments),
+            'createStorage' => $this->handleAppCreateStorage($arguments),
+            'updateStorage' => $this->handleAppUpdateStorage($arguments),
+            'deleteStorage' => $this->handleAppDeleteStorage($arguments),
             default => ['success' => false, 'error' => "Unknown coolifyManageApplications operation: {$operation}"],
         };
     }
@@ -760,6 +764,135 @@ class AIToolCoolifyService
             'appUuid' => $appUuid,
             'envCount' => count($envs),
             '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'Bulk envs set', count($envs) . ' variable(s)', $appUuid),
+        ];
+    }
+
+    private function handleAppListStorages(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$this->configOk($config)) {
+            return $config;
+        }
+
+        $appUuid = $args['appUuid'] ?? null;
+        if (!$appUuid) {
+            return ['success' => false, 'error' => 'Missing required parameter: appUuid'];
+        }
+
+        $result = $this->coolifyApiService->listStorages($config['baseUrl'], $config['token'], $appUuid);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $storages = $result['data'] ?? [];
+        $items = array_map(fn($s) => [
+            'icon' => 'mdi-database',
+            'label' => $s['name'] ?? ($s['uuid'] ?? '?'),
+            'meta' => ($s['mount_path'] ?? $s['path'] ?? null) . (isset($s['is_readonly']) && $s['is_readonly'] ? ' (ro)' : ''),
+        ], is_array($storages) ? $storages : []);
+
+        return [
+            'success' => true,
+            'appUuid' => $appUuid,
+            'storages' => $storages,
+            'count' => count(is_array($storages) ? $storages : []),
+            '_frontendData' => $this->buildListFrontendData('coolifyManageApplications', 'listStorages', count(is_array($storages) ? $storages : []) . ' storage(s)', $items),
+        ];
+    }
+
+    private function handleAppCreateStorage(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$this->configOk($config)) {
+            return $config;
+        }
+
+        $appUuid = $args['appUuid'] ?? null;
+        $name = $args['storageName'] ?? null;
+        $path = $args['path'] ?? null;
+        $type = $args['type'] ?? 'persistent';
+        if (!$appUuid || !$name || !$path) {
+            return ['success' => false, 'error' => 'Missing required parameters: appUuid, storageName, path'];
+        }
+
+        $data = [
+            'type' => $type,
+            'name' => $name,
+            'mount_path' => $path,
+        ];
+        if (isset($args['hostPath'])) { $data['host_path'] = $args['hostPath']; }
+
+        $result = $this->coolifyApiService->createStorage($config['baseUrl'], $config['token'], $appUuid, $data);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $storage = $result['data'] ?? [];
+        return [
+            'success' => true,
+            'message' => "Storage '{$name}' created for app {$appUuid}",
+            'storageUuid' => $storage['uuid'] ?? null,
+            'appUuid' => $appUuid,
+            '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'Storage created', $name, $path),
+        ];
+    }
+
+    private function handleAppUpdateStorage(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$this->configOk($config)) {
+            return $config;
+        }
+
+        $appUuid = $args['appUuid'] ?? null;
+        $storageUuid = $args['storageUuid'] ?? null;
+        if (!$appUuid || !$storageUuid) {
+            return ['success' => false, 'error' => 'Missing required parameters: appUuid, storageUuid'];
+        }
+
+        $data = [];
+        if (isset($args['type'])) { $data['type'] = $args['type']; }
+        if (isset($args['storageName'])) { $data['name'] = $args['storageName']; }
+        if (isset($args['path'])) { $data['mount_path'] = $args['path']; }
+        if (isset($args['hostPath'])) { $data['host_path'] = $args['hostPath']; }
+
+        $result = $this->coolifyApiService->updateStorage($config['baseUrl'], $config['token'], $appUuid, $storageUuid, $data);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'message' => "Storage '{$storageUuid}' updated",
+            'appUuid' => $appUuid,
+            'updatedFields' => array_keys($data),
+            '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'Storage updated', $storageUuid, implode(', ', array_keys($data))),
+        ];
+    }
+
+    private function handleAppDeleteStorage(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$this->configOk($config)) {
+            return $config;
+        }
+
+        $appUuid = $args['appUuid'] ?? null;
+        $storageUuid = $args['storageUuid'] ?? null;
+        if (!$appUuid || !$storageUuid) {
+            return ['success' => false, 'error' => 'Missing required parameters: appUuid, storageUuid'];
+        }
+
+        $result = $this->coolifyApiService->deleteStorage($config['baseUrl'], $config['token'], $appUuid, $storageUuid);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'message' => "Storage '{$storageUuid}' deleted from app {$appUuid}",
+            'appUuid' => $appUuid,
+            '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'Storage deleted', $storageUuid, $appUuid),
         ];
     }
 
