@@ -40,6 +40,7 @@ class AIToolGitService
             'status' => $this->handleStatus($projectId, $arguments, $repoPathOverride),
             'diff' => $this->handleDiff($projectId, $arguments, $repoPathOverride),
             'log' => $this->handleLog($projectId, $arguments, $repoPathOverride),
+            'remoteAddOrigin' => $this->handleRemoteAddOrigin($projectId, $arguments, $repoPathOverride),
             default => [
                 'success' => false,
                 'error' => "Unknown git operation: {$operation}"
@@ -51,6 +52,7 @@ class AIToolGitService
     {
         $projectId = $arguments['projectId'] ?? 'general';
         $authMethod = $arguments['authMethod'] ?? null;
+        $repoPath = $this->sanitizeRelativePath($arguments['localRepoPath'] ?? 'repo');
         
         if (!$authMethod || !in_array($authMethod, ['https', 'ssh'])) {
             return [
@@ -59,7 +61,9 @@ class AIToolGitService
             ];
         }
         
-        $this->settingsService->setSetting("git.credentials.{$projectId}.auth_method", $authMethod);
+        $settingPrefix = "git.credentials.{$projectId}.{$repoPath}";
+        
+        $this->settingsService->setSetting("{$settingPrefix}.auth_method", $authMethod);
         
         if ($authMethod === 'https') {
             $username = $arguments['username'] ?? null;
@@ -72,8 +76,8 @@ class AIToolGitService
                 ];
             }
             
-            $this->settingsService->setSetting("git.credentials.{$projectId}.username", $username);
-            $this->settingsService->setSetting("git.credentials.{$projectId}.token", $token);
+            $this->settingsService->setSetting("{$settingPrefix}.username", $username);
+            $this->settingsService->setSetting("{$settingPrefix}.token", $token);
             
             $storedMethod = 'HTTPS (username + token)';
         } elseif ($authMethod === 'ssh') {
@@ -86,31 +90,27 @@ class AIToolGitService
                 ];
             }
             
-            $keyPath = $this->saveSshKey($sshPrivateKey, $projectId);
-            $this->settingsService->setSetting("git.credentials.{$projectId}.ssh_key_path", $keyPath);
+            $keyPath = $this->saveSshKey($sshPrivateKey, $projectId, $repoPath);
+            $this->settingsService->setSetting("{$settingPrefix}.ssh_key_path", $keyPath);
             
             $storedMethod = 'SSH (private key)';
         }
         
         if (isset($arguments['userName'])) {
-            $this->settingsService->setSetting("git.credentials.{$projectId}.user_name", $arguments['userName']);
+            $this->settingsService->setSetting("{$settingPrefix}.user_name", $arguments['userName']);
         }
         
         if (isset($arguments['userEmail'])) {
-            $this->settingsService->setSetting("git.credentials.{$projectId}.user_email", $arguments['userEmail']);
-        }
-        
-        if (isset($arguments['localRepoPath'])) {
-            $repoPath = $this->sanitizeRelativePath($arguments['localRepoPath']);
-            $this->settingsService->setSetting("git.credentials.{$projectId}.repo_path", $repoPath);
+            $this->settingsService->setSetting("{$settingPrefix}.user_email", $arguments['userEmail']);
         }
         
         return [
             'success' => true,
             'message' => 'Git credentials stored successfully',
             'projectId' => $projectId,
+            'repoPath' => $repoPath,
             'authMethod' => $storedMethod,
-            '_frontendData' => $this->buildCredentialsFrontendData($projectId, $authMethod)
+            '_frontendData' => $this->buildCredentialsFrontendData($projectId, $authMethod, $repoPath)
         ];
     }
 
@@ -140,7 +140,8 @@ class AIToolGitService
             ];
         }
         
-        $result = $this->gitService->clone($repoUrl, $projectDir, $projectId, $branch, $depth);
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+        $result = $this->gitService->clone($repoUrl, $projectDir, $projectId, $branch, $depth, $repoPath);
         
         if (!$result['success']) {
             return $result;
@@ -176,7 +177,8 @@ class AIToolGitService
             ];
         }
         
-        $result = $this->gitService->pull($projectDir, $projectId, $remote, $branch);
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+        $result = $this->gitService->pull($projectDir, $projectId, $remote, $branch, $repoPath);
         
         if (!$result['success']) {
             return $result;
@@ -226,7 +228,8 @@ class AIToolGitService
             return $addResult;
         } */
         
-        $commitResult = $this->gitService->commit($projectDir, $message, $projectId);
+        $repoPath = $this->getRepoPath($projectId, $repoPathOverride);
+        $commitResult = $this->gitService->commit($projectDir, $message, $projectId, $repoPath);
         if (!$commitResult['success']) {
             //return $commitResult;
             $commitResult['hash'] = $this->gitService->getLastCommitHash($projectDir);
@@ -234,7 +237,7 @@ class AIToolGitService
         
         $pushResult = null;
         if ($push) {
-            $pushResult = $this->gitService->push($projectDir, $projectId);
+            $pushResult = $this->gitService->push($projectDir, $projectId, null, null, $repoPath);
             if (!$pushResult['success']) {
                 return [
                     'success' => false,
@@ -314,6 +317,42 @@ class AIToolGitService
             'staged' => $staged,
             'diffLines' => $diffLines,
             '_frontendData' => $this->buildDiffFrontendData($file, $staged, $diffLines, $result['diff'])
+        ];
+    }
+
+    private function handleRemoteAddOrigin(string $projectId, array $arguments, ?string $repoPathOverride = null): array
+    {
+        $remoteUrl = $arguments['remoteUrl'] ?? null;
+        $remoteName = $arguments['remoteName'] ?? 'origin';
+
+        if (!$remoteUrl) {
+            return [
+                'success' => false,
+                'error' => 'Missing required parameter: remoteUrl'
+            ];
+        }
+
+        $projectDir = $this->getProjectDir($projectId, $repoPathOverride);
+
+        if (!$this->gitService->isGitRepo($projectDir)) {
+            return [
+                'success' => false,
+                'error' => 'Project directory is not a git repository. Use gitOperation clone first.'
+            ];
+        }
+
+        $result = $this->gitService->remoteAdd($projectDir, $remoteName, $remoteUrl);
+
+        if (!$result['success']) {
+            return $result;
+        }
+
+        return [
+            'success' => true,
+            'message' => $result['message'],
+            'remoteName' => $remoteName,
+            'remoteUrl' => $remoteUrl,
+            '_frontendData' => '<div class="bg-dark bg-opacity-50 rounded p-2"><div class="d-flex align-items-center"><i class="mdi mdi-source-branch text-cyber me-2"></i><strong>Remote ' . htmlspecialchars($remoteName) . ' added</strong></div><div class="small text-muted mt-1"><code>' . htmlspecialchars($remoteUrl) . '</code></div></div>'
         ];
     }
 
@@ -442,7 +481,7 @@ class AIToolGitService
         }
     }
 
-    private function saveSshKey(string $keyContent, string $projectId = "general"): string
+    private function saveSshKey(string $keyContent, string $projectId = "general", string $repoPath = 'repo'): string
     {
         $user = $this->security->getUser();
         if (!$user) {
@@ -450,7 +489,7 @@ class AIToolGitService
         }
         
         $userDataDir = $this->params->get('kernel.project_dir') . '/var/user_data';
-        $sshDir = $userDataDir . '/' . $user->getId() . '/p-' . $projectId . '-ssh';
+        $sshDir = $userDataDir . '/' . $user->getId() . '/p-' . $projectId . '-' . $repoPath . '-ssh';
         
         if (!is_dir($sshDir)) {
             mkdir($sshDir, 0700, true);
@@ -486,8 +525,9 @@ class AIToolGitService
         if ($override !== null) {
             return $override;
         }
-        $repoPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.repo_path") ?? 'repo';
-        return $this->sanitizeRelativePath($repoPath);
+        // Backward compat: check old flat key for stored default repo_path
+        $repoPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.repo_path");
+        return $repoPath ? $this->sanitizeRelativePath($repoPath) : 'repo';
     }
 
     /**
@@ -784,10 +824,10 @@ HTML;
 HTML;
     }
 
-    private function buildCredentialsFrontendData(string $projectId, string $authMethod): string
+    private function buildCredentialsFrontendData(string $projectId, string $authMethod, string $repoPath = 'repo'): string
     {
         $methodDisplay = $authMethod === 'https' ? 'HTTPS (username + token)' : 'SSH (private key)';
-        $repoPath = htmlspecialchars($this->getRepoPath($projectId));
+        $repoPathDisplay = htmlspecialchars($repoPath);
         
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -796,7 +836,7 @@ HTML;
         <strong>Git credentials stored</strong>
     </div>
     <div class="small text-muted mt-1">Method: $methodDisplay</div>
-    <div class="small text-muted"><i class="mdi mdi-folder-outline me-1"></i>Local repo path: <code>$repoPath</code></div>
+    <div class="small text-muted"><i class="mdi mdi-folder-outline me-1"></i>Local repo path: <code>$repoPathDisplay</code></div>
 </div>
 HTML;
     }

@@ -85,6 +85,7 @@ class UserMigration_20260725160000
                     'envUuid' => ['type' => 'string', 'description' => 'Environment variable UUID (for updateEnv, deleteEnv)'],
                     'key' => ['type' => 'string', 'description' => 'Env variable key (for createEnv, updateEnv)'],
                     'value' => ['type' => 'string', 'description' => 'Env variable value (for createEnv, updateEnv)'],
+                    'isAutoDeployEnabled' => ['type' => 'boolean', 'description' => 'Enable auto-deploy on git push (for create* and update operations, default: false)'],
                     'isBuildTime' => ['type' => 'boolean', 'description' => 'Is build-time variable (for createEnv, updateEnv)'],
                     'envs' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['key' => ['type' => 'string'], 'value' => ['type' => 'string']]], 'description' => 'Environment variables (for bulkSetEnvs)'],
                 ],

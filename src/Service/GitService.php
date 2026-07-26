@@ -23,7 +23,8 @@ class GitService
         string $targetDir,
         ?string $projectId = null,
         ?string $branch = null,
-        ?int $depth = null
+        ?int $depth = null,
+        ?string $repoPath = null
     ): array {
         $this->validateUrl($repoUrl);
         
@@ -42,7 +43,7 @@ class GitService
         $command[] = $repoUrl;
         $command[] = $targetDir;
         
-        $env = $this->getCredentialEnv($projectId);
+        $env = $this->getCredentialEnv($projectId, $repoPath);
         
         try {
             $result = $this->runGitCommand($command, null, $env, self::CLONE_TIMEOUT);
@@ -66,7 +67,8 @@ class GitService
         string $repoDir,
         ?string $projectId = null,
         ?string $remote = null,
-        ?string $branch = null
+        ?string $branch = null,
+        ?string $repoPath = null
     ): array {
         if (!$this->isGitRepo($repoDir)) {
             return [
@@ -85,7 +87,7 @@ class GitService
             $command[] = $branch;
         }
         
-        $env = $this->getCredentialEnv($projectId);
+        $env = $this->getCredentialEnv($projectId, $repoPath);
         
         try {
             $result = $this->runGitCommand($command, $repoDir, $env, self::PULL_PUSH_TIMEOUT);
@@ -226,7 +228,7 @@ class GitService
         }
     }
 
-    public function commit(string $repoDir, string $message, ?string $projectId = null): array
+    public function commit(string $repoDir, string $message, ?string $projectId = null, ?string $repoPath = null): array
     {
         if (!$this->isGitRepo($repoDir)) {
             return [
@@ -235,7 +237,7 @@ class GitService
             ];
         }
         
-        $this->ensureGitConfig($repoDir, $projectId);
+        $this->ensureGitConfig($repoDir, $projectId, $repoPath);
         
         $command = ['git', 'commit', '-m', $message];
         
@@ -269,7 +271,8 @@ class GitService
         string $repoDir,
         ?string $projectId = null,
         ?string $remote = null,
-        ?string $branch = null
+        ?string $branch = null,
+        ?string $repoPath = null
     ): array {
         if (!$this->isGitRepo($repoDir)) {
             return [
@@ -283,7 +286,7 @@ class GitService
         
         $command = ['git', 'push', '--set-upstream', $remote, $branch];
         
-        $env = $this->getCredentialEnv($projectId);
+        $env = $this->getCredentialEnv($projectId, $repoPath);
         
         try {
             $result = $this->runGitCommand($command, $repoDir, $env, self::PULL_PUSH_TIMEOUT);
@@ -312,6 +315,32 @@ class GitService
             return trim($result['output']);
         } catch (\Exception $e) {
             return null;
+        }
+    }
+
+    public function remoteAdd(string $repoDir, string $name, string $url): array
+    {
+        if (!$this->isGitRepo($repoDir)) {
+            return [
+                'success' => false,
+                'error' => 'Not a git repository'
+            ];
+        }
+
+        $this->validateUrl($url);
+
+        try {
+            $result = $this->runGitCommand(['git', 'remote', 'add', $name, $url], $repoDir);
+            return [
+                'success' => true,
+                'message' => "Remote '{$name}' added successfully",
+                'url' => $url
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to add remote: ' . $e->getMessage()
+            ];
         }
     }
 
@@ -360,13 +389,20 @@ class GitService
         ];
     }
 
-    private function getCredentialEnv(?string $projectId): array
+    private function getCredentialEnv(?string $projectId, ?string $repoPath = null): array
     {
         if (!$projectId) {
             return [];
         }
         
-        $authMethod = $this->settingsService->getSettingValue("git.credentials.{$projectId}.auth_method");
+        // Try repo-path-scoped keys first, fall back to old flat keys for backward compat
+        $authMethod = null;
+        if ($repoPath) {
+            $authMethod = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.auth_method");
+        }
+        if (!$authMethod) {
+            $authMethod = $this->settingsService->getSettingValue("git.credentials.{$projectId}.auth_method");
+        }
         
         if (!$authMethod) {
             return [];
@@ -375,8 +411,18 @@ class GitService
         $env = [];
         
         if ($authMethod === 'https') {
-            $username = $this->settingsService->getSettingValue("git.credentials.{$projectId}.username");
-            $token = $this->settingsService->getSettingValue("git.credentials.{$projectId}.token");
+            $username = null;
+            $token = null;
+            if ($repoPath) {
+                $username = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.username");
+                $token = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.token");
+            }
+            if (!$username) {
+                $username = $this->settingsService->getSettingValue("git.credentials.{$projectId}.username");
+            }
+            if (!$token) {
+                $token = $this->settingsService->getSettingValue("git.credentials.{$projectId}.token");
+            }
             
             if ($username && $token) {
                 $askpassScript = $this->createAskpassScript($username, $token);
@@ -384,7 +430,13 @@ class GitService
                 $env['GIT_TERMINAL_PROMPT'] = '0';
             }
         } elseif ($authMethod === 'ssh') {
-            $sshKeyPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.ssh_key_path");
+            $sshKeyPath = null;
+            if ($repoPath) {
+                $sshKeyPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.ssh_key_path");
+            }
+            if (!$sshKeyPath) {
+                $sshKeyPath = $this->settingsService->getSettingValue("git.credentials.{$projectId}.ssh_key_path");
+            }
             
             if ($sshKeyPath && file_exists($sshKeyPath)) {
                 $env['GIT_SSH_COMMAND'] = "ssh -i {$sshKeyPath} -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes";
@@ -418,13 +470,20 @@ BASH;
         return $script;
     }
 
-    private function ensureGitConfig(string $repoDir, ?string $projectId): void
+    private function ensureGitConfig(string $repoDir, ?string $projectId, ?string $repoPath = null): void
     {
-        $userName = $this->settingsService->getSettingValue("git.credentials.{$projectId}.user_name")
+        $userName = null;
+        $userEmail = null;
+        if ($repoPath) {
+            $userName = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.user_name");
+            $userEmail = $this->settingsService->getSettingValue("git.credentials.{$projectId}.{$repoPath}.user_email");
+        }
+        $userName = $userName
+            ?? $this->settingsService->getSettingValue("git.credentials.{$projectId}.user_name")
             ?? $this->settingsService->getSettingValue('git.default.user_name')
             ?? 'CitadelQuest User';
-            
-        $userEmail = $this->settingsService->getSettingValue("git.credentials.{$projectId}.user_email")
+        $userEmail = $userEmail
+            ?? $this->settingsService->getSettingValue("git.credentials.{$projectId}.user_email")
             ?? $this->settingsService->getSettingValue('git.default.user_email')
             ?? 'user@citadelquest.local';
         

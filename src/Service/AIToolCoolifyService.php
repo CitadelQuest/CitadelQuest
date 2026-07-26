@@ -275,6 +275,7 @@ class AIToolCoolifyService
             'name' => $args['appName'] ?? null,
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
+            'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
         ];
 
         $result = $this->coolifyApiService->createAppPublic($config['baseUrl'], $config['token'], $payload);
@@ -318,6 +319,7 @@ class AIToolCoolifyService
             'name' => $args['appName'] ?? null,
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
+            'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
         ];
 
         $result = $this->coolifyApiService->createAppFromPrivateDeployKey($config['baseUrl'], $config['token'], $payload);
@@ -361,6 +363,7 @@ class AIToolCoolifyService
             'name' => $args['appName'] ?? null,
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
+            'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
         ];
 
         $result = $this->coolifyApiService->createAppGithubApp($config['baseUrl'], $config['token'], $payload);
@@ -400,6 +403,7 @@ class AIToolCoolifyService
             'name' => $args['appName'] ?? null,
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
+            'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
         ];
 
         $result = $this->coolifyApiService->createAppDockerfile($config['baseUrl'], $config['token'], $payload);
@@ -439,6 +443,7 @@ class AIToolCoolifyService
             'name' => $args['appName'] ?? null,
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
+            'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
         ];
 
         $result = $this->coolifyApiService->createAppDockerImage($config['baseUrl'], $config['token'], $payload);
@@ -473,6 +478,9 @@ class AIToolCoolifyService
             if (isset($args[$field])) {
                 $data[$apiField] = $args[$field];
             }
+        }
+        if (isset($args['isAutoDeployEnabled'])) {
+            $data['is_auto_deploy_enabled'] = $args['isAutoDeployEnabled'];
         }
 
         $result = $this->coolifyApiService->updateApp($config['baseUrl'], $config['token'], $appUuid, $data);
