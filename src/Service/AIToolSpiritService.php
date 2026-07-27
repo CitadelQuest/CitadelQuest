@@ -282,7 +282,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                 'id' => $msg->getId(),
                 'role' => $msg->getRole(),
                 'type' => $msg->getType(),
-                'content' => $msg->getContent(),
+                'content' => $this->sanitizeMessageContentForToolOutput($msg->getType(), $msg->getContent()),
                 'createdAt' => $msg->getCreatedAt()->format('c'),
             ];
         }
@@ -625,8 +625,44 @@ class AIToolSpiritService implements ServiceSubscriberInterface
     }
 
     /**
-     * The caller's allow-list of consultable spirit ids, or null when unrestricted.
+     * Strip token-heavy fields from message content before returning it
+     * as part of a getConversation tool result.
+     *
+     * - tool_use:     removes reasoning, reasoning_details, and
+     *                 function.arguments from each tool_call
+     * - tool_result:  replaces each result's content with a placeholder
+     *                 and removes frontendData
+     * - other types:  returned as-is
      */
+    private function sanitizeMessageContentForToolOutput(string $type, array $content): array
+    {
+        if ($type === 'tool_use') {
+            unset($content['reasoning'], $content['reasoning_details']);
+            if (isset($content['tool_calls']) && is_array($content['tool_calls'])) {
+                foreach ($content['tool_calls'] as &$tc) {
+                    if (isset($tc['function']['arguments'])) {
+                        unset($tc['function']['arguments']);
+                    }
+                }
+                unset($tc);
+            }
+            return $content;
+        }
+
+        if ($type === 'tool_result') {
+            foreach ($content as &$result) {
+                if (is_array($result)) {
+                    $result['content'] = '<content-not-included/>';
+                    unset($result['frontendData']);
+                }
+            }
+            unset($result);
+            return $content;
+        }
+
+        return $content;
+    }
+
     private function getAllowedSpiritIds(string $callerId): ?array
     {
         $json = $this->spiritService->getSpiritSetting($callerId, 's2s.allowedSpirits');
