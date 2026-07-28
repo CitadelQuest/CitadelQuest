@@ -9,7 +9,7 @@ $file-browser-border-color: rgba(255, 255, 255, 0.1);
 $file-browser-bg-color: rgba(0, 0, 0, 0.2);
 $file-browser-hover-bg: rgba(149, 236, 134, 0.1); // cyber color with opacity
 $file-browser-selected-bg: rgba(149, 236, 134, 0.2); // cyber color with more opacity
-$file-browser-border-radius: var(--bs-border-radius) !important;
+$file-browser-border-radius: var(--bs-border-radius);
 $file-browser-item-height: 3rem;
 $file-browser-header-height: 3.5rem;
 $file-browser-preview-header-height: 4rem;
