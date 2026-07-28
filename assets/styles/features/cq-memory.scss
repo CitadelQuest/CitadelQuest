@@ -339,7 +339,7 @@ $panel-min-height: 500px;
             code { 
                 background: rgba(colors.$cyber, 0.1); 
                 padding: 0.1rem 0.3rem; 
-                border-radius: 3px;
+                border-radius: vars.$border-radius;
                 font-size: 0.85em;
             }
             pre {
@@ -418,7 +418,7 @@ $panel-min-height: 500px;
                 background: rgba(colors.$cyber, 0.3);
                 color: colors.$text-light;
                 padding: 0 0.15rem;
-                border-radius: 2px;
+                border-radius: vars.$border-radius;
             }
         }
 

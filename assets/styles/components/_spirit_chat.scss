@@ -147,7 +147,7 @@
                 
                 .chat-bubble {
                     background-color: rgba(colors.$cyber, 0.3);
-                    border-radius: 1rem 1rem 0 1rem;
+                    border-radius: vars.$border-radius vars.$border-radius 0 vars.$border-radius;
                 }
             }
             
@@ -157,7 +157,7 @@
                 
                 .chat-bubble {
                     background-color: rgba(colors.$dark, 0.5);
-                    border-radius: 1rem 1rem 1rem 0;
+                    border-radius: vars.$border-radius vars.$border-radius vars.$border-radius 0;
                     margin-bottom: 1rem;
                 }
             }
@@ -168,7 +168,7 @@
                 max-width: min(800px, 90%);
 
                 :first-child {
-                    border-radius: 0.5rem 0.5rem 0 0.5rem !important;
+                    border-radius: vars.$border-radius vars.$border-radius 0 vars.$border-radius !important;
                 }
             }
 
@@ -195,7 +195,7 @@
                     code {
                         background-color: rgba(colors.$dark, 0.3);
                         padding: 0.1rem 0.3rem;
-                        border-radius: 0.25rem;
+                        border-radius: vars.$border-radius;
                         //@include mixins.cyber-scrollbar;
                     }
                     
@@ -336,7 +336,7 @@
     &.darkTerminalStyle {
         background-color: rgba(0, 0, 0, 0.3) !important;
         color: colors.$cyber;
-        border-radius: 0.5rem !important;
+        border-radius: vars.$border-radius !important;
         padding: 0.7rem !important;
         /* margin: 0.5rem 0; */
         overflow-x: auto !important;

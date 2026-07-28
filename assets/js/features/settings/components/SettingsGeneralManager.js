@@ -1,11 +1,15 @@
 // Using global window.toast service
 import * as bootstrap from 'bootstrap';
 
+import imgCQ1 from '../../../../images/citadel_quest_bg_1.jpg';
+import imgCQ2 from '../../../../images/citadel_quest_bg_2.jpg';
 import imgDay from '../../../../images/citadel_quest_bg.jpg';
 import imgNight1 from '../../../../images/night-forest-sky.webp';
 import imgNight2 from '../../../../images/bg-dreamy-flowers-2.webp';
 
 const themeImages = {
+    'cq-1': imgCQ1,
+    'cq-2': imgCQ2,
     'day': imgDay,
     'night-1': imgNight1,
     'night-2': imgNight2,
@@ -25,6 +29,7 @@ export class SettingsGeneralManager {
         this.initializeEventListeners();
         this.initializeSectionNavigation();
         this.initializeThemePreviews();
+        this.initializeCornerStylePreviews();
         this.loadDatabaseStats();
     }
 
@@ -117,6 +122,48 @@ export class SettingsGeneralManager {
             card.addEventListener('click', () => {
                 window.themeService.setTheme(theme.id);
                 container.querySelectorAll('.theme-preview-card').forEach(c => {
+                    c.classList.remove('active', 'border', 'border-primary', 'shadow');
+                });
+                card.classList.add('active', 'shadow', 'border', 'border-primary');
+            });
+
+            container.appendChild(card);
+        });
+    }
+
+    initializeCornerStylePreviews() {
+        const container = document.getElementById('corner-style-previews');
+        if (!container || !window.themeService) return;
+
+        const styles = window.themeService.getCornerStyles();
+        const currentStyle = window.themeService.getCornerStyle();
+
+        styles.forEach(style => {
+            const card = document.createElement('div');
+            card.className = 'corner-style-card' + (style.id === currentStyle ? ' active' : '');
+            card.style.cssText = 'width:22%; transition: border-color 0.2s, box-shadow 0.2s; border:1px solid transparent;';
+            card.classList.add('position-relative', 'd-inline-block', 'mb-2', 'rounded', 'overflow-hidden', 'cursor-pointer');
+            if (style.id === currentStyle) {
+                card.classList.add('border', 'border-primary', 'shadow');
+            }
+
+            // Demo box with explicit border-radius (not var-based) so preview stays accurate
+            const demo = document.createElement('div');
+            demo.style.cssText = 'width:100%; height:70px; display:flex; align-items:center; justify-content:center; background-color:#2e3135; opacity:0.9;';
+            const box = document.createElement('div');
+            box.style.cssText = `width:60%; height:60%; border:2px solid #95ec86; background:rgba(149,236,134,0.15); border-radius:${style.id === 'rounded' ? '1rem' : '0'};`;
+            demo.appendChild(box);
+
+            const label = document.createElement('div');
+            label.classList.add('bg-secondary', 'bg-opacity-50', 'rounded-bottom', 'small', 'text-center', 'p-1');
+            label.textContent = style.name;
+
+            card.appendChild(demo);
+            card.appendChild(label);
+
+            card.addEventListener('click', () => {
+                window.themeService.setCornerStyle(style.id);
+                container.querySelectorAll('.corner-style-card').forEach(c => {
                     c.classList.remove('active', 'border', 'border-primary', 'shadow');
                 });
                 card.classList.add('active', 'shadow', 'border', 'border-primary');

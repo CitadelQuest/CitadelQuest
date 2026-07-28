@@ -29,7 +29,7 @@ export class FileContextMenu {
             z-index: 10000;
             background: var(--bs-dark, #212529);
             border: 1px solid rgba(var(--bs-primary-rgb), 0.3);
-            border-radius: 0.5rem;
+            border-radius: var(--bs-border-radius) !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             min-width: 160px;
             display: none;

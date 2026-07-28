@@ -782,6 +782,8 @@ settings:
         title: 'Theme'
         background: 'Background Theme'
         background_desc: 'Change the background visual theme'
+        corner_style: 'Corner Style'
+        corner_style_desc: 'Choose between rounded or sharp UI corners'
         toggle: 'Toggle theme'
         change: 'Change Theme'
     storage:

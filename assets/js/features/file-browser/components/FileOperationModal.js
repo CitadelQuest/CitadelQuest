@@ -106,7 +106,7 @@ export class FileOperationModal {
                 background: var(--bs-dark);
                 border: 1px solid rgba(var(--bs-primary-rgb), 0.3);
                 border-top: none;
-                border-radius: 0 0 0.375rem 0.375rem;
+                border-radius: 0 0 var(--bs-border-radius) var(--bs-border-radius);
                 z-index: 1000;
                 display: none;
             }

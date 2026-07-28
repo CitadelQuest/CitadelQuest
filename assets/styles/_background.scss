@@ -7,6 +7,14 @@ $bg-overlay-opacity: 0.64;  // Decreased opacity for better readability
 
 // Theme-specific backgrounds
 :root {
+    &[data-theme='cq-1'] .citadel-background::before {
+        background-image: url('../images/citadel_quest_bg_1.jpg');
+    }
+
+    &[data-theme='cq-2'] .citadel-background::before {
+        background-image: url('../images/citadel_quest_bg_2.jpg');
+    }
+
     &[data-theme='day'] .citadel-background::before {
         background-image: url('../images/citadel_quest_bg.jpg');
     }
@@ -30,6 +38,20 @@ $bg-overlay-opacity: 0.64;  // Decreased opacity for better readability
         background-image: url('../images/bg-dreamy-flowers-1.webp');
     } */
     
+}
+
+// Corner style: sharp corners (zero out Bootstrap radius vars globally)
+:root[data-corner-style='sharp'] {
+    --bs-border-radius: 0;
+    --bs-border-radius-sm: 0;
+    --bs-border-radius-lg: 0;
+    --bs-border-radius-xl: 0;
+    --bs-border-radius-xxl: 0;
+    --bs-border-radius-pill: 0;
+
+    .spirit-icon {
+        border-radius: 0;
+    }
 }
 
 // Background setup
@@ -73,7 +95,7 @@ $bg-overlay-opacity: 0.64;  // Decreased opacity for better readability
 .profile-header-bg {
     position: relative;
     overflow: hidden;
-    border-radius: 0.5rem;
+    border-radius: var(--bs-border-radius) !important;
 
     // Background image layer (set via --header-bg-image custom property)
     &::before {

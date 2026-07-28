@@ -774,6 +774,8 @@ settings:
         title: 'Téma'
         background: 'Téma pozadia'
         background_desc: 'Zmeniť vizuálnu tému pozadia'
+        corner_style: 'Štýl rohov'
+        corner_style_desc: 'Vyberte zaoblené alebo ostré rohy rozhrania'
         toggle: 'Prepnúť tému'
         change: 'Zmeniť tému'
     storage:

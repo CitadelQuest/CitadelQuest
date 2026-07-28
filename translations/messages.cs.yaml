@@ -770,6 +770,8 @@ settings:
         title: 'Téma'
         background: 'Téma pozadí'
         background_desc: 'Změnit vizuální téma pozadí'
+        corner_style: 'Styl rohů'
+        corner_style_desc: 'Vyberte zaoblené nebo ostré rohy rozhraní'
         toggle: 'Přepnout téma'
         change: 'Změnit téma'
     storage:

@@ -104,6 +104,11 @@
                             <p class="text-muted small mb-3">{{ 'settings.theme.background_desc'|trans({}, 'messages', app.request.locale)|default('Change the background visual theme') }}</p>
                             <div id="theme-previews" class="d-flex flex-wrap gap-3"></div>
                         </div>
+                        <div class="col-12 mb-3">
+                            <strong>{{ 'settings.theme.corner_style'|trans({}, 'messages', app.request.locale)|default('Corner Style') }}</strong>
+                            <p class="text-muted small mb-3">{{ 'settings.theme.corner_style_desc'|trans({}, 'messages', app.request.locale)|default('Choose between rounded or sharp UI corners') }}</p>
+                            <div id="corner-style-previews" class="d-flex flex-wrap gap-3"></div>
+                        </div>
                     </div>
                     </div>
 
