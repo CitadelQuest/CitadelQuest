@@ -42,7 +42,10 @@ class DatabaseApiController extends AbstractController
 
             // Remove messages from all spirit conversations (2 bulk queries)
             $this->spiritConversationService->setMessagesRemovedFromAiServiceRequestAndResponse();
-            
+
+            // Remove orphaned spirit_conversation_message records (from previously deleted conversations)
+            $orphanedMessagesDeleted = $this->spiritConversationService->deleteOrphanedMessages();
+
             // Execute VACUUM
             $startTime = microtime(true);
             $db->executeStatement('VACUUM;');
@@ -61,7 +64,8 @@ class DatabaseApiController extends AbstractController
                     'size_before' => $this->formatBytes($sizeBefore),
                     'size_after' => $this->formatBytes($sizeAfter),
                     'space_saved' => $this->formatBytes($spaceSaved),
-                    'space_saved_bytes' => $spaceSaved
+                    'space_saved_bytes' => $spaceSaved,
+                    'orphaned_messages_deleted' => $orphanedMessagesDeleted
                 ]
             ]);
         } catch (\Exception $e) {

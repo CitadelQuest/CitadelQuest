@@ -580,6 +580,23 @@ class SpiritConversationService
         // delete
         $db->beginTransaction();
 
+            // delete all ai_service_response related to spirit_conversation_message
+            $db->executeStatement(
+                'DELETE FROM ai_service_response WHERE id IN (SELECT ai_service_response_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_response_id IS NOT NULL)',
+                [$conversationId]
+            );
+            // delete all ai_service_request related to spirit_conversation_message
+            $db->executeStatement(
+                'DELETE FROM ai_service_request WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE conversation_id = ? AND ai_service_request_id IS NOT NULL)',
+                [$conversationId]
+            );
+
+            // delete all spirit_conversation_message related to conversation
+            $db->executeStatement(
+                'DELETE FROM spirit_conversation_message WHERE conversation_id = ?',
+                [$conversationId]
+            );
+
             // delete all ai_service_request related to spirit_conversation_request
             $db->executeStatement(
                 'DELETE FROM ai_service_request WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_request WHERE spirit_conversation_id = ?)',
@@ -1511,6 +1528,30 @@ PROMPT;
         
         // Default to stop if unknown
         return 'stop';
+    }
+
+    /**
+     * Delete orphaned spirit_conversation_message records (from previously deleted conversations)
+     * including their linked ai_service_request/ai_service_response payloads
+     *
+     * @return int number of deleted orphaned messages
+     */
+    public function deleteOrphanedMessages(): int
+    {
+        $db = $this->getUserDb();
+
+        // delete ai_service_response linked from orphaned messages
+        $db->executeStatement(
+            'DELETE FROM ai_service_response WHERE id IN (SELECT ai_service_response_id FROM spirit_conversation_message WHERE ai_service_response_id IS NOT NULL AND conversation_id NOT IN (SELECT id FROM spirit_conversation))'
+        );
+        // delete ai_service_request linked from orphaned messages
+        $db->executeStatement(
+            'DELETE FROM ai_service_request WHERE id IN (SELECT ai_service_request_id FROM spirit_conversation_message WHERE ai_service_request_id IS NOT NULL AND conversation_id NOT IN (SELECT id FROM spirit_conversation))'
+        );
+        // delete orphaned messages
+        return $db->executeStatement(
+            'DELETE FROM spirit_conversation_message WHERE conversation_id NOT IN (SELECT id FROM spirit_conversation)'
+        );
     }
 
     public function setMessagesRemovedFromAiServiceRequestAndResponse(?string $conversationId = null): void
