@@ -49,7 +49,7 @@ $bg-overlay-opacity: 0.64;  // Decreased opacity for better readability
     --bs-border-radius-xxl: 0;
     --bs-border-radius-pill: 0;
 
-    .spirit-icon {
+    .spirit-icon, .spirit-list-icon, .spirit-avatar, .form-check-input, .form-check-input[type=checkbox] {
         border-radius: 0;
     }
 }
