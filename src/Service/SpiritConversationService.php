@@ -2083,7 +2083,7 @@ PROMPT;
         $systemPrompt = $this->buildSpiritIdentity($spirit);
         
         if ($config['includeSystemInfo']) {
-            $systemPrompt .= $this->buildSystemInfoSection();
+            $systemPrompt .= $this->buildSystemInfoSection($spirit);
         }
         
         // Projects section is always included (Spirit needs file browser access)
@@ -2307,7 +2307,7 @@ PROMPT;
      * Build System Info section (optional)
      * Contains: Host, version, user info, datetime
      */
-    public function buildSystemInfoSection(): string
+    public function buildSystemInfoSection(?Spirit $spirit = null): string
     {
         $currentDateTime = (new \DateTime('now', new \DateTimeZone('Europe/Prague')))->format('Y-m-d H:i:s');
 
@@ -2325,6 +2325,30 @@ PROMPT;
             $userStatus = "\n                    <status>inactive</status>";
         }
 
+        // Build spirits list when S2S is enabled for the current Spirit
+        $spiritsBlock = '';
+        if ($spirit !== null && $this->spiritService->getSpiritSetting($spirit->getId(), 's2s.enabled', '1') === '1') {
+            $spiritEntries = [];
+            foreach ($this->spiritService->findAll() as $other) {
+                if ($other->getId() === $spirit->getId()) {
+                    continue;
+                }
+                if ($this->spiritService->getSpiritSetting($other->getId(), 's2s.callable', '1') !== '1') {
+                    continue;
+                }
+                $specialty = $this->spiritService->getSpiritSetting($other->getId(), 's2s.specialty') ?: '';
+                $spiritEntries[] = sprintf(
+                    "                    <spirit>\n                        <id>%s</id>\n                        <name>%s</name>\n                        <specialty>%s</specialty>\n                    </spirit>",
+                    htmlspecialchars($other->getId(), ENT_XML1),
+                    htmlspecialchars($other->getName(), ENT_XML1),
+                    htmlspecialchars($specialty, ENT_XML1)
+                );
+            }
+            if ($spiritEntries !== []) {
+                $spiritsBlock = "\n                <spirits>\n" . implode("\n", $spiritEntries) . "\n                </spirits>";
+            }
+        }
+
         return "
 
             <current-system-info>
@@ -2336,7 +2360,7 @@ PROMPT;
                 <user>
                     <username>{$this->user->getUsername()}</username>
                     <email>{$this->user->getEmail()}</email>{$userStatus}
-                </user>
+                </user>{$spiritsBlock}
                 <datetime>
                     {$currentDateTime}
                 </datetime>
@@ -2646,7 +2670,7 @@ PROMPT;
             ],
             'systemInfo' => [
                 'title' => 'System Information',
-                'content' => $this->buildSystemInfoSection(),
+                'content' => $this->buildSystemInfoSection($spirit),
                 'editable' => false,
                 'enabled' => $config['includeSystemInfo'],
                 'configKey' => 'includeSystemInfo'
