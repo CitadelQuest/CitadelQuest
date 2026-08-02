@@ -82,6 +82,7 @@ class AIToolCoolifyService
 
         return match ($operation) {
             'listServers' => $this->handleListServers($arguments),
+            'listDestinations' => $this->handleListDestinations($arguments),
             'createSshKey' => $this->handleCreateSshKey($arguments),
             default => ['success' => false, 'error' => "Unknown coolifyManage operation: {$operation}"],
         };
@@ -117,6 +118,120 @@ class AIToolCoolifyService
             'servers' => $list,
             'count' => count($list),
             '_frontendData' => $this->buildListFrontendData('coolifyManage', 'listServers', count($list) . ' server(s)', $items),
+        ];
+    }
+
+    private function handleListDestinations(array $args): array
+    {
+        $config = $this->ensureConfig();
+        if (!$this->configOk($config)) {
+            return $config;
+        }
+
+        $serverUuid = $args['serverUuid'] ?? null;
+        $result = $this->coolifyApiService->listDestinations($config['baseUrl'], $config['token'], $serverUuid);
+        if (!$result['success']) {
+            if (($result['statusCode'] ?? null) === 404) {
+                return [
+                    'success' => false,
+                    'error' => 'Destinations API not available on this Coolify instance (requires Coolify v4.2.0+). '
+                        . 'Workaround: find the destination UUID in Coolify UI → Servers → {server} → Destinations (UUID is in the page URL), '
+                        . 'then set it as coolify.destination_uuid in coolifyManage tool settings (or pass destinationUuid directly to create operations). '
+                        . 'Alternatively upgrade Coolify to v4.2.0+.',
+                ];
+            }
+            return $result;
+        }
+
+        $destinations = $result['data'] ?? [];
+        $list = array_map(fn($d) => [
+            'uuid' => $d['uuid'] ?? null,
+            'name' => $d['name'] ?? null,
+            'network' => $d['network'] ?? null,
+            'serverUuid' => $d['server']['uuid'] ?? ($d['server_uuid'] ?? null),
+        ], is_array($destinations) ? $destinations : []);
+
+        $items = array_map(fn($d) => [
+            'icon' => 'mdi-docker',
+            'label' => $d['name'] ?? ($d['uuid'] ?? '(unknown)'),
+            'meta' => $d['network'] ?? null,
+        ], $list);
+
+        return [
+            'success' => true,
+            'destinations' => $list,
+            'count' => count($list),
+            '_frontendData' => $this->buildListFrontendData('coolifyManage', 'listDestinations', count($list) . ' destination(s)', $items),
+        ];
+    }
+
+    /**
+     * Enrich a failed create result when the failure is about destination_uuid,
+     * adding actionable guidance for older Coolify versions (< v4.2.0, no destinations API).
+     */
+    private function enrichDestinationError(array $result): array
+    {
+        if ($result['success'] ?? true) {
+            return $result;
+        }
+        $errorText = ($result['error'] ?? '') . ' ' . json_encode($result['validationErrors'] ?? []);
+        if (!preg_match('/destination/i', $errorText)) {
+            return $result;
+        }
+        $result['error'] .= ' Hint: run coolifyManage listDestinations to get valid destination UUIDs and retry with destinationUuid. '
+            . 'On Coolify < v4.2.0 the destinations API does not exist — find the UUID in Coolify UI → Servers → {server} → Destinations '
+            . '(UUID in the page URL) and set coolify.destination_uuid in tool settings, or upgrade Coolify.';
+        return $result;
+    }
+
+    /**
+     * Resolve destination UUID for app creation.
+     * Priority: destinationUuid arg → coolify.destination_uuid setting → auto-discover via API.
+     * Returns ['uuid' => string|null] on success, ['error' => string, 'destinations' => array] on ambiguity.
+     */
+    private function resolveDestinationUuid(array $args, array $config): array
+    {
+        if (!empty($args['destinationUuid'])) {
+            return ['uuid' => $args['destinationUuid']];
+        }
+
+        $fromSettings = $this->getSetting('coolify.destination_uuid');
+        if ($fromSettings) {
+            return ['uuid' => $fromSettings];
+        }
+
+        // Auto-discover: if server has exactly one destination, use it.
+        $serverUuid = $args['serverUuid'] ?? null;
+        if (!$serverUuid) {
+            return ['uuid' => null];
+        }
+
+        $result = $this->coolifyApiService->listDestinations($config['baseUrl'], $config['token'], $serverUuid);
+        if (!$result['success']) {
+            // Discovery failed — let the API decide (works when single destination on older proxies)
+            return ['uuid' => null];
+        }
+
+        $destinations = $result['data'] ?? [];
+        if (!is_array($destinations) || count($destinations) === 0) {
+            return ['uuid' => null];
+        }
+        if (count($destinations) === 1) {
+            return ['uuid' => $destinations[0]['uuid'] ?? null];
+        }
+
+        // Multiple destinations — ambiguous, Spirit must choose
+        $list = array_map(fn($d) => [
+            'uuid' => $d['uuid'] ?? null,
+            'name' => $d['name'] ?? null,
+            'network' => $d['network'] ?? null,
+        ], $destinations);
+
+        return [
+            'error' => 'Server has multiple destinations (Docker networks). Coolify API requires destination_uuid. '
+                . 'Retry with destinationUuid parameter set to one of the listed destinations, '
+                . 'or ask the user to set coolify.destination_uuid in coolifyManage tool settings.',
+            'destinations' => $list,
         ];
     }
 
@@ -239,17 +354,22 @@ class AIToolCoolifyService
         $app = $result['data'] ?? [];
         $appName = $app['name'] ?? ($app['uuid'] ?? $appUuid);
         $statusLine = trim(($app['status'] ?? '') . ' ' . ($app['domains'] ?? ''));
+        $appData = [
+            'uuid' => $app['uuid'] ?? null,
+            'name' => $app['name'] ?? null,
+            'status' => $app['status'] ?? null,
+            'domains' => $app['domains'] ?? null,
+            'gitRepository' => $app['git_repository'] ?? null,
+            'gitBranch' => $app['git_branch'] ?? null,
+            'buildPack' => $app['build_pack'] ?? null,
+        ];
+        // manual_webhook_secret_gitea is only returned if API token has read:sensitive or root ability
+        if (isset($app['manual_webhook_secret_gitea'])) {
+            $appData['webhookSecret'] = $app['manual_webhook_secret_gitea'];
+        }
         return [
             'success' => true,
-            'app' => [
-                'uuid' => $app['uuid'] ?? null,
-                'name' => $app['name'] ?? null,
-                'status' => $app['status'] ?? null,
-                'domains' => $app['domains'] ?? null,
-                'gitRepository' => $app['git_repository'] ?? null,
-                'gitBranch' => $app['git_branch'] ?? null,
-                'buildPack' => $app['build_pack'] ?? null,
-            ],
+            'app' => $appData,
             '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'Application', $appName, $statusLine !== '' ? $statusLine : null),
         ];
     }
@@ -268,9 +388,21 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameters: projectUuid, serverUuid, gitRepository'];
         }
 
+        // Webhook secret: use provided or auto-generate
+        $webhookSecret = $args['webhookSecret'] ?? null;
+        if (!$webhookSecret) {
+            $webhookSecret = bin2hex(random_bytes(16));
+        }
+
+        $destination = $this->resolveDestinationUuid($args, $config);
+        if (isset($destination['error'])) {
+            return ['success' => false, 'error' => $destination['error'], 'destinations' => $destination['destinations']];
+        }
+
         $payload = [
             'project_uuid' => $projectUuid,
             'server_uuid' => $serverUuid,
+            'destination_uuid' => $destination['uuid'],
             'environment_name' => $args['environmentName'] ?? null,
             'environment_uuid' => $args['environmentUuid'] ?? null,
             'git_repository' => $gitRepository,
@@ -280,11 +412,13 @@ class AIToolCoolifyService
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
             'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
+            'manual_webhook_secret_gitea' => $webhookSecret,
+            'redirect' => $args['redirect'] ?? null,
         ];
 
         $result = $this->coolifyApiService->createAppPublic($config['baseUrl'], $config['token'], $payload);
         if (!$result['success']) {
-            return $result;
+            return $this->enrichDestinationError($result);
         }
 
         $app = $result['data'];
@@ -292,6 +426,7 @@ class AIToolCoolifyService
             'success' => true,
             'message' => 'Application created from public repo',
             'app' => ['uuid' => $app['uuid'] ?? null, 'name' => $app['name'] ?? $args['appName'] ?? null],
+            'webhookSecret' => $webhookSecret,
             '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'App created (public)', $args['appName'] ?? $app['uuid'] ?? 'app', $gitRepository),
         ];
     }
@@ -311,9 +446,21 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameters: projectUuid, serverUuid, gitRepository, privateKeyUuid'];
         }
 
+        // Webhook secret: use provided or auto-generate so Gitea webhook can be created immediately
+        $webhookSecret = $args['webhookSecret'] ?? null;
+        if (!$webhookSecret) {
+            $webhookSecret = bin2hex(random_bytes(16));
+        }
+
+        $destination = $this->resolveDestinationUuid($args, $config);
+        if (isset($destination['error'])) {
+            return ['success' => false, 'error' => $destination['error'], 'destinations' => $destination['destinations']];
+        }
+
         $payload = [
             'project_uuid' => $projectUuid,
             'server_uuid' => $serverUuid,
+            'destination_uuid' => $destination['uuid'],
             'environment_name' => $args['environmentName'] ?? null,
             'environment_uuid' => $args['environmentUuid'] ?? null,
             'git_repository' => $gitRepository,
@@ -324,11 +471,13 @@ class AIToolCoolifyService
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
             'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
+            'manual_webhook_secret_gitea' => $webhookSecret,
+            'redirect' => $args['redirect'] ?? null,
         ];
 
         $result = $this->coolifyApiService->createAppFromPrivateDeployKey($config['baseUrl'], $config['token'], $payload);
         if (!$result['success']) {
-            return $result;
+            return $this->enrichDestinationError($result);
         }
 
         $app = $result['data'];
@@ -336,6 +485,7 @@ class AIToolCoolifyService
             'success' => true,
             'message' => 'Application created from private repo (deploy key)',
             'app' => ['uuid' => $app['uuid'] ?? null, 'name' => $app['name'] ?? $args['appName'] ?? null],
+            'webhookSecret' => $webhookSecret,
             '_frontendData' => $this->buildFrontendData('coolifyManageApplications', 'App created (private/deploy key)', $args['appName'] ?? $app['uuid'] ?? 'app', $gitRepository),
         ];
     }
@@ -355,9 +505,15 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameters: projectUuid, serverUuid, gitRepository, githubAppUuid'];
         }
 
+        $destination = $this->resolveDestinationUuid($args, $config);
+        if (isset($destination['error'])) {
+            return ['success' => false, 'error' => $destination['error'], 'destinations' => $destination['destinations']];
+        }
+
         $payload = [
             'project_uuid' => $projectUuid,
             'server_uuid' => $serverUuid,
+            'destination_uuid' => $destination['uuid'],
             'environment_name' => $args['environmentName'] ?? null,
             'environment_uuid' => $args['environmentUuid'] ?? null,
             'git_repository' => $gitRepository,
@@ -368,11 +524,12 @@ class AIToolCoolifyService
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
             'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
+            'redirect' => $args['redirect'] ?? null,
         ];
 
         $result = $this->coolifyApiService->createAppGithubApp($config['baseUrl'], $config['token'], $payload);
         if (!$result['success']) {
-            return $result;
+            return $this->enrichDestinationError($result);
         }
 
         $app = $result['data'];
@@ -398,9 +555,15 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameters: projectUuid, serverUuid, dockerfile'];
         }
 
+        $destination = $this->resolveDestinationUuid($args, $config);
+        if (isset($destination['error'])) {
+            return ['success' => false, 'error' => $destination['error'], 'destinations' => $destination['destinations']];
+        }
+
         $payload = [
             'project_uuid' => $projectUuid,
             'server_uuid' => $serverUuid,
+            'destination_uuid' => $destination['uuid'],
             'environment_name' => $args['environmentName'] ?? null,
             'environment_uuid' => $args['environmentUuid'] ?? null,
             'dockerfile' => $dockerfile,
@@ -408,11 +571,12 @@ class AIToolCoolifyService
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
             'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
+            'redirect' => $args['redirect'] ?? null,
         ];
 
         $result = $this->coolifyApiService->createAppDockerfile($config['baseUrl'], $config['token'], $payload);
         if (!$result['success']) {
-            return $result;
+            return $this->enrichDestinationError($result);
         }
 
         $app = $result['data'];
@@ -438,9 +602,15 @@ class AIToolCoolifyService
             return ['success' => false, 'error' => 'Missing required parameters: projectUuid, serverUuid, dockerImage'];
         }
 
+        $destination = $this->resolveDestinationUuid($args, $config);
+        if (isset($destination['error'])) {
+            return ['success' => false, 'error' => $destination['error'], 'destinations' => $destination['destinations']];
+        }
+
         $payload = [
             'project_uuid' => $projectUuid,
             'server_uuid' => $serverUuid,
+            'destination_uuid' => $destination['uuid'],
             'environment_name' => $args['environmentName'] ?? null,
             'environment_uuid' => $args['environmentUuid'] ?? null,
             'image' => $dockerImage,
@@ -448,11 +618,12 @@ class AIToolCoolifyService
             'domains' => $args['domains'] ?? null,
             'ports_exposes' => isset($args['port']) ? (string) $args['port'] : null,
             'is_auto_deploy_enabled' => $args['isAutoDeployEnabled'] ?? false,
+            'redirect' => $args['redirect'] ?? null,
         ];
 
         $result = $this->coolifyApiService->createAppDockerImage($config['baseUrl'], $config['token'], $payload);
         if (!$result['success']) {
-            return $result;
+            return $this->enrichDestinationError($result);
         }
 
         $app = $result['data'];
@@ -477,14 +648,19 @@ class AIToolCoolifyService
         }
 
         $data = [];
-        foreach (['name', 'domains', 'git_repository', 'git_branch', 'build_pack', 'port', 'description'] as $field) {
-            $apiField = str_replace('_', '_', $field);
+        foreach (['name', 'domains', 'git_repository', 'git_branch', 'build_pack', 'port', 'description', 'redirect'] as $field) {
             if (isset($args[$field])) {
-                $data[$apiField] = $args[$field];
+                $data[$field] = $args[$field];
             }
+        }
+        if (isset($data['redirect']) && !in_array($data['redirect'], ['www', 'non-www', 'both'], true)) {
+            return ['success' => false, 'error' => "Invalid redirect value '{$data['redirect']}'. Allowed: www (redirect to www), non-www (redirect to non-www), both (no redirect)."];
         }
         if (isset($args['isAutoDeployEnabled'])) {
             $data['is_auto_deploy_enabled'] = $args['isAutoDeployEnabled'];
+        }
+        if (isset($args['webhookSecret'])) {
+            $data['manual_webhook_secret_gitea'] = $args['webhookSecret'];
         }
 
         $result = $this->coolifyApiService->updateApp($config['baseUrl'], $config['token'], $appUuid, $data);

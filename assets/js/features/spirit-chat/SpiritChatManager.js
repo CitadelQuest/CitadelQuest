@@ -1704,7 +1704,7 @@ export class SpiritChatManager {
                 
                 toolExecutionHtml = `
                     <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 border-0 border-success border-opacity-25">
-                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i>Executed: <strong class="text-light opacity-50">${toolNames}</strong></span>
+                        <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i><strong class="text-light opacity-50">${toolNames}</strong></span>
                         ${toolUsageHtml}
                     </div>
                 `;
@@ -3104,7 +3104,7 @@ export class SpiritChatManager {
                     
                     toolIndicator.innerHTML = `
                         <div class="d-flex align-items-center gap-2 p-2 bg-success bg-opacity-10 border-0 border-success border-opacity-25">
-                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i>Executed: <strong class="text-light opacity-50">${toolNames}</strong></span>
+                            <span class="text-muted small"><i class="mdi mdi-tools text-cyber opacity-50 me-2"></i><strong class="text-light opacity-50">${toolNames}</strong></span>
                             ${toolUsageHtml}
                         </div>
                     `;

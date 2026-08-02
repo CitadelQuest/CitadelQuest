@@ -138,6 +138,14 @@ class CoolifyApiService
         return $this->request('GET', $baseUrl, '/servers/' . urlencode($uuid) . '/domains', [], $token);
     }
 
+    public function listDestinations(string $baseUrl, string $token, ?string $serverUuid = null): array
+    {
+        if ($serverUuid) {
+            return $this->request('GET', $baseUrl, '/servers/' . urlencode($serverUuid) . '/destinations', [], $token);
+        }
+        return $this->request('GET', $baseUrl, '/destinations', [], $token);
+    }
+
     public function createSshKey(string $baseUrl, string $token, string $name, string $privateKey): array
     {
         return $this->request('POST', $baseUrl, '/security/keys', [
