@@ -22,9 +22,18 @@
 
     .cm-scroller {
         overflow: auto;
+        scroll-behavior: auto !important;
 
         // cyber-scrollbar
         @include mix.cyber-scrollbar;
+    }
+
+    // Neutralize global `* { transition: all !important }` (app.scss) inside the
+    // editor - it animates CodeMirror cursor/viewport positioning and makes
+    // clicks + scrolling feel rubbery/animated.
+    .cm-editor,
+    .cm-editor * {
+        transition: none !important;
     }
 
     .cm-tooltip {
