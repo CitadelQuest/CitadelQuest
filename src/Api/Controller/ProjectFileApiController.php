@@ -879,12 +879,9 @@ class ProjectFileApiController extends AbstractController
                 
                 // Register file
                 try {
-                    $this->projectFileService->registerExistingFile(
-                        $projectId,
-                        $currentDbPath,
-                        $item->getFilename()
-                    );
-                    $count++;
+                    if ($this->projectFileService->registerExistingFile( $projectId, $currentDbPath, $item->getFilename() )) {
+                        $count++;
+                    }
                 } catch (\Exception $e) {
                     $this->logger->warning('extractZip: Failed to register file', [
                         'file' => $item->getFilename(),

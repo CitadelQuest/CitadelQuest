@@ -419,8 +419,9 @@ class AIToolGitService
                 } else {
                     if (!$this->projectFileService->findByPathAndName($projectId, $path, $name)) {
                         $mimeType = mime_content_type($file->getPathname()) ?: 'application/octet-stream';
-                        $this->projectFileService->registerExistingFile($projectId, $path, $name, $mimeType);
-                        $filesRegistered++;
+                        if ($this->projectFileService->registerExistingFile($projectId, $path, $name, $mimeType)) {
+                            $filesRegistered++;
+                        }
                     }
                 }
             }

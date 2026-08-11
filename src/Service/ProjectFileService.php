@@ -446,8 +446,13 @@ class ProjectFileService
      * Register an existing file in the database without writing to filesystem
      * Used when the file was created externally (e.g., SQLite databases)
      */
-    public function registerExistingFile(string $projectId, string $path, string $name, ?string $mimeType = null): ProjectFile
+    public function registerExistingFile(string $projectId, string $path, string $name, ?string $mimeType = null): ProjectFile | null
     {
+        // skip '.thumb', '.icon'
+        if (str_ends_with($name, '.thumb') || str_ends_with($name, '.icon')) {
+            return null;
+        }
+
         // Normalize and validate path
         $path = $this->normalizePath($path);
         if (!$this->validatePath($path)) {

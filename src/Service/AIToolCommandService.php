@@ -216,8 +216,8 @@ class AIToolCommandService
                 continue;
             }
 
-            // Skip image .icon/.thumbnail files
-            if (preg_match('#\.(icon|thumbnail)$#i', $relativePath)) {
+            // Skip image .icon/.thumb files
+            if (preg_match('#\.(icon|thumb)$#i', $relativePath)) {
                 continue;
             }
 
@@ -238,8 +238,9 @@ class AIToolCommandService
             } else {
                 if (!$existing) {
                     $mimeType = @mime_content_type($file->getPathname()) ?: 'application/octet-stream';
-                    $this->projectFileService->registerExistingFile($projectId, $path, $name, $mimeType);
-                    $registered++;
+                    if ($this->projectFileService->registerExistingFile($projectId, $path, $name, $mimeType)) {
+                        $registered++;
+                    }
                 } else {
                     // Refresh size if method available
                     if (method_exists($this->projectFileService, 'syncFileSize')) {
