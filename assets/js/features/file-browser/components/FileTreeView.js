@@ -273,6 +273,7 @@ export class FileTreeView {
         nodeElement.dataset.type = node.type;
         nodeElement.dataset.isRemote = node.isRemote ? '1' : '';
         nodeElement.dataset.isShared = node.isShared ? '1' : '';
+        nodeElement.dataset.isGitRepo = node.isGitRepo ? '1' : '';
         
         // Create toggle button for directories
         const toggleElement = document.createElement('span');
@@ -308,6 +309,15 @@ export class FileTreeView {
             // Set toggle icon
             toggleElement.innerHTML = isExpanded ? '<i class="mdi mdi-chevron-down"></i>' : '<i class="mdi mdi-chevron-right"></i>';
             
+            // Add git icon for git repository directories (isGitRepo flag from tree data)
+            if (node.isGitRepo) {
+                const gitIcon = document.createElement('i');
+                gitIcon.className = 'mdi mdi-git text-warning opacity-75 ms-2';
+                gitIcon.title = 'Git repository';
+                gitIcon.style.fontSize = '0.75rem';
+                labelElement.appendChild(gitIcon);
+            }
+
             // Create children container
             const childrenElement = document.createElement('div');
             childrenElement.className = 'file-tree-children';

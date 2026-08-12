@@ -4,6 +4,7 @@ import { FileTreeView } from './FileTreeView';
 import { FileContextMenu } from './FileContextMenu';
 import { FileOperationModal } from './FileOperationModal';
 import { ImageGallery } from './ImageGallery';
+import { GitPanel } from './GitPanel';
 import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
 import MarkdownIt from 'markdown-it';
@@ -672,10 +673,29 @@ export class FileBrowser {
                     <p class="text-muted small">${this.translations.directory_preview_info || 'Use the tree view to navigate into this directory or use the delete button above to remove it.'}</p>
                 </div>
                 <div class="image-gallery-container" style="display: none;"></div>
+                <div class="git-panel-container px-2 px-md-0"></div>
             </div>
         `;
         
         this.filePreviewElement.innerHTML = previewHtml;
+
+        // Mount git control panel for the selected directory
+        const gitPanelContainer = this.filePreviewElement.querySelector('.git-panel-container');
+        if (gitPanelContainer) {
+            const repoPath = directoryPath.replace(/^\/+/, '');
+            this.gitPanel = new GitPanel({
+                container: gitPanelContainer,
+                projectId: this.projectId,
+                repoPath: repoPath,
+                translations: this.translations.git || {},
+                onTreeRefresh: () => {
+                    if (this.fileTreeView) {
+                        this.fileTreeView.refresh();
+                    }
+                }
+            });
+            this.gitPanel.load();
+        }
 
         // animate preview
         this.filePreviewElement.style.display = 'none';

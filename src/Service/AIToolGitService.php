@@ -509,6 +509,87 @@ class AIToolGitService
         return $keyPath;
     }
 
+    /**
+     * Public check whether a project directory (relative repo path) is a git repository.
+     * Used by the File Browser git panel to decide which UI state to render.
+     */
+    public function isGitRepository(string $projectId, ?string $repoPathOverride = null): bool
+    {
+        try {
+            $repoPath = $this->sanitizeRelativePath($repoPathOverride ?? 'repo');
+            $user = $this->security->getUser();
+            if (!$user) {
+                return false;
+            }
+            $userDataDir = $this->params->get('kernel.project_dir') . '/var/user_data';
+            $dir = $userDataDir . '/' . $user->getId() . '/p/' . $projectId . '/' . $repoPath;
+            return $this->gitService->isGitRepo($dir);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Find all git repositories within a project (relative paths from project root).
+     * Cheap filesystem scan for .git dirs - used by the File Browser tree view
+     * to decorate git repository directories with a git icon.
+     */
+    public function findRepositories(string $projectId): array
+    {
+        $repos = [];
+
+        try {
+            $user = $this->security->getUser();
+            if (!$user) {
+                return [];
+            }
+
+            $baseDir = $this->params->get('kernel.project_dir') . '/var/user_data/'
+                . $user->getId() . '/p/' . $projectId;
+
+            if (is_dir($baseDir)) {
+                $this->scanForRepositories($baseDir, '', $repos, 0);
+            }
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        return $repos;
+    }
+
+    private function scanForRepositories(string $absDir, string $relDir, array &$repos, int $depth): void
+    {
+        if ($depth > 4) {
+            return;
+        }
+
+        $entries = @scandir($absDir);
+        if ($entries === false) {
+            return;
+        }
+
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..' || $entry === '.git') {
+                continue;
+            }
+
+            $abs = $absDir . '/' . $entry;
+            if (!is_dir($abs)) {
+                continue;
+            }
+
+            $rel = $relDir === '' ? $entry : $relDir . '/' . $entry;
+
+            // .git can be a directory (normal repo) or a file (worktree/submodule)
+            if (file_exists($abs . '/.git')) {
+                $repos[] = $rel;
+                continue; // do not descend into repositories
+            }
+
+            $this->scanForRepositories($abs, $rel, $repos, $depth + 1);
+        }
+    }
+
     private function getProjectDir(string $projectId, ?string $repoPathOverride = null): string
     {
         $user = $this->security->getUser();

@@ -603,10 +603,56 @@ $file-browser-preview-header-height: 4rem;
       padding: 0;
       background-color: $file-browser-border-color;
       cursor: default;
-      
+
       &:hover {
         background-color: $file-browser-border-color;
       }
     }
+  }
+}
+
+// Git control panel (rendered in file preview for directories)
+.git-panel {
+  .git-panel-header {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    cursor: default;
+
+    &[data-git-action="toggle-clone"] {
+      cursor: pointer;
+
+      &:hover {
+        background-color: $file-browser-hover-bg;
+      }
+    }
+  }
+
+  .git-icon-btn {
+    padding: 0 0.4rem;
+    line-height: 1.4;
+  }
+
+  .git-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+  }
+
+  .git-panel-changes {
+    .cq-collapsible > div:first-child:hover {
+      background-color: $file-browser-hover-bg;
+    }
+  }
+
+  .git-panel-result {
+    pre {
+      font-size: 0.75rem;
+    }
+  }
+
+  .git-commit-row:last-child {
+    border-bottom: none !important;
   }
 }

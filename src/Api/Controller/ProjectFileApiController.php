@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\ProjectFile;
+use App\Service\AIToolGitService;
 use App\Service\ProjectFileService;
 use App\Service\AIToolMemoryService;
 use App\Service\AnnoService;
@@ -27,6 +28,7 @@ class ProjectFileApiController extends AbstractController
 {
     public function __construct(
         private readonly ProjectFileService $projectFileService,
+        private readonly AIToolGitService $aiToolGitService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly AnnoService $annoService,
         private readonly CQMemoryLibraryService $libraryService,
@@ -526,6 +528,9 @@ class ProjectFileApiController extends AbstractController
 
             $this->annotateTreeWithAnnotationFlags($tree, $projectId, $packFiles);
 
+            $gitRepos = array_flip($this->aiToolGitService->findRepositories($projectId));
+            $this->annotateTreeWithGitFlags($tree, $gitRepos);
+
             return $this->json([
                 'success' => true,
                 'tree' => $tree
@@ -540,6 +545,24 @@ class ProjectFileApiController extends AbstractController
                 'success' => false,
                 'error' => $e->getMessage()
             ], 400);
+        }
+    }
+
+    /**
+     * Walk the tree and add isGitRepo flag to directory nodes (like isRemote / isShared on files)
+     * @param array $gitRepos Flipped array of repo relative paths (path => true)
+     */
+    private function annotateTreeWithGitFlags(array &$node, array $gitRepos): void
+    {
+        if (isset($node['type']) && $node['type'] === 'directory') {
+            $relPath = ltrim(($node['path'] === '/' ? '' : $node['path']) . '/' . $node['name'], '/');
+            $node['isGitRepo'] = isset($gitRepos[$relPath]);
+        }
+
+        if (isset($node['children']) && is_array($node['children'])) {
+            foreach ($node['children'] as &$child) {
+                $this->annotateTreeWithGitFlags($child, $gitRepos);
+            }
         }
     }
 
