@@ -717,6 +717,23 @@ class CQMemoryPackService
         $row = $result->fetchAssociative();
         return $row ?: null;
     }
+
+    /**
+     * Check if any stored source_ref ends with the given file name
+     * (path-agnostic match - source_ref format: projectId:path:fileName)
+     */
+    public function hasSourceByFileName(string $fileName): bool
+    {
+        $db = $this->getConnection();
+
+        $escaped = strtr($fileName, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']);
+        $result = $db->executeQuery(
+            "SELECT 1 FROM memory_sources WHERE source_ref LIKE ? ESCAPE '\\' LIMIT 1",
+            ['%:' . $escaped]
+        );
+
+        return $result->fetchOne() !== false;
+    }
     
     // ========================================
     // AI Usage Log Operations

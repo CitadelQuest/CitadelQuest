@@ -587,24 +587,24 @@ class ProjectFileApiController extends AbstractController
                 );
 
                 if ($node['hasAnnotation']) {
-                    $sourceRef = $projectId . ':' . $node['path'] . ':' . $node['name'];
-                    $node['inMemoryPack'] = $this->isInMemoryPack($packFiles, $projectId, $sourceRef);
+                    $node['inMemoryPack'] = $this->isInMemoryPack($packFiles, $projectId, $node['name']);
                 }
             }
         }
     }
 
     /**
-     * Check if a source_ref exists in any CQ Memory Pack in the project
+     * Check if a source with the given file name exists in any CQ Memory Pack in the project
+     * (matched by file name only, so moved/renamed-path files stay recognized)
      */
-    private function isInMemoryPack(array $packFiles, string $projectId, string $sourceRef): bool
+    private function isInMemoryPack(array $packFiles, string $projectId, string $fileName): bool
     {
         foreach ($packFiles as $packFile) {
             try {
                 $this->packService->open($projectId, $packFile['path'], $packFile['name']);
-                $source = $this->packService->getSourceByRef($sourceRef);
+                $found = $this->packService->hasSourceByFileName($fileName);
                 $this->packService->close();
-                if ($source !== null) {
+                if ($found) {
                     return true;
                 }
             } catch (\Exception $e) {
