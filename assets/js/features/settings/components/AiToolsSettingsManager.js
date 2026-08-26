@@ -395,7 +395,7 @@ export default class AiToolsSettingsManager {
                     const toolModal = bootstrap.Modal.getInstance(this.settingsModal);
                     if (toolModal) toolModal.hide();
 
-                    window.aiModelSelector.open('primary', (model) => {
+                    window.aiModelSelector.open(btn.dataset.filterType || 'primary', (model) => {
                         if (hiddenInput) hiddenInput.value = model.id;
                         if (displayEl) displayEl.textContent = model.modelName;
                         // Re-open tool settings modal
@@ -490,7 +490,7 @@ export default class AiToolsSettingsManager {
                             data-key="${setting.key}" data-type="aiModel" value="${setting.value || ''}">
                         <div class="d-flex align-items-center gap-2">
                             <span class="text-light small ai-model-display" id="${inputId}-display">${setting.value ? '...' : (this.translations.default_model || 'Default (auto)')}</span>
-                            <button type="button" class="btn btn-sm btn-outline-cyber ai-model-select-btn" data-input-id="${inputId}">
+                            <button type="button" class="btn btn-sm btn-outline-cyber ai-model-select-btn" data-input-id="${inputId}" data-filter-type="${setting.key.includes('image') ? 'image' : 'primary'}">
                                 <i class="mdi mdi-swap-horizontal me-1"></i>${this.translations.select_model || 'Select Model'}
                             </button>
                             ${setting.value ? `<button type="button" class="btn btn-sm btn-outline-secondary ai-model-clear-btn" data-input-id="${inputId}" title="Reset to default">

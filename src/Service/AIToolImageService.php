@@ -21,6 +21,8 @@ class AIToolImageService
         private readonly AiServiceResponseService $aiServiceResponseService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly SettingsService $settingsService,
+        private readonly AiToolService $aiToolService,
+        private readonly AiToolSettingsService $aiToolSettingsService,
         private readonly ParameterBagInterface $params
     ) {
     }
@@ -33,12 +35,25 @@ class AIToolImageService
         $this->validateArguments($arguments, ['projectId', 'textPrompt']);
         
         try {
-            // Get AI model for image editing (settings: ai.secondary_ai_service_model_id)
-            $secondaryModelId = $this->settingsService->getSettingValue('ai.secondary_ai_service_model_id');
+            // Get AI model for image editing. Resolution order:
+            // 1. spiritCreateOrEditImage AI Tool Setting (image_ai_model)
+            // 2. secondary AI model (settings: ai.secondary_ai_service_model_id)
+            // 3. default image model (CQ AI Gateway)
             $aiServiceModel = null;
-            if ($secondaryModelId) {
-                $aiServiceModel = $this->aiServiceModelService->findById($secondaryModelId);
-            } else {
+            $imageTool = $this->aiToolService->findByName('spiritCreateOrEditImage');
+            if ($imageTool) {
+                $toolModelId = $this->aiToolSettingsService->getSettingValue($imageTool->getId(), 'image_ai_model');
+                if ($toolModelId) {
+                    $aiServiceModel = $this->aiServiceModelService->findById($toolModelId);
+                }
+            }
+            if (!$aiServiceModel) {
+                $secondaryModelId = $this->settingsService->getSettingValue('ai.secondary_ai_service_model_id');
+                if ($secondaryModelId) {
+                    $aiServiceModel = $this->aiServiceModelService->findById($secondaryModelId);
+                }
+            }
+            if (!$aiServiceModel) {
                 // Get default AI model for image editing (CQ AI Gateway)
                 $gateway = $this->aiGatewayService->findByName('CQ AI Gateway');
                 $aiServiceModel = $this->aiServiceModelService->findByModelSlug('citadelquest/gemini-2.5-flash-image', $gateway->getId());
