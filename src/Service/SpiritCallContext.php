@@ -18,6 +18,7 @@ namespace App\Service;
  */
 class SpiritCallContext
 {
+    /** Defaults — user-configurable via spiritCall AI Tool Settings (s2s.maxDepth / s2s.maxCallsPerTurn). */
     public const MAX_DEPTH = 2;
     public const MAX_CALLS_PER_TURN = 5;
 
@@ -25,16 +26,35 @@ class SpiritCallContext
     private array $chain = [];
 
     private bool $initialised = false;
-    private int $callsRemaining = self::MAX_CALLS_PER_TURN;
+    private int $callsUsed = 0;
+    private int $maxCalls = self::MAX_CALLS_PER_TURN;
+    private int $maxDepth = self::MAX_DEPTH;
 
     /**
      * Initialise (or reset) the context at the start of a top-level turn.
      */
-    public function begin(string $rootSpiritId, int $maxCalls = self::MAX_CALLS_PER_TURN): void
+    public function begin(string $rootSpiritId, ?int $maxCalls = null, ?int $maxDepth = null): void
     {
         $this->chain = [$rootSpiritId];
-        $this->callsRemaining = $maxCalls;
+        $this->callsUsed = 0;
+        $this->maxCalls = self::MAX_CALLS_PER_TURN;
+        $this->maxDepth = self::MAX_DEPTH;
+        $this->configure($maxCalls, $maxDepth);
         $this->initialised = true;
+    }
+
+    /**
+     * Apply user-configured limits (from spiritCall AI Tool Settings).
+     * Only the caps change — calls already consumed in this turn stay consumed.
+     */
+    public function configure(?int $maxCalls = null, ?int $maxDepth = null): void
+    {
+        if ($maxCalls !== null && $maxCalls > 0) {
+            $this->maxCalls = $maxCalls;
+        }
+        if ($maxDepth !== null && $maxDepth > 0) {
+            $this->maxDepth = $maxDepth;
+        }
     }
 
     public function isInitialised(): bool
@@ -57,7 +77,7 @@ class SpiritCallContext
 
     public function callsRemaining(): int
     {
-        return $this->callsRemaining;
+        return max(0, $this->maxCalls - $this->callsUsed);
     }
 
     /**
@@ -71,10 +91,10 @@ class SpiritCallContext
             // Defensive: treat an uninitialised context as a single-spirit root.
             return null;
         }
-        if ($this->callsRemaining <= 0) {
+        if ($this->callsRemaining() <= 0) {
             return 'Spirit consultation budget for this turn is exhausted.';
         }
-        if ($this->depth() >= self::MAX_DEPTH) {
+        if ($this->depth() >= $this->maxDepth) {
             return 'Maximum Spirit consultation depth reached; cannot consult further.';
         }
         $current = end($this->chain) ?: null;
@@ -94,7 +114,7 @@ class SpiritCallContext
     public function enter(string $calleeSpiritId): void
     {
         $this->chain[] = $calleeSpiritId;
-        $this->callsRemaining--;
+        $this->callsUsed++;
     }
 
     /**

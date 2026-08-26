@@ -42,6 +42,8 @@ class AIToolSpiritService implements ServiceSubscriberInterface
     public function __construct(
         private readonly ContainerInterface $locator,
         private readonly SpiritService $spiritService,
+        private readonly AiToolService $aiToolService,
+        private readonly AiToolSettingsService $aiToolSettingsService,
         private readonly SpiritCallContext $spiritCallContext,
         private readonly LoggerInterface $logger
     ) {
@@ -361,7 +363,12 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             return ['success' => false, 'error' => 'You are not allowed to consult this Spirit.'];
         }
 
-        // Safeguards: depth / cycle / budget.
+        // Safeguards: depth / cycle / budget. Caps are user-configurable via the
+        // spiritCall AI Tool Settings; invalid/empty values fall back to defaults.
+        $this->spiritCallContext->configure(
+            $this->getIntSetting('s2s.maxCallsPerTurn', SpiritCallContext::MAX_CALLS_PER_TURN),
+            $this->getIntSetting('s2s.maxDepth', SpiritCallContext::MAX_DEPTH)
+        );
         $guardError = $this->spiritCallContext->validateCall($calleeId);
         if ($guardError !== null) {
             return ['success' => false, 'error' => $guardError];
@@ -384,7 +391,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
 
             // Run the callee at its model's full output capacity so its answer
             // is never artificially truncated (S2S always returns the full answer).
-            $calleeMaxOutput = self::CALLEE_MAX_OUTPUT_FALLBACK;
+            $calleeMaxOutput = $this->getIntSetting('s2s.calleeMaxOutputFallback', self::CALLEE_MAX_OUTPUT_FALLBACK);
             try {
                 $calleeModelMax = $this->spiritService->getSpiritAiModel($calleeId)?->getMaxOutput();
                 if ($calleeModelMax !== null && $calleeModelMax > 0) {
@@ -401,8 +408,8 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                     $callerMessage->getId(),
                     $lang,
                     $calleeMaxOutput,
-                    self::CALLEE_TEMPERATURE,
-                    self::CALLEE_TOOL_TEMPERATURE
+                    $this->getFloatSetting('s2s.calleeTemperature', self::CALLEE_TEMPERATURE),
+                    $this->getFloatSetting('s2s.calleeToolTemperature', self::CALLEE_TOOL_TEMPERATURE)
                 );
             } finally {
                 $this->spiritCallContext->leave();
@@ -445,6 +452,34 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             $this->logger->error('spiritCall failed: {error}', ['error' => $e->getMessage()]);
             return ['success' => false, 'error' => 'The consultation failed: ' . $e->getMessage()];
         }
+    }
+
+    /**
+     * Read a user-configured S2S setting from the spiritCall AI Tool Settings.
+     */
+    private function getS2sSetting(string $key): ?string
+    {
+        $tool = $this->aiToolService->findByName('spiritCall');
+        if (!$tool) {
+            return null;
+        }
+        return $this->aiToolSettingsService->getSettingValue($tool->getId(), $key);
+    }
+
+    private function getIntSetting(string $key, int $default): int
+    {
+        $value = $this->getS2sSetting($key);
+        $int = ($value !== null && $value !== '' && is_numeric($value)) ? (int) $value : 0;
+        return $int > 0 ? $int : $default;
+    }
+
+    private function getFloatSetting(string $key, float $default): float
+    {
+        $value = $this->getS2sSetting($key);
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return $default;
+        }
+        return (float) $value;
     }
 
     /**
