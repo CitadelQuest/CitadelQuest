@@ -32,6 +32,9 @@ export class MemoryExtractPanel {
         
         // Conversation source data (cached after first load)
         this.conversationData = null;
+
+        // File source data (cached after first load): [{ sourceRef, displayPath, fileName }]
+        this.extractFiles = [];
         
         this.init();
     }
@@ -55,11 +58,35 @@ export class MemoryExtractPanel {
             });
         });
 
-        // File browser file selection
-        const fileSelector = document.getElementById('extract-file-selector');
-        if (fileSelector) {
-            fileSelector.addEventListener('change', (e) => {
-                this.onFileSelected(e.target.value);
+        // File autocomplete (text input + dropdown, hidden input holds sourceRef)
+        const fileInput = document.getElementById('extract-file-input');
+        const fileHidden = document.getElementById('extract-file-selector');
+        const fileAutocomplete = document.getElementById('extract-file-autocomplete');
+        if (fileInput && fileHidden && fileAutocomplete) {
+            fileInput.addEventListener('input', () => {
+                // Typing invalidates the current selection until an item is picked
+                fileHidden.value = '';
+                const fileDisplay = document.getElementById('extract-selected-file');
+                if (fileDisplay) fileDisplay.textContent = 'None';
+                this.updateStartButtonState();
+                this.renderFileAutocomplete(fileInput.value);
+            });
+            fileInput.addEventListener('focus', () => {
+                this.renderFileAutocomplete(fileInput.value);
+            });
+            fileInput.addEventListener('blur', () => {
+                setTimeout(() => fileAutocomplete.classList.remove('show'), 200);
+            });
+            fileInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    fileAutocomplete.classList.remove('show');
+                }
+            });
+
+            // Event delegation for item clicks
+            fileAutocomplete.addEventListener('click', (e) => {
+                const item = e.target.closest('.autocomplete-item');
+                if (item) this.selectExtractFile(item.dataset.sourceRef);
             });
         }
 
@@ -1007,20 +1034,20 @@ export class MemoryExtractPanel {
     }
 
     async loadProjectFiles() {
-        const fileSelector = document.getElementById('extract-file-selector');
-        if (!fileSelector) return;
+        const fileInput = document.getElementById('extract-file-input');
+        if (!fileInput) return;
 
         try {
             // Fetch project tree from 'general' project
             const response = await fetch('/api/project-file/general/tree');
-            
+
             if (!response.ok) {
                 console.error('Failed to load project files');
                 return;
             }
 
             const data = await response.json();
-            
+
             if (!data.success || !data.tree) {
                 console.error('Invalid tree response');
                 return;
@@ -1028,35 +1055,92 @@ export class MemoryExtractPanel {
 
             // Extract all files (not directories) from tree
             const files = this.extractFilesFromTree(data.tree);
-            
-            // Filter for text-based files
-            const textFiles = files.filter(file => this.isTextBasedFile(file.name));
-            
-            // Populate dropdown
-            if (textFiles.length === 0) {
-                fileSelector.innerHTML = '<option value="">-- No text files found --</option>';
-                return;
+
+            // Filter for text-based files, cache for autocomplete
+            this.extractFiles = files
+                .filter(file => this.isTextBasedFile(file.name))
+                .map(file => {
+                    // Split fullPath into path and filename
+                    // Example: /uploads/file.pdf -> path: /uploads, filename: file.pdf
+                    const lastSlashIndex = file.fullPath.lastIndexOf('/');
+                    const path = file.fullPath.substring(0, lastSlashIndex) || '/';
+                    const filename = file.fullPath.substring(lastSlashIndex + 1);
+                    const displayPath = file.fullPath.startsWith('/') ? file.fullPath.slice(1) : file.fullPath;
+                    const dirPath = displayPath.substring(0, displayPath.length - filename.length);
+
+                    return {
+                        // Format: projectId:path:filename (e.g., "general:/uploads:file.pdf")
+                        sourceRef: `general:${path}:${filename}`,
+                        displayPath: displayPath,
+                        dirPath: dirPath,
+                        fileName: filename
+                    };
+                })
+                .sort((a, b) => a.displayPath.localeCompare(b.displayPath));
+
+            if (this.extractFiles.length === 0) {
+                fileInput.disabled = true;
+                fileInput.placeholder = '-- No text files found --';
             }
-
-            // Build options HTML
-            const options = textFiles.map(file => {
-                // Split fullPath into path and filename
-                // Example: /uploads/file.pdf -> path: /uploads, filename: file.pdf
-                const lastSlashIndex = file.fullPath.lastIndexOf('/');
-                const path = file.fullPath.substring(0, lastSlashIndex) || '/';
-                const filename = file.fullPath.substring(lastSlashIndex + 1);
-                
-                // Format: projectId:path:filename (e.g., "general:/uploads:file.pdf")
-                const sourceRef = `general:${path}:${filename}`;
-                const displayPath = file.fullPath.startsWith('/') ? file.fullPath.slice(1) : file.fullPath;
-                return `<option value="${sourceRef}">${displayPath}</option>`;
-            }).join('');
-
-            fileSelector.innerHTML = '<option value="">-- Select a file --</option>' + options;
 
         } catch (error) {
             console.error('Error loading project files:', error);
         }
+    }
+
+    /**
+     * Render the file autocomplete dropdown, filtered by query
+     */
+    renderFileAutocomplete(query) {
+        const autocomplete = document.getElementById('extract-file-autocomplete');
+        if (!autocomplete) return;
+
+        const normalizedQuery = (query || '').toLowerCase().trim();
+        const matches = this.extractFiles
+            .filter(file => !normalizedQuery || file.displayPath.toLowerCase().includes(normalizedQuery))
+            .slice(0, 15); // Limit suggestions
+
+        if (matches.length === 0) {
+            autocomplete.classList.remove('show');
+            return;
+        }
+
+        autocomplete.innerHTML = matches.map(file => `
+            <div class="autocomplete-item" data-source-ref="${this.escapeHtml(file.sourceRef)}">
+                <i class="mdi mdi-file-document-outline"></i>
+                <span class="autocomplete-item-name">${this.escapeHtml(file.fileName)}</span>
+                <span class="autocomplete-item-path">${this.escapeHtml(file.dirPath)}</span>
+            </div>
+        `).join('');
+
+        autocomplete.classList.add('show');
+    }
+
+    /**
+     * Pick a file from the autocomplete dropdown
+     */
+    selectExtractFile(sourceRef) {
+        const file = this.extractFiles.find(f => f.sourceRef === sourceRef);
+        if (!file) return;
+
+        const fileInput = document.getElementById('extract-file-input');
+        const fileHidden = document.getElementById('extract-file-selector');
+        const autocomplete = document.getElementById('extract-file-autocomplete');
+
+        if (fileHidden) fileHidden.value = file.sourceRef;
+        if (fileInput) fileInput.value = file.displayPath;
+        if (autocomplete) autocomplete.classList.remove('show');
+
+        this.onFileSelected(file.sourceRef);
+    }
+
+    escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     extractFilesFromTree(node, parentPath = '') {

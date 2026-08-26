@@ -709,6 +709,71 @@ $panel-min-height: 500px;
     }
 //}
 
+// Extract panel: file source tab — stack above other tab panes so dropdown isn't clipped
+#source-panel-file {
+    position: relative;
+    z-index: 100;
+}
+
+// Extract panel: file autocomplete dropdown
+.extract-file-autocomplete {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: colors.$dark;
+    border: 1px solid rgba(colors.$cyber, 0.3);
+    border-top: none;
+    border-radius: 0 0 vars.$border-radius vars.$border-radius;
+    z-index: 30;
+    display: none;
+    @include mix.cyber-scrollbar;
+
+    &.show {
+        display: block;
+    }
+
+    .autocomplete-item {
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: colors.$text-light;
+        font-size: 0.8rem;
+
+        &:hover {
+            background: rgba(colors.$cyber, 0.15);
+        }
+
+        i {
+            color: colors.$cyber;
+            flex-shrink: 0;
+        }
+
+        .autocomplete-item-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+            max-width: 50%;
+        }
+
+        .autocomplete-item-path {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: rgba(colors.$text-light, 0.5);
+            font-size: 0.7rem;
+            direction: rtl;
+            text-align: right;
+        }
+    }
+}
+
 // Toggle button for extract panel
 #btn-toggle-extract-panel {
     transition: all vars.$duration-quick vars.$ease-standard;

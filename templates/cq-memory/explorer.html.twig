@@ -217,7 +217,7 @@
                         {# Extract sub-panel #}
                         <div class="tab-pane fade show active" id="sub-panel-extract" role="tabpanel">
                         {# Source type selector pills #}
-                        <div class="mb-3">
+                        <div class="mb-5 pb-3">
                             <label class="form-label small text-cyber mb-2">
                                 <i class="mdi mdi-database-import me-1"></i>
                                 {{ 'spirit.memory.extract_panel.source_type'|trans }}
@@ -246,10 +246,14 @@
                             </ul>
                             <div class="tab-content">
                                 {# File source panel #}
-                                <div class="tab-pane fade show active" id="source-panel-file" role="tabpanel">
-                                    <select id="extract-file-selector" class="form-select form-select-sm border-secondary">
-                                        <option value="">-- {{ 'spirit.memory.extract_panel.select_file'|trans }} --</option>
-                                    </select>
+                                <div class="tab-pane fade show active position-absolute w-100 pe-5" id="source-panel-file" role="tabpanel">
+                                    <div class="position-relative">
+                                        <input type="text" id="extract-file-input" class="form-control form-control-sm border-secondary"
+                                            placeholder="{{ 'spirit.memory.extract_panel.select_file_placeholder'|trans }}"
+                                            autocomplete="off" spellcheck="false">
+                                        <input type="hidden" id="extract-file-selector" value="">
+                                        <div id="extract-file-autocomplete" class="extract-file-autocomplete"></div>
+                                    </div>
                                     <div class="small text-secondary mt-1">
                                         {{ 'spirit.memory.extract_panel.selected'|trans }}: <span id="extract-selected-file" class="text-cyber">None</span>
                                     </div>
@@ -282,6 +286,7 @@
                                     </div>
                                 </div>
                             </div>
+                            <div style="clear:both;"></div>
                         </div>
                         
                         <div class="mb-3">
