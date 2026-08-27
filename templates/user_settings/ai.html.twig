@@ -43,6 +43,7 @@
         </div>
         
         <div class="col-md-9">
+            {# === CQ AI Gateway Section (first) === #}
             <div class="glass-panel">
                 <div class="bg-cyber-g p-4 rounded-top border-success border-1 border-bottom">
                     <h4 class="mb-0"><i class="mdi mdi-robot me-3"></i>{{ 'settings.nav.ai_services'|trans|default('AI Services') }}</h4>
@@ -54,112 +55,40 @@
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ 'ui.close'|trans }}"></button>
                         </div>
                     {% endfor %}
-                    
-                    {# <p class="mb-0">{{ 'settings.ai.description'|trans|default('Configure your AI service settings to power your Spirit and other AI features.') }}</p>
- #}
-                    <form method="post" action="{{ path('app_user_settings_ai') }}">                        
-                        <div>
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h5 class="mb-0"><i class="mdi mdi-robot me-3 text-cyber"></i>{{ 'settings.ai.models.title'|trans|default('AI Models') }}</h5>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="sync_models_btn" onclick="syncAiModels()">
-                                    <i class="mdi mdi-refresh me-1"></i> {{ 'settings.ai.models.update'|trans|default('Update Models List') }}
-                                </button>
-                            </div>
-                            <p class="">{{ 'settings.ai.models.description'|trans|default('Select which AI models to use for different purposes.') }}</p>
-                            
-                            <div class="row">
-                                <div class="col-12 mb-3">
-                                    <label for="primary_model" class="form-label"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}</label>
-                                    <input type="hidden" id="primary_model" name="primary_model" value="{{ settings['ai.primary_ai_service_model_id'] ?? '' }}">
-                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="primary_model_selector_btn">
-                                        <span id="primary_model_display">
-                                            {% if settings['ai.primary_ai_service_model_id'] is defined %}
-                                                {% for model in aiModels %}
-                                                    {% if model.id == settings['ai.primary_ai_service_model_id'] %}
-                                                        {{ model.modelName }}
-                                                    {% endif %}
-                                                {% endfor %}
-                                            {% else %}
-                                                {{ 'ai_model_selector.select_model'|trans|default('Click to select model...') }}
-                                            {% endif %}
-                                        </span>
-                                        <i class="mdi mdi-chevron-down"></i>
-                                    </button>
-                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
-                                </div>
-                                
-                                <div class="col-12 mb-3">
-                                    <label for="secondary_model" class="form-label"><i class="mdi mdi-image-edit-outline me-2 text-cyber"></i>{{ 'settings.ai.models.secondary'|trans|default('Image gen/edit AI Model') }}</label>
-                                    <input type="hidden" id="secondary_model" name="secondary_model" value="{{ settings['ai.secondary_ai_service_model_id'] ?? '' }}">
-                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="secondary_model_selector_btn">
-                                        <span id="secondary_model_display">
-                                            {% if settings['ai.secondary_ai_service_model_id'] is defined %}
-                                                {% for model in aiImageModels %}
-                                                    {% if model.id == settings['ai.secondary_ai_service_model_id'] %}
-                                                        {{ model.modelName }}
-                                                    {% endif %}
-                                                {% endfor %}
-                                            {% else %}
-                                                {{ 'ai_model_selector.select_model'|trans|default('Click to select model...') }}
-                                            {% endif %}
-                                        </span>
-                                        <i class="mdi mdi-chevron-down"></i>
-                                    </button>
-                                    <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
-                                <i class="mdi mdi-content-save mx-2 text-cyber"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }} 
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
 
-            <!-- CQ AI Gateway Section - separate block below -->
-            <div class="glass-panel mt-4">
-                <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
-                    <div class="mb-0 d-flex align-items-center justify-content-between">
-                        <span>
-                            <i class="mdi mdi-server-network me-2"></i>{{ 'settings.ai.gateway.title'|trans|default('CQ AI Gateway') }}
-                        </span>
+                    {# CQ AI Gateway block #}
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="mb-0"><i class="mdi mdi-server-network me-2 text-cyber"></i>{{ 'settings.ai.gateway.title'|trans|default('CQ AI Gateway') }}</h5>
                         {% if api_key_state == 'set_and_valid' %}
-                        <span class="d-flex align-items-center justify-content-end gap-2">
-                            {# <i class="mdi fs-5 mdi-gauge{% if CQ_AI_GatewayCredits < 0 %}-empty text-danger{% elseif CQ_AI_GatewayCredits < 30 %}-low text-danger{% elseif CQ_AI_GatewayCredits < 60 %} text-warning{% elseif CQ_AI_GatewayCredits > 500 %}-full text-success{% else %} text-cyber{% endif %}"
-                                title="{{ CQ_AI_GatewayCredits }} Credits"></i> #}
+                        <span class="d-flex align-items-center gap-2">
                             <span class="badge {% if CQ_AI_GatewayCredits < 30 %}bg-danger{% elseif CQ_AI_GatewayCredits < 60 %}bg-warning{% elseif CQ_AI_GatewayCredits > 500 %}bg-success{% else %}bg-dark bg-opacity-25{% endif %}">
                                 <i class="mdi mdi-circle-multiple-outline text-cyber me-1"></i>{{ CQ_AI_GatewayCredits }}
                             </span>
-                            {# <span class="small">{{ 'settings.ai.gateway.credits'|trans|default('Credits') }}</span> #}
                         </span>
                         {% endif %}
                     </div>
-                </div>
-                <div class="p-4 rounded-bottom">
-                    <!-- API Key Status -->
+
+                    {# API Key Status #}
                     <div class="d-flex align-items-center mb-3">
                         <span class="me-2">{{ 'settings.ai.gateway.api_key_label'|trans|default('API Key:') }}</span>
                         {% if api_key_state == 'not_set' %}
-                            <span class="badge bg-danger" title="{{ 'settings.ai.gateway.api_key_not_set'|trans|default('Your API key is not set') }}">{{ 'settings.ai.gateway.not_set'|trans|default('Not Set') }} <i class="mdi mdi-close ms-1"></i></span>
+                            <span class="badge bg-danger">{{ 'settings.ai.gateway.not_set'|trans|default('Not Set') }} <i class="mdi mdi-close ms-1"></i></span>
                         {% elseif api_key_state == 'not_validated' %}
-                            <span class="badge bg-warning" title="{{ 'settings.ai.gateway.api_key_not_validated'|trans|default('Your API key is not validated') }}">{{ 'settings.ai.gateway.not_validated'|trans|default('Not Validated') }} <i class="mdi mdi-help-circle ms-1"></i></span>
+                            <span class="badge bg-warning">{{ 'settings.ai.gateway.not_validated'|trans|default('Not Validated') }} <i class="mdi mdi-help-circle ms-1"></i></span>
                         {% elseif api_key_state == 'not_valid' %}
-                            <span class="badge bg-warning" title="{{ 'settings.ai.gateway.api_key_not_valid'|trans|default('Your API key is not valid') }}">{{ 'settings.ai.gateway.not_valid'|trans|default('Not Valid') }} <i class="mdi mdi-cancel ms-1"></i></span>
+                            <span class="badge bg-warning">{{ 'settings.ai.gateway.not_valid'|trans|default('Not Valid') }} <i class="mdi mdi-cancel ms-1"></i></span>
                         {% elseif api_key_state == 'set_and_valid' %}
-                            <span class="badge bg-success" title="{{ 'settings.ai.gateway.api_key_valid'|trans|default('Your API key is set and valid') }}">{{ 'settings.ai.gateway.valid'|trans|default('Set and Valid') }} <i class="mdi mdi-check ms-1"></i></span>
+                            <span class="badge bg-success">{{ 'settings.ai.gateway.valid'|trans|default('Set and Valid') }} <i class="mdi mdi-check ms-1"></i></span>
                         {% endif %}
                         <button type="button" class="btn btn-sm btn-link text-muted ms-2 p-0" onclick="document.getElementById('api_key_update_form').classList.toggle('d-none');" title="{{ 'settings.ai.gateway.update_api_key'|trans|default('Update API Key') }}">
                             <i class="mdi mdi-pencil"></i>
                         </button>
                     </div>
 
-                    <!-- API Key Update Form (hidden by default when valid) -->
+                    {# API Key Update Form #}
                     <form method="post" action="{{ path('app_user_settings_ai') }}" id="api_key_update_form" class="mb-3 {% if api_key_state == 'set_and_valid' %}d-none{% endif %}">
                         <div class="input-group">
-                            <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value="" 
+                            <input type="text" class="form-control" id="cq_ai_gateway_api_key" name="cq_ai_gateway_api_key" value=""
                                 placeholder="{{ 'settings.ai.gateway.api_key_placeholder'|trans|default('Enter your CQ AI Gateway API key') }}"
                                 oninput="document.getElementById('update_api_key').disabled = this.value === '';">
                             <button type="submit" class="btn btn-cyber" id="update_api_key" disabled>
@@ -168,7 +97,7 @@
                         </div>
                     </form>
 
-                    <!-- Action Buttons -->
+                    {# Action Buttons #}
                     {% if api_key_state == 'set_and_valid' %}
                     <div class="d-flex justify-content-between align-items-center gap-2">
                         <button type="button" onclick="openGatewayLogin('dashboard')" class="btn btn-sm btn-outline-secondary">
@@ -179,6 +108,144 @@
                         </button>
                     </div>
                     {% endif %}
+                </div>
+            </div>
+
+            {# === AI Models Section (second) === #}
+            <div class="glass-panel mt-4">
+                <div class="bg-cyber-g p-3 rounded-top border-success border-1 border-bottom">
+                    <div class="mb-0 d-flex justify-content-between align-items-center">
+                        <span><i class="mdi mdi-brain me-2"></i>{{ 'settings.ai.models.title'|trans|default('AI Models') }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="sync_models_btn" onclick="syncAiModels()">
+                            <i class="mdi mdi-refresh me-1"></i> {{ 'settings.ai.models.update'|trans|default('Update Models List') }}
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <p class="text-secondary small">{{ 'settings.ai.models.description'|trans|default('Select which AI models to use for different purposes.') }}</p>
+
+                    <form method="post" action="{{ path('app_user_settings_ai') }}" id="ai_models_form">
+                        {# Primary AI Model #}
+                        <div class="mb-4">
+                            <label class="form-label fw-bold"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'settings.ai.models.primary'|trans|default('Primary AI Model') }}</label>
+                            <input type="hidden" id="primary_model" name="primary_model" value="{{ settings['ai.primary_ai_service_model_id'] ?? '' }}">
+                            <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center" id="primary_model_selector_btn"
+                                data-model-type="primary" data-input-id="primary_model" data-display-id="primary_model_display">
+                                <span id="primary_model_display">
+                                    {% if settings['ai.primary_ai_service_model_id'] is defined %}
+                                        {% for model in aiModels %}
+                                            {% if model.id == settings['ai.primary_ai_service_model_id'] %}
+                                                {{ model.modelName }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        {{ 'ai_model_selector.select_model'|trans|default('Click to select model...') }}
+                                    {% endif %}
+                                </span>
+                                <i class="mdi mdi-chevron-down"></i>
+                            </button>
+                            <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
+                        </div>
+
+                        {# Spirit AI Models #}
+                        {% if spiritModelData is not empty %}
+                        <hr class="border-secondary border-opacity-25 my-3">
+                        <div class="mb-4">
+                            <h6 class="text-cyber mb-3"><i class="mdi mdi-ghost-outline me-2"></i>{{ 'spirit.menu.spirits'|trans|default('Spirit AI Models') }}</h6>
+                            {% for spirit in spiritModelData %}
+                            <div class="row g-2 mb-3">
+                                <div class="col-12">
+                                    <div class="small_text-secondary"><i class="mdi mdi-ghost me-1"></i>{{ spirit.name }}</div>
+                                </div>
+                                <div class="col-12 col-md-6 mt-0">
+                                    <label class="form-label small">{{ 'spirit.settings.ai_model'|trans|default('Main AI Model') }}</label>
+                                    <input type="hidden" id="spirit-{{ spirit.id }}-aimodel" value="{{ spirit.aiModel }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center btn-sm"
+                                        id="spirit-{{ spirit.id }}-aimodel-btn"
+                                        data-model-type="primary" data-input-id="spirit-{{ spirit.id }}-aimodel" data-display-id="spirit-{{ spirit.id }}-aimodel-display"
+                                        data-spirit-id="{{ spirit.id }}" data-spirit-key="aiModel">
+                                        <span id="spirit-{{ spirit.id }}-aimodel-display">
+                                            {% if spirit.aiModel %}
+                                                {% for model in aiModels %}
+                                                    {% if model.id == spirit.aiModel %}{{ model.modelName }}{% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                </div>
+                                <div class="col-12 col-md-6 mt-0">
+                                    <label class="form-label small">{{ 'spirit.settings.subconsciousness_agent_ai_model'|trans|default('Memory Agent AI Model') }}</label>
+                                    <input type="hidden" id="spirit-{{ spirit.id }}-subagent-aimodel" value="{{ spirit.subconsciousnessAgentAiModel }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center btn-sm"
+                                        id="spirit-{{ spirit.id }}-subagent-aimodel-btn"
+                                        data-model-type="primary" data-input-id="spirit-{{ spirit.id }}-subagent-aimodel" data-display-id="spirit-{{ spirit.id }}-subagent-aimodel-display"
+                                        data-spirit-id="{{ spirit.id }}" data-spirit-key="subconsciousnessAgentAiModel">
+                                        <span id="spirit-{{ spirit.id }}-subagent-aimodel-display">
+                                            {% if spirit.subconsciousnessAgentAiModel %}
+                                                {% for model in aiModels %}
+                                                    {% if model.id == spirit.subconsciousnessAgentAiModel %}{{ model.modelName }}{% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'spirit.settings.use_primary_model'|trans|default('Use Primary AI Model') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# AI Tool Model Settings #}
+                        {% if toolModelSettings is not empty %}
+                        <hr class="border-secondary border-opacity-25 my-3">
+                        <div class="mb-4">
+                            <h6 class="text-cyber mb-3"><i class="mdi mdi-tools me-2"></i>{{ 'ai_tools.settings.title'|trans|default('AI Tool Models') }}</h6>
+                            {% for setting in toolModelSettings %}
+                            <div class="row g-2 mb-2">
+                                <div class="col-12 col-md-6">
+                                    <div class="small_text-secondary mb-1"><i class="mdi mdi-tool-1 me-1"></i>{{ setting.tool_name }}</div>
+                                </div>
+                                <div class="col-12 col-md-6 mb-2">
+                                    <label class="form-label small">{{ setting.label|default(setting.key)|replace({'_': ' '})|title }}</label>
+                                    <input type="hidden" id="tool-{{ setting.tool_id }}-{{ setting.key }}" value="{{ setting.value ?? '' }}">
+                                    <button type="button" class="btn btn-outline-cyber w-100 text-start d-flex justify-content-between align-items-center btn-sm"
+                                        id="tool-{{ setting.tool_id }}-{{ setting.key }}-btn"
+                                        data-model-type="{{ setting.key == 'image_ai_model' ? 'image' : 'primary' }}"
+                                        data-input-id="tool-{{ setting.tool_id }}-{{ setting.key }}"
+                                        data-display-id="tool-{{ setting.tool_id }}-{{ setting.key }}-display"
+                                        data-tool-id="{{ setting.tool_id }}" data-tool-key="{{ setting.key }}">
+                                        <span id="tool-{{ setting.tool_id }}-{{ setting.key }}-display">
+                                            {% if setting.value %}
+                                                {% for model in (setting.key == 'image_ai_model' ? aiImageModels : aiModels) %}
+                                                    {% if model.id == setting.value %}{{ model.modelName }}{% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ 'ai_tool_settings.use_default'|trans|default('Use Default') }}
+                                            {% endif %}
+                                        </span>
+                                        <i class="mdi mdi-chevron-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {# Hidden JSON inputs for spirit and tool models #}
+                        <input type="hidden" name="spirit_models" id="spirit_models_json" value="">
+                        <input type="hidden" name="tool_models" id="tool_models_json" value="">
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-sm btn-cyber" id="save_ai_settings" disabled>
+                                <i class="mdi mdi-content-save mx-2 text-cyber"></i> {{ 'ui.save'|trans }} {{ 'navigation.user_menu.settings'|trans }}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -284,37 +351,51 @@
 
     // Initialize AI Model Selector buttons
     document.addEventListener('DOMContentLoaded', function() {
-        const primaryBtn = document.getElementById('primary_model_selector_btn');
-        const secondaryBtn = document.getElementById('secondary_model_selector_btn');
         const saveBtn = document.getElementById('save_ai_settings');
+        const form = document.getElementById('ai_models_form');
 
-        // Primary model selector
-        if (primaryBtn) {
-            primaryBtn.addEventListener('click', function() {
-                const currentModelId = document.getElementById('primary_model').value;
-                window.aiModelSelector.open('primary', function(model) {
-                    // Update hidden input
-                    document.getElementById('primary_model').value = model.id;
-                    // Update display
-                    document.getElementById('primary_model_display').textContent = model.modelName;
-                    // Enable save button
-                    saveBtn.disabled = false;
+        // Generic handler for all model selector buttons with data-input-id
+        document.querySelectorAll('[data-input-id]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const inputId = this.dataset.inputId;
+                const displayId = this.dataset.displayId;
+                const modelType = this.dataset.modelType || 'primary';
+                const currentModelId = document.getElementById(inputId)?.value || null;
+
+                window.aiModelSelector.open(modelType, function(model) {
+                    const input = document.getElementById(inputId);
+                    const display = document.getElementById(displayId);
+                    if (input) input.value = model.id;
+                    if (display) display.textContent = model.modelName;
+                    if (saveBtn) saveBtn.disabled = false;
                 }, currentModelId);
             });
-        }
+        });
 
-        // Secondary model selector (image models only)
-        if (secondaryBtn) {
-            secondaryBtn.addEventListener('click', function() {
-                const currentModelId = document.getElementById('secondary_model').value;
-                window.aiModelSelector.open('image', function(model) {
-                    // Update hidden input
-                    document.getElementById('secondary_model').value = model.id;
-                    // Update display
-                    document.getElementById('secondary_model_display').textContent = model.modelName;
-                    // Enable save button
-                    saveBtn.disabled = false;
-                }, currentModelId);
+        // Build JSON from spirit and tool hidden inputs before form submit
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // Collect spirit models
+                const spiritData = {};
+                document.querySelectorAll('[data-spirit-id]').forEach(btn => {
+                    const spiritId = btn.dataset.spiritId;
+                    const spiritKey = btn.dataset.spiritKey;
+                    const inputId = btn.dataset.inputId;
+                    if (!spiritData[spiritId]) spiritData[spiritId] = {};
+                    spiritData[spiritId][spiritKey] = document.getElementById(inputId)?.value || '';
+                });
+                document.getElementById('spirit_models_json').value = JSON.stringify(spiritData);
+
+                // Collect tool models
+                const toolData = {};
+                document.querySelectorAll('[data-tool-id]').forEach(btn => {
+                    const toolId = btn.dataset.toolId;
+                    const toolKey = btn.dataset.toolKey;
+                    const inputId = btn.dataset.inputId;
+                    if (!toolData[toolId]) toolData[toolId] = {};
+                    toolData[toolId][toolKey] = document.getElementById(inputId)?.value || '';
+                });
+                document.getElementById('tool_models_json').value = JSON.stringify(toolData);
             });
         }
     });

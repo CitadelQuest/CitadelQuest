@@ -165,6 +165,33 @@ class AiToolSettingsService
     }
 
     /**
+     * Get all settings of a specific type (e.g. 'aiModel') across all tools.
+     * Returns an array of objects with tool and setting info.
+     * @return array<int, array{tool_id: string, tool_name: string, key: string, value: ?string, label: ?string, description: ?string}>
+     */
+    public function findAllByType(string $type): array
+    {
+        $userDb = $this->getUserDb();
+        $results = $userDb->executeQuery(
+            'SELECT s.*, t.name AS tool_name
+             FROM ai_tool_settings s
+             JOIN ai_tool t ON t.id = s.tool_id
+             WHERE s.type = ?
+             ORDER BY t.category ASC, t.display_order ASC, t.name ASC, s.display_order ASC',
+            [$type]
+        )->fetchAllAssociative();
+
+        return array_map(fn($row) => [
+            'tool_id' => $row['tool_id'],
+            'tool_name' => $row['tool_name'],
+            'key' => $row['key'],
+            'value' => $row['value'] ?? null,
+            'label' => $row['label'] ?? null,
+            'description' => $row['description'] ?? null,
+        ], $results);
+    }
+
+    /**
      * Get category labels for UI display
      */
     public static function getCategoryLabels(): array

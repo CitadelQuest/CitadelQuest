@@ -8,6 +8,8 @@ use App\Repository\UserRepository;
 use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiModelsSyncService;
+use App\Service\AiToolSettingsService;
+use App\Service\SpiritService;
 use App\Service\SettingsService;
 use App\Service\ProjectFileService;
 use App\Service\StorageService;
@@ -36,7 +38,9 @@ class UserSettingsController extends AbstractController
         private readonly ProjectFileService $projectFileService,
         private readonly HttpClientInterface $httpClient,
         private readonly LoggerInterface $logger,
-        private readonly StorageService $storageService
+        private readonly StorageService $storageService,
+        private readonly SpiritService $spiritService,
+        private readonly AiToolSettingsService $aiToolSettingsService
     ) {
     }
 
@@ -273,18 +277,44 @@ class UserSettingsController extends AbstractController
                     return $this->redirectToRoute('app_welcome_onboarding');
                 }
 
-                // 2. Primary and secondary AI models
+                // 2. Primary AI model
                 $request_primary_model = $request->request->get('primary_model');
-                $request_secondary_model = $request->request->get('secondary_model');
-                if ($request_primary_model && $request_primary_model !== '') {
+                if ($request_primary_model !== null && $request_primary_model !== '') {
                     $this->settingsService->setSetting('ai.primary_ai_service_model_id', $request_primary_model);
                 }
-                if ($request_secondary_model && $request_secondary_model !== '') {
-                    $this->settingsService->setSetting('ai.secondary_ai_service_model_id', $request_secondary_model);
+
+                // 3. Spirit AI models (JSON: {spiritId: {aiModel: modelId, subconsciousnessAgentAiModel: modelId}})
+                $spiritModelsJson = $request->request->get('spirit_models');
+                if ($spiritModelsJson) {
+                    $spiritModels = json_decode($spiritModelsJson, true);
+                    if (is_array($spiritModels)) {
+                        foreach ($spiritModels as $spiritId => $models) {
+                            if (isset($models['aiModel'])) {
+                                $this->spiritService->setSpiritSetting($spiritId, 'aiModel', $models['aiModel'] ?? '');
+                            }
+                            if (isset($models['subconsciousnessAgentAiModel'])) {
+                                $this->spiritService->setSpiritSetting($spiritId, 'subconsciousnessAgentAiModel', $models['subconsciousnessAgentAiModel'] ?? '');
+                            }
+                        }
+                    }
                 }
-                if ($request_primary_model || $request_secondary_model) {
-                    $this->addFlash('success', 'AI models saved successfully.');
+
+                // 4. AI Tool model settings (JSON: {toolId: {settingKey: modelId}})
+                $toolModelsJson = $request->request->get('tool_models');
+                if ($toolModelsJson) {
+                    $toolModels = json_decode($toolModelsJson, true);
+                    if (is_array($toolModels)) {
+                        foreach ($toolModels as $toolId => $settings) {
+                            if (is_array($settings)) {
+                                foreach ($settings as $key => $value) {
+                                    $this->aiToolSettingsService->setSetting($toolId, $key, $value ?? '');
+                                }
+                            }
+                        }
+                    }
                 }
+
+                $this->addFlash('success', 'AI models saved successfully.');
             
                 return $this->redirectToRoute('app_user_settings_ai');
             }
@@ -351,6 +381,22 @@ class UserSettingsController extends AbstractController
                 // Get image capable models
                 $aiImageModels = $this->aiServiceModelService->findImageOutputModelsByGateway($gateway->getId(), true);
             }
+
+            // Get all spirits with their AI model settings
+            $spirits = $this->spiritService->findAll();
+            $spiritModelData = [];
+            foreach ($spirits as $spirit) {
+                $spiritSettings = $this->spiritService->getSpiritSettings($spirit->getId());
+                $spiritModelData[] = [
+                    'id' => $spirit->getId(),
+                    'name' => $spirit->getName(),
+                    'aiModel' => $spiritSettings['aiModel'] ?? '',
+                    'subconsciousnessAgentAiModel' => $spiritSettings['subconsciousnessAgentAiModel'] ?? '',
+                ];
+            }
+
+            // Get all AI tool settings of type 'aiModel'
+            $toolModelSettings = $this->aiToolSettingsService->findAllByType('aiModel');
         
             return $this->render('user_settings/ai.html.twig', [
                 'settings' => $settings,
@@ -358,6 +404,8 @@ class UserSettingsController extends AbstractController
                 'aiImageModels' => $aiImageModels,
                 'api_key_state' => $apiKeyState,
                 'CQ_AI_GatewayCredits' => ( $CQ_AI_GatewayCredits !== null ) ? round($CQ_AI_GatewayCredits) : '-',
+                'spiritModelData' => $spiritModelData,
+                'toolModelSettings' => $toolModelSettings,
             ]);
         } catch (\Exception $e) {
             $this->logger->error('UserSettingsController::aiSettings - Exception occurred', [
@@ -378,6 +426,8 @@ class UserSettingsController extends AbstractController
                 'aiImageModels' => [],
                 'api_key_state' => 'unknown',
                 'CQ_AI_GatewayCredits' => '-',
+                'spiritModelData' => [],
+                'toolModelSettings' => [],
             ]);
         }
     }
