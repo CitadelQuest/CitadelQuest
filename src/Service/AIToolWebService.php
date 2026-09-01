@@ -4,6 +4,7 @@ namespace App\Service;
 
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\Process\Process;
 use App\CitadelVersion;
 
 /**
@@ -24,6 +25,8 @@ class AIToolWebService
     private const MAX_REDIRECTS = 5;
     private const CACHE_DURATION_HOURS = 24;
     private const MAX_OUTPUT_LENGTH = 50000; // characters
+    private const DEFAULT_OBSCURA_BINARY_PATH = '/usr/local/bin/obscura';
+    private const DEFAULT_OBSCURA_TIMEOUT = 30;
 
     public function __construct(
         private readonly ProjectFileService $projectFileService,
@@ -63,6 +66,7 @@ class AIToolWebService
         $lang = $arguments['lang'] ?? 'English';
         $downloadPath = $arguments['downloadPath'] ?? null;
         $downloadFilename = $arguments['downloadFilename'] ?? null;
+        $renderJS = $arguments['renderJS'] ?? false;
         
         // Validate URL
         if (!$this->isValidUrl($url)) {
@@ -76,6 +80,10 @@ class AIToolWebService
             // Download mode: fetch binary and save to file
             if ($downloadPath && $downloadFilename) {
                 return $this->downloadAndSaveFile($url, $projectId, $downloadPath, $downloadFilename);
+            }
+            // renderJS mode: use Obscura headless browser to render JavaScript and extract content
+            if ($renderJS) {
+                return $this->fetchWithObscura($url, $projectId, $maxLength, $forceRefresh, $lang);
             }
             // Raw HTML mode: skip cache, cleanup, AI extraction — return raw HTTP response
             if ($resultFormat === 'raw-html-code') {
@@ -267,6 +275,145 @@ class AIToolWebService
         );
         
         $this->annoService->writeAnnotation(AnnoService::TYPE_URL, $url, $annoData, $projectId);
+    }
+
+    /**
+     * Fetch URL using Obscura headless browser (renderJS mode)
+     * Renders JavaScript, extracts clean markdown content
+     */
+    private function fetchWithObscura(string $url, string $projectId, int $maxLength, bool $forceRefresh, string $lang): array
+    {
+        // Get Obscura binary path from fetchURL tool settings
+        $fetchUrlTool = $this->aiToolService->findByName('fetchURL');
+        $binaryPath = self::DEFAULT_OBSCURA_BINARY_PATH;
+        $timeout = self::DEFAULT_OBSCURA_TIMEOUT;
+
+        if ($fetchUrlTool) {
+            $customPath = $this->aiToolSettingsService->getSettingValue($fetchUrlTool->getId(), 'obscura_binary_path');
+            if ($customPath) {
+                $binaryPath = $customPath;
+            }
+            $customTimeout = $this->aiToolSettingsService->getSettingValue($fetchUrlTool->getId(), 'obscura_timeout');
+            if ($customTimeout) {
+                $timeout = (int)$customTimeout;
+            }
+        }
+
+        // Check if Obscura is installed
+        if (!file_exists($binaryPath) || !is_executable($binaryPath)) {
+            // Graceful fallback: use standard HTTP fetch
+            $fetchResult = $this->fetchWithLimits($url);
+            if (!$fetchResult['success']) {
+                return $fetchResult;
+            }
+
+            $cleaned = $this->basicHtmlCleanup($fetchResult['content']);
+            $extractedContent = $this->aiExtractContent(
+                $fetchResult['url'],
+                $cleaned['title'],
+                $cleaned['description'],
+                $cleaned['content'],
+                $lang,
+                $projectId
+            );
+
+            if (!$extractedContent['success']) {
+                $extractedContent = ['success' => true, 'content' => $cleaned['content']];
+            }
+
+            return [
+                'success' => true,
+                'url' => $fetchResult['url'],
+                'title' => $cleaned['title'] . ' (renderJS fallback - Obscura not installed)',
+                'content' => $this->truncateContent($extractedContent['content'], $maxLength),
+                'cached' => false,
+                'rendered_with' => 'fallback',
+                'fetched_at' => (new \DateTime())->format('c'),
+                '_frontendData' => $this->buildFrontendData($fetchResult['url'], $cleaned['title'] . ' (fallback)', false)
+            ];
+        }
+
+        // Check cache first (unless force refresh)
+        if (!$forceRefresh) {
+            $cached = $this->checkCache($url . '#renderJS', $projectId);
+            if ($cached) {
+                return [
+                    'success' => true,
+                    'url' => $url,
+                    'title' => $cached['title'] ?? '',
+                    'content' => $this->truncateContent($cached['content'], $maxLength),
+                    'cached' => true,
+                    'rendered_with' => 'obscura',
+                    'fetched_at' => $cached['fetched_at'] ?? null,
+                    '_frontendData' => $this->buildFrontendData($url, $cached['title'] ?? '', true)
+                ];
+            }
+        }
+
+        // Build and run Obscura command: obscura fetch URL --dump markdown --wait-until networkidle0
+        $command = [
+            $binaryPath,
+            'fetch',
+            $url,
+            '--dump',
+            'markdown',
+            '--wait-until',
+            'networkidle0',
+            '--timeout',
+            (string)$timeout,
+        ];
+
+        $process = new Process($command);
+        $process->setTimeout($timeout + 10);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            return [
+                'success' => false,
+                'error' => 'Obscura renderJS failed: ' . trim($process->getErrorOutput() ?: $process->getOutput())
+            ];
+        }
+
+        $content = $process->getOutput();
+        if (empty(trim($content))) {
+            return [
+                'success' => false,
+                'error' => 'Obscura rendered the page but returned empty content.'
+            ];
+        }
+
+        // Extract title from the markdown (first H1 or first line)
+        $title = '';
+        if (preg_match('/^#\s+(.+)$/m', $content, $m)) {
+            $title = trim($m[1]);
+        } elseif (preg_match('/^(.+)$/m', $content, $m)) {
+            $title = trim($m[1]);
+            if (strlen($title) > 100) {
+                $title = substr($title, 0, 100) . '...';
+            }
+        }
+
+        // Truncate to max length
+        $content = $this->truncateContent($content, $maxLength);
+
+        // Save to cache with renderJS-specific key
+        $this->saveToCache($url . '#renderJS', $projectId, [
+            'title' => $title,
+            'description' => '',
+            'content' => $content,
+            'fetched_at' => (new \DateTime())->format('c')
+        ]);
+
+        return [
+            'success' => true,
+            'url' => $url,
+            'title' => $title,
+            'content' => $content,
+            'cached' => false,
+            'rendered_with' => 'obscura',
+            'fetched_at' => (new \DateTime())->format('c'),
+            '_frontendData' => $this->buildFrontendData($url, $title ?: $url, false)
+        ];
     }
 
     /**

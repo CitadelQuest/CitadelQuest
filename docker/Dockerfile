@@ -31,6 +31,16 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Obscura (headless browser for AI screenshot/fetch tools)
+# Static binary, no Chromium/Node.js required, ~57MB
+RUN curl -L -o /tmp/obscura.tar.gz \
+    https://github.com/h4ckf0r0day/obscura/releases/latest/download/obscura-x86_64-linux.tar.gz \
+    && tar xzf /tmp/obscura.tar.gz -C /tmp/ \
+    && mv /tmp/obscura /usr/local/bin/obscura \
+    && mv /tmp/obscura-worker /usr/local/bin/obscura-worker \
+    && chmod +x /usr/local/bin/obscura /usr/local/bin/obscura-worker \
+    && rm -rf /tmp/obscura*
+
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

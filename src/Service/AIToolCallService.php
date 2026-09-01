@@ -27,6 +27,7 @@ class AIToolCallService
         private readonly AIToolImageService $aiToolImageService,
         private readonly AIToolDiffusionService $aiToolDiffusionService,
         private readonly AIToolWebService $aiToolWebService,
+        private readonly AIToolScreenshotService $aiToolScreenshotService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly AIToolProfileService $aiToolProfileService,
         private readonly AIToolGitService $aiToolGitService,
@@ -90,6 +91,11 @@ class AIToolCallService
             // For web tools, delegate to AIToolWebService
             if (in_array($toolName, ['fetchURL'])) {
                 return $this->aiToolWebService->{$toolName}($arguments);
+            }
+
+            // For screenshot tools, delegate to AIToolScreenshotService
+            if (in_array($toolName, ['screenshotURL'])) {
+                return $this->aiToolScreenshotService->{$toolName}($arguments);
             }
 
             // For memory tools, delegate to AIToolMemoryService
