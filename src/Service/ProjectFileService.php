@@ -1837,6 +1837,14 @@ class ProjectFileService
     private const THUMBNAIL_ICON_SUFFIX = '.icon';
     
     /**
+     * Settings for AI vision image preparation (multimodal tool outputs).
+     * 1568px is the long-edge sweet spot shared by major vision models
+     * (OpenAI/Gemini) — keeps provider limits and token costs sane.
+     */
+    private const AI_VISION_MAX_EDGE = 1568;
+    private const AI_VISION_MAX_BASE64_LENGTH = 6291456; // 6 MB base64 safety cap
+    
+    /**
      * Check if file is an image that supports thumbnails
      */
     public function isImageFile(string $filename): bool
@@ -2104,6 +2112,141 @@ class ProjectFileService
         }
         
         return $images;
+    }
+
+    /**
+     * Get file content as a data URI prepared for AI vision input
+     * (multimodal tool outputs — Spirit sends tool-read images to the AI).
+     * Resizes oversized images to AI_VISION_MAX_EDGE; returns null when the
+     * image cannot be delivered (unsupported format, too large, no GD).
+     */
+    public function getFileContentForAiVision(string $fileId): ?string
+    {
+        $file = $this->findById($fileId);
+        if (!$file || $file->isDirectory()) {
+            return null;
+        }
+
+        // Only GD-loadable raster formats. SVG is deliberately excluded —
+        // vector graphics are not accepted as image input by vision models
+        // (the Spirit reads SVG as text instead).
+        if (!$this->isImageFile($file->getName()) || strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION)) === 'svg') {
+            return null;
+        }
+
+        $filePath = $this->getAbsoluteFilePath($file->getProjectId(), $file->getPath(), $file->getName());
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $mimeType = $file->getMimeType() ?? 'image/jpeg';
+        $dataUri = null;
+
+        if ($this->isGdAvailable()) {
+            try {
+                $imageInfo = getimagesize($filePath);
+                if ($imageInfo !== false) {
+                    $width = $imageInfo[0];
+                    $height = $imageInfo[1];
+                    $actualMime = $imageInfo['mime'] ?? $mimeType;
+
+                    // Never resize GIFs — GD would drop animation (first frame only)
+                    $needsResize = max($width, $height) > self::AI_VISION_MAX_EDGE && $actualMime !== 'image/gif';
+
+                    if ($needsResize) {
+                        $dataUri = $this->resizeImageForAi($filePath, $actualMime, $width, $height);
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->logger->error('AI vision image preparation failed: ' . $e->getMessage());
+            }
+        }
+
+        // Fallback (small images, GIFs, no GD): original bytes as data URI
+        if ($dataUri === null) {
+            $raw = file_get_contents($filePath);
+            if ($raw === false) {
+                return null;
+            }
+            $dataUri = 'data:' . $mimeType . ';base64,' . base64_encode($raw);
+        }
+
+        // Final safety cap — never ship oversized payloads to AI providers
+        if (strlen($dataUri) > self::AI_VISION_MAX_BASE64_LENGTH) {
+            $this->logger->warning('AI vision image too large even after resize, skipping', ['fileId' => $fileId]);
+            return null;
+        }
+
+        return $dataUri;
+    }
+
+    /**
+     * Resize an image for AI vision input and return it as a data URI.
+     * Keeps PNG/WebP transparency, re-encodes raster formats with sane quality.
+     */
+    private function resizeImageForAi(string $filePath, string $mimeType, int $width, int $height): ?string
+    {
+        $sourceImage = match ($mimeType) {
+            'image/jpeg' => imagecreatefromjpeg($filePath),
+            'image/png' => imagecreatefrompng($filePath),
+            'image/gif' => imagecreatefromgif($filePath),
+            'image/webp' => imagecreatefromwebp($filePath),
+            'image/bmp' => imagecreatefrombmp($filePath),
+            default => null,
+        };
+
+        if (!$sourceImage) {
+            return null;
+        }
+
+        try {
+            $ratio = min(self::AI_VISION_MAX_EDGE / $width, self::AI_VISION_MAX_EDGE / $height);
+            $newWidth = max(1, (int) round($width * $ratio));
+            $newHeight = max(1, (int) round($height * $ratio));
+
+            $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+
+            // Preserve transparency for PNG/WebP
+            if ($mimeType === 'image/png' || $mimeType === 'image/webp') {
+                imagealphablending($resizedImage, false);
+                imagesavealpha($resizedImage, true);
+                $transparent = imagecolorallocatealpha($resizedImage, 0, 0, 0, 127);
+                imagefill($resizedImage, 0, 0, $transparent);
+            }
+
+            imagecopyresampled(
+                $resizedImage, $sourceImage,
+                0, 0, 0, 0,
+                $newWidth, $newHeight,
+                $width, $height
+            );
+
+            // Re-encode to a data URI
+            ob_start();
+            if ($mimeType === 'image/png') {
+                $ok = imagepng($resizedImage, null, 6);
+                $outMime = 'image/png';
+            } elseif ($mimeType === 'image/webp') {
+                $ok = imagewebp($resizedImage, null, 85);
+                $outMime = 'image/webp';
+            } else {
+                $ok = imagejpeg($resizedImage, null, 85);
+                $outMime = 'image/jpeg';
+            }
+            $binary = ob_get_clean();
+            imagedestroy($sourceImage);
+            imagedestroy($resizedImage);
+
+            if (!$ok || !is_string($binary) || $binary === '') {
+                return null;
+            }
+
+            return 'data:' . $outMime . ';base64,' . base64_encode($binary);
+        } catch (\Exception $e) {
+            $this->logger->error('AI vision image resize failed: ' . $e->getMessage());
+            imagedestroy($sourceImage);
+            return null;
+        }
     }
 
     /**

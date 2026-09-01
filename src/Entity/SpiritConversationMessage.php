@@ -158,12 +158,39 @@ class SpiritConversationMessage implements \JsonSerializable
             'conversationId' => $this->conversationId,
             'role' => $this->role,
             'type' => $this->type,
-            'content' => $this->content,
+            'content' => $this->role === 'tool' ? $this->serializeToolContent() : $this->content,
             'parentMessageId' => $this->parentMessageId,
             'aiServiceRequestId' => $this->aiServiceRequestId,
             'aiServiceResponseId' => $this->aiServiceResponseId,
             'createdAt' => $this->createdAt->format('c'),
             'timestamp' => $this->createdAt->format('c')  // ISO 8601 with timezone for correct JS parsing
         ];
+    }
+
+    /**
+     * Tool message content holds tool results with multimodal image parts
+     * (base64 data URIs sent to the AI as vision input). The browser never
+     * needs those — the chat UI renders each result's frontendData only — so
+     * image parts are stripped here to keep API payloads small.
+     */
+    private function serializeToolContent(): array
+    {
+        $serialized = [];
+        foreach ($this->content as $key => $toolResult) {
+            if (is_array($toolResult) && isset($toolResult['content']) && is_array($toolResult['content'])) {
+                $text = null;
+                foreach ($toolResult['content'] as $part) {
+                    if (is_array($part) && ($part['type'] ?? '') === 'text' && isset($part['text']) && is_string($part['text'])) {
+                        $text = $part['text'];
+                        break;
+                    }
+                }
+                if ($text !== null) {
+                    $toolResult['content'] = $text;
+                }
+            }
+            $serialized[$key] = $toolResult;
+        }
+        return $serialized;
     }
 }

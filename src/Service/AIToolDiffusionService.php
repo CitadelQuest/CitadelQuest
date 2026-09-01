@@ -188,11 +188,28 @@ class AIToolDiffusionService
                 $returnFiles[] = $this->projectFileService->findById($savedFile['id']);
                 $returnSavedTo[] = '`' . $savedFile['path'] . '/' . $savedFile['name'] . '`';
             }
-            
-            return [
+
+            // Multimodal tool output: attach the generated images for AI vision
+            // (GD-resized data URIs) so the Spirit can see its own work
+            $imagesForAi = [];
+            foreach ($newFiles as $savedFile) {
+                if (count($imagesForAi) >= 4) {
+                    break;
+                }
+                $imageUri = $this->projectFileService->getFileContentForAiVision($savedFile['id']);
+                if ($imageUri !== null) {
+                    $imagesForAi[] = $imageUri;
+                }
+            }
+            $hasImagesForAi = $imagesForAi !== [];
+            if ($hasImagesForAi) {
+                $contentFrontendData .= '<div class="small text-cyber opacity-75 mt-1"><i class="mdi mdi-eye-outline me-1"></i>' . (count($imagesForAi) > 1 ? count($imagesForAi) . ' images' : 'Image') . ' sent to AI vision</div>';
+            }
+
+            $return = [
                 'success' => true,
                 'files' => $returnFiles,
-                'message' => 'Diffusion image generation successful. Saved to [' . implode(', ', $returnSavedTo) . '] and displayed in the user interface.',
+                'message' => 'Diffusion image generation successful. Saved to [' . implode(', ', $returnSavedTo) . '] and displayed in the user interface.' . ($hasImagesForAi ? ' The image(s) are also attached below as image input for you to see.' : ''),
                 'diffusionParams' => [
                     'positivePrompt' => $diffusionParams['positivePrompt'] ?? '',
                     'negativePrompt' => $diffusionParams['negativePrompt'] ?? '',
@@ -202,6 +219,13 @@ class AIToolDiffusionService
                 '_frontendData' => $contentFrontendData,
                 'total_cost_credits' => $imageResponse['total_cost_credits'] ?? 0,
             ];
+
+            if ($hasImagesForAi) {
+                $return['_imageForAi'] = $imagesForAi;
+                $return['image_attached_to_ai'] = true;
+            }
+
+            return $return;
             
         } catch (\Exception $e) {
             return [

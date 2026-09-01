@@ -546,6 +546,15 @@ class CQAIGateway implements AiGatewayInterface
                     $filtered[] = $content;
                 }
                 $message['content'] = $filtered;
+
+                // Tool messages with a single remaining text part: collapse to
+                // plain string — safest chat-completions form for the tool role
+                if (($message['role'] ?? '') === 'tool'
+                    && count($filtered) === 1
+                    && isset($filtered[0]['type']) && $filtered[0]['type'] === 'text'
+                    && isset($filtered[0]['text'])) {
+                    $message['content'] = $filtered[0]['text'];
+                }
             }
         }
         unset($message);

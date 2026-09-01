@@ -656,8 +656,26 @@ HTML;
                 $content = $this->projectFileService->getFileContent($file->getId(), $withLineNumbers);
             }
             
+            // Multimodal tool output: prepare the image itself for AI vision
+            // (data URI, GD-resized). Extracted from the JSON text result in
+            // SpiritConversationService::executeToolCallsFromArray and sent as
+            // separate image content parts (Responses API multimodal tool output).
+            $imagesForAi = [];
+            if (!$usedAnnotations && strpos($file->getMimeType() ?? '', 'image/') === 0) {
+                $imageUri = $this->projectFileService->getFileContentForAiVision($file->getId());
+                if ($imageUri !== null) {
+                    $imagesForAi[] = $imageUri;
+                }
+            }
+            $hasImagesForAi = $imagesForAi !== [];
+            
             // Build frontend display HTML (same logic as original getFileContent)
             $contentFrontendData = $this->buildContentFrontendData($file, $content, $usedAnnotations, $projectId);
+            
+            // Multimodal tool output badge (image attached for AI vision)
+            if ($hasImagesForAi) {
+                $contentFrontendData .= '<div class="small text-cyber opacity-75 mt-1"><i class="mdi mdi-eye-outline me-1"></i>Image sent to AI vision</div>';
+            }
             
             // Handle binary data display
             if (!$usedAnnotations && strpos($content, 'data:') === 0) {
@@ -667,9 +685,12 @@ HTML;
                     strpos($file->getMimeType() ?? '', 'audio/') === 0) {
                     $content = 'binary data, displayed directly in frontend';
                 }
+                if ($hasImagesForAi) {
+                    $content = 'image file, attached as image input for you below';
+                }
             }
             
-            return [
+            $result = [
                 'success' => true,
                 'operation' => 'read',
                 'content' => $content,
@@ -677,6 +698,13 @@ HTML;
                 'with_line_numbers' => $withLineNumbers,
                 '_frontendData' => $contentFrontendData
             ];
+            
+            if ($hasImagesForAi) {
+                $result['_imageForAi'] = $imagesForAi;
+                $result['image_attached_to_ai'] = true;
+            }
+            
+            return $result;
         } catch (\Exception $e) {
             return [
                 'success' => false,

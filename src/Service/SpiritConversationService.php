@@ -1656,6 +1656,20 @@ PROMPT;
                 unset($toolResult['_frontendData']);
             }
 
+            // Multimodal tool output: extract AI vision images before
+            // sanitizing — base64 data must never be truncated/utf8-cleaned
+            // as normal string content. Sent as separate image content parts
+            // (Responses API multimodal tool output via CQ AI Gateway).
+            $imagesForAi = [];
+            if (isset($toolResult['_imageForAi']) && is_array($toolResult['_imageForAi'])) {
+                foreach ($toolResult['_imageForAi'] as $imageUri) {
+                    if (is_string($imageUri) && str_starts_with($imageUri, 'data:')) {
+                        $imagesForAi[] = $imageUri;
+                    }
+                }
+                unset($toolResult['_imageForAi']);
+            }
+
             // Sanitize tool result: strip invalid UTF-8 and truncate huge outputs
             // so the next AI request message structure stays valid and small.
             $toolResult = $this->sanitizeToolResult($toolResult);
@@ -1680,6 +1694,19 @@ PROMPT;
                     'name' => $toolName,
                     'content' => $encodedContent
                 ];
+
+                // Multimodal tool output: attach images as content parts array
+                // (chat-completions protocol extension — the CQ AI Gateway
+                // translates it to Responses API input_image parts).
+                // Capped to keep the next AI request payload bounded.
+                if ($imagesForAi !== []) {
+                    $imagesForAi = array_slice($imagesForAi, 0, 9);
+                    $contentParts = [['type' => 'text', 'text' => $encodedContent]];
+                    foreach ($imagesForAi as $imageUri) {
+                        $contentParts[] = ['type' => 'image_url', 'image_url' => ['url' => $imageUri]];
+                    }
+                    $result['content'] = $contentParts;
+                }
 
                 // Add frontendData separately
                 if ($frontendData) {
@@ -1798,7 +1825,18 @@ PROMPT;
         ];
         
         // Add conversation messages
-        foreach ($messages as $message) {
+        // Position of the most recent user message — tool results before it
+        // belong to previous turns: their image parts get stripped so images
+        // are not re-sent (and re-billed) with every subsequent request.
+        // Multi-step tool chains within the current turn keep their images.
+        $lastUserIdx = -1;
+        foreach ($messages as $idx => $msg) {
+            if ($msg->getRole() === 'user') {
+                $lastUserIdx = $idx;
+            }
+        }
+
+        foreach ($messages as $index => $message) {
             $role = $message->getRole();
             $content = $message->getContent();
             $type = $message->getType();
@@ -1813,6 +1851,10 @@ PROMPT;
                 // Each tool result needs to be added as a separate message
                 if (is_array($content)) {
                     foreach ($content as $toolResult) {
+                        // Previous turns: drop attached tool images (cost control)
+                        if ($index < $lastUserIdx) {
+                            $toolResult = $this->stripToolResultImageParts($toolResult);
+                        }
                         // Each tool result is already formatted correctly from executeToolCallsFromArray
                         $aiMessages[] = $toolResult;
                     }
@@ -1929,6 +1971,30 @@ PROMPT;
         return $aiMessages;
     }
     
+    /**
+     * Strip image parts from a stored tool result (previous turns).
+     * Keeps the text part so the tool call structure stays schema-valid
+     * and the AI still knows what the tool returned.
+     */
+    private function stripToolResultImageParts(array $toolResult): array
+    {
+        if (isset($toolResult['content']) && is_array($toolResult['content'])) {
+            $text = null;
+            foreach ($toolResult['content'] as $part) {
+                if (is_array($part) && ($part['type'] ?? '') === 'text' && isset($part['text']) && is_string($part['text'])) {
+                    $text = $part['text'];
+                    break;
+                }
+            }
+            if ($text !== null) {
+                $toolResult['content'] = $text;
+            } else {
+                $toolResult['content'] = '';
+            }
+        }
+        return $toolResult;
+    }
+
     /**
      * Sanitize message content before sending to AI
      * Removes fields that are only needed for backend processing (e.g., filename in image_url)

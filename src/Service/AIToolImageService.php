@@ -253,15 +253,35 @@ class AIToolImageService
 
             $contentFrontendData .= '<div style="clear:both;"></div>';
 
-            // add content showcase icon event listener - no need to do it here - works already in conversations
+            // Multimodal tool output: attach the created/edited images for AI
+            // vision (GD-resized data URIs) so the Spirit can see its own work
+            $imagesForAi = [];
+            foreach ($newFiles as $savedFile) {
+                if (count($imagesForAi) >= 4) {
+                    break;
+                }
+                $imageUri = $this->projectFileService->getFileContentForAiVision($savedFile['id']);
+                if ($imageUri !== null) {
+                    $imagesForAi[] = $imageUri;
+                }
+            }
+            $hasImagesForAi = $imagesForAi !== [];
+            if ($hasImagesForAi) {
+                $contentFrontendData .= '<div class="small text-cyber opacity-75 mt-1"><i class="mdi mdi-eye-outline me-1"></i>' . (count($imagesForAi) > 1 ? count($imagesForAi) . ' images' : 'Image') . ' sent to AI vision</div>';
+            }
             
             $return = [
                 'success' => true,
                 'files' => $returnFiles,            
-                'message' => 'Image edit successful. Saved to [. '.implode(', ', $returnSavedTo).'.] and displayed in the user interface.',
+                'message' => 'Image edit successful. Saved to [. '.implode(', ', $returnSavedTo).'.] and displayed in the user interface.' . ($hasImagesForAi ? ' The image(s) are also attached below as image input for you to see.' : ''),
                 'inputImages' => count($inputImages),
                 '_frontendData' => $contentFrontendData
             ];
+            
+            if ($hasImagesForAi) {
+                $return['_imageForAi'] = $imagesForAi;
+                $return['image_attached_to_ai'] = true;
+            }
             
             if ($messageFromAI) {
                 $return['messageFromAI'] = $messageFromAI;
