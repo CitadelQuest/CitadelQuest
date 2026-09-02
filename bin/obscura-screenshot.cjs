@@ -7,6 +7,13 @@
  * viewport-only).  Outputs the PNG to a file path, then shuts down the
  * server and exits.
  *
+ * Capture strategies (full-page mode):
+ *   1. Simple fullPage — when raster surface (width × scrollHeight) ≤ 30M px
+ *   2. Clip truncation — when page is tall but raster surface fits budget
+ *   3. Segmented capture — when raster surface exceeds budget:
+ *      scrolls in 4096px steps, captures viewport-only screenshots,
+ *      stitches them vertically with pngjs. Removes the raster ceiling.
+ *
  * Usage:
  *   node obscura-screenshot.cjs \
  *     --url https://example.com \
@@ -29,6 +36,7 @@ const { spawn } = require('child_process');
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const net = require('net');
+const PNG = require('pngjs').PNG;
 
 // ── Parse CLI args ──────────────────────────────────────────────
 function parseArgs() {
@@ -126,23 +134,25 @@ function waitForServer(port, maxWaitMs) {
         });
 
         // 6. Capture screenshot
-        // Chromium has TWO independent limits:
+        // Chromium has THREE independent limits:
         //   A) captureBeyondViewport: max height 32768px (2^15) per dimension
         //   B) PNG encoder safety: max 33554432 total pixels (2^25)
-        // So maxHeight must respect BOTH: min(32768, floor(33554432 / width))
+        //   C) Raster surface budget: width × scrollHeight must be ≤ ~33.5M px
+        //      (Chromium rasterizes the FULL page before clipping, so clip can't save us)
+        // Strategy:
+        //   - If raster surface fits budget → simple fullPage or clip capture
+        //   - If raster surface exceeds budget → segmented capture (scroll + stitch)
         const MAX_DIMENSION = 32768;
         const MAX_TOTAL_PIXELS = 33554432;
+        const RASTER_BUDGET = 30000000; // 30M px safety margin below 2^25
+        const SEGMENT_HEIGHT = 4096;
         let truncated = false;
+        let segmented = false;
         let actualFullHeight = height;
-        const screenshotOpts = {
-            path: outputPath,
-            type: 'png',
-        };
 
         if (fullPage) {
-            // Check page scroll height before attempting full-page capture
-            // Use max of body and documentElement — some skins (e.g. Wikipedia Vector)
-            // put the real scroll height on documentElement, not body
+            // Measure page scroll height — use max of body and documentElement
+            // (some skins like Wikipedia Vector put real height on documentElement)
             const scrollHeight = await page.evaluate(() =>
                 Math.max(
                     document.body ? document.body.scrollHeight : 0,
@@ -151,24 +161,80 @@ function waitForServer(port, maxWaitMs) {
             );
             actualFullHeight = scrollHeight;
 
-            // Compute effective max height: respect both per-dimension AND total-pixel limits
+            // Output height: respect both per-dimension AND total-pixel limits
             const maxHeight = Math.min(MAX_DIMENSION, Math.floor(MAX_TOTAL_PIXELS / width));
+            const captureHeight = Math.min(scrollHeight, maxHeight);
+            const rasterSurface = width * scrollHeight;
 
             if (scrollHeight > maxHeight) {
-                // Page is too tall — clamp it
                 truncated = true;
-                await page.setViewport({ width, height: maxHeight, deviceScaleFactor: 1 });
-                screenshotOpts.clip = { x: 0, y: 0, width, height: maxHeight };
+            }
+
+            if (rasterSurface <= RASTER_BUDGET) {
+                // Strategy 1/2: Raster surface fits — simple capture
+                if (truncated) {
+                    // Strategy 2: Clip truncation
+                    await page.setViewport({ width, height: captureHeight, deviceScaleFactor: 1 });
+                    await page.screenshot({
+                        path: outputPath,
+                        type: 'png',
+                        clip: { x: 0, y: 0, width, height: captureHeight },
+                    });
+                } else {
+                    // Strategy 1: Full page, no truncation
+                    await page.screenshot({
+                        path: outputPath,
+                        type: 'png',
+                        fullPage: true,
+                    });
+                }
             } else {
-                screenshotOpts.fullPage = true;
+                // Strategy 3: Segmented capture — raster surface too large
+                // Scroll through the page in SEGMENT_HEIGHT steps, capture viewport-only
+                // screenshots (small raster per shot), then stitch with pngjs
+                segmented = true;
+                const segments = [];
+                let y = 0;
+
+                while (y < captureHeight) {
+                    const segHeight = Math.min(SEGMENT_HEIGHT, captureHeight - y);
+
+                    // Set viewport to exact segment height so scroll position is precise
+                    await page.setViewport({ width, height: segHeight, deviceScaleFactor: 1 });
+
+                    // Scroll to segment position
+                    await page.evaluate((yPos) => window.scrollTo(0, yPos), y);
+
+                    // Wait for lazy-loaded content and render
+                    await new Promise(r => setTimeout(r, 300));
+
+                    // Capture viewport-only (no fullPage, no captureBeyondViewport)
+                    const buf = await page.screenshot({ type: 'png' });
+                    segments.push(buf);
+
+                    y += segHeight;
+                }
+
+                // Stitch segments vertically using pngjs
+                const pngs = segments.map(buf => PNG.sync.read(buf));
+                const totalSegHeight = pngs.reduce((sum, png) => sum + png.height, 0);
+                const stitched = new PNG({ width, height: totalSegHeight });
+                let yOffset = 0;
+                for (const png of pngs) {
+                    PNG.bitblt(png, stitched, 0, 0, png.width, png.height, 0, yOffset);
+                    yOffset += png.height;
+                }
+                fs.writeFileSync(outputPath, PNG.sync.write(stitched));
             }
         } else {
-            // Viewport-only mode: also respect total-pixel limit
+            // Viewport-only mode: respect total-pixel limit
             const maxHeightViewport = Math.min(height, Math.floor(MAX_TOTAL_PIXELS / width));
-            screenshotOpts.clip = { x: 0, y: 0, width, height: maxHeightViewport };
+            await page.screenshot({
+                path: outputPath,
+                type: 'png',
+                clip: { x: 0, y: 0, width, height: maxHeightViewport },
+            });
         }
-
-        await page.screenshot(screenshotOpts);
 
         // 7. Verify the file was written AND is a valid PNG
         if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
@@ -205,6 +271,7 @@ function waitForServer(port, maxWaitMs) {
             height: pngHeight,
             fullPage,
             truncated,
+            segmented,
             ...(truncated ? { originalPageHeight: actualFullHeight, truncationNote: `Page was ${actualFullHeight}px tall, truncated to ${pngHeight}px (capture limit)` } : {}),
         };
         console.log(JSON.stringify(result));

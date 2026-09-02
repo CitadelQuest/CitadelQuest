@@ -31,8 +31,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install puppeteer-core globally (needed by bin/obscura-screenshot.cjs for CDP control)
-RUN npm install -g puppeteer-core@24
+# Install puppeteer-core + pngjs globally (needed by bin/obscura-screenshot.cjs)
+# puppeteer-core: CDP client for viewport/screenshot control
+# pngjs: pure-JS PNG stitching for segmented capture of tall pages
+RUN npm install -g puppeteer-core@24 pngjs
 
 # Install Obscura (headless browser for AI screenshot/fetch tools)
 # Static binary, no Chromium/Node.js required, ~57MB

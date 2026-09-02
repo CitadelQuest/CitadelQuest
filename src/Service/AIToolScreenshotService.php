@@ -231,7 +231,11 @@ class AIToolScreenshotService
             $truncated = $scriptResult['truncated'] ?? false;
             $frontendData = $this->buildFrontendDisplay($url, $savePath . '/' . $filename, $base64Data, $savedFile->getId(), $fileSize, $actualWidth, $actualHeight, $hasImageForAi, $fullPage, $truncated);
 
+            $segmented = $scriptResult['segmented'] ?? false;
             $message = 'Screenshot captured successfully. Saved to `' . $savePath . '/' . $filename . '` and displayed in the user interface.' . ($hasImageForAi ? ' The screenshot is also attached below as image input for you to see.' : '');
+            if ($segmented) {
+                $message .= ' (Segmented capture: page was too large for single-pass rasterization, captured in vertical strips and stitched.)';
+            }
             if ($truncated) {
                 $message .= ' NOTE: The page was ' . ($scriptResult['originalPageHeight'] ?? '?') . 'px tall, which exceeds the Chromium capture limit (32768px). The screenshot was truncated to the first ' . $actualHeight . 'px.';
             }
@@ -254,6 +258,10 @@ class AIToolScreenshotService
             if ($truncated) {
                 $result['truncated'] = true;
                 $result['originalPageHeight'] = $scriptResult['originalPageHeight'] ?? null;
+            }
+
+            if ($segmented) {
+                $result['segmented'] = true;
             }
 
             if ($hasImageForAi) {
