@@ -43,8 +43,8 @@ class AIToolScreenshotService
      * @param array $arguments Tool arguments:
      *   - url: string (required) - The web URL to screenshot
      *   - projectId: string (optional) - Project ID for file storage (default: 'general')
-     *   - width: int (optional) - Viewport width in pixels (default: 1440)
-     *   - height: int (optional) - Viewport height in pixels (default: 1000)
+     *   - width: int (optional) - Viewport width in pixels (default: 1440, valid range: 320–2560, clamped if outside)
+     *   - height: int (optional) - Viewport height in pixels (default: 1000, valid range: 240–2000)
      *   - fullPage: bool (optional) - Capture full page, not just viewport (default: true)
      *   - waitUntil: string (optional) - Wait condition: 'load'|'domcontentloaded'|'networkidle0' (default: 'networkidle0')
      *   - savePath: string (optional) - Project path to save screenshot (default: /uploads/ai/screenshots)
@@ -59,17 +59,18 @@ class AIToolScreenshotService
 
         $url = $arguments['url'];
         $projectId = $arguments['projectId'] ?? 'general';
-        $width = (int)($arguments['width'] ?? self::DEFAULT_WIDTH);
-        $height = (int)($arguments['height'] ?? self::DEFAULT_HEIGHT);
+        $requestedWidth = (int)($arguments['width'] ?? self::DEFAULT_WIDTH);
+        $requestedHeight = (int)($arguments['height'] ?? self::DEFAULT_HEIGHT);
         $fullPage = $arguments['fullPage'] ?? true;
         $waitUntil = $arguments['waitUntil'] ?? 'networkidle0';
         $savePath = $arguments['savePath'] ?? self::DEFAULT_SAVE_PATH;
         $filename = $arguments['filename'] ?? null;
         $forceRefresh = $arguments['forceRefresh'] ?? false;
 
-        // Clamp viewport dimensions
-        $width = max(320, min($width, self::MAX_WIDTH));
-        $height = max(240, min($height, self::MAX_HEIGHT));
+        // Clamp viewport dimensions (valid range: width 320–2560, height 240–2000)
+        $width = max(320, min($requestedWidth, self::MAX_WIDTH));
+        $height = max(240, min($requestedHeight, self::MAX_HEIGHT));
+        $widthClamped = $width !== $requestedWidth;
 
         // Validate URL
         if (!$this->isValidUrl($url)) {
@@ -233,6 +234,9 @@ class AIToolScreenshotService
 
             $segmented = $scriptResult['segmented'] ?? false;
             $message = 'Screenshot captured successfully. Saved to `' . $savePath . '/' . $filename . '` and displayed in the user interface.' . ($hasImageForAi ? ' The screenshot is also attached below as image input for you to see.' : '');
+            if ($widthClamped) {
+                $message .= ' NOTE: Requested width ' . $requestedWidth . 'px was outside the valid range (320–2560) and clamped to ' . $width . 'px.';
+            }
             if ($segmented) {
                 $message .= ' (Segmented capture: page was too large for single-pass rasterization, captured in vertical strips and stitched.)';
             }
@@ -254,6 +258,11 @@ class AIToolScreenshotService
                 'viewport' => ['width' => $width, 'height' => $height],
                 '_frontendData' => $frontendData,
             ];
+
+            if ($widthClamped) {
+                $result['requestedWidth'] = $requestedWidth;
+                $result['widthNote'] = 'Requested width ' . $requestedWidth . 'px clamped to ' . $width . 'px (valid range: 320–2560).';
+            }
 
             if ($truncated) {
                 $result['truncated'] = true;

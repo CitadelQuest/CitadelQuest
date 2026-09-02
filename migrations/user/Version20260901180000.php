@@ -28,13 +28,13 @@ class UserMigration_20260901180000
     {
         // 1. Add screenshotURL tool
         $this->addTool($db, 'screenshotURL',
-            'Capture a screenshot of a web page. The screenshot is saved to the user\'s File Browser and displayed in the chat. The image is also sent to you as image input so you can see the page visually. Use this to: see what a website looks like, verify visual layout, capture dynamic JavaScript-rendered content, or provide visual context about a web page. For text content extraction, use fetchURL instead.',
+            'Capture a screenshot of a web page. The screenshot is saved to the user\'s File Browser and displayed in the chat. The image is also sent to you as image input so you can see the page visually. Use this to: see what a website looks like, verify visual layout, capture dynamic JavaScript-rendered content, or provide visual context about a web page. For text content extraction, use fetchURL instead. Security: private/internal IP addresses (127.0.0.1, 10.x, 172.16-31.x, 192.168.x) are refused. Capture strategy is automatic: if width × page height ≤ 30M pixels, a single-pass fullPage capture is used; if larger, the page is captured in 4096px vertical segments and stitched; if page height exceeds 32768px (Chromium limit), the screenshot is truncated and reported honestly.',
             [
                 'type' => 'object',
                 'properties' => [
                     'url' => [
                         'type' => 'string',
-                        'description' => 'The web URL to capture a screenshot of (http:// or https://)'
+                        'description' => 'The web URL to capture a screenshot of (http:// or https://). Private/internal IP addresses are refused for security.'
                     ],
                     'projectId' => [
                         'type' => 'string',
@@ -42,15 +42,15 @@ class UserMigration_20260901180000
                     ],
                     'width' => [
                         'type' => 'integer',
-                        'description' => 'Viewport width in pixels (optional, default: 1440, max: 2560)'
+                        'description' => 'Viewport width in pixels (optional, default: 1440, valid range: 320–2560; values outside this range are clamped and reported in the result as requestedWidth/widthNote)'
                     ],
                     'height' => [
                         'type' => 'integer',
-                        'description' => 'Viewport height in pixels (optional, default: 1000, max: 2000)'
+                        'description' => 'Viewport height in pixels (optional, default: 1000, valid range: 240–2000; only affects initial viewport, fullPage captures the entire scrollable page)'
                     ],
                     'fullPage' => [
                         'type' => 'boolean',
-                        'description' => 'Capture the full scrollable page, not just the viewport (optional, default: true)'
+                        'description' => 'Capture the full scrollable page, not just the viewport (optional, default: true). Tall pages may be truncated at 32768px (Chromium limit) or captured in segments if width × height > 30M pixels.'
                     ],
                     'waitUntil' => [
                         'type' => 'string',
