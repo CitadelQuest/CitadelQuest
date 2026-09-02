@@ -1037,6 +1037,7 @@ export class SpiritChatManager {
                         </button>
 
                         <small class="text-muted float-end d-none_d-md-inline-block pt-1 me-2">
+                            ${conversation.memoryExtracted ? `<span class="memory-extracted-badge" title="${window.translations?.['spirit.chat.conversation_closed'] || 'Conversation closed — memory extracted'}"><i class="mdi mdi-graph text-info me-1 ms-2 opacity-50"></i></span>` : ''}
                             <span class="" title="Context window size"><i class="mdi mdi-chart-donut text-cyber opacity-75 me-1 ms-2"></i>${conversation.lastMsgUsage?.totalTokensFormatted || '0'}</span>
                             <span class="d-none d-lg-inline" title="Conversation data size"><i class="mdi mdi-database text-cyber opacity-75 me-1 ms-2"></i>${conversation.formattedSize || '0 B'}</span> <span class="text-cyber d-none">/</span>
                             <span class="" title="Messages count"><i class="mdi mdi-message-outline text-cyber opacity-75 me-1 ms-2"></i>${conversation.messagesCount || '0'}</span> <span class="text-cyber d-none">/</span>
@@ -1246,6 +1247,24 @@ export class SpiritChatManager {
             // Hide extract button (already extracted)
             if (this.extractMemoryBtn) {
                 this.extractMemoryBtn.classList.add('d-none');
+            }
+            // Update conversation list item indicator
+            if (this.currentConversationId && this.conversationsList) {
+                const convItem = this.conversationsList.querySelector(`[data-id="${this.currentConversationId}"]`);
+                if (convItem) {
+                    const statsContainer = convItem.querySelector('small.text-muted');
+                    if (statsContainer && !statsContainer.querySelector('.memory-extracted-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'memory-extracted-badge';
+                        badge.title = window.translations?.['spirit.chat.conversation_closed'] || 'Conversation closed — memory extracted';
+                        badge.innerHTML = '<i class="mdi mdi-graph text-info me-1 ms-2"></i>';
+                        statsContainer.insertBefore(badge, statsContainer.firstChild);
+                    }
+                }
+                const convObj = this.conversations.find(c => c.id === this.currentConversationId);
+                if (convObj) {
+                    convObj.memoryExtracted = true;
+                }
             }
         } else {
             // Enable input

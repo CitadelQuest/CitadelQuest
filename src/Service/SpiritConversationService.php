@@ -294,6 +294,18 @@ class SpiritConversationService
     {
         $db = $this->getUserDb();
         
+        // Open Spirit's target pack to check memory extraction status
+        $isPackOpen = false;
+        try {
+            $spirit = $this->spiritService->getSpirit($spiritId);
+            if ($spirit) {
+                $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+                $isPackOpen = $this->packService->open($memoryInfo['projectId'], $memoryInfo['packsPath'], $memoryInfo['rootPackName']);
+            }
+        } catch (\Exception $e) {
+            // Non-fatal if pack doesn't exist yet
+        }
+
         // Use LENGTH() to get byte size of messages column (works in SQLite)
         $result = $db->executeQuery(
             'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', 
@@ -395,6 +407,15 @@ class SpiritConversationService
                 }
             }
             
+            $memoryExtracted = false;
+            if ($isPackOpen) {
+                try {
+                    $memoryExtracted = $this->packService->hasExtractedFromSource('spirit_conversation', $data['id']) !== null;
+                } catch (\Exception $e) {
+                    // Non-fatal
+                }
+            }
+
             $conversation = [
                 'id' => $data['id'],
                 'spiritId' => $data['spirit_id'],
@@ -410,9 +431,14 @@ class SpiritConversationService
                 'formattedSize' => $this->getFormattedSize($sizeInBytes),
                 'tokens' => $this->getConversationTokens($data['id']),
                 'price' => $this->getConversationPrice($data['id']),
-                'lastMsgUsage' => $lastMsgUsage
+                'lastMsgUsage' => $lastMsgUsage,
+                'memoryExtracted' => $memoryExtracted
             ];
             $conversations[] = $conversation;
+        }
+
+        if ($isPackOpen) {
+            $this->packService->close();
         }
 
         // TMP, until next few releases
