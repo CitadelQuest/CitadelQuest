@@ -1591,19 +1591,9 @@ PROMPT;
     {
         $fullResponse = $response->getFullResponse();
         
-        // Check for tool_calls in response (OpenAI/CQ AI Gateway format)
+        // Check for tool_calls in response (OpenAI format — all providers use this)
         if (isset($fullResponse['choices'][0]['message']['tool_calls'])) {
             return $fullResponse['choices'][0]['message']['tool_calls'];
-        }
-        
-        // Check for tool_use in content (Anthropic format)
-        if (isset($fullResponse['content']) && is_array($fullResponse['content'])) {
-            $toolUses = array_filter($fullResponse['content'], fn($item) => 
-                isset($item['type']) && $item['type'] === 'tool_use'
-            );
-            if (!empty($toolUses)) {
-                return array_values($toolUses);
-            }
         }
         
         return null;
@@ -1622,9 +1612,9 @@ PROMPT;
         $results = [];
         
         foreach ($toolCalls as $toolCall) {
-            // Handle different formats (OpenAI vs Anthropic)
-            $toolName = $toolCall['function']['name'] ?? $toolCall['name'] ?? null;
-            $toolArgs = $toolCall['function']['arguments'] ?? $toolCall['input'] ?? [];
+            // OpenAI format: tool_call has function.name and function.arguments
+            $toolName = $toolCall['function']['name'] ?? null;
+            $toolArgs = $toolCall['function']['arguments'] ?? [];
             
             if (!$toolName) {
                 continue;
@@ -1685,58 +1675,41 @@ PROMPT;
                 ]);
             }
 
-            // Format result based on provider
-            if (isset($toolCall['function'])) {
-                // OpenAI format
-                $result = [
-                    'tool_call_id' => $toolCall['id'],
-                    'role' => 'tool',
-                    'name' => $toolName,
-                    'content' => $encodedContent
-                ];
+            // OpenAI format tool result
+            $result = [
+                'tool_call_id' => $toolCall['id'],
+                'role' => 'tool',
+                'name' => $toolName,
+                'content' => $encodedContent
+            ];
 
-                // Multimodal tool output: attach images as content parts array
-                // (chat-completions protocol extension — the CQ AI Gateway
-                // translates it to Responses API input_image parts).
-                // Capped to keep the next AI request payload bounded.
+            // Multimodal tool output: attach images as content parts array
+            // (chat-completions protocol extension — the CQ AI Gateway
+            // translates it to Responses API input_image parts).
+            // Capped to keep the next AI request payload bounded.
+            if ($imagesForAi !== []) {
+                $imagesForAi = array_slice($imagesForAi, 0, 9);
+                // Skip oversized images (>4MB base64) — they can overflow
+                // the AI gateway request size limit (OpenRouter ~10MB total)
+                $imagesForAi = array_values(array_filter(
+                    $imagesForAi,
+                    fn(string $uri): bool => strlen($uri) <= 4 * 1024 * 1024
+                ));
                 if ($imagesForAi !== []) {
-                    $imagesForAi = array_slice($imagesForAi, 0, 9);
-                    // Skip oversized images (>4MB base64) — they can overflow
-                    // the AI gateway request size limit (OpenRouter ~10MB total)
-                    $imagesForAi = array_values(array_filter(
-                        $imagesForAi,
-                        fn(string $uri): bool => strlen($uri) <= 4 * 1024 * 1024
-                    ));
-                    if ($imagesForAi !== []) {
-                        $contentParts = [['type' => 'text', 'text' => $encodedContent]];
-                        foreach ($imagesForAi as $imageUri) {
-                            $contentParts[] = ['type' => 'image_url', 'image_url' => ['url' => $imageUri]];
-                        }
-                        $result['content'] = $contentParts;
+                    $contentParts = [['type' => 'text', 'text' => $encodedContent]];
+                    foreach ($imagesForAi as $imageUri) {
+                        $contentParts[] = ['type' => 'image_url', 'image_url' => ['url' => $imageUri]];
                     }
+                    $result['content'] = $contentParts;
                 }
-
-                // Add frontendData separately
-                if ($frontendData) {
-                    $result['frontendData'] = $frontendData;
-                }
-
-                $results[] = $result;
-            } else {
-                // Anthropic format
-                $result = [
-                    'type' => 'tool_result',
-                    'tool_use_id' => $toolCall['id'],
-                    'content' => $encodedContent
-                ];
-
-                // Add frontendData separately
-                if ($frontendData) {
-                    $result['frontendData'] = $frontendData;
-                }
-
-                $results[] = $result;
             }
+
+            // Add frontendData separately
+            if ($frontendData) {
+                $result['frontendData'] = $frontendData;
+            }
+
+            $results[] = $result;
         }
         
         return $results;
@@ -1930,8 +1903,6 @@ PROMPT;
         // Descriptive placeholder so the model understands the substitution
         // (not a bug, not an empty/malformed payload to mimic).
         $placeholder = '<outdated_content>Content auto-removed by system. Use new tool call with proper arguments if needed.</outdated_content>';
-        // Anthropic tool_use.input must be a JSON object — wrap the marker.
-        $placeholderInput = ['_outdated' => $placeholder];
         
         for ($i = 0; $i < $lastUserIdx; $i++) {
             $role = $aiMessages[$i]['role'] ?? '';
@@ -1958,29 +1929,6 @@ PROMPT;
                     $args = $tc['function']['arguments'] ?? null;
                     if (is_string($args) && strlen($args) > $sizeThreshold) {
                         $aiMessages[$i]['tool_calls'][$tcIdx]['function']['arguments'] = $placeholder;
-                    }
-                }
-            } elseif ($role === 'assistant' && is_array($aiMessages[$i]['content'] ?? null)) {
-                // Anthropic-style content blocks — tool_use.input / tool_result.content
-                foreach ($aiMessages[$i]['content'] as $cIdx => $block) {
-                    if (!is_array($block)) {
-                        continue;
-                    }
-                    $type = $block['type'] ?? '';
-                    if ($type === 'tool_use' && array_key_exists('input', $block)) {
-                        $inputStr = is_string($block['input']) ? $block['input'] : json_encode($block['input']);
-                        if (strlen((string) $inputStr) > $sizeThreshold) {
-                            $aiMessages[$i]['content'][$cIdx]['input'] = $placeholderInput;
-                        }
-                    } elseif ($type === 'tool_result' && array_key_exists('content', $block)) {
-                        $rc = $block['content'];
-                        if (is_array($rc)) {
-                            $rc = $this->stripImagePartsFromContent($rc);
-                        }
-                        $rcStr = is_string($rc) ? $rc : json_encode($rc);
-                        if (strlen((string) $rcStr) > $sizeThreshold) {
-                            $aiMessages[$i]['content'][$cIdx]['content'] = $placeholder;
-                        }
                     }
                 }
             }
