@@ -228,11 +228,17 @@ class AIToolScreenshotService
             $hasImageForAi = $imageForAi !== null;
 
             // Build frontend display HTML using ACTUAL dimensions from PNG
-            $frontendData = $this->buildFrontendDisplay($url, $savePath . '/' . $filename, $base64Data, $savedFile->getId(), $fileSize, $actualWidth, $actualHeight, $hasImageForAi, $fullPage);
+            $truncated = $scriptResult['truncated'] ?? false;
+            $frontendData = $this->buildFrontendDisplay($url, $savePath . '/' . $filename, $base64Data, $savedFile->getId(), $fileSize, $actualWidth, $actualHeight, $hasImageForAi, $fullPage, $truncated);
+
+            $message = 'Screenshot captured successfully. Saved to `' . $savePath . '/' . $filename . '` and displayed in the user interface.' . ($hasImageForAi ? ' The screenshot is also attached below as image input for you to see.' : '');
+            if ($truncated) {
+                $message .= ' NOTE: The page was ' . ($scriptResult['originalPageHeight'] ?? '?') . 'px tall, which exceeds the Chromium capture limit (32768px). The screenshot was truncated to the first ' . $actualHeight . 'px.';
+            }
 
             $result = [
                 'success' => true,
-                'message' => 'Screenshot captured successfully. Saved to `' . $savePath . '/' . $filename . '` and displayed in the user interface.' . ($hasImageForAi ? ' The screenshot is also attached below as image input for you to see.' : ''),
+                'message' => $message,
                 'url' => $url,
                 'file' => $savedFile->jsonSerialize(),
                 'filePath' => $savePath . '/' . $filename,
@@ -244,6 +250,11 @@ class AIToolScreenshotService
                 'viewport' => ['width' => $width, 'height' => $height],
                 '_frontendData' => $frontendData,
             ];
+
+            if ($truncated) {
+                $result['truncated'] = true;
+                $result['originalPageHeight'] = $scriptResult['originalPageHeight'] ?? null;
+            }
 
             if ($hasImageForAi) {
                 $result['_imageForAi'] = [$imageForAi];
@@ -298,7 +309,7 @@ class AIToolScreenshotService
     /**
      * Build frontend display HTML for the screenshot
      */
-    private function buildFrontendDisplay(string $url, string $filePath, string $base64Data, string $fileId, int $fileSize, int $width, int $height, bool $hasImageForAi, bool $fullPage = false): string
+    private function buildFrontendDisplay(string $url, string $filePath, string $base64Data, string $fileId, int $fileSize, int $width, int $height, bool $hasImageForAi, bool $fullPage = false, bool $truncated = false): string
     {
         $displayUrl = htmlspecialchars($url);
         $displayPath = htmlspecialchars($filePath);
@@ -327,6 +338,9 @@ class AIToolScreenshotService
         $html .= '  <div>';
         $html .= '    <div style="clear: both;"></div>';
         $html .= '    <div class="small text-muted float-start mt-2"><i class="mdi mdi-image me-1"></i>' . $width . 'x' . $height . ' · ' . $displaySize . ($fullPage ? ' · full page' : '') . '</div>';
+        if ($truncated) {
+            $html .= '    <div class="small text-warning float-start mt-2 ms-2"><i class="mdi mdi-triangle-outline me-1"></i>Truncated (Chromium 32768px limit)</div>';
+        }
         // Download button
         $html .= '    <a class="btn btn-sm btn-link text-cyber mt-3 float-end mx-2" href="/api/project-file/' . $fileId . '/download?download=1">';
         $html .= '      <i class="mdi mdi-download"></i>';

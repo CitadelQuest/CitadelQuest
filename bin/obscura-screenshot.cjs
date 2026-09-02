@@ -93,6 +93,7 @@ function waitForServer(port, maxWaitMs) {
 (async () => {
     let obscuraProc = null;
     let browser = null;
+    let stderrBuf = '';
 
     try {
         // 1. Start Obscura CDP server on a free port
@@ -103,7 +104,6 @@ function waitForServer(port, maxWaitMs) {
         });
 
         // Capture stderr for debugging
-        let stderrBuf = '';
         obscuraProc.stderr.on('data', (d) => { stderrBuf += d.toString(); });
 
         // 2. Wait for server to be ready (max 10s)
@@ -126,13 +126,27 @@ function waitForServer(port, maxWaitMs) {
         });
 
         // 6. Capture screenshot
+        const MAX_CAPTURE_HEIGHT = 32768; // Chromium captureBeyondViewport limit
+        let truncated = false;
+        let actualFullHeight = height;
         const screenshotOpts = {
             path: outputPath,
             type: 'png',
         };
 
         if (fullPage) {
-            screenshotOpts.fullPage = true;
+            // Check page scroll height before attempting full-page capture
+            const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+            actualFullHeight = scrollHeight;
+
+            if (scrollHeight > MAX_CAPTURE_HEIGHT) {
+                // Page is too tall for Chromium's full-page capture — clamp it
+                truncated = true;
+                await page.setViewport({ width, height: MAX_CAPTURE_HEIGHT, deviceScaleFactor: 1 });
+                screenshotOpts.clip = { x: 0, y: 0, width, height: MAX_CAPTURE_HEIGHT };
+            } else {
+                screenshotOpts.fullPage = true;
+            }
         } else {
             screenshotOpts.clip = { x: 0, y: 0, width, height };
         }
@@ -152,8 +166,10 @@ function waitForServer(port, maxWaitMs) {
             outputPath,
             fileSize: actualSize,
             width,
-            height,
+            height: fullPage ? (truncated ? MAX_CAPTURE_HEIGHT : actualFullHeight) : height,
             fullPage,
+            truncated,
+            ...(truncated ? { originalPageHeight: actualFullHeight, truncationNote: `Page was ${actualFullHeight}px tall, truncated to ${MAX_CAPTURE_HEIGHT}px (Chromium capture limit)` } : {}),
         };
         console.log(JSON.stringify(result));
 
