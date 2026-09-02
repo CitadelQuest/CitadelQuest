@@ -1936,18 +1936,15 @@ PROMPT;
         for ($i = 0; $i < $lastUserIdx; $i++) {
             $role = $aiMessages[$i]['role'] ?? '';
 
-            // Strip ALL image content parts from previous turns (any role).
-            // Screenshots and other vision attachments accumulate across turns
-            // and can overflow the AI gateway request size limit. Text parts
-            // are kept so the message structure stays schema-valid.
-            if (isset($aiMessages[$i]['content']) && is_array($aiMessages[$i]['content'])) {
-                $aiMessages[$i]['content'] = $this->stripImagePartsFromContent(
-                    $aiMessages[$i]['content']
-                );
-            }
-
             if ($role === 'tool') {
-                // OpenAI-style tool result message — replace content if too large
+                // OpenAI-style tool result message — strip image parts, then
+                // replace content if still too large. Screenshots accumulate
+                // across turns and can overflow the AI gateway request size.
+                if (isset($aiMessages[$i]['content']) && is_array($aiMessages[$i]['content'])) {
+                    $aiMessages[$i]['content'] = $this->stripImagePartsFromContent(
+                        $aiMessages[$i]['content']
+                    );
+                }
                 $content = $aiMessages[$i]['content'] ?? null;
                 $contentStr = is_string($content) ? $content : (is_array($content) ? json_encode($content) : '');
                 if (strlen((string) $contentStr) > $sizeThreshold) {
@@ -1977,6 +1974,9 @@ PROMPT;
                         }
                     } elseif ($type === 'tool_result' && array_key_exists('content', $block)) {
                         $rc = $block['content'];
+                        if (is_array($rc)) {
+                            $rc = $this->stripImagePartsFromContent($rc);
+                        }
                         $rcStr = is_string($rc) ? $rc : json_encode($rc);
                         if (strlen((string) $rcStr) > $sizeThreshold) {
                             $aiMessages[$i]['content'][$cIdx]['content'] = $placeholder;
