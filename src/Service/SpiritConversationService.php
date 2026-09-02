@@ -1701,11 +1701,19 @@ PROMPT;
                 // Capped to keep the next AI request payload bounded.
                 if ($imagesForAi !== []) {
                     $imagesForAi = array_slice($imagesForAi, 0, 9);
-                    $contentParts = [['type' => 'text', 'text' => $encodedContent]];
-                    foreach ($imagesForAi as $imageUri) {
-                        $contentParts[] = ['type' => 'image_url', 'image_url' => ['url' => $imageUri]];
+                    // Skip oversized images (>4MB base64) — they can overflow
+                    // the AI gateway request size limit (OpenRouter ~10MB total)
+                    $imagesForAi = array_values(array_filter(
+                        $imagesForAi,
+                        fn(string $uri): bool => strlen($uri) <= 4 * 1024 * 1024
+                    ));
+                    if ($imagesForAi !== []) {
+                        $contentParts = [['type' => 'text', 'text' => $encodedContent]];
+                        foreach ($imagesForAi as $imageUri) {
+                            $contentParts[] = ['type' => 'image_url', 'image_url' => ['url' => $imageUri]];
+                        }
+                        $result['content'] = $contentParts;
                     }
-                    $result['content'] = $contentParts;
                 }
 
                 // Add frontendData separately
@@ -1927,7 +1935,17 @@ PROMPT;
         
         for ($i = 0; $i < $lastUserIdx; $i++) {
             $role = $aiMessages[$i]['role'] ?? '';
-            
+
+            // Strip ALL image content parts from previous turns (any role).
+            // Screenshots and other vision attachments accumulate across turns
+            // and can overflow the AI gateway request size limit. Text parts
+            // are kept so the message structure stays schema-valid.
+            if (isset($aiMessages[$i]['content']) && is_array($aiMessages[$i]['content'])) {
+                $aiMessages[$i]['content'] = $this->stripImagePartsFromContent(
+                    $aiMessages[$i]['content']
+                );
+            }
+
             if ($role === 'tool') {
                 // OpenAI-style tool result message — replace content if too large
                 $content = $aiMessages[$i]['content'] ?? null;
@@ -1967,8 +1985,33 @@ PROMPT;
                 }
             }
         }
-        
+
         return $aiMessages;
+    }
+
+    /**
+     * Remove image_url content parts from a content array, keeping all
+     * other parts (text, etc.) intact. If only images were present, keeps
+     * a short placeholder so the content array is never empty.
+     */
+    private function stripImagePartsFromContent(array $content): array
+    {
+        $stripped = [];
+        $hadImages = false;
+
+        foreach ($content as $part) {
+            if (is_array($part) && ($part['type'] ?? '') === 'image_url') {
+                $hadImages = true;
+                continue;
+            }
+            $stripped[] = $part;
+        }
+
+        if ($hadImages && $stripped === []) {
+            $stripped[] = ['type' => 'text', 'text' => '<image_removed>Image attachment auto-removed by system (AI Tools Data Optimization).</image_removed>'];
+        }
+
+        return $stripped;
     }
     
     /**
