@@ -126,7 +126,12 @@ function waitForServer(port, maxWaitMs) {
         });
 
         // 6. Capture screenshot
-        const MAX_CAPTURE_HEIGHT = 32768; // Chromium captureBeyondViewport limit
+        // Chromium has TWO independent limits:
+        //   A) captureBeyondViewport: max height 32768px (2^15) per dimension
+        //   B) PNG encoder safety: max 33554432 total pixels (2^25)
+        // So maxHeight must respect BOTH: min(32768, floor(33554432 / width))
+        const MAX_DIMENSION = 32768;
+        const MAX_TOTAL_PIXELS = 33554432;
         let truncated = false;
         let actualFullHeight = height;
         const screenshotOpts = {
@@ -136,26 +141,57 @@ function waitForServer(port, maxWaitMs) {
 
         if (fullPage) {
             // Check page scroll height before attempting full-page capture
-            const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+            // Use max of body and documentElement — some skins (e.g. Wikipedia Vector)
+            // put the real scroll height on documentElement, not body
+            const scrollHeight = await page.evaluate(() =>
+                Math.max(
+                    document.body ? document.body.scrollHeight : 0,
+                    document.documentElement ? document.documentElement.scrollHeight : 0
+                )
+            );
             actualFullHeight = scrollHeight;
 
-            if (scrollHeight > MAX_CAPTURE_HEIGHT) {
-                // Page is too tall for Chromium's full-page capture — clamp it
+            // Compute effective max height: respect both per-dimension AND total-pixel limits
+            const maxHeight = Math.min(MAX_DIMENSION, Math.floor(MAX_TOTAL_PIXELS / width));
+
+            if (scrollHeight > maxHeight) {
+                // Page is too tall — clamp it
                 truncated = true;
-                await page.setViewport({ width, height: MAX_CAPTURE_HEIGHT, deviceScaleFactor: 1 });
-                screenshotOpts.clip = { x: 0, y: 0, width, height: MAX_CAPTURE_HEIGHT };
+                await page.setViewport({ width, height: maxHeight, deviceScaleFactor: 1 });
+                screenshotOpts.clip = { x: 0, y: 0, width, height: maxHeight };
             } else {
                 screenshotOpts.fullPage = true;
             }
         } else {
-            screenshotOpts.clip = { x: 0, y: 0, width, height };
+            // Viewport-only mode: also respect total-pixel limit
+            const maxHeightViewport = Math.min(height, Math.floor(MAX_TOTAL_PIXELS / width));
+            screenshotOpts.clip = { x: 0, y: 0, width, height: maxHeightViewport };
         }
 
         await page.screenshot(screenshotOpts);
 
-        // 7. Verify the file was written
+        // 7. Verify the file was written AND is a valid PNG
         if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
             throw new Error('Screenshot file was not created or is empty');
+        }
+
+        // Validate PNG signature + IHDR chunk to catch partial/corrupted writes
+        const pngHeader = Buffer.alloc(24);
+        const fd = fs.openSync(outputPath, 'r');
+        fs.readSync(fd, pngHeader, 0, 24, 0);
+        fs.closeSync(fd);
+
+        const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        if (!pngHeader.subarray(0, 8).equals(PNG_SIGNATURE)) {
+            throw new Error(`Invalid PNG file (bad signature). File may be corrupted or truncated by encoder pixel limit.`);
+        }
+
+        // Check PNG dimensions from IHDR (bytes 16-19 width, 20-23 height, big-endian)
+        const pngWidth = pngHeader.readUInt32BE(16);
+        const pngHeight = pngHeader.readUInt32BE(20);
+        const pngTotalPixels = pngWidth * pngHeight;
+        if (pngTotalPixels > MAX_TOTAL_PIXELS) {
+            throw new Error(`PNG exceeds 2^25 pixel safety limit: ${pngWidth}x${pngHeight} = ${pngTotalPixels} pixels > ${MAX_TOTAL_PIXELS}`);
         }
 
         const actualSize = fs.statSync(outputPath).size;
@@ -165,11 +201,11 @@ function waitForServer(port, maxWaitMs) {
             success: true,
             outputPath,
             fileSize: actualSize,
-            width,
-            height: fullPage ? (truncated ? MAX_CAPTURE_HEIGHT : actualFullHeight) : height,
+            width: pngWidth,
+            height: pngHeight,
             fullPage,
             truncated,
-            ...(truncated ? { originalPageHeight: actualFullHeight, truncationNote: `Page was ${actualFullHeight}px tall, truncated to ${MAX_CAPTURE_HEIGHT}px (Chromium capture limit)` } : {}),
+            ...(truncated ? { originalPageHeight: actualFullHeight, truncationNote: `Page was ${actualFullHeight}px tall, truncated to ${pngHeight}px (capture limit)` } : {}),
         };
         console.log(JSON.stringify(result));
 
