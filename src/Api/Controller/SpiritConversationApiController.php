@@ -3,6 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Entity\AiServiceResponse;
+use App\Entity\MemoryJob;
 use App\Service\SpiritConversationService;
 use App\Service\SpiritService;
 use App\Service\SettingsService;
@@ -221,12 +222,24 @@ class SpiritConversationApiController extends AbstractController
             }, $messages);
             
             // Check if conversation has been memory-extracted (closed)
+            // or if an extraction job is currently running in background
             $memoryExtracted = false;
+            $memoryExtractionInProgress = false;
             try {
                 $targetPack = $aiToolMemoryService->getSpiritTargetPack($conversation->getSpiritId());
                 $packService->open($targetPack['projectId'], $targetPack['path'], $targetPack['name']);
                 $extracted = $packService->hasExtractedFromSource('spirit_conversation', $id);
                 $memoryExtracted = $extracted !== null;
+                if (!$memoryExtracted) {
+                    foreach ($packService->getActiveJobs() as $job) {
+                        $payload = $job->getPayload();
+                        if ($job->getType() === MemoryJob::TYPE_EXTRACT_RECURSIVE
+                            && ($payload['source_ref'] ?? null) === $id) {
+                            $memoryExtractionInProgress = true;
+                            break;
+                        }
+                    }
+                }
                 $packService->close();
             } catch (\Exception $e) {
                 // Non-fatal — if pack doesn't exist yet, conversation is not extracted
@@ -239,6 +252,7 @@ class SpiritConversationApiController extends AbstractController
                 'createdAt' => $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 'lastInteraction' => $conversation->getLastInteraction()->format('Y-m-d H:i:s'),
                 'memoryExtracted' => $memoryExtracted,
+                'memoryExtractionInProgress' => $memoryExtractionInProgress,
                 'messages' => $messagesWithUsage,
                 'pagination' => [
                     'total' => $totalMessages,

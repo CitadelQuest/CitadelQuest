@@ -263,6 +263,8 @@ spirit:
         extract_memory_close_warning: 'Konverzácia bude po extrakcii uzavretá.'
         extract_memory_start: 'Extrahovať Pamäť'
         extract_memory_started: 'Extrakcia pamäte spustená!'
+        extract_memory_in_progress: 'Prebieha extrakcia pamäte...'
+        extract_memory_failed: 'Extrakcia pamäte nebola dokončená'
         conversation_closed: 'Konverzácia uzavretá — pamäť extrahovaná'
         settings: 'Nastavenia chatu'
         ai_tools_data_optimization: 'Optimalizácia dát AI Nástrojov'

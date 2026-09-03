@@ -271,6 +271,8 @@ spirit:
         extract_memory_close_warning: 'A beszélgetés lezárul a kinyerés után.'
         extract_memory_start: 'Memória kinyerése'
         extract_memory_started: 'Memória kinyerés elindítva!'
+        extract_memory_in_progress: 'Memória kinyerés folyamatban...'
+        extract_memory_failed: 'A memória kinyerés nem fejeződött be'
         conversation_closed: 'Beszélgetés lezárva — memória kinyerve'
         settings: 'Chat beállítások'
         temperature_precise: 'Pontos'

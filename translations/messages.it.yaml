@@ -271,6 +271,8 @@ spirit:
         extract_memory_close_warning: 'La conversazione verrà chiusa dopo l''estrazione.'
         extract_memory_start: 'Estrai memoria'
         extract_memory_started: 'Estrazione memoria avviata!'
+        extract_memory_in_progress: 'Estrazione memoria in corso...'
+        extract_memory_failed: 'Estrazione memoria non completata'
         conversation_closed: 'Conversazione chiusa — memoria estratta'
         settings: 'Impostazioni chat'
         temperature_precise: 'Preciso'

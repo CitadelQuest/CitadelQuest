@@ -2441,8 +2441,7 @@ PROMPT;
                 </CitadelQuest-app>
                 {$s2sBlock}
                 <user>
-                    <username>{$this->user->getUsername()}</username>
-                    <email>{$this->user->getEmail()}</email>{$userStatus}
+                    <username>{$this->user->getUsername()}</username>{$userStatus}
                 </user>{$spiritsBlock}
                 <datetime>
                     {$currentDateTime}

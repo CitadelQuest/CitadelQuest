@@ -104,6 +104,9 @@ export class SpiritChatManager {
         // Conversation closed state (memory already extracted)
         this.isConversationClosed = false;
         
+        // Memory extraction in-progress state (background job running)
+        this.isExtractingMemory = false;
+        
         // Image showcase for fullscreen viewing (uses existing modal)
         this.imageShowcase = new ImageShowcase('contentShowcaseModal');
     }
@@ -125,7 +128,13 @@ export class SpiritChatManager {
             // Restore selected spirit if saved
             const savedSpiritId = localStorage.getItem('selectedSpiritId');
             if (savedSpiritId && window.spiritDropdownManager) {
+                // If fetchPrimarySpirit already loaded the same spirit, switchSpirit will
+                // be a no-op and won't load conversations — so we handle it here.
+                const wasSameSpirit = (this.currentSpiritId === savedSpiritId);
                 window.spiritDropdownManager.selectSpirit(savedSpiritId);
+                if (wasSameSpirit) {
+                    await this.loadConversations(true);
+                }
             }
         }
 
@@ -303,7 +312,7 @@ export class SpiritChatManager {
         // Extract memory button — show confirmation modal
         if (this.extractMemoryBtn && this.extractMemoryModal) {
             this.extractMemoryBtn.addEventListener('click', () => {
-                if (!this.currentConversationId || this.isConversationClosed) return;
+                if (!this.currentConversationId || this.isConversationClosed || this.isExtractingMemory) return;
                 // Re-enable confirm button each time modal opens (may be disabled from previous attempt)
                 if (this.extractMemoryConfirmBtn) {
                     this.extractMemoryConfirmBtn.disabled = false;
@@ -312,6 +321,11 @@ export class SpiritChatManager {
                 modal.show();
             });
         }
+
+        // Memory job updates from global updates polling (extraction progress/completion)
+        updatesService.addListener('spiritChatMemoryJobs', (updates) => {
+            this.handleMemoryJobUpdates(updates);
+        });
 
         // Extract memory modal — depth slider live update
         const extractModalDepth = document.getElementById('extract-modal-depth');
@@ -1013,7 +1027,7 @@ export class SpiritChatManager {
             }
             
             // Render each conversation
-            conversations.forEach(async conversation => {
+            conversations.forEach(conversation => {
                 const item = document.createElement('a');
                 item.href = '#';
                 item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
@@ -1076,30 +1090,32 @@ export class SpiritChatManager {
                 this.conversationsList.appendChild(item);
 
                 this.conversations.push(conversation);
-
-                if (loadLastConversation) {
-                    // Only load last conversation if it belongs to current spirit
-                    let lastConversationId = localStorage.getItem('config.chat.last_conversation_id');
-                    let lastConversationSpiritId = localStorage.getItem('config.chat.last_conversation_spirit_id');
-                    
-                    // Check if the last conversation belongs to the current spirit
-                    if (lastConversationId && lastConversationSpiritId === this.currentSpiritId) {
-                        const lastConv = this.conversations.find(c => c.id === lastConversationId);
-                        if (lastConv) {
-                            this.currentConversationId = lastConversationId;
-                            await this.loadConversation(lastConversationId);
-                        }
-                    } else {
-                        this.spiritChatModalTitle.textContent = '';
-                        // toggle only if hidden
-                        let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
-                        if (!open) {
-                            this.toggleToolsAndConversationsPanel();
-                        }
-                    }
-                    loadLastConversation = false;
-                }
             });
+
+            // List fully rendered — release the flag before restoring a conversation
+            // (loadConversation waits on it before highlighting the active list item)
+            this.isLoadingConversations = false;
+
+            if (loadLastConversation) {
+                // Only load last conversation if it belongs to current spirit
+                const lastConversationId = localStorage.getItem('config.chat.last_conversation_id');
+                const lastConversationSpiritId = localStorage.getItem('config.chat.last_conversation_spirit_id');
+
+                // Check if the last conversation belongs to the current spirit
+                if (lastConversationId && lastConversationSpiritId === this.currentSpiritId) {
+                    // Load directly even if not present in the rendered list
+                    // (e.g. S2S consultation conversations are filtered out of it)
+                    this.currentConversationId = lastConversationId;
+                    await this.loadConversation(lastConversationId);
+                } else {
+                    this.spiritChatModalTitle.textContent = '';
+                    // toggle only if hidden
+                    let open = localStorage.getItem('config.chat.toolsAndConversations.open') === 'true';
+                    if (!open) {
+                        this.toggleToolsAndConversationsPanel();
+                    }
+                }
+            }
             
         } catch (error) {
             console.error('Error loading conversations:', error);
@@ -1194,6 +1210,12 @@ export class SpiritChatManager {
             // Check if conversation has been memory-extracted (closed)
             this.setConversationClosed(conversation.memoryExtracted === true);
 
+            // Resume extraction-progress state if a background extraction job is still running
+            // (completion is detected via the spiritChatMemoryJobs updates listener)
+            if (conversation.memoryExtractionInProgress) {
+                this.setExtractionInProgress(true);
+            }
+
             // Resume a still-running background turn: if a detached worker is still
             // processing this conversation (e.g. the browser was closed mid-turn), re-attach
             // the poll loop so the loading indicator, Stop button and Send-disabled state come
@@ -1229,6 +1251,7 @@ export class SpiritChatManager {
      */
     setConversationClosed(closed) {
         this.isConversationClosed = closed;
+        this.isExtractingMemory = false;
         
         const imageUploadButton = document.getElementById('imageUploadButton');
         
@@ -1244,9 +1267,11 @@ export class SpiritChatManager {
             if (imageUploadButton) {
                 imageUploadButton.disabled = true;
             }
-            // Hide extract button (already extracted)
+            // Hide extract button (already extracted) and reset to default state
             if (this.extractMemoryBtn) {
                 this.extractMemoryBtn.classList.add('d-none');
+                this.extractMemoryBtn.disabled = false;
+                this.extractMemoryBtn.innerHTML = '<i class="mdi mdi-graph text-info"></i>';
             }
             // Update conversation list item indicator
             if (this.currentConversationId && this.conversationsList) {
@@ -1278,9 +1303,11 @@ export class SpiritChatManager {
             if (imageUploadButton) {
                 imageUploadButton.disabled = false;
             }
-            // Show extract button
+            // Show extract button and reset to default state
             if (this.extractMemoryBtn) {
                 this.extractMemoryBtn.classList.remove('d-none');
+                this.extractMemoryBtn.disabled = false;
+                this.extractMemoryBtn.innerHTML = '<i class="mdi mdi-graph text-info"></i>';
             }
         }
     }
@@ -1323,8 +1350,14 @@ export class SpiritChatManager {
             const result = await response.json();
 
             if (result.success) {
-                // Mark conversation as closed
-                this.setConversationClosed(true);
+                if (result.async && result.jobId) {
+                    // Background job — keep button in loading state, global updates polling
+                    // detects completion via the spiritChatMemoryJobs listener
+                    this.setExtractionInProgress(true);
+                } else {
+                    // Synchronous completion — close conversation immediately
+                    this.setConversationClosed(true);
+                }
                 
                 if (window.toast) {
                     window.toast.success(
@@ -1350,6 +1383,91 @@ export class SpiritChatManager {
                 this.extractMemoryBtn.disabled = false;
                 this.extractMemoryBtn.innerHTML = '<i class="mdi mdi-graph text-info"></i>';
             }
+        }
+    }
+
+    /**
+     * Set memory extraction in-progress state (background job running)
+     * Keeps the extract button visible in loading state and disables input
+     */
+    setExtractionInProgress(inProgress) {
+        this.isExtractingMemory = inProgress;
+        
+        const imageUploadButton = document.getElementById('imageUploadButton');
+        
+        if (inProgress) {
+            // Disable input while extraction runs
+            if (this.messageInput) {
+                this.messageInput.disabled = true;
+                this.messageInput.placeholder = window.translations?.['spirit.chat.extract_memory_in_progress'] || 'Memory extraction in progress...';
+            }
+            if (this.sendMessageBtn) {
+                this.sendMessageBtn.disabled = true;
+            }
+            if (imageUploadButton) {
+                imageUploadButton.disabled = true;
+            }
+            // Button stays visible in loading state
+            if (this.extractMemoryBtn) {
+                this.extractMemoryBtn.disabled = true;
+                this.extractMemoryBtn.innerHTML = '<span class="spinner-border spinner-border-sm text-info"></span>';
+            }
+        } else {
+            // Restore open state unless conversation is closed
+            if (!this.isConversationClosed) {
+                this.setConversationClosed(false);
+            }
+        }
+    }
+
+    /**
+     * Handle memory job updates from the global updates polling
+     * Detects when the background extraction job for the current conversation
+     * completes (or is no longer active) and verifies the outcome
+     */
+    handleMemoryJobUpdates(updates) {
+        if (!this.isExtractingMemory || !this.currentConversationId) return;
+        const jobs = updates.memoryJobs;
+        if (!jobs) return;
+
+        // Completion event for this conversation's extraction job
+        const completed = (jobs.completed || []).find(j =>
+            j.type === 'extract_recursive' && j.sourceRef === this.currentConversationId
+        );
+        if (completed) {
+            this.verifyExtractionCompletion();
+            return;
+        }
+
+        // Fallback: job no longer active (completion event may have been missed)
+        const stillActive = (jobs.active || []).some(j =>
+            j.type === 'extract_recursive' && j.sourceRef === this.currentConversationId
+        );
+        if (!stillActive) {
+            this.verifyExtractionCompletion();
+        }
+    }
+
+    /**
+     * One-shot verification of extraction outcome after the job ended
+     */
+    async verifyExtractionCompletion() {
+        if (!this.currentConversationId) return;
+        try {
+            const conversation = await this.apiService.getConversation(this.currentConversationId, 1, 0);
+            if (conversation.memoryExtracted) {
+                // Extraction finished — close conversation
+                this.setConversationClosed(true);
+            } else if (!conversation.memoryExtractionInProgress) {
+                // Job ended without stored memories (failed or empty) — restore open state
+                this.setExtractionInProgress(false);
+                if (window.toast) {
+                    window.toast.info(window.translations?.['spirit.chat.extract_memory_failed'] || 'Memory extraction did not complete');
+                }
+            }
+            // else: still in progress — keep waiting, next updates poll re-checks
+        } catch (error) {
+            console.error('Extraction verification failed:', error);
         }
     }
 

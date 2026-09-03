@@ -271,6 +271,8 @@ spirit:
         extract_memory_close_warning: 'Konwersacja zostanie zamknięta po ekstrakcji.'
         extract_memory_start: 'Wyodrębnij pamięć'
         extract_memory_started: 'Ekstrakcja pamięci rozpoczęta!'
+        extract_memory_in_progress: 'Trwa ekstrakcja pamięci...'
+        extract_memory_failed: 'Ekstrakcja pamięci nie została zakończona'
         conversation_closed: 'Konwersacja zamknięta — pamięć wyodrębniona'
         settings: 'Ustawienia czatu'
         temperature_precise: 'Precyzyjne'

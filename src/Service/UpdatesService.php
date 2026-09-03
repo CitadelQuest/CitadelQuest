@@ -468,6 +468,7 @@ class UpdatesService
                             'createdAt'    => $job->getCreatedAt()->format('c'),
                             'currentBlock' => $currentBlock,
                             'recentNodeIds'=> $recentNodeIds,
+                            'sourceRef'    => $payload['source_ref'] ?? null,
                             'packKey'      => $packKey
                         ];
                     }
@@ -487,6 +488,7 @@ class UpdatesService
                     // Collect recently completed jobs
                     $completedJobs = $this->packService->getRecentlyCompletedJobs($since);
                     foreach ($completedJobs as $job) {
+                        $jobPayload = $job->getPayload();
                         $result['completed'][] = [
                             'id'          => $job->getId(),
                             'type'        => $job->getType(),
@@ -494,6 +496,7 @@ class UpdatesService
                             'result'      => $job->getResult(),
                             'error'       => $job->getError(),
                             'completedAt' => $job->getCompletedAt()?->format('c'),
+                            'sourceRef'   => $jobPayload['source_ref'] ?? null,
                             'packKey'     => $packKey
                         ];
                     }

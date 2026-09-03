@@ -271,6 +271,8 @@ spirit:
         extract_memory_close_warning: 'Samtalen vil bli lukket etter utvinning.'
         extract_memory_start: 'Utvinne minne'
         extract_memory_started: 'Minneutvinning startet!'
+        extract_memory_in_progress: 'Minneutvinning pågår...'
+        extract_memory_failed: 'Minneutvinning ble ikke fullført'
         conversation_closed: 'Samtale lukket — minne utvunnet'
         settings: 'Chatinnstillinger'
         temperature_precise: 'Presis'

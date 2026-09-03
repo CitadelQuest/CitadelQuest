@@ -271,6 +271,8 @@ spirit:
         extract_memory_close_warning: 'Conversation will be closed after extraction.'
         extract_memory_start: 'Extract Memory'
         extract_memory_started: 'Memory extraction started!'
+        extract_memory_in_progress: 'Memory extraction in progress...'
+        extract_memory_failed: 'Memory extraction did not complete'
         conversation_closed: 'Conversation closed — memory extracted'
         settings: 'Chat Settings'
         ai_tools_data_optimization: 'AI Tools Data Optimization'
