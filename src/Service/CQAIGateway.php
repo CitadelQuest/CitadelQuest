@@ -238,7 +238,7 @@ class CQAIGateway implements AiGatewayInterface
      */
     public function waitForJob(array $jobContext): array
     {
-        $maxWaitSeconds = 900;
+        $maxWaitSeconds = 9000;
         $pollIntervalSeconds = 1;
         $httpFallbackInterval = 10;
         $deadline = time() + $maxWaitSeconds;
@@ -329,7 +329,7 @@ class CQAIGateway implements AiGatewayInterface
     {
         $results = [];
         $pending = $jobContexts;
-        $maxWaitSeconds = 900;
+        $maxWaitSeconds = 9000;
         $pollIntervalSeconds = 1;
         $httpFallbackInterval = 10;
         $deadline = time() + $maxWaitSeconds;
