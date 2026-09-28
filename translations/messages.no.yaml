@@ -1138,6 +1138,8 @@ file_browser:
     select_file_to_preview: 'Velg en fil for forhåndsvisning'
     loading_preview: 'Laster forhåndsvisning...'
     error_loading_preview: 'Feil ved lasting av forhåndsvisning'
+    load_preview: 'Last inn filforhåndsvisning'
+    preview_not_loaded: 'Forhåndsvisning lastes ikke automatisk for filer større enn {size}'
     directory: 'Mappe'
     directory_info: 'Inneholder {count} elementer'
     no_preview: 'Forhåndsvisning ikke tilgjengelig for denne filtypen'

@@ -1194,6 +1194,8 @@ file_browser:
     select_file_to_preview: 'Select a file to preview'
     loading_preview: 'Loading preview...'
     error_loading_preview: 'Error loading preview'
+    load_preview: 'Load file preview'
+    preview_not_loaded: 'Preview is not loaded automatically for files larger than {size}'
     directory: 'Directory'
     directory_info: 'Contains {count} items'
     no_preview: 'No preview available for this file type'

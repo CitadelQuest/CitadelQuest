@@ -33,6 +33,8 @@ class FileBrowserController extends AbstractController
             'select_file_to_preview' => $translator->trans('file_browser.select_file_to_preview'),
             'loading_preview' => $translator->trans('file_browser.loading_preview'),
             'error_loading_preview' => $translator->trans('file_browser.error_loading_preview'),
+            'load_preview' => $translator->trans('file_browser.load_preview'),
+            'preview_not_loaded' => $translator->trans('file_browser.preview_not_loaded'),
             'directory' => $translator->trans('file_browser.directory'),
             'directory_info' => $translator->trans('file_browser.directory_info'),
             'no_preview' => $translator->trans('file_browser.no_preview'),

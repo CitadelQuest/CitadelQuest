@@ -1140,6 +1140,8 @@ file_browser:
     select_file_to_preview: 'Seleziona un file per l''anteprima'
     loading_preview: 'Caricamento anteprima...'
     error_loading_preview: 'Errore nel caricamento dell''anteprima'
+    load_preview: 'Carica anteprima file'
+    preview_not_loaded: 'L''anteprima non viene caricata automaticamente per i file più grandi di {size}'
     directory: 'Directory'
     directory_info: 'Contiene {count} elementi'
     no_preview: 'Anteprima non disponibile per questo tipo di file'

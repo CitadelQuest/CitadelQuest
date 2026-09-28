@@ -1152,6 +1152,8 @@ file_browser:
     select_file_to_preview: 'Wybierz plik do podglądu'
     loading_preview: 'Ładowanie podglądu...'
     error_loading_preview: 'Błąd ładowania podglądu'
+    load_preview: 'Załaduj podgląd pliku'
+    preview_not_loaded: 'Podgląd nie jest ładowany automatycznie dla plików większych niż {size}'
     directory: 'Katalog'
     directory_info: 'Zawiera {count} elementów'
     no_preview: 'Podgląd niedostępny dla tego typu pliku'

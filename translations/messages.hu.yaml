@@ -1152,6 +1152,8 @@ file_browser:
     select_file_to_preview: 'Válassz fájlt az előnézethez'
     loading_preview: 'Előnézet betöltése...'
     error_loading_preview: 'Hiba az előnézet betöltésekor'
+    load_preview: 'Fájl előnézetének betöltése'
+    preview_not_loaded: 'Az előnézet nem töltődik be automatikusan a {size} méretnél nagyobb fájloknál'
     directory: 'Könyvtár'
     directory_info: '{count} elemet tartalmaz'
     no_preview: 'Előnézet nem érhető el ehhez a fájltípushoz'

@@ -1186,6 +1186,8 @@ file_browser:
     select_file_to_preview: 'Vyberte súbor pre náhľad'
     loading_preview: 'Načítavam náhľad...'
     error_loading_preview: 'Chyba pri načítavaní náhľadu'
+    load_preview: 'Načítať náhľad súboru'
+    preview_not_loaded: 'Náhľad sa automaticky nenačítava pre súbory väčšie ako {size}'
     directory: 'Priečinok'
     directory_info: 'Obsahuje {count} položiek'
     no_preview: 'Pre tento typ súboru nie je dostupný náhľad'

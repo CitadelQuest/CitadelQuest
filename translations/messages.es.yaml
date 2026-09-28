@@ -1140,6 +1140,8 @@ file_browser:
     select_file_to_preview: 'Selecciona un archivo para previsualizar'
     loading_preview: 'Cargando vista previa...'
     error_loading_preview: 'Error al cargar la vista previa'
+    load_preview: 'Cargar vista previa del archivo'
+    preview_not_loaded: 'La vista previa no se carga automáticamente para archivos mayores de {size}'
     directory: 'Directorio'
     directory_info: 'Contiene {count} elementos'
     no_preview: 'Vista previa no disponible para este tipo de archivo'

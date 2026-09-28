@@ -56,6 +56,45 @@ export class FileBrowser {
     ]);
 
     /**
+     * Files larger than this are not previewed automatically on selection —
+     * a "Load file preview" button is shown instead, so picking a big file
+     * (e.g. a multi-MB PDF) never blocks on transferring its full content.
+     */
+    static PREVIEW_AUTO_LOAD_MAX_BYTES = 1024 * 1024; // 1 MB
+
+    /**
+     * Image extensions the preview can render (mirrors the image branch of renderFilePreview).
+     */
+    static IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff']);
+
+    /**
+     * Image extensions with server-side thumbnails (ProjectFileService::THUMBNAIL_EXTENSIONS).
+     * Their preview transfers only a small thumbnail, never the original file,
+     * so the size gate does not apply to them.
+     */
+    static THUMBNAIL_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+
+    /**
+     * Media extensions streamed by the browser from the download endpoint
+     * (no file content needs to be transferred through the API).
+     */
+    static AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg']);
+    static VIDEO_EXTENSIONS = new Set(['mp4', 'webm', 'ogg']);
+
+    /**
+     * Preview kinds that need the file content fetched through the JSON API.
+     * PDF embeds, audio and video stream from the download endpoint instead,
+     * and files without a preview need no content at all.
+     */
+    static CONTENT_FETCH_KINDS = new Set(['image', 'mermaid', 'text']);
+
+    /**
+     * Preview kinds that are always rendered on selection — they are either
+     * streamed (audio/video) or have no content to load at all.
+     */
+    static INSTANT_PREVIEW_KINDS = new Set(['audio', 'video', 'none']);
+
+    /**
      * @param {Object} options - Configuration options
      * @param {string} options.containerId - ID of the container element
      * @param {string} options.projectId - ID of the project
@@ -285,6 +324,13 @@ export class FileBrowser {
                     const fileId = actionButton.dataset.fileId;
                     if (fileId) {
                         await this.selectFile(fileId);
+                    }
+                    break;
+                    
+                case 'load-preview':
+                    const previewFileId = actionButton.dataset.fileId;
+                    if (previewFileId) {
+                        await this.loadFilePreviewById(previewFileId);
                     }
                     break;
                     
@@ -582,25 +628,12 @@ export class FileBrowser {
                 // Show directory preview with actions
                 this.renderDirectoryPreview(file);
             } else {
-                // Show loading state for files
-                this.filePreviewElement.innerHTML = `
-                    <div class="text-center p-4">
-                        <div class="spinner-border text-cyber" role="status">
-                            <span class="visually-hidden">${this.translations.loading || 'Loading...'}</span>
-                        </div>
-                    </div>
-                `;
-                
-                // Check if it's an image - use thumbnail for preview
-                const extension = file.name.split('.').pop().toLowerCase();
-                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension);
-                
-                // Get file content (thumbnail for images, full for others)
-                const response = await this.apiService.getFileContent(fileId, isImage);
-                const content = response.content;
-                
-                // Render preview based on file type
-                this.renderFilePreview(file, content, isImage);
+                if (this.isPreviewDeferred(file)) {
+                    // Large file: don't load its content until the user asks for it
+                    this.renderFilePreviewPlaceholder(file);
+                } else {
+                    await this.loadFilePreview(file);
+                }
             }
             // Show file preview with animation
             //await animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
@@ -620,6 +653,119 @@ export class FileBrowser {
             // Show error message
             window.toast.error(error.message);
         }
+    }
+    
+    /**
+     * Load the preview for a file that was not auto-loaded (large files).
+     * Triggered by the "Load file preview" button.
+     * @param {string} fileId - The ID of the file to load preview for
+     */
+    async loadFilePreviewById(fileId) {
+        let file = (this.selectedFile && this.selectedFile.id === fileId)
+            ? this.selectedFile
+            : this.files.find(f => f.id === fileId);
+
+        if (!file) {
+            try {
+                const response = await this.apiService.getFileMetadata(fileId);
+                file = response.file;
+            } catch (error) {
+                console.error('Error loading file metadata:', error);
+                window.toast.error(error.message);
+                return;
+            }
+        }
+
+        if (!file) return;
+
+        this.selectedFile = file;
+        await this.loadFilePreview(file);
+    }
+
+    /**
+     * Fetch and render the preview content for a file
+     * @param {Object} file - The file object
+     */
+    async loadFilePreview(file) {
+        const previewKind = this.getPreviewKind(file);
+
+        // PDF, audio and video previews stream from the download endpoint
+        // (and files without a preview need no content) — render directly
+        if (!FileBrowser.CONTENT_FETCH_KINDS.has(previewKind)) {
+            this.renderFilePreview(file, null);
+            return;
+        }
+
+        const wantsThumbnail = previewKind === 'image'
+            && FileBrowser.THUMBNAIL_IMAGE_EXTENSIONS.has(this.getFileExtension(file.name));
+
+        // Show loading state
+        this.filePreviewElement.innerHTML = `
+            <div class="text-center p-4">
+                <div class="spinner-border text-cyber" role="status">
+                    <span class="visually-hidden">${this.translations.loading || 'Loading...'}</span>
+                </div>
+            </div>
+        `;
+
+        try {
+            const response = await this.apiService.getFileContent(file.id, wantsThumbnail);
+
+            // Render preview based on file type
+            this.renderFilePreview(file, response.content, wantsThumbnail);
+        } catch (error) {
+            console.error('Error loading file preview:', error);
+            window.toast.error(error.message);
+        }
+    }
+
+    /**
+     * Get the lowercase extension of a file name
+     * @param {string} fileName - The file name
+     * @returns {string} - Extension without the leading dot
+     */
+    getFileExtension(fileName) {
+        return (fileName || '').split('.').pop().toLowerCase();
+    }
+
+    /**
+     * Determine how a file is previewed, without loading any content.
+     * @param {Object} file - The file object
+     * @returns {string} - 'image'|'mermaid'|'text'|'pdf'|'audio'|'video'|'none'
+     */
+    getPreviewKind(file) {
+        const extension = this.getFileExtension(file.name);
+
+        if (extension === 'mmd' || extension === 'mermaid') return 'mermaid';
+        if (FileBrowser.IMAGE_EXTENSIONS.has(extension)) return 'image';
+        if (this.isTextFile(extension, file.name)) return 'text';
+        if (extension === 'pdf') return 'pdf';
+        if (FileBrowser.AUDIO_EXTENSIONS.has(extension)) return 'audio';
+        if (FileBrowser.VIDEO_EXTENSIONS.has(extension)) return 'video';
+        return 'none';
+    }
+
+    /**
+     * Check whether the preview content must wait for an explicit user action.
+     * Image previews transfer a small server-side thumbnail (not the original
+     * file) and streamed media never needs a button, so those stay instant;
+     * everything else is gated by file size.
+     * @param {Object} file - The file object
+     * @returns {boolean} - True if the user has to request the preview
+     */
+    isPreviewDeferred(file) {
+        const previewKind = this.getPreviewKind(file);
+
+        if (previewKind === 'image'
+            && FileBrowser.THUMBNAIL_IMAGE_EXTENSIONS.has(this.getFileExtension(file.name))) {
+            return false;
+        }
+
+        if (FileBrowser.INSTANT_PREVIEW_KINDS.has(previewKind)) {
+            return false;
+        }
+
+        return Number(file.size || 0) > FileBrowser.PREVIEW_AUTO_LOAD_MAX_BYTES;
     }
     
     /**
@@ -715,8 +861,6 @@ export class FileBrowser {
     directoryHasImages(directoryPath) {
         if (!this.fileTreeView || !this.fileTreeView.treeData) return false;
         
-        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'];
-        
         // Find the directory node in the tree
         const findNode = (nodes, path) => {
             for (const node of nodes) {
@@ -738,8 +882,8 @@ export class FileBrowser {
         // Check if any direct children are image files
         return dirNode.children.some(child => {
             if (child.type === 'directory') return false;
-            const ext = child.name.split('.').pop().toLowerCase();
-            return imageExtensions.includes(ext);
+            const ext = this.getFileExtension(child.name);
+            return FileBrowser.IMAGE_EXTENSIONS.has(ext);
         });
     }
     
@@ -868,17 +1012,51 @@ export class FileBrowser {
      * @param {boolean} isThumbnail - Whether content is a thumbnail (for images)
      */
     renderFilePreview(file, content, isThumbnail = false) {
-        const extension = file.name.split('.').pop().toLowerCase();
-        let previewHtml = '';
-        const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
+        this.filePreviewElement.innerHTML = this.renderFilePreviewHeader(file)
+            + this.renderFilePreviewContent(file, content, isThumbnail);
+
+        // Render Mermaid diagrams in the preview panel
+        const extension = this.getFileExtension(file.name);
+        if (extension === 'mmd' || extension === 'mermaid') {
+            renderMermaidInContainer(this.filePreviewElement);
+        }
+
+        // Set up content showcase modal header with file info
+        const contentShowcaseModal = document.getElementById('contentShowcaseModal');
+        if (contentShowcaseModal) {
+            const modalHeader = contentShowcaseModal.querySelector('.modal-header');
+            if (modalHeader) {
+                modalHeader.classList.remove('d-none');
+                const titleEl = contentShowcaseModal.querySelector('#contentShowcaseModalTitle');
+                if (titleEl) titleEl.innerHTML = file.name;
+                const iconEl = contentShowcaseModal.querySelector('#contentShowcaseModalHeaderIcon');
+                if (iconEl) iconEl.className = this.getFileIcon(file.name) + ' me-2';
+            }
+        }
         
+        // Initialize image showcase for fullscreen viewing
+        this.imageShowcase.init(this.filePreviewElement);
+
+        // animate preview
+        //animation.fade(this.filePreviewElement, 'in', 1000);
+        //animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
+    }
+
+    /**
+     * Render the preview header (file info + action buttons)
+     * @param {Object} file - The file object
+     * @returns {string} - Header HTML
+     */
+    renderFilePreviewHeader(file) {
+        const extension = this.getFileExtension(file.name);
+
         // File info header
         const isRemote = file.isRemote || false;
         const isShared = file.isShared || false;
         const remoteIcon = isRemote ? ' <i class="mdi mdi-cloud-sync-outline text-cyber" title="Synced from remote Citadel"></i>' : '';
         const shareIcon = isShared ? ' <i class="mdi mdi-share-variant text-success" title="Shared via CQ Share"></i>' : '';
         
-        previewHtml += `
+        return `
             <div class="file-preview-header">
                 <span class="mb-1 fw-bold">
                     <i class="${this.getFileIcon(file.name)}"></i>
@@ -924,7 +1102,42 @@ export class FileBrowser {
                 </div>
             </div>
         `;
-        
+    }
+
+    /**
+     * Render a preview placeholder with a "Load file preview" button,
+     * shown instead of loading the content of large files on selection.
+     * @param {Object} file - The file object
+     */
+    renderFilePreviewPlaceholder(file) {
+        const hint = (this.translations.preview_not_loaded || 'Preview is not loaded automatically for files larger than {size}')
+            .replace('{size}', this.formatFileSize(FileBrowser.PREVIEW_AUTO_LOAD_MAX_BYTES));
+
+        this.filePreviewElement.innerHTML = this.renderFilePreviewHeader(file) + `
+            <div class="file-preview-content rounded position-relative">
+                <div class="file-preview-placeholder">
+                    <i class="${this.getFileIcon(file.name)} file-preview-placeholder-icon"></i>
+                    <button class="btn btn-primary btn-sm" data-action="load-preview" data-file-id="${file.id}">
+                        <i class="mdi mdi-eye-outline"></i> ${this.translations.load_preview || 'Load file preview'}
+                    </button>
+                    <p class="file-preview-placeholder-hint mb-0">${hint}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render the preview content for a file based on its type
+     * @param {Object} file - The file object
+     * @param {string} content - The file content (null for streamed / unsupported types)
+     * @param {boolean} isThumbnail - Whether content is a thumbnail (for images)
+     * @returns {string} - Content HTML
+     */
+    renderFilePreviewContent(file, content, isThumbnail = false) {
+        const extension = this.getFileExtension(file.name);
+        const showcaseIcon = `<div class="content-showcase-icon position-absolute top-0 end-0 p-1 badge bg-dark bg-opacity-75 text-cyber cursor-pointer"><i class="mdi mdi-fullscreen"></i></div>`;
+        let previewHtml = '';
+
         // Preview content based on file type
         previewHtml += '<div class="file-preview-content rounded position-relative">';
 
@@ -937,7 +1150,7 @@ export class FileBrowser {
             `;
         }
         // Images
-        else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif', 'tiff'].includes(extension)) {
+        else if (FileBrowser.IMAGE_EXTENSIONS.has(extension)) {
             if (extension === 'svg') {
                 // SVG is returned as raw text from the API; inline it for reliable rendering
                 previewHtml += `
@@ -987,12 +1200,14 @@ export class FileBrowser {
             previewHtml += showcaseIcon;
         }
         // PDF (embed)
+        // Streamed from the download endpoint (inline disposition) — data: URLs
+        // are refused by browsers above ~2 MB, which broke larger PDFs
         else if (extension === 'pdf') {
-            previewHtml += `<div class="embed-container rounded h-100"><embed src="${content}" type="application/pdf" width="100%" height="97%" class="rounded"></div>`;
+            previewHtml += `<div class="embed-container rounded h-100"><embed src="${this.apiService.baseUrl}/${file.id}/download" type="application/pdf" width="100%" height="97%" class="rounded"></div>`;
             previewHtml += showcaseIcon;
         }
         // Audio
-        else if (['mp3', 'wav', 'ogg'].includes(extension)) {
+        else if (FileBrowser.AUDIO_EXTENSIONS.has(extension)) {
             previewHtml += `
                 <audio controls class="w-100">
                     <source src="${this.apiService.baseUrl}/${file.id}/download" type="audio/${extension}">
@@ -1002,7 +1217,7 @@ export class FileBrowser {
             previewHtml += showcaseIcon;
         }
         // Video
-        else if (['mp4', 'webm', 'ogg'].includes(extension)) {
+        else if (FileBrowser.VIDEO_EXTENSIONS.has(extension)) {
             previewHtml += `
                 <video controls class="w-100 rounded">
                     <source src="${this.apiService.baseUrl}/${file.id}/download" type="video/${extension}">
@@ -1025,32 +1240,7 @@ export class FileBrowser {
         
         previewHtml += '</div>';
         
-        this.filePreviewElement.innerHTML = previewHtml;
-
-        // Render Mermaid diagrams in the preview panel
-        if (isMermaid) {
-            renderMermaidInContainer(this.filePreviewElement);
-        }
-
-        // Set up content showcase modal header with file info
-        const contentShowcaseModal = document.getElementById('contentShowcaseModal');
-        if (contentShowcaseModal) {
-            const modalHeader = contentShowcaseModal.querySelector('.modal-header');
-            if (modalHeader) {
-                modalHeader.classList.remove('d-none');
-                const titleEl = contentShowcaseModal.querySelector('#contentShowcaseModalTitle');
-                if (titleEl) titleEl.innerHTML = file.name;
-                const iconEl = contentShowcaseModal.querySelector('#contentShowcaseModalHeaderIcon');
-                if (iconEl) iconEl.className = this.getFileIcon(file.name) + ' me-2';
-            }
-        }
-        
-        // Initialize image showcase for fullscreen viewing
-        this.imageShowcase.init(this.filePreviewElement);
-
-        // animate preview
-        //animation.fade(this.filePreviewElement, 'in', 1000);
-        //animation.slideDown(this.filePreviewElement, animation.DURATION.QUICK);
+        return previewHtml;
     }
     
     /**
