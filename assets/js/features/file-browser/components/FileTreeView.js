@@ -536,6 +536,16 @@ export class FileTreeView {
             return '<i class="mdi mdi-file-pdf-box ' + iconStyle + '"></i>';
         }
         
+        // CQ Memory Packs (CitadelQuest Memory standard icon/colour)
+        if (extension === 'cqmpack') {
+            return '<i class="mdi mdi-graph text-info"></i>';
+        }
+
+        // CQ Memory Library
+        if (extension === 'cqmlib') {
+            return '<i class="mdi mdi-file-table text-info"></i>';
+        }
+        
         // Archive files
         if (['zip', 'rar', 'tar', 'gz', '7z'].includes(extension)) {
             return '<i class="mdi mdi-zip-box ' + iconStyle + '"></i>';

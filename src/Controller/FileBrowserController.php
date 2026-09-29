@@ -77,6 +77,7 @@ class FileBrowserController extends AbstractController
             'extract_mp_no_libraries' => $translator->trans('file_browser.extract_mp_no_libraries'),
             'extract_mp_started' => $translator->trans('file_browser.extract_mp_started'),
             'extract_mp_error' => $translator->trans('file_browser.extract_mp_error'),
+            'open_memory_explorer' => $translator->trans('share_groups.open_memory_explorer'),
             'edit_share_title' => $translator->trans('cq_share.edit_title'),
             'field_title' => $translator->trans('cq_share.field_title'),
             'field_url_slug' => $translator->trans('cq_share.field_url_slug'),

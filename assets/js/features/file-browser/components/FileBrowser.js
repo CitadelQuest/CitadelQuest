@@ -401,6 +401,12 @@ export class FileBrowser {
                         await this.extractZipFile(extractZipFileId);
                     }
                     break;
+
+                case 'open-memory-explorer':
+                    if (this.selectedFile) {
+                        this.openInMemoryExplorer(this.selectedFile);
+                    }
+                    break;
             }
         });
         
@@ -516,10 +522,15 @@ export class FileBrowser {
             'mp4': 'mdi mdi-file-video',
             'avi': 'mdi mdi-file-video',
             'mov': 'mdi mdi-file-video',
-            'wmv': 'mdi mdi-file-video'
+            'wmv': 'mdi mdi-file-video',
+
+            // CQ Memory Packs (CitadelQuest Memory standard icon)
+            'cqmpack': 'mdi mdi-graph',
+            // CQ Memory Library
+            'cqmlib': 'mdi mdi-file-table'
         };
         
-        return (iconMap[extension] || 'mdi mdi-file') + ' text-cyber';
+        return (iconMap[extension] || 'mdi mdi-file') + (extension === 'cqmpack' || extension === 'cqmlib' ? ' text-info' : ' text-cyber');
     }
     
     /**
@@ -1237,13 +1248,19 @@ export class FileBrowser {
         }
         // Other file types
         else {
+            // CQ Memory Packs/Libraries have no inline preview — offer to open them in Memory Explorer
+            const isMemoryArtifact = extension === 'cqmpack' || extension === 'cqmlib';
             previewHtml += `
                 <div class="text-center p-0 p-md-5 vh-50">
                     <i class="${this.getFileIcon(file.name)} display-1 d-none d-md-inline"></i>
                     <p class="small">${this.translations.no_preview || 'No preview available for this file type'}</p>
+                    ${isMemoryArtifact ? `
+                    <button class="btn btn-outline-info btn-sm" data-action="open-memory-explorer">
+                        <i class="mdi mdi-graph"></i> ${this.translations.open_memory_explorer || 'Open in Memory Explorer'}
+                    </button>` : `
                     <button class="btn btn-primary btn-sm" data-action="download" data-file-id="${file.id}">
                         <i class="mdi mdi-download"></i> ${this.translations.download || 'Download'}
-                    </button>
+                    </button>`}
                 </div>
             `;
         }
@@ -1787,6 +1804,22 @@ export class FileBrowser {
             // the tree now both shows the new pack and marks the file as extracted
             await this.refreshAfterOperation();
         });
+    }
+
+    /**
+     * Open a CQ Memory Pack or Library in the Memory Explorer (/memory), pre-selecting it.
+     * Uses the shared localStorage handoff consumed by Memory Explorer::loadLibraries()/loadPacks().
+     * @param {Object} file - File object { path, name }
+     */
+    openInMemoryExplorer(file) {
+        if (this.getFileExtension(file.name) === 'cqmlib') {
+            localStorage.setItem('cqMemoryLib_global', JSON.stringify({ path: file.path, name: file.name }));
+            localStorage.removeItem('cqMemoryPack_global');
+        } else {
+            localStorage.setItem('cqMemoryPack_global', JSON.stringify({ path: file.path, name: file.name }));
+            localStorage.removeItem('cqMemoryLib_global');
+        }
+        window.location.href = '/memory';
     }
 
     /**
