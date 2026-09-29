@@ -525,8 +525,9 @@ class ProjectFileApiController extends AbstractController
             $tree = $this->projectFileService->showProjectTree($projectId);
 
             $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
+            $extractedFileNames = $this->collectExtractedFileNames($projectId, $packFiles);
 
-            $this->annotateTreeWithAnnotationFlags($tree, $projectId, $packFiles);
+            $this->annotateTreeWithAnnotationFlags($tree, $projectId, $extractedFileNames);
 
             $gitRepos = array_flip($this->aiToolGitService->findRepositories($projectId));
             $this->annotateTreeWithGitFlags($tree, $gitRepos);
@@ -567,19 +568,24 @@ class ProjectFileApiController extends AbstractController
     }
 
     /**
-     * Walk the tree and add hasAnnotation / inMemoryPack flags to PDF file nodes
+     * Walk the tree and add hasAnnotation / inMemoryPack flags to PDF and text file nodes
+     *
+     * @param array $extractedFileNames Set of file names already extracted into a memory pack (name => true)
      */
-    private function annotateTreeWithAnnotationFlags(array &$node, string $projectId, array $packFiles): void
+    private function annotateTreeWithAnnotationFlags(array &$node, string $projectId, array $extractedFileNames): void
     {
         if (isset($node['children']) && is_array($node['children'])) {
             foreach ($node['children'] as &$child) {
-                $this->annotateTreeWithAnnotationFlags($child, $projectId, $packFiles);
+                $this->annotateTreeWithAnnotationFlags($child, $projectId, $extractedFileNames);
             }
         }
 
         if (isset($node['type']) && $node['type'] !== 'directory' && $node['type'] !== 'projectRootDirectory') {
             $extension = strtolower(pathinfo($node['name'], PATHINFO_EXTENSION));
+
             if ($extension === 'pdf') {
+                // PDFs are extracted from their AI pre-processed .anno file, so the
+                // "extracted" flag is only meaningful once an annotation exists.
                 $node['hasAnnotation'] = $this->annoService->hasAnnotation(
                     AnnoService::TYPE_PDF,
                     $node['name'],
@@ -587,32 +593,39 @@ class ProjectFileApiController extends AbstractController
                 );
 
                 if ($node['hasAnnotation']) {
-                    $node['inMemoryPack'] = $this->isInMemoryPack($packFiles, $projectId, $node['name']);
+                    $node['inMemoryPack'] = isset($extractedFileNames[$node['name']]);
                 }
+            } elseif (in_array($extension, ['txt', 'md'], true)) {
+                // Plain text files need no annotation — extracted straight from source
+                $node['inMemoryPack'] = isset($extractedFileNames[$node['name']]);
             }
         }
     }
 
     /**
-     * Check if a source with the given file name exists in any CQ Memory Pack in the project
+     * Collect the file names already extracted into any CQ Memory Pack in the project
      * (matched by file name only, so moved/renamed-path files stay recognized)
+     *
+     * @param array $packFiles Pack files from CQMemoryLibraryService::findPackFilesInDirectory()
+     * @return array Set of file names (name => true) for O(1) lookups while walking the tree
      */
-    private function isInMemoryPack(array $packFiles, string $projectId, string $fileName): bool
+    private function collectExtractedFileNames(string $projectId, array $packFiles): array
     {
+        $fileNames = [];
+
         foreach ($packFiles as $packFile) {
             try {
                 $this->packService->open($projectId, $packFile['path'], $packFile['name']);
-                $found = $this->packService->hasSourceByFileName($fileName);
-                $this->packService->close();
-                if ($found) {
-                    return true;
+                foreach ($this->packService->getSourceFileNames() as $fileName) {
+                    $fileNames[$fileName] = true;
                 }
+                $this->packService->close();
             } catch (\Exception $e) {
                 $this->packService->close();
             }
         }
 
-        return false;
+        return $fileNames;
     }
 
     /**

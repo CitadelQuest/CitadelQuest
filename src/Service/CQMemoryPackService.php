@@ -734,6 +734,31 @@ class CQMemoryPackService
 
         return $result->fetchOne() !== false;
     }
+
+    /**
+     * Get the distinct file names referenced by stored sources.
+     *
+     * Returns the last ":"-separated segment of every source_ref (same
+     * path-agnostic semantics as hasSourceByFileName), so callers can build
+     * a lookup set once instead of querying per file.
+     *
+     * @return string[]
+     */
+    public function getSourceFileNames(): array
+    {
+        $db = $this->getConnection();
+
+        $result = $db->executeQuery('SELECT DISTINCT source_ref FROM memory_sources');
+
+        $names = [];
+        foreach ($result->fetchAllAssociative() as $row) {
+            $ref = (string) $row['source_ref'];
+            $pos = strrpos($ref, ':');
+            $names[] = $pos === false ? $ref : substr($ref, $pos + 1);
+        }
+
+        return $names;
+    }
     
     // ========================================
     // AI Usage Log Operations

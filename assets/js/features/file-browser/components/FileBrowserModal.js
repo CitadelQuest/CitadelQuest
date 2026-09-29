@@ -100,6 +100,7 @@ export class FileBrowserModal {
                 containerId: 'fileBrowserModalContainer',
                 projectId: 'general',
                 translations: this.translations,
+                enableMemoryExtract: false,
             });
 
             // Monkey-patch: listen for file selection changes

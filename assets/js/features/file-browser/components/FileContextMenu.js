@@ -3,6 +3,12 @@
  * Provides right-click menu with file operations
  */
 export class FileContextMenu {
+    /**
+     * File extensions that can be extracted into a CQ Memory Pack
+     * (PDFs via their AI .anno pre-processing, plain text directly).
+     */
+    static EXTRACTABLE_EXTENSIONS = new Set(['pdf', 'txt', 'md']);
+
     constructor(options = {}) {
         this.translations = options.translations || {};
         this.onCopy = options.onCopy || (() => {});
@@ -10,6 +16,8 @@ export class FileContextMenu {
         this.onRename = options.onRename || (() => {});
         this.onShare = options.onShare || (() => {});
         this.onDelete = options.onDelete || (() => {});
+        this.onExtractToMemoryPack = options.onExtractToMemoryPack || (() => {});
+        this.enableMemoryExtract = options.enableMemoryExtract !== false;
         
         this.menuElement = null;
         this.currentItems = [];
@@ -133,6 +141,21 @@ export class FileContextMenu {
             `;
         }
 
+        // Extract to CQ Memory Pack option (single extractable file only, hidden for remote files)
+        const canExtractToMemoryPack = isSingle
+            && !hasDirectories
+            && !hasRemote
+            && this.enableMemoryExtract
+            && FileContextMenu.EXTRACTABLE_EXTENSIONS.has((items[0].name.split('.').pop() || '').toLowerCase());
+        if (canExtractToMemoryPack) {
+            menuHtml += `
+                <div class="context-menu-item" data-action="extract-memory-pack">
+                    <i class="mdi mdi-graph me-2"></i>
+                    ${this.translations.extract_to_memory_pack || 'Extract to CQ Memory Pack'}
+                </div>
+            `;
+        }
+
         // Separator
         menuHtml += '<div class="context-menu-separator my-1 border-top border-secondary"></div>';
         
@@ -231,6 +254,11 @@ export class FileContextMenu {
             case 'share':
                 if (this.currentItems.length === 1) {
                     this.onShare(this.currentItems[0]);
+                }
+                break;
+            case 'extract-memory-pack':
+                if (this.currentItems.length === 1) {
+                    this.onExtractToMemoryPack(this.currentItems[0]);
                 }
                 break;
             case 'delete':

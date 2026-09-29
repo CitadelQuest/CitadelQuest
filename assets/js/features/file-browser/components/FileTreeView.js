@@ -390,6 +390,8 @@ export class FileTreeView {
                 iconElement.innerHTML = '<i class="mdi mdi-file-pdf-box text-info"></i>';
             } else if (extension === 'pdf' && node.hasAnnotation) {
                 iconElement.innerHTML = '<i class="mdi mdi-file-pdf-box text-danger"></i>';
+            } else if ((extension === 'txt' || extension === 'md') && node.inMemoryPack) {
+                iconElement.innerHTML = '<i class="mdi mdi-file-document text-info"></i>';
             } else {
                 iconElement.innerHTML = this.getFileIcon(node.name);
             }

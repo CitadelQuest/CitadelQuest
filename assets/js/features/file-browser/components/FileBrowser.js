@@ -3,6 +3,7 @@ import { FileUploader } from './FileUploader';
 import { FileTreeView } from './FileTreeView';
 import { FileContextMenu } from './FileContextMenu';
 import { FileOperationModal } from './FileOperationModal';
+import { MemoryPackExtractModal } from './MemoryPackExtractModal';
 import { ImageGallery } from './ImageGallery';
 import { GitPanel } from './GitPanel';
 import * as animation from '../../../shared/animation';
@@ -105,6 +106,10 @@ export class FileBrowser {
         this.containerId = options.containerId;
         this.projectId = options.projectId;
         this.translations = options.translations || {};
+
+        // Whether the "Extract to CQ Memory Pack" context menu action is available
+        // (disabled inside the file-picker modal, where a nested modal is undesirable)
+        this.enableMemoryExtract = options.enableMemoryExtract !== false;
         
         // Initialize state
         this.currentPath = localStorage.getItem('fileBrowserPath:' + window.location.pathname, '/') || '/';
@@ -136,17 +141,22 @@ export class FileBrowser {
         // Context menu for file operations
         this.contextMenu = new FileContextMenu({
             translations: this.translations,
+            enableMemoryExtract: this.enableMemoryExtract,
             onCopy: (items) => this.handleCopyItems(items),
             onMove: (items) => this.handleMoveItems(items),
             onRename: (item) => this.handleRenameItem(item),
             onShare: (item) => this.handleShareFile(item.id, item.name, (item.name || '').split('.').pop()),
-            onDelete: (items) => this.handleDeleteItems(items)
+            onDelete: (items) => this.handleDeleteItems(items),
+            onExtractToMemoryPack: (item) => this.handleExtractToMemoryPack(item)
         });
         
         // Operation modal for copy/move/rename
         this.operationModal = new FileOperationModal({
             translations: this.translations
         });
+
+        // Modal for extracting a file into a CQ Memory Pack (lazily created)
+        this.memoryPackExtractModal = null;
         
         // Initialize the component
         this.init();
@@ -1702,6 +1712,83 @@ export class FileBrowser {
         }
     }
     
+    /**
+     * Handle "Extract to CQ Memory Pack" from context menu.
+     * Creates a new memory pack inside the chosen library and extracts the
+     * selected file into it (async background job).
+     * @param {Object} item - Item to extract { id, name, path, type }
+     */
+    async handleExtractToMemoryPack(item) {
+        if (!this.memoryPackExtractModal) {
+            this.memoryPackExtractModal = new MemoryPackExtractModal({
+                translations: this.translations,
+                projectId: this.projectId
+            });
+        }
+
+        await this.memoryPackExtractModal.open(item, async ({ library, packName, maxDepth, skipAnalysis }) => {
+            const errorMsg = this.translations.extract_mp_error || 'Failed to start memory extraction';
+
+            // 1. Create the new pack inside the library's packs subdirectory
+            const packPath = library.path === '/' ? '/packs' : `${library.path}/packs`;
+            const createResponse = await fetch('/api/memory/pack/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    path: packPath,
+                    name: packName,
+                    description: ''
+                })
+            });
+            const createData = await createResponse.json();
+            if (!createResponse.ok || !createData.success) {
+                throw new Error(createData.error || errorMsg);
+            }
+
+            // 2. Register the new pack in the selected library
+            const addResponse = await fetch('/api/memory/library/add-pack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: this.projectId,
+                    libraryPath: library.path,
+                    libraryName: library.name,
+                    packPath: createData.path,
+                    packName: createData.name
+                })
+            });
+            const addData = await addResponse.json();
+            if (!addResponse.ok || !addData.success) {
+                throw new Error(addData.error || errorMsg);
+            }
+
+            // 3. Start the extraction into the new pack (async background job)
+            const extractResponse = await fetch('/api/memory/pack/extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetPack: { projectId: this.projectId, path: createData.path, name: createData.name },
+                    sourceType: 'document',
+                    sourceRef: `${this.projectId}:${item.path}:${item.name}`,
+                    documentTitle: item.name,
+                    maxDepth,
+                    skipAnalysis
+                })
+            });
+            const extractData = await extractResponse.json();
+            if (!extractResponse.ok || !extractData.success) {
+                throw new Error(extractData.error || errorMsg);
+            }
+
+            window.toast.success(this.translations.extract_mp_started || 'Memory extraction started!');
+
+            // The source row is stored synchronously with the job, so refreshing
+            // the tree now both shows the new pack and marks the file as extracted
+            await this.refreshAfterOperation();
+        });
+    }
+
     /**
      * Get source path for file operations
      * For files: item.path is already the parent directory

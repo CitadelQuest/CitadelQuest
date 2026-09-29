@@ -218,7 +218,7 @@ class AiToolSettingsService
             'file' => 'mdi-folder-open',
             'web' => 'mdi-web',
             'image' => 'mdi-image',
-            'memory' => 'mdi-brain',
+            'memory' => 'mdi-graph',
             'profile' => 'mdi-account-box',
             'development' => 'mdi-code-braces',
             'spirit' => 'mdi-ghost',
