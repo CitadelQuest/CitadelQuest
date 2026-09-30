@@ -324,7 +324,7 @@
                             {# Settings Tab #}
                             <div class="tab-pane fade show active" id="panel-settings" role="tabpanel">
                                 <div class="row">
-                                    <div class="col-12 col-md-6 mb-3">
+                                    <div class="col-12 col-md-4 mb-3">
                                         <label for="spirit-ai-model" class="form-label"><i class="mdi mdi-robot-outline me-2 text-cyber"></i>{{ 'spirit.settings.ai_model'|trans|default('AI Model') }}</label>
                                         <input type="hidden" id="spirit-ai-model" value="{{ spirit.settings.aiModel ?? '' }}">
                                         <button type="button" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" id="spirit-ai-model-selector-btn">
@@ -343,7 +343,7 @@
                                         </button>
                                         <div class="form-text text-muted ms-2">{{ 'settings.ai.models.select_hint'|trans|default('Click to compare and select the best model for your needs') }}</div>
                                     </div>
-                                    <div class="col-12 col-md-6 mb-3">
+                                    <div class="col-12 col-md-4 mb-3">
                                         <label class="form-label d-flex justify-content-between align-items-center" for="spirit-temperature">
                                             <span><i class="mdi mdi-thermometer me-2 text-cyber"></i>{{ 'spirit.chat.response_temperature'|trans|default('Temperature') }}</span>
                                             <span id="spirit-temperature-value" class="badge fw-normal bg-secondary bg-opacity-25">{{ spirit.settings.temperature ?? '0.7' }}</span>
@@ -353,6 +353,20 @@
                                             <span>0 ({{ 'spirit.chat.temperature_precise'|trans|default('Precise') }})</span>
                                             <span>1 ({{ 'spirit.chat.temperature_creative'|trans|default('Creative') }})</span>
                                         </div>
+                                    </div>
+                                    <div class="col-12 col-md-4 mb-3">
+                                        {% set reasoningEffort = spirit.settings.reasoningEffort ?? 'minimal' %}
+                                        <label class="form-label" for="spirit-reasoning-effort"><i class="mdi mdi-brain me-2 text-cyber"></i>{{ 'spirit.settings.reasoning_effort'|trans|default('Reasoning Effort') }}</label>
+                                        <select class="form-select bg-dark bg-opacity-50 text-light border-secondary" id="spirit-reasoning-effort">
+                                            <option value="max" {{ reasoningEffort == 'max' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.max'|trans|default('Max') }}</option>
+                                            <option value="xhigh" {{ reasoningEffort == 'xhigh' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.xhigh'|trans|default('Extra High') }}</option>
+                                            <option value="high" {{ reasoningEffort == 'high' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.high'|trans|default('High') }}</option>
+                                            <option value="medium" {{ reasoningEffort == 'medium' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.medium'|trans|default('Medium') }}</option>
+                                            <option value="low" {{ reasoningEffort == 'low' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.low'|trans|default('Low') }}</option>
+                                            <option value="minimal" {{ reasoningEffort == 'minimal' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.minimal'|trans|default('Minimal') }}</option>
+                                            <option value="none" {{ reasoningEffort == 'none' ? 'selected' : '' }}>{{ 'spirit.settings.reasoning.none'|trans|default('None') }}</option>
+                                        </select>
+                                        <div class="form-text text-muted ms-2">{{ 'spirit.settings.reasoning_effort_help'|trans|default('How much the model reasons before answering. Lower is faster and cheaper.') }}</div>
                                     </div>
                                 </div>
                                 <div class="form-group mb-1">

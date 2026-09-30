@@ -38,6 +38,7 @@ export class SpiritManager {
         this.subconsciousnessAgentAiModelSelect = document.getElementById('spirit-subconsciousness-agent-ai-model');
         this.temperatureInput = document.getElementById('spirit-temperature');
         this.temperatureValue = document.getElementById('spirit-temperature-value');
+        this.reasoningEffortInput = document.getElementById('spirit-reasoning-effort');
         this.updateSettingsBtn = document.getElementById('update-spirit-settings');
         this.aiToolsTab = document.getElementById('tab-ai-tools');
         this.aiToolsDataOptimization = document.getElementById('spirit-ai-tools-data-optimization');
@@ -225,6 +226,16 @@ export class SpiritManager {
             // Auto-save temperature when user releases the slider
             this.temperatureInput.addEventListener('change', () => {
                 this.saveTemperature();
+            });
+        }
+
+        // Auto-save reasoning effort when the select changes
+        if (this.reasoningEffortInput) {
+            this.reasoningEffortInput.addEventListener('change', () => {
+                if (this.updateSettingsBtn) {
+                    this.updateSettingsBtn.disabled = false;
+                }
+                this.saveReasoningEffort();
             });
         }
 
@@ -611,6 +622,11 @@ export class SpiritManager {
             if (this.temperatureValue) {
                 this.temperatureValue.textContent = temperature;
             }
+        }
+
+        // Set reasoning effort value
+        if (this.reasoningEffortInput) {
+            this.reasoningEffortInput.value = settings.reasoningEffort ?? 'minimal';
         }
 
         // Disable save button after loading
@@ -1131,6 +1147,7 @@ export class SpiritManager {
             const aiModel = this.aiModelSelect.value;
             const subconsciousnessAgentAiModel = this.subconsciousnessAgentAiModelSelect?.value ?? '';
             const temperature = this.temperatureInput?.value ?? '0.7';
+            const reasoningEffort = this.reasoningEffortInput?.value ?? 'minimal';
             
             // Send the update to the server
             const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
@@ -1142,7 +1159,8 @@ export class SpiritManager {
                     systemPrompt,
                     aiModel,
                     subconsciousnessAgentAiModel,
-                    temperature
+                    temperature,
+                    reasoningEffort
                 })
             });
             
@@ -1195,6 +1213,39 @@ export class SpiritManager {
             console.error('Error saving temperature:', error);
             if (window.toast) {
                 window.toast.error(this.translate('error.saving_temperature', 'Failed to save temperature'));
+            }
+        }
+    }
+
+    /**
+     * Auto-save only the reasoning effort setting when the select changes
+     */
+    async saveReasoningEffort() {
+        if (!this.spirit || !this.reasoningEffortInput) return;
+
+        try {
+            const reasoningEffort = this.reasoningEffortInput.value;
+            const response = await fetch(this.apiEndpoints.updateSettings.replace('{id}', this.spirit.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reasoningEffort })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update reasoning effort');
+            }
+
+            if (this.spirit.settings) {
+                this.spirit.settings.reasoningEffort = reasoningEffort;
+            }
+
+            if (window.toast) {
+                window.toast.success(this.translate('spirit.reasoning_effort_saved', 'Reasoning effort saved'));
+            }
+        } catch (error) {
+            console.error('Error saving reasoning effort:', error);
+            if (window.toast) {
+                window.toast.error(this.translate('error.saving_reasoning_effort', 'Failed to save reasoning effort'));
             }
         }
     }

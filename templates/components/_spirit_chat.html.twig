@@ -245,6 +245,23 @@
                     </div>
                 </div>
 
+                {# Reasoning Effort select #}
+                <div class="mb-5">
+                    <label class="form-label d-flex justify-content-between align-items-center" for="chatSettingsReasoningEffort">
+                        <span><i class="mdi mdi-brain text-cyber me-1"></i> {{ 'spirit.settings.reasoning_effort'|trans|default('Reasoning Effort') }}</span>
+                    </label>
+                    <select class="form-select form-select-sm bg-dark bg-opacity-50 text-light border-secondary" id="chatSettingsReasoningEffort">
+                        <option value="max">{{ 'spirit.settings.reasoning.max'|trans|default('Max') }}</option>
+                        <option value="xhigh">{{ 'spirit.settings.reasoning.xhigh'|trans|default('Extra High') }}</option>
+                        <option value="high">{{ 'spirit.settings.reasoning.high'|trans|default('High') }}</option>
+                        <option value="medium">{{ 'spirit.settings.reasoning.medium'|trans|default('Medium') }}</option>
+                        <option value="low">{{ 'spirit.settings.reasoning.low'|trans|default('Low') }}</option>
+                        <option value="minimal" selected>{{ 'spirit.settings.reasoning.minimal'|trans|default('Minimal') }}</option>
+                        <option value="none">{{ 'spirit.settings.reasoning.none'|trans|default('None') }}</option>
+                    </select>
+                    <div class="form-text text-secondary mt-1">{{ 'spirit.settings.reasoning_effort_help'|trans|default('How much the model reasons before answering. Lower is faster and cheaper.') }}</div>
+                </div>
+
                 {# Memory Type select #}
                 <div class="mb-5">
                     <div class="d-flex align-items-center justify-content-between">

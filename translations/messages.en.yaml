@@ -186,6 +186,16 @@ spirit:
         subconsciousness_agent_ai_model: 'Memory Agent AI Model'
         subconsciousness_agent_ai_model_hint: 'Model used for the Memory Agent sub-consciousness synthesis'
         use_primary_model: 'Use Primary AI Model'
+        reasoning_effort: 'Reasoning Effort'
+        reasoning_effort_help: 'How much the model reasons before answering. Lower is faster and cheaper.'
+        reasoning:
+            max: 'Max'
+            xhigh: 'Extra High'
+            high: 'High'
+            medium: 'Medium'
+            low: 'Low'
+            minimal: 'Minimal'
+            none: 'None'
         system_prompt: 'System Prompt'
         system_prompt_placeholder: 'Define how your Spirit should behave and what knowledge it should have...'
         system_prompt_help: "Define your Spirit's character, personality, and areas of expertise."

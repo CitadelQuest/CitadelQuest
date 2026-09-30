@@ -70,6 +70,7 @@ export class SpiritChatManager {
         this.chatSettingsModal = document.getElementById('chatSettingsModal');
         this.chatSettingsTemperature = document.getElementById('chatSettingsTemperature');
         this.chatSettingsTemperatureValue = document.getElementById('chatSettingsTemperatureValue');
+        this.chatSettingsReasoningEffort = document.getElementById('chatSettingsReasoningEffort');
         this.chatSettingsToolsList = document.getElementById('chatSettingsToolsList');
         this.chatSettingsSaveBtn = document.getElementById('chatSettingsSaveBtn');
         this.chatSettingsMemoryType = document.getElementById('chatSettingsMemoryType');
@@ -620,11 +621,13 @@ export class SpiritChatManager {
 
         // Fetch the latest spirit settings so temperature changes on the Spirit page are reflected immediately
         let currentTemp = '0.7';
+        let currentReasoningEffort = 'minimal';
         try {
             const response = await fetch(`/api/spirit/${this.currentSpiritId}/settings`);
             if (response.ok) {
                 const settings = await response.json();
                 currentTemp = settings.temperature ?? localStorage.getItem('config.chat.settings.responseTemperature.value') ?? '0.7';
+                currentReasoningEffort = settings.reasoningEffort ?? 'minimal';
                 if (this.currentSpirit) {
                     this.currentSpirit.settings = { ...this.currentSpirit.settings, ...settings };
                 }
@@ -634,6 +637,7 @@ export class SpiritChatManager {
             currentTemp = this.currentSpirit?.settings?.temperature
                 ?? localStorage.getItem('config.chat.settings.responseTemperature.value')
                 ?? '0.7';
+            currentReasoningEffort = this.currentSpirit?.settings?.reasoningEffort ?? 'minimal';
         }
 
         // Sync temperature slider with current value
@@ -642,6 +646,11 @@ export class SpiritChatManager {
         }
         if (this.chatSettingsTemperatureValue) {
             this.chatSettingsTemperatureValue.textContent = currentTemp;
+        }
+
+        // Sync reasoning effort select with current value
+        if (this.chatSettingsReasoningEffort) {
+            this.chatSettingsReasoningEffort.value = currentReasoningEffort;
         }
 
         // Live update temperature label
@@ -866,6 +875,9 @@ export class SpiritChatManager {
             this.responseTemperatureValue.textContent = newTemp;
         }
 
+        // Reasoning effort
+        const newReasoningEffort = this.chatSettingsReasoningEffort ? this.chatSettingsReasoningEffort.value : 'minimal';
+
         // Gather memory type config
         const memoryTypeVal = this.chatSettingsMemoryType ? parseInt(this.chatSettingsMemoryType.value, 10) : 2;
         const includeMemory = memoryTypeVal !== 0;
@@ -896,15 +908,16 @@ export class SpiritChatManager {
                 body: JSON.stringify({ includeMemory, memoryType, includeTools, aiToolsDataOptimization })
             });
 
-            // Save temperature to spirit settings
+            // Save temperature + reasoning effort to spirit settings
             await fetch(`/api/spirit/${this.currentSpiritId}/settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ temperature: newTemp })
+                body: JSON.stringify({ temperature: newTemp, reasoningEffort: newReasoningEffort })
             });
             if (this.currentSpirit) {
                 this.currentSpirit.settings = this.currentSpirit.settings || {};
                 this.currentSpirit.settings.temperature = newTemp;
+                this.currentSpirit.settings.reasoningEffort = newReasoningEffort;
             }
 
             // Save S2S settings
@@ -2497,6 +2510,7 @@ export class SpiritChatManager {
 
         const maxOutput = this.getMaxOutput();
         const temperature = this.getResponseTemperature();
+        const reasoningEffort = this.getResponseReasoningEffort();
         
         this.messageInput.value = '';
         // reset message input height
@@ -2543,7 +2557,7 @@ export class SpiritChatManager {
             // Step 2: START TURN — hand the full AI response + tool loop to a detached
             // worker. Returns immediately with a job id (timeout-proof: no long-held
             // HTTP request, so Cloudflare's 100s limit / HTTP 524 is never hit).
-            const startResult = await this.apiService.startTurn(this.currentConversationId, messageContent, maxOutput, temperature);
+            const startResult = await this.apiService.startTurn(this.currentConversationId, messageContent, maxOutput, temperature, reasoningEffort);
             
             // Remove loading indicator
             if (this.chatMessages && loadingEl) {
@@ -2918,6 +2932,10 @@ export class SpiritChatManager {
 
     getResponseTemperature() {
         return this.responseTemperatureSlider ? this.responseTemperatureSlider.value : 0.7;
+    }
+
+    getResponseReasoningEffort() {
+        return this.currentSpirit?.settings?.reasoningEffort || 'minimal';
     }
 
     /**

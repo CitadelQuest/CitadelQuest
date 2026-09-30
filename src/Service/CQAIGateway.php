@@ -123,6 +123,11 @@ class CQAIGateway implements AiGatewayInterface
         if ($request->getStopSequence() !== null) {
             $requestData['stop'] = [$request->getStopSequence()];
         }
+        // Per-Spirit reasoning effort (OpenRouter `reasoning.effort`). When unset the
+        // gateway applies its own default (`minimal`).
+        if ($request->getReasoningEffort() !== null && $request->getReasoningEffort() !== '') {
+            $requestData['reasoning']['effort'] = $request->getReasoningEffort();
+        }
         if ($request->getTools() !== null && count($request->getTools()) > 0) {
             $requestData['tools'] = $request->getTools();
             $requestData['tool_choice'] = 'auto';

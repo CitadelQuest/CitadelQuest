@@ -186,6 +186,16 @@ spirit:
         subconsciousness_agent_ai_model: 'AI-modell for Minneagenten'
         subconsciousness_agent_ai_model_hint: 'Modell brukt for Minneagentens underbevisst syntese'
         use_primary_model: 'Bruk primær KI-modell'
+        reasoning_effort: 'Resonneringsinnsats'
+        reasoning_effort_help: 'Hvor mye modellen resonnerer før den svarer. Lavere verdi er raskere og billigere.'
+        reasoning:
+            max: 'Maks'
+            xhigh: 'Ekstra høy'
+            high: 'Høy'
+            medium: 'Middels'
+            low: 'Lav'
+            minimal: 'Minimal'
+            none: 'Ingen'
         system_prompt: 'Systemprompt'
         system_prompt_placeholder: 'Definer hvordan din Ånd skal oppføre seg og hvilken kunnskap den skal ha...'
         system_prompt_help: "Definer din Ånds karakter, personlighet og kompetanseområder."

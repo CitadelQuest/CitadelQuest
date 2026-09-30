@@ -271,7 +271,7 @@ export class SpiritChatApiService {
      * @param {number} maxOutput - The maximum output tokens for the AI response
      * @returns {Promise<Object>} - Response with message, type, toolCalls, requiresToolExecution
      */
-    async sendMessageAsync(conversationId, message, maxOutput = 500, temperature = 0.7) {
+    async sendMessageAsync(conversationId, message, maxOutput = 500, temperature = 0.7, reasoningEffort = 'minimal') {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/send-async`, {
                 method: 'POST',
@@ -282,7 +282,8 @@ export class SpiritChatApiService {
                 body: JSON.stringify({ 
                     message,
                     max_output: maxOutput,
-                    temperature
+                    temperature,
+                    reasoningEffort
                 })
             });
             return await this._parseResponse(response, 'Failed to send message');
@@ -300,7 +301,7 @@ export class SpiritChatApiService {
      * @param {Array} toolCalls - The tool calls to execute
      * @returns {Promise<Object>} - Response with message, type, toolCalls, toolResults, requiresToolExecution
      */
-    async executeTools(conversationId, assistantMessageId, toolCalls, maxOutput = 500, temperature = 0.7) {
+    async executeTools(conversationId, assistantMessageId, toolCalls, maxOutput = 500, temperature = 0.7, reasoningEffort = 'minimal') {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/execute-tools`, {
                 method: 'POST',
@@ -312,7 +313,8 @@ export class SpiritChatApiService {
                     assistantMessageId,
                     toolCalls,
                     max_output: maxOutput,
-                    temperature
+                    temperature,
+                    reasoningEffort
                 })
             });
             return await this._parseResponse(response, 'Failed to execute tools');
@@ -374,9 +376,10 @@ export class SpiritChatApiService {
      * @param {string|Array} message - The message to send
      * @param {number} maxOutput - Max output tokens
      * @param {number} temperature - Sampling temperature
+     * @param {string} reasoningEffort - Reasoning effort (max, xhigh, high, medium, low, minimal, none)
      * @returns {Promise<Object>} - { success, jobId, userMessage, savedAttachments }
      */
-    async startTurn(conversationId, message, maxOutput = 500, temperature = 0.7) {
+    async startTurn(conversationId, message, maxOutput = 500, temperature = 0.7, reasoningEffort = 'minimal') {
         try {
             const response = await fetch(`${this.baseUrl}/${conversationId}/start-turn`, {
                 method: 'POST',
@@ -387,7 +390,8 @@ export class SpiritChatApiService {
                 body: JSON.stringify({
                     message,
                     max_output: maxOutput,
-                    temperature
+                    temperature,
+                    reasoningEffort
                 })
             });
             return await this._parseResponse(response, 'Failed to start turn');

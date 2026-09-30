@@ -186,6 +186,16 @@ spirit:
         subconsciousness_agent_ai_model: 'AI model pamäťového agenta'
         subconsciousness_agent_ai_model_hint: 'Model použitý pre syntézu podvedomia pamäťového agenta'
         use_primary_model: 'Použiť primárny AI Model'
+        reasoning_effort: 'Úroveň uvažovania'
+        reasoning_effort_help: 'Ako veľmi model rozmýšľa pred odpoveďou. Nižšia hodnota je rýchlejšia a lacnejšia.'
+        reasoning:
+            max: 'Max'
+            xhigh: 'Extra vysoká'
+            high: 'Vysoká'
+            medium: 'Stredná'
+            low: 'Nízka'
+            minimal: 'Minimálna'
+            none: 'Žiadna'
         system_prompt: 'Systémový prompt'
         system_prompt_placeholder: 'Definujte, ako sa má váš Spirit správať a aké znalosti by mal mať...'
         system_prompt_help: "Definujte charakter, osobnosť a oblasti expertízy vášho Spirita."

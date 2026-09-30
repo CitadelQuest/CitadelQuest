@@ -403,13 +403,18 @@ class AIToolSpiritService implements ServiceSubscriberInterface
 
             $this->spiritCallContext->enter($calleeId);
             try {
+                // The callee runs with its OWN per-Spirit reasoning effort (null → gateway default).
+                $calleeReasoningEffort = $this->spiritService->getSpiritSetting($calleeId, 'reasoningEffort');
+
                 $result = $this->conversationService()->runTurnSync(
                     $conversation->getId(),
                     $callerMessage->getId(),
                     $lang,
                     $calleeMaxOutput,
                     $this->getFloatSetting('s2s.calleeTemperature', self::CALLEE_TEMPERATURE),
-                    $this->getFloatSetting('s2s.calleeToolTemperature', self::CALLEE_TOOL_TEMPERATURE)
+                    $this->getFloatSetting('s2s.calleeToolTemperature', self::CALLEE_TOOL_TEMPERATURE),
+                    null,
+                    $calleeReasoningEffort
                 );
             } finally {
                 $this->spiritCallContext->leave();

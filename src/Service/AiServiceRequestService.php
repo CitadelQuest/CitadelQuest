@@ -35,16 +35,17 @@ class AiServiceRequestService
         ?int $maxTokens = null,
         ?float $temperature = null,
         ?string $stopSequence = null,
-        ?array $tools = []
+        ?array $tools = [],
+        ?string $reasoningEffort = null
     ): AiServiceRequest {
-        $request = new AiServiceRequest($aiServiceModelId, $messages, $maxTokens, $temperature, $stopSequence, $tools);
+        $request = new AiServiceRequest($aiServiceModelId, $messages, $maxTokens, $temperature, $stopSequence, $tools, $reasoningEffort);
 
         // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO ai_service_request (
-                id, ai_service_model_id, messages, max_tokens, temperature, stop_sequence, tools, created_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                id, ai_service_model_id, messages, max_tokens, temperature, stop_sequence, reasoning_effort, tools, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $request->getId(),
                 $request->getAiServiceModelId(),
@@ -52,6 +53,7 @@ class AiServiceRequestService
                 $request->getMaxTokens(),
                 $request->getTemperature(),
                 $request->getStopSequence(),
+                $request->getReasoningEffort(),
                 $request->getToolsRaw(),
                 $request->getCreatedAt()->format('Y-m-d H:i:s')
             ]

@@ -33,6 +33,14 @@ class SpiritConversationApiController extends AbstractController
         private readonly AiServiceUseLogService $aiServiceUseLogService)
     {
     }
+
+    /** Allowed OpenRouter reasoning effort values (per-Spirit setting). */
+    private const ALLOWED_REASONING_EFFORTS = ['max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none'];
+
+    private function normalizeReasoningEffort(mixed $value): ?string
+    {
+        return is_string($value) && in_array($value, self::ALLOWED_REASONING_EFFORTS, true) ? $value : null;
+    }
     
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
     public function listConversations(string $spiritId, Request $request): JsonResponse
@@ -552,7 +560,8 @@ class SpiritConversationApiController extends AbstractController
                 $lang,
                 $maxOutput,
                 $data['temperature'] ?? 0.7,
-                $cachedSystemPrompt
+                $cachedSystemPrompt,
+                $this->normalizeReasoningEffort($data['reasoningEffort'] ?? null)
             );
             
             // Enrich message with usage data
@@ -609,7 +618,9 @@ class SpiritConversationApiController extends AbstractController
                 $data['toolCalls'],
                 $lang,
                 $data['max_output'] ?? 500,
-                $data['temperature'] ?? 0.7
+                $data['temperature'] ?? 0.7,
+                null,
+                $this->normalizeReasoningEffort($data['reasoningEffort'] ?? null)
             );
             
             // Enrich message with usage data
@@ -699,6 +710,7 @@ class SpiritConversationApiController extends AbstractController
             // Get max output + temperature
             $maxOutput = isset($data['max_output']) ? (int) $data['max_output'] : 500;
             $temperature = isset($data['temperature']) ? (float) $data['temperature'] : 0.7;
+            $reasoningEffort = $this->normalizeReasoningEffort($data['reasoningEffort'] ?? null);
 
             // Get locale for language
             $locale = $request->getSession()->get('_locale') ??
@@ -733,6 +745,7 @@ class SpiritConversationApiController extends AbstractController
                 'maxOutput' => $maxOutput,
                 'temperature' => $temperature,
                 'toolTemperature' => 0.5,
+                'reasoningEffort' => $reasoningEffort,
                 'cachedSystemPrompt' => $cachedSystemPrompt,
                 'preSendData' => $workerPreSendData, // recall metadata for the worker
                 'host' => $request->getHost(), // restored in the worker so system-info matches web

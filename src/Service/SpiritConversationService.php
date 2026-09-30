@@ -950,7 +950,8 @@ class SpiritConversationService
         string $lang = 'English',
         int $maxOutput = 500,
         float $temperature = 0.7,
-        ?string $cachedSystemPrompt = null
+        ?string $cachedSystemPrompt = null,
+        ?string $reasoningEffort = null
     ): array {
         $db = $this->getUserDb();
         
@@ -982,7 +983,8 @@ class SpiritConversationService
             $maxOutput,
             $temperature,
             null,
-            $tools
+            $tools,
+            $reasoningEffort
         );
         
         // Send to AI (non-blocking - handleToolCalls = false)
@@ -1069,7 +1071,8 @@ class SpiritConversationService
         string $lang = 'English',
         int $maxOutput = 500,
         float $temperature = 0.7,
-        ?string $cachedSystemPrompt = null
+        ?string $cachedSystemPrompt = null,
+        ?string $reasoningEffort = null
     ): array {
         $db = $this->getUserDb();
         
@@ -1118,7 +1121,8 @@ class SpiritConversationService
             $maxOutput,
             $temperature,
             null,
-            $tools
+            $tools,
+            $reasoningEffort
         );
         
         // Send to AI (non-blocking)
@@ -1213,7 +1217,8 @@ class SpiritConversationService
         ?string $cachedSystemPrompt = null,
         ?callable $shouldStop = null,
         float $toolTemperature = 0.5,
-        array $preSendData = []
+        array $preSendData = [],
+        ?string $reasoningEffort = null
     ): void {
         $shouldStop = $shouldStop ?? static fn (): bool => false;
 
@@ -1298,7 +1303,8 @@ class SpiritConversationService
             $lang,
             $maxOutput,
             $temperature,
-            $cachedSystemPrompt
+            $cachedSystemPrompt,
+            $reasoningEffort
         );
 
         // Tool-execution loop — bounded to avoid runaway chains
@@ -1326,7 +1332,9 @@ class SpiritConversationService
                 $response['toolCalls'],
                 $lang,
                 $maxOutput,
-                $toolTemperature
+                $toolTemperature,
+                null,
+                $reasoningEffort
             );
 
             $iterations++;
@@ -1355,7 +1363,8 @@ class SpiritConversationService
         int $maxOutput = 500,
         float $temperature = 0.7,
         float $toolTemperature = 0.5,
-        ?callable $shouldStop = null
+        ?callable $shouldStop = null,
+        ?string $reasoningEffort = null
     ): array {
         $shouldStop = $shouldStop ?? static fn (): bool => false;
 
@@ -1435,7 +1444,8 @@ class SpiritConversationService
             $lang,
             $maxOutput,
             $temperature,
-            $cachedSystemPrompt
+            $cachedSystemPrompt,
+            $reasoningEffort
         );
 
         // Tool-execution loop.
@@ -1461,7 +1471,8 @@ class SpiritConversationService
                 $lang,
                 $maxOutput,
                 $toolTemperature,
-                $cachedSystemPrompt
+                $cachedSystemPrompt,
+                $reasoningEffort
             );
             $iterations++;
         }

@@ -13,10 +13,11 @@ class AiServiceRequest implements JsonSerializable
     private ?int $maxTokens = 1000;
     private ?float $temperature = 0.7;
     private ?string $stopSequence = null;
+    private ?string $reasoningEffort = null;
     private string $tools; // JSON string
     private \DateTimeInterface $createdAt;
     
-    public function __construct(string $aiServiceModelId, array $messages, ?int $maxTokens = 1000, ?float $temperature = 0.7, ?string $stopSequence = null, ?array $tools = [])
+    public function __construct(string $aiServiceModelId, array $messages, ?int $maxTokens = 1000, ?float $temperature = 0.7, ?string $stopSequence = null, ?array $tools = [], ?string $reasoningEffort = null)
     {
         $this->id = uuid_create();
         $this->aiServiceModelId = $aiServiceModelId;
@@ -24,6 +25,7 @@ class AiServiceRequest implements JsonSerializable
         $this->maxTokens = $maxTokens;
         $this->temperature = $temperature;
         $this->stopSequence = $stopSequence;
+        $this->reasoningEffort = $reasoningEffort;
         $this->tools = json_encode($tools);
         $this->createdAt = new \DateTime();        
     }
@@ -113,6 +115,17 @@ class AiServiceRequest implements JsonSerializable
         return $this;
     }
     
+    public function getReasoningEffort(): ?string
+    {
+        return $this->reasoningEffort;
+    }
+    
+    public function setReasoningEffort(?string $reasoningEffort): self
+    {
+        $this->reasoningEffort = $reasoningEffort;
+        return $this;
+    }
+    
     public function getTools(): ?array
     {
         return json_decode($this->tools, true);
@@ -149,6 +162,7 @@ class AiServiceRequest implements JsonSerializable
             'maxTokens' => $this->maxTokens,
             'temperature' => $this->temperature,
             'stopSequence' => $this->stopSequence,
+            'reasoningEffort' => $this->reasoningEffort,
             'tools' => $this->getTools(),
             'createdAt' => $this->createdAt->format(\DateTimeInterface::ATOM)
         ];
@@ -166,7 +180,7 @@ class AiServiceRequest implements JsonSerializable
             $tools = [];
         }
         
-        $request = new self($data['ai_service_model_id'], $messages, $data['max_tokens']??1000, $data['temperature']??0.7, $data['stop_sequence']??null, $tools);
+        $request = new self($data['ai_service_model_id'], $messages, $data['max_tokens']??1000, $data['temperature']??0.7, $data['stop_sequence']??null, $tools, $data['reasoning_effort'] ?? null);
         $request->setId($data['id']);
         
         if (isset($data['created_at'])) {

@@ -45,7 +45,7 @@ class SpiritChatTurnService
     /**
      * Create a new pending turn job.
      *
-     * @param array $payload lang, maxOutput, temperature, toolTemperature, cachedSystemPrompt
+     * @param array $payload lang, maxOutput, temperature, toolTemperature, reasoningEffort, cachedSystemPrompt
      * @return string The new turn job id
      */
     public function create(string $conversationId, ?string $userMessageId, array $payload): string

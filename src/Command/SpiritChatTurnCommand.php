@@ -128,7 +128,8 @@ class SpiritChatTurnCommand extends Command implements ServiceSubscriberInterfac
                 $payload['cachedSystemPrompt'] ?? null,
                 fn (): bool => $turnService->isStopRequested($turnJobId),
                 (float) ($payload['toolTemperature'] ?? 0.5),
-                $payload['preSendData'] ?? []
+                $payload['preSendData'] ?? [],
+                $payload['reasoningEffort'] ?? null
             );
 
             if ($turnService->isStopRequested($turnJobId)) {
