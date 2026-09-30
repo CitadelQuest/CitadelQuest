@@ -1030,7 +1030,8 @@ class SpiritConversationService
             'assistant',
             $responseType,
             $messageContent,
-            $userMessage->getId()
+            $userMessage->getId(),
+            $this->extractReasoningFromAiResponse($aiServiceResponse)
         );
         
         // Link to AI request/response
@@ -1057,6 +1058,39 @@ class SpiritConversationService
             'toolCalls' => $toolCalls,
             'requiresToolExecution' => $responseType === 'tool_use'
         ];
+    }
+
+    /**
+     * Extract the model's reasoning text from an AI response message.
+     *
+     * Prefers `message.reasoning` (string), falls back to joining
+     * `message.reasoning_details[].text` for providers that emit it there.
+     * Returns null when the model produced no reasoning.
+     */
+    private function extractReasoningFromAiResponse(AiServiceResponse $aiServiceResponse): ?string
+    {
+        $message = $aiServiceResponse->getMessage();
+
+        $reasoning = $message['reasoning'] ?? null;
+        if (is_string($reasoning) && trim($reasoning) !== '') {
+            return $reasoning;
+        }
+
+        $details = $message['reasoning_details'] ?? null;
+        if (is_array($details)) {
+            $parts = [];
+            foreach ($details as $detail) {
+                if (is_array($detail) && isset($detail['text']) && is_string($detail['text'])) {
+                    $parts[] = $detail['text'];
+                }
+            }
+            $joined = trim(implode("\n\n", $parts));
+            if ($joined !== '') {
+                return $joined;
+            }
+        }
+
+        return null;
     }
     
     /**
@@ -1162,7 +1196,8 @@ class SpiritConversationService
             'assistant',
             $responseType,
             $messageContent,
-            $toolResultMessage->getId()
+            $toolResultMessage->getId(),
+            $this->extractReasoningFromAiResponse($aiServiceResponse)
         );
         
         // Link to AI request/response

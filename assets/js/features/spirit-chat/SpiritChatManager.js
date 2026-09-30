@@ -1913,9 +1913,24 @@ export class SpiritChatManager {
             : '';
         const rawTextAttr = message.role === 'user' ? ` data-raw-text="${rawUserText}"` : '';
 
-        messageEl.innerHTML = (formattedContent != '') ? `
+        // Model reasoning (assistant messages) — collapsible block above the content
+        let reasoningHtml = '';
+        if (message.role === 'assistant' && typeof message.reasoning === 'string' && message.reasoning.trim() !== '') {
+            reasoningHtml = `
+                <details class="chat-reasoning">
+                    <summary class="chat-reasoning-summary"><i class="mdi mdi-brain me-1"></i>Reasoning</summary>
+                    <div class="chat-reasoning-text">${this._escapeHtml(message.reasoning)}</div>
+                </details>`;
+        }
+
+        const contentHtml = formattedContent != ''
+            ? `<div class="chat-content"${rawTextAttr}>${formattedContent}</div>`
+            : '';
+
+        messageEl.innerHTML = (reasoningHtml != '' || contentHtml != '') ? `
             <div class="chat-bubble">
-                <div class="chat-content"${rawTextAttr}>${formattedContent}</div>
+                ${reasoningHtml}
+                ${contentHtml}
                 <div class="chat-meta d-flex flex-wrap align-items-center justify-content-between">${usageHtml}${timestampHtml}</div>
             </div>
         ` : '';
@@ -3519,6 +3534,18 @@ export class SpiritChatManager {
         }
         
         this.sendMessageBtn.disabled = false;
+    }
+
+    /**
+     * Escape a string for safe insertion as HTML text content.
+     */
+    _escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     /**

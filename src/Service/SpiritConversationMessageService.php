@@ -45,7 +45,8 @@ class SpiritConversationMessageService
         string $role,
         string $type,
         array $content,
-        ?string $parentMessageId = null
+        ?string $parentMessageId = null,
+        ?string $reasoning = null
     ): SpiritConversationMessage {
         $db = $this->getUserDb();
         
@@ -56,17 +57,19 @@ class SpiritConversationMessageService
             $content,
             $parentMessageId
         );
+        $message->setReasoning($reasoning);
         
         $db->executeStatement(
             'INSERT INTO spirit_conversation_message 
-            (id, conversation_id, role, type, content, parent_message_id, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (id, conversation_id, role, type, content, reasoning, parent_message_id, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $message->getId(),
                 $message->getConversationId(),
                 $message->getRole(),
                 $message->getType(),
                 json_encode($message->getContent()),
+                $message->getReasoning(),
                 $message->getParentMessageId(),
                 $message->getCreatedAt()->format('Y-m-d H:i:s')
             ]

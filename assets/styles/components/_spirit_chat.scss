@@ -233,6 +233,40 @@
                     text-align: right;
                     margin-top: 0.25rem;
                 }
+
+                .chat-reasoning {
+                    margin-bottom: 0.5rem;
+                    padding-left: 0.6rem;
+                    border-left: 2px solid rgba(colors.$cyber, 0.4);
+                    font-weight: 300;
+
+                    .chat-reasoning-summary {
+                        cursor: pointer;
+                        user-select: none;
+                        list-style: none;
+                        font-size: 0.72rem;
+                        color: colors.$cyber;
+                        opacity: 0.65;
+
+                        &::-webkit-details-marker {
+                            display: none;
+                        }
+                    }
+
+                    &[open] .chat-reasoning-summary {
+                        margin-bottom: 0.25rem;
+                    }
+
+                    .chat-reasoning-text {
+                        font-size: 0.78rem;
+                        opacity: 0.7;
+                        white-space: pre-wrap;
+                        word-break: break-word;
+                        max-height: 40vh;
+                        overflow-y: auto;
+                        @include mixins.cyber-scrollbar;
+                    }
+                }
             }
         }
     }

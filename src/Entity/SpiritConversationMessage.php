@@ -24,6 +24,7 @@ class SpiritConversationMessage implements \JsonSerializable
     private string $role;  // 'user', 'assistant', 'tool'
     private string $type;  // 'stop', 'tool_use', 'tool_result', 'length'
     private array $content;  // JSON content
+    private ?string $reasoning;  // model reasoning text (assistant messages only)
     private ?string $aiServiceRequestId;
     private ?string $aiServiceResponseId;
     private ?string $parentMessageId;
@@ -41,6 +42,7 @@ class SpiritConversationMessage implements \JsonSerializable
         $this->role = $role;
         $this->type = $type;
         $this->content = $content;
+        $this->reasoning = null;
         $this->parentMessageId = $parentMessageId;
         $this->aiServiceRequestId = null;
         $this->aiServiceResponseId = null;
@@ -81,6 +83,7 @@ class SpiritConversationMessage implements \JsonSerializable
         $message->id = $data['id'];
         $message->aiServiceRequestId = $data['ai_service_request_id'] ?? null;
         $message->aiServiceResponseId = $data['ai_service_response_id'] ?? null;
+        $message->reasoning = $data['reasoning'] ?? null;
         $message->createdAt = new DateTime($data['created_at']);
         
         return $message;
@@ -110,6 +113,11 @@ class SpiritConversationMessage implements \JsonSerializable
     public function getContent(): array 
     { 
         return $this->content; 
+    }
+    
+    public function getReasoning(): ?string 
+    { 
+        return $this->reasoning; 
     }
     
     public function getParentMessageId(): ?string 
@@ -148,6 +156,11 @@ class SpiritConversationMessage implements \JsonSerializable
         $this->content = $content; 
     }
 
+    public function setReasoning(?string $reasoning): void 
+    { 
+        $this->reasoning = $reasoning; 
+    }
+
     /**
      * JSON serialization for API responses
      */
@@ -159,6 +172,7 @@ class SpiritConversationMessage implements \JsonSerializable
             'role' => $this->role,
             'type' => $this->type,
             'content' => $this->role === 'tool' ? $this->serializeToolContent() : $this->content,
+            'reasoning' => $this->reasoning,
             'parentMessageId' => $this->parentMessageId,
             'aiServiceRequestId' => $this->aiServiceRequestId,
             'aiServiceResponseId' => $this->aiServiceResponseId,
