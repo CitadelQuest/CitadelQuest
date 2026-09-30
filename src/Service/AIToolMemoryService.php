@@ -549,7 +549,7 @@ class AIToolMemoryService
      * 
      * @param array $arguments Tool arguments:
      *   - source: string (required) - Memory node ID (UUID) or source_ref string
-     *   - range: string (optional) - "all" (default) or "start:end" for line range
+     *   - range: string (required) - "start:end" line range (e.g., "10:25")
      * 
      * @return array Tool result with source content
      */
@@ -564,7 +564,13 @@ class AIToolMemoryService
                 ];
             }
 
-            $range = $arguments['range'] ?? 'all';
+            $range = $arguments['range'] ?? null;
+            if (!is_string($range) || !preg_match('/^\d+:\d+$/', $range)) {
+                return [
+                    'success' => false,
+                    'error' => 'Range parameter is required in "start:end" format (e.g., "10:25" for lines 10-25).'
+                ];
+            }
 
             $spiritId = $arguments['spiritId'] ?? null;
             if (!$spiritId) {
@@ -638,26 +644,32 @@ class AIToolMemoryService
             $content = $sourceData['content'];
             $totalLines = substr_count($content, "\n") + 1;
 
-            // Apply line range if specified
-            if ($range !== 'all' && strpos($range, ':') !== false) {
-                $parts = explode(':', $range, 2);
-                $start = max(1, (int) $parts[0]);
-                $end = (int) $parts[1];
+            // Apply the requested line range
+            $parts = explode(':', $range, 2);
+            $start = max(1, (int) $parts[0]);
+            $end = (int) $parts[1];
 
-                $lines = explode("\n", $content);
-                $totalLines = count($lines);
-                $end = min($end, $totalLines);
+            $lines = explode("\n", $content);
+            $totalLines = count($lines);
+            $end = min($end, $totalLines);
 
-                if ($start > $totalLines) {
-                    return [
-                        'success' => false,
-                        'error' => "Start line {$start} exceeds total lines {$totalLines}",
-                        'totalLines' => $totalLines
-                    ];
-                }
-
-                $content = implode("\n", array_slice($lines, $start - 1, $end - $start + 1));
+            if ($start > $totalLines) {
+                return [
+                    'success' => false,
+                    'error' => "Start line {$start} exceeds total lines {$totalLines}",
+                    'totalLines' => $totalLines
+                ];
             }
+
+            if ($end < $start) {
+                return [
+                    'success' => false,
+                    'error' => "End line {$end} is before start line {$start}",
+                    'totalLines' => $totalLines
+                ];
+            }
+
+            $content = implode("\n", array_slice($lines, $start - 1, $end - $start + 1));
 
             $title = $sourceData['title'] ?? null;
             $displayType = $sourceData['source_type'] ?? $sourceType ?? 'unknown';
@@ -694,7 +706,7 @@ class AIToolMemoryService
         $displayRef = htmlspecialchars($sourceRef);
         $displayType = htmlspecialchars($sourceType);
         $displayTitle = $title ? htmlspecialchars($title) : null;
-        $rangeText = $range === 'all' ? "all {$totalLines} lines" : "lines {$range} (of {$totalLines})";
+        $rangeText = "lines {$range} (of {$totalLines})";
         $rangeTextEsc = htmlspecialchars($rangeText);
 
         $titleHtml = $displayTitle

@@ -94,7 +94,8 @@ class SpiritConversationService
      *
      * @param string      $callerSpiritId  The Spirit initiating the consultation
      * @param string      $calleeSpiritId  The Spirit being consulted (conversation owner)
-     * @param string|null $conversationId  Optional existing S2S conversation to continue
+     * @param string|null $conversationId  Optional S2S conversation selector: 'new' (default),
+     *                                      'continue-last', or an existing S2S conversation UUID
      */
     public function getOrCreateS2SConversation(
         string $callerSpiritId,
@@ -102,10 +103,10 @@ class SpiritConversationService
         ?string $conversationId = null
     ): SpiritConversation {
         // conversationId semantics:
-        //   null | 'continue-last' -> continue the most recent S2S thread (default)
-        //   'new'                  -> force a fresh S2S conversation
+        //   null | 'new'           -> force a fresh S2S conversation (default)
+        //   'continue-last'        -> continue the most recent S2S thread
         //   uuid                   -> use that specific S2S conversation
-        $mode = $conversationId ?? 'continue-last';
+        $mode = $conversationId ?? 'new';
 
         if ($mode !== 'new' && $mode !== 'continue-last') {
             $existing = $this->getConversation($mode);
@@ -128,7 +129,7 @@ class SpiritConversationService
             return $this->createConversation($calleeSpiritId, $title, 'spirit', $callerSpiritId);
         }
 
-        // continue-last (default): reuse the most recent S2S thread between these
+        // continue-last: reuse the most recent S2S thread between these
         // two Spirits so context is preserved across calls. Only reuse threads that
         // were active within the last 24 hours.
         $db = $this->getUserDb();
