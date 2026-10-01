@@ -94,6 +94,7 @@ Your Spirit can use various tools during conversation to help you:
 | **cqProfileManage** | Manage your CQ Profile — update bio, photos, background, language settings |
 | **cqProfileManageGroup** | Organize your profile into content groups (for file and memory sharing) |
 | **cqProfileManageItem** | Add files, memories, or shares to your profile groups |
+| **createPDF** | Turn HTML/CSS into a PDF document (reports, letters, invoices) saved to your File Browser |
 | **createSepaEuroPaymentQrCode** | Create QR codes for Euro bank payments |
 | **fetchURL** | Read web pages and research online content |
 | **fileManage** | Create, edit, copy, move, delete files and directories in your File Browser |

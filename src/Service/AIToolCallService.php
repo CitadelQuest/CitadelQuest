@@ -38,6 +38,7 @@ class AIToolCallService
         private readonly AIToolCoolifyService $aiToolCoolifyService,
         private readonly AIToolHostingerService $aiToolHostingerService,
         private readonly AIToolCloudflareService $aiToolCloudflareService,
+        private readonly AIToolPdfService $aiToolPdfService,
         private readonly Security $security
     ) {
     }
@@ -150,6 +151,11 @@ class AIToolCallService
             // For Cloudflare tools, delegate to AIToolCloudflareService
             if ($toolName === 'cloudflareManage') {
                 return $this->aiToolCloudflareService->cloudflareManage($arguments);
+            }
+
+            // For PDF document creation, delegate to AIToolPdfService
+            if ($toolName === 'createPDF') {
+                return $this->aiToolPdfService->createPDF($arguments);
             }
 
             // createSepaEuroPaymentQrCode

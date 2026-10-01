@@ -12,6 +12,7 @@
         "doctrine/doctrine-bundle": "^2.18.1",
         "doctrine/doctrine-migrations-bundle": "^3.7.0",
         "doctrine/orm": "^3.5.8",
+        "dompdf/dompdf": "^3.1",
         "league/commonmark": "^2.8.0",
         "smhg/sepa-qr-data": "^3.0",
         "symfony/apache-pack": "^1.0.1",
