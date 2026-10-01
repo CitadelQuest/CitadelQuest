@@ -53,14 +53,8 @@ user-manual-wip/
 cookies.txt
 
 # Deployment scripts and sensitive files
-/upload-assets.sh
-/deploy-to-dev.sh
-/git-push.sh
 /build-release.sh
-/unzip-assets.php
-/assets.zip
 *.zip
-/assets/js/features/diary/index.js.backup
 
 # SSL
 /ssl/
