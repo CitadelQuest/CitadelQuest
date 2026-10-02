@@ -56,6 +56,7 @@ export class SpiritChatManager {
         this.newConversationBtn = document.getElementById('newConversationBtn');
         this.newConversationModal = document.getElementById('newConversationModal');
         this.newConversationForm = document.getElementById('newConversationForm');
+        this.newConversationModalSubmit = document.getElementById('newConversationModalSubmit');
         this.deleteConversationModal = document.getElementById('deleteConversationModal');
         this.deleteConversationForm = document.getElementById('deleteConversationForm');
         this.deleteConversationModalSubmit = document.getElementById('deleteConversationModalSubmit');
@@ -286,6 +287,10 @@ export class SpiritChatManager {
         // New conversation button
         if (this.newConversationBtn) {
             this.newConversationBtn.addEventListener('click', () => {
+                // Re-enable submit each time the modal opens (may be disabled from a previous attempt)
+                if (this.newConversationModalSubmit) {
+                    this.newConversationModalSubmit.disabled = false;
+                }
                 const newConversationModal = new bootstrap.Modal(this.newConversationModal);
                 this.newConversationModal.addEventListener('shown.bs.modal', () => {
                     this.conversationTitle.focus();
@@ -298,6 +303,10 @@ export class SpiritChatManager {
         if (this.newConversationForm) {
             this.newConversationForm.addEventListener('submit', (e) => {
                 e.preventDefault();
+                // Disable submit immediately to prevent duplicate conversations from rapid clicks
+                if (this.newConversationModalSubmit) {
+                    this.newConversationModalSubmit.disabled = true;
+                }
                 this.createNewConversation();
             });
         }
@@ -2826,6 +2835,10 @@ export class SpiritChatManager {
         } catch (error) {
             console.error('Error creating conversation:', error);
             window.toast.error(error.message || 'Failed to create conversation');
+            // Re-enable submit so the user can retry after a failure
+            if (this.newConversationModalSubmit) {
+                this.newConversationModalSubmit.disabled = false;
+            }
         }
     }
 
