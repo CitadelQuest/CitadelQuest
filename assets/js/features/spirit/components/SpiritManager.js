@@ -60,6 +60,23 @@ export class SpiritManager {
         this.s2sConversationsIncomingLoaded = false;
         this.s2sOutgoingCountBadge = document.getElementById('spirit-s2s-outgoing-count');
         this.s2sIncomingCountBadge = document.getElementById('spirit-s2s-incoming-count');
+        this.s2sPaginationOutgoing = document.getElementById('spirit-s2s-pagination-outgoing');
+        this.s2sPaginationIncoming = document.getElementById('spirit-s2s-pagination-incoming');
+        // Server-side pagination state (10 per page)
+        this.s2sPageSize = 10;
+        this.s2sOutgoingConversations = [];
+        this.s2sIncomingConversations = [];
+        this.s2sOutgoingPagination = null;
+        this.s2sIncomingPagination = null;
+
+        // Conversations tab refs + server-side pagination state
+        this.conversationsTab = document.getElementById('tab-conversations');
+        this.conversationsTabList = document.getElementById('conversations-list');
+        this.conversationsTabPagination = document.getElementById('spirit-conversations-pagination');
+        this.conversationsTabPerPage = 7;
+        this.conversationsTabPage = 1;
+        this.conversationsTabLoaded = false;
+        this.conversationsTabPaginationData = null;
 
         // Memory pack lists
         this.memoryLibraryPacksList = document.getElementById('spirit-memory-library-packs');
@@ -268,6 +285,15 @@ export class SpiritManager {
             });
         }
 
+        // Load conversations when the Conversations tab becomes visible (lazy, paginated)
+        if (this.conversationsTab) {
+            this.conversationsTab.addEventListener('shown.bs.tab', () => {
+                if (!this.conversationsTabLoaded) {
+                    this.loadConversationsTab(1);
+                }
+            });
+        }
+
         // Save S2S settings button
         if (this.s2sSaveBtn) {
             this.s2sSaveBtn.addEventListener('click', () => {
@@ -417,6 +443,7 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
+            this.conversationsTabLoaded = false;
             
             this.showSpirit();
             
@@ -438,6 +465,7 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
+            this.conversationsTabLoaded = false;
         } catch (error) {
             console.error('Error reloading spirit:', error);
             this.showError(this.translate('error.reloading_spirit', 'Failed to reload spirit'));
@@ -463,6 +491,7 @@ export class SpiritManager {
             }
             
             this.spirit = await response.json();
+            this.conversationsTabLoaded = false;
             this.showSpirit();
             
         } catch (error) {
@@ -539,6 +568,11 @@ export class SpiritManager {
         const s2sTabActive = this.s2sTab?.classList.contains('active');
         if (s2sTabActive) {
             this.loadS2sSettings();
+        }
+
+        // Load the Conversations tab if it is currently active
+        if (this.conversationsTab?.classList.contains('active') && !this.conversationsTabLoaded) {
+            this.loadConversationsTab(1);
         }
 
         // Update basic info
@@ -1284,26 +1318,29 @@ export class SpiritManager {
     async loadS2sConversations() {
         if (!this.spirit?.id) return;
 
-        await Promise.all([
-            this.loadS2sConversationsOutgoing(),
-            this.loadS2sConversationsIncoming(),
-        ]);
+        // Only fetch lists not loaded yet; page navigation refetches directly
+        const tasks = [];
+        if (!this.s2sConversationsOutgoingLoaded) tasks.push(this.loadS2sConversationsOutgoing(1));
+        if (!this.s2sConversationsIncomingLoaded) tasks.push(this.loadS2sConversationsIncoming(1));
+        await Promise.all(tasks);
     }
 
     /**
      * Fetch and render outgoing S2S conversations (initiated by this Spirit)
      */
-    async loadS2sConversationsOutgoing() {
+    async loadS2sConversationsOutgoing(page = 1) {
         if (!this.spirit?.id || !this.s2sConversationsOutgoingList) return;
-        if (this.s2sConversationsOutgoingLoaded) return;
 
         try {
-            const response = await fetch(this.apiEndpoints.s2sConversations.replace('{id}', this.spirit.id));
+            const url = `${this.apiEndpoints.s2sConversations.replace('{id}', this.spirit.id)}?page=${page}&perPage=${this.s2sPageSize}`;
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to load outgoing S2S conversations');
 
-            const conversations = await response.json();
-            this.renderS2sConversations(this.s2sConversationsOutgoingList, conversations, 'with');
-            this.updateS2sCountBadge(this.s2sOutgoingCountBadge, conversations.length);
+            const data = await response.json();
+            this.s2sOutgoingConversations = Array.isArray(data.conversations) ? data.conversations : [];
+            this.s2sOutgoingPagination = data.pagination || null;
+            this.renderS2sOutgoingPage();
+            this.updateS2sCountBadge(this.s2sOutgoingCountBadge, this.s2sOutgoingPagination?.total ?? this.s2sOutgoingConversations.length);
             this.s2sConversationsOutgoingLoaded = true;
         } catch (error) {
             console.error('Error loading outgoing S2S conversations:', error);
@@ -1316,17 +1353,19 @@ export class SpiritManager {
     /**
      * Fetch and render incoming S2S conversations (received from other Spirits)
      */
-    async loadS2sConversationsIncoming() {
+    async loadS2sConversationsIncoming(page = 1) {
         if (!this.spirit?.id || !this.s2sConversationsIncomingList) return;
-        if (this.s2sConversationsIncomingLoaded) return;
 
         try {
-            const response = await fetch(this.apiEndpoints.s2sConversationsReceived.replace('{id}', this.spirit.id));
+            const url = `${this.apiEndpoints.s2sConversationsReceived.replace('{id}', this.spirit.id)}?page=${page}&perPage=${this.s2sPageSize}`;
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Failed to load incoming S2S conversations');
 
-            const conversations = await response.json();
-            this.renderS2sConversations(this.s2sConversationsIncomingList, conversations, 'from');
-            this.updateS2sCountBadge(this.s2sIncomingCountBadge, conversations.length);
+            const data = await response.json();
+            this.s2sIncomingConversations = Array.isArray(data.conversations) ? data.conversations : [];
+            this.s2sIncomingPagination = data.pagination || null;
+            this.renderS2sIncomingPage();
+            this.updateS2sCountBadge(this.s2sIncomingCountBadge, this.s2sIncomingPagination?.total ?? this.s2sIncomingConversations.length);
             this.s2sConversationsIncomingLoaded = true;
         } catch (error) {
             console.error('Error loading incoming S2S conversations:', error);
@@ -1389,6 +1428,189 @@ export class SpiritManager {
 
             container.appendChild(item);
         });
+    }
+
+    /**
+     * Render the current page of outgoing S2S conversations + pagination controls
+     */
+    renderS2sOutgoingPage() {
+        this.renderS2sConversations(this.s2sConversationsOutgoingList, this.s2sOutgoingConversations, 'with');
+        this.renderS2sPagination(
+            this.s2sPaginationOutgoing,
+            this.s2sOutgoingPagination,
+            (page) => this.loadS2sConversationsOutgoing(page)
+        );
+    }
+
+    /**
+     * Render the current page of incoming S2S conversations + pagination controls
+     */
+    renderS2sIncomingPage() {
+        this.renderS2sConversations(this.s2sConversationsIncomingList, this.s2sIncomingConversations, 'from');
+        this.renderS2sPagination(
+            this.s2sPaginationIncoming,
+            this.s2sIncomingPagination,
+            (page) => this.loadS2sConversationsIncoming(page)
+        );
+    }
+
+    /**
+     * Render prev/next pagination controls below a list from the API pagination
+     * metadata ({ page, pages, total }). Hidden when there is only one page.
+     */
+    renderS2sPagination(container, pagination, onPageChange) {
+        if (!container) return;
+        container.innerHTML = '';
+
+        const currentPage = pagination?.page || 1;
+        const totalPages = pagination?.pages || 1;
+
+        if (totalPages <= 1) {
+            container.classList.add('d-none');
+            return;
+        }
+        container.classList.remove('d-none');
+
+        const nav = document.createElement('div');
+        nav.className = 'd-flex justify-content-between align-items-center mt-2';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'btn btn-sm btn-outline-secondary';
+        prevBtn.innerHTML = `<i class="mdi mdi-chevron-left"></i> ${this.translate('ui.previous', 'Previous')}`;
+        prevBtn.disabled = currentPage <= 1;
+        prevBtn.addEventListener('click', () => onPageChange(currentPage - 1));
+
+        const info = document.createElement('span');
+        info.className = 'small text-muted';
+        info.textContent = `${this.translate('ui.page', 'Page')} ${currentPage} / ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'btn btn-sm btn-outline-secondary';
+        nextBtn.innerHTML = `${this.translate('ui.next', 'Next')} <i class="mdi mdi-chevron-right"></i>`;
+        nextBtn.disabled = currentPage >= totalPages;
+        nextBtn.addEventListener('click', () => onPageChange(currentPage + 1));
+
+        nav.appendChild(prevBtn);
+        nav.appendChild(info);
+        nav.appendChild(nextBtn);
+        container.appendChild(nav);
+    }
+
+    // =====================
+    // Conversations tab (server-side pagination)
+    // =====================
+
+    /**
+     * Load a page of conversations for the Conversations tab
+     */
+    async loadConversationsTab(page = 1) {
+        if (!this.spirit?.id || !this.conversationsTabList) return;
+
+        try {
+            const url = `${this.apiEndpoints.conversations.replace('{id}', this.spirit.id)}?page=${page}&perPage=${this.conversationsTabPerPage}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to load conversations');
+
+            const data = await response.json();
+            const conversations = Array.isArray(data.conversations) ? data.conversations : [];
+            this.conversationsTabPage = data.pagination?.page || page;
+            this.conversationsTabPaginationData = data.pagination || null;
+            this.conversationsTabLoaded = true;
+
+            this.renderConversationsTabList(conversations);
+            this.renderConversationsTabPagination(this.conversationsTabPaginationData);
+        } catch (error) {
+            console.error('Error loading conversations tab:', error);
+            this.conversationsTabList.innerHTML = `
+                <div class="alert alert-danger small py-2 mb-0">${error.message || 'Failed to load conversations'}</div>
+            `;
+        }
+    }
+
+    /**
+     * Render the conversation list for the Conversations tab
+     */
+    renderConversationsTabList(conversations) {
+        const container = this.conversationsTabList;
+        if (!container) return;
+
+        if (!Array.isArray(conversations) || conversations.length === 0) {
+            container.innerHTML = `<p class="text-muted small">${this.translate('spirit.no_conversations', 'No conversations yet')}</p>`;
+            return;
+        }
+
+        const messagesLabel = this.translate('spirit.messages', 'messages');
+
+        container.innerHTML = '';
+        const list = document.createElement('ul');
+        list.className = 'list-group list-group-flush bg-dark bg-opacity-50 rounded';
+
+        conversations.forEach(conversation => {
+            const item = document.createElement('li');
+            item.className = 'list-group-item bg-transparent border-secondary border-opacity-25 cursor-pointer conversation-item';
+            item.dataset.conversationId = conversation.id;
+
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="w-100">
+                        <i class="mdi mdi-message-outline me-2 text-cyber"></i><strong>${this.escapeHtml(conversation.title || '')}</strong>
+                        <br>
+                        <small class="text-muted">${conversation.messagesCount || 0} ${this.escapeHtml(messagesLabel)}</small>
+                        <small class="text-muted float-end">${this.escapeHtml(conversation.lastInteraction || '')}</small>
+                    </div>
+                </div>
+            `;
+
+            list.appendChild(item);
+        });
+
+        container.appendChild(list);
+    }
+
+    /**
+     * Render prev/next pagination controls for the Conversations tab
+     */
+    renderConversationsTabPagination(pagination) {
+        const container = this.conversationsTabPagination;
+        if (!container) return;
+        container.innerHTML = '';
+
+        const currentPage = pagination?.page || 1;
+        const totalPages = pagination?.pages || 1;
+
+        if (totalPages <= 1) {
+            container.classList.add('d-none');
+            return;
+        }
+        container.classList.remove('d-none');
+
+        const nav = document.createElement('div');
+        nav.className = 'd-flex justify-content-between align-items-center mt-2';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'btn btn-sm btn-outline-secondary';
+        prevBtn.innerHTML = `<i class="mdi mdi-chevron-left"></i> ${this.translate('ui.previous', 'Previous')}`;
+        prevBtn.disabled = currentPage <= 1;
+        prevBtn.addEventListener('click', () => this.loadConversationsTab(currentPage - 1));
+
+        const info = document.createElement('span');
+        info.className = 'small text-muted';
+        info.textContent = `${this.translate('ui.page', 'Page')} ${currentPage} / ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'btn btn-sm btn-outline-secondary';
+        nextBtn.innerHTML = `${this.translate('ui.next', 'Next')} <i class="mdi mdi-chevron-right"></i>`;
+        nextBtn.disabled = currentPage >= totalPages;
+        nextBtn.addEventListener('click', () => this.loadConversationsTab(currentPage + 1));
+
+        nav.appendChild(prevBtn);
+        nav.appendChild(info);
+        nav.appendChild(nextBtn);
+        container.appendChild(nav);
     }
 
     /**

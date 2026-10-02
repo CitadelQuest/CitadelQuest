@@ -37,49 +37,96 @@ class SpiritConversationApiController extends AbstractController
     /** Allowed OpenRouter reasoning effort values (per-Spirit setting). */
     private const ALLOWED_REASONING_EFFORTS = ['max', 'xhigh', 'high', 'medium', 'low', 'minimal', 'none'];
 
+    /** Default / maximum page size for conversation list pagination. */
+    private const DEFAULT_PER_PAGE = 10;
+    private const MAX_PER_PAGE = 100;
+
     private function normalizeReasoningEffort(mixed $value): ?string
     {
         return is_string($value) && in_array($value, self::ALLOWED_REASONING_EFFORTS, true) ? $value : null;
+    }
+
+    /**
+     * Resolve the `page` / `perPage` query params into page, perPage and offset.
+     *
+     * @return array{page: int, perPage: int, offset: int}
+     */
+    private function resolvePagination(Request $request): array
+    {
+        $page = max(1, (int) $request->query->get('page', 1));
+        $perPage = (int) $request->query->get('perPage', self::DEFAULT_PER_PAGE);
+        $perPage = max(1, min($perPage, self::MAX_PER_PAGE));
+
+        return ['page' => $page, 'perPage' => $perPage, 'offset' => ($page - 1) * $perPage];
+    }
+
+    /**
+     * Build the pagination metadata returned alongside a page of results.
+     *
+     * @return array{total: int, page: int, perPage: int, pages: int, hasMore: bool}
+     */
+    private function buildPagination(int $total, int $page, int $perPage): array
+    {
+        $pages = max(1, (int) ceil($total / $perPage));
+
+        return [
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'pages' => $pages,
+            'hasMore' => $page < $pages,
+        ];
     }
     
     #[Route('/list/{spiritId}', name: 'api_spirit_conversation_list', methods: ['GET'])]
     public function listConversations(string $spiritId, Request $request): JsonResponse
     {
         try {
-            // Get conversations, without 'messages' field
-            $conversations = $this->conversationService->getConversationsBySpirit($spiritId);
+            $p = $this->resolvePagination($request);
+            $search = trim((string) $request->query->get('search', '')) ?: null;
 
-            // S2S conversations are shown in the dedicated S2S tab, hide them here
-            $conversations = array_values(array_filter(
-                $conversations,
-                static fn (array $conversation) => ($conversation['origin'] ?? 'user') !== 'spirit'
-            ));
+            // S2S conversations are shown in the dedicated S2S tab, so exclude them here
+            $total = $this->conversationService->countConversationsBySpirit($spiritId, $search, true);
+            $conversations = $this->conversationService->getConversationsBySpirit($spiritId, $p['perPage'], $p['offset'], $search, true);
 
-            return $this->json($conversations);
+            return $this->json([
+                'conversations' => $conversations,
+                'pagination' => $this->buildPagination($total, $p['page'], $p['perPage']),
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/s2s-initiated/{spiritId}', name: 'api_spirit_conversation_s2s_initiated', methods: ['GET'])]
-    public function listS2sConversationsInitiatedBySpirit(string $spiritId): JsonResponse
+    public function listS2sConversationsInitiatedBySpirit(string $spiritId, Request $request): JsonResponse
     {
         try {
-            $conversations = $this->conversationService->getS2sConversationsInitiatedBySpirit($spiritId);
+            $p = $this->resolvePagination($request);
+            $total = $this->conversationService->countS2sConversationsInitiatedBySpirit($spiritId);
+            $conversations = $this->conversationService->getS2sConversationsInitiatedBySpirit($spiritId, $p['perPage'], $p['offset']);
 
-            return $this->json($conversations);
+            return $this->json([
+                'conversations' => $conversations,
+                'pagination' => $this->buildPagination($total, $p['page'], $p['perPage']),
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/s2s-received/{spiritId}', name: 'api_spirit_conversation_s2s_received', methods: ['GET'])]
-    public function listS2sConversationsReceivedBySpirit(string $spiritId): JsonResponse
+    public function listS2sConversationsReceivedBySpirit(string $spiritId, Request $request): JsonResponse
     {
         try {
-            $conversations = $this->conversationService->getS2sConversationsReceivedBySpirit($spiritId);
+            $p = $this->resolvePagination($request);
+            $total = $this->conversationService->countS2sConversationsReceivedBySpirit($spiritId);
+            $conversations = $this->conversationService->getS2sConversationsReceivedBySpirit($spiritId, $p['perPage'], $p['offset']);
 
-            return $this->json($conversations);
+            return $this->json([
+                'conversations' => $conversations,
+                'pagination' => $this->buildPagination($total, $p['page'], $p['perPage']),
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage(), 'success' => false], Response::HTTP_INTERNAL_SERVER_ERROR);
         }

@@ -24,6 +24,12 @@ export class SpiritChatManager {
         this.isLoadingMessages = false;
         this.isLoadingConversations = false;
         this.conversations = [];
+        // Conversation list pagination (server-side)
+        this.conversationsPage = 1;
+        this.conversationsPerPage = 7;
+        this.conversationsSearch = '';
+        this.conversationsPaginationData = null;
+        this.conversationsSearchTimer = null;
         this.imgPreviewData = [];
         this.pdfPreviewData = [];
         this.maxImageSize = 1024; // Max width/height for optimal AI processing
@@ -36,7 +42,7 @@ export class SpiritChatManager {
         this.currentTurnJobId = null; // Active background turn job id (timeout-proof flow)
         
         // Pagination state
-        this.messageLimit = 10; // Messages per page
+        this.messageLimit = 7; // Messages per page
         this.currentOffset = 0;
         this.hasMoreMessages = false;
         this.totalMessages = 0;
@@ -48,6 +54,7 @@ export class SpiritChatManager {
         this.spiritLevel = document.getElementById('spiritLevel');
         this.spiritChatAvatar = document.getElementById('spiritChatAvatar');
         this.conversationsList = document.getElementById('conversationsList');
+        this.conversationsPagination = document.getElementById('conversationsPagination');
         this.chatContainer = document.getElementById('chatContainer');
         this.chatMessages = document.getElementById('chatMessages');
         this.chatForm = document.getElementById('chatForm');
@@ -277,10 +284,14 @@ export class SpiritChatManager {
             });
         }
 
-        // Search/filter conversations
+        // Search conversations (server-side, debounced)
         if (this.conversationSearch) {
             this.conversationSearch.addEventListener('input', () => {
-                this.filterConversations();
+                clearTimeout(this.conversationsSearchTimer);
+                this.conversationsSearchTimer = setTimeout(() => {
+                    this.conversationsSearch = this.conversationSearch.value.trim();
+                    this.loadConversations(false, 1);
+                }, 300);
             });
         }
         
@@ -989,6 +1000,14 @@ export class SpiritChatManager {
         this.currentConversationId = null;
         this.conversations = [];
 
+        // Reset conversation list pagination/search for the new spirit
+        this.conversationsPage = 1;
+        this.conversationsSearch = '';
+        this.conversationsPaginationData = null;
+        if (this.conversationSearch) {
+            this.conversationSearch.value = '';
+        }
+
         // Clear chat messages
         if (this.chatMessages) {
             this.chatMessages.innerHTML = '';
@@ -1019,7 +1038,7 @@ export class SpiritChatManager {
     /**
      * Load conversations for the current spirit
      */
-    async loadConversations(loadLastConversation = false) {
+    async loadConversations(loadLastConversation = false, page = 1) {
         if (!this.currentSpiritId || !this.conversationsList) return;
 
         this.isLoadingConversations = true;
@@ -1034,17 +1053,31 @@ export class SpiritChatManager {
                 </div>
             `;
             
-            const conversations = await this.apiService.getConversations(this.currentSpiritId);
+            const data = await this.apiService.getConversations(this.currentSpiritId, page, this.conversationsPerPage, this.conversationsSearch);
+            const conversations = data.conversations || [];
+
+            // If a page came back empty (e.g. after deleting the last item), fall back to page 1
+            if (conversations.length === 0 && page > 1 && !this.conversationsSearch) {
+                return this.loadConversations(loadLastConversation, 1);
+            }
+
+            this.conversationsPage = data.pagination?.page || page;
+            this.conversationsPaginationData = data.pagination || null;
+            this.conversations = conversations;
             
             // Clear loading and render conversations
             this.conversationsList.innerHTML = '';
             
             if (conversations.length === 0) {
+                const emptyMsg = this.conversationsSearch
+                    ? (window.translations?.['spirit.chat.no_conversations_found'] || 'No conversations found')
+                    : (window.translations?.['spirit.chat.no_conversations'] || 'No conversations yet');
                 this.conversationsList.innerHTML = `
                     <div class="text-center p-3">
-                        <p>${window.translations && window.translations['spirit.chat.no_conversations'] ? window.translations['spirit.chat.no_conversations'] : 'No conversations yet'}</p>
+                        <p>${emptyMsg}</p>
                     </div>
                 `;
+                this.renderConversationsPagination(this.conversationsPaginationData);
                 return;
             }
             
@@ -1110,9 +1143,10 @@ export class SpiritChatManager {
                 });
                 
                 this.conversationsList.appendChild(item);
-
-                this.conversations.push(conversation);
             });
+
+            // Render pagination controls for the conversation list
+            this.renderConversationsPagination(this.conversationsPaginationData);
 
             // List fully rendered — release the flag before restoring a conversation
             // (loadConversation waits on it before highlighting the active list item)
@@ -1149,6 +1183,53 @@ export class SpiritChatManager {
         } finally {
             this.isLoadingConversations = false;
         }
+    }
+
+    /**
+     * Render prev/next pagination controls for the conversation list from the
+     * API pagination metadata ({ page, pages, total }). Hidden when one page.
+     */
+    renderConversationsPagination(pagination) {
+        const container = this.conversationsPagination;
+        if (!container) return;
+        container.innerHTML = '';
+
+        const currentPage = pagination?.page || 1;
+        const totalPages = pagination?.pages || 1;
+
+        if (totalPages <= 1) {
+            container.classList.add('d-none');
+            return;
+        }
+        container.classList.remove('d-none');
+
+        const t = (key, fallback) => (window.translations && window.translations[key]) ? window.translations[key] : fallback;
+
+        const nav = document.createElement('div');
+        nav.className = 'd-flex justify-content-between align-items-center mt-2';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'btn btn-sm btn-outline-secondary';
+        prevBtn.innerHTML = `<i class="mdi mdi-chevron-left"></i> ${t('ui.previous', 'Previous')}`;
+        prevBtn.disabled = currentPage <= 1;
+        prevBtn.addEventListener('click', () => this.loadConversations(false, currentPage - 1));
+
+        const info = document.createElement('span');
+        info.className = 'small text-muted';
+        info.textContent = `${t('ui.page', 'Page')} ${currentPage} / ${totalPages}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'btn btn-sm btn-outline-secondary';
+        nextBtn.innerHTML = `${t('ui.next', 'Next')} <i class="mdi mdi-chevron-right"></i>`;
+        nextBtn.disabled = currentPage >= totalPages;
+        nextBtn.addEventListener('click', () => this.loadConversations(false, currentPage + 1));
+
+        nav.appendChild(prevBtn);
+        nav.appendChild(info);
+        nav.appendChild(nextBtn);
+        container.appendChild(nav);
     }
     
     /**
@@ -1977,22 +2058,6 @@ export class SpiritChatManager {
     }
 
     /**
-     * Filter conversations based on search query
-     */
-    filterConversations() {
-        const searchQuery = this.conversationSearch.value.toLowerCase();
-        const conversations = this.conversationsList.querySelectorAll('.list-group-item');
-        conversations.forEach(conversation => {
-            const title = conversation.textContent.toLowerCase();
-            if (title.includes(searchQuery)) {
-                conversation.classList.remove('d-none');
-            } else {
-                conversation.classList.add('d-none');
-            }
-        });
-    }
-
-    /**
      * Delete a conversation
      */
     async deleteConversation() {
@@ -2025,8 +2090,8 @@ export class SpiritChatManager {
             this.deleteConversationId = null;
             localStorage.removeItem('config.chat.last_conversation_id');            
             
-            // Refresh conversations list
-            this.loadConversations();
+            // Refresh conversations list (keep the current page)
+            this.loadConversations(false, this.conversationsPage);
 
             // Clear message conversation
             this.chatMessages.innerHTML = '';

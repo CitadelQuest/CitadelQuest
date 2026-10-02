@@ -111,14 +111,10 @@ class SpiritController extends AbstractController
             ];
         }
         
-        // Get conversations for this spirit (returns array of arrays)
-        $conversationsData = $this->spiritConversationService->getConversationsBySpirit($id);
-
-        // S2S conversations are shown in the dedicated S2S tab, hide them here
-        $conversationsData = array_values(array_filter(
-            $conversationsData,
-            static fn (array $conversation) => ($conversation['origin'] ?? 'user') !== 'spirit'
-        ));
+        // Conversation count for the tab badge. The (paginated) conversation list
+        // itself is loaded lazily via the API when the Conversations tab opens.
+        // S2S conversations are shown in the dedicated S2S tab, so exclude them.
+        $conversationsCount = $this->spiritConversationService->countConversationsBySpirit($id, null, true);
 
         $settings = $this->spiritService->getSpiritSettings($id);
         
@@ -127,7 +123,7 @@ class SpiritController extends AbstractController
             'aiModels' => $textModels,
             'allSpirits' => $allSpirits,
             'interactions' => $interactionsData,
-            'conversations' => $conversationsData,
+            'conversationsCount' => $conversationsCount,
             'spirit' => ['id' => $id, 'settings' => $settings]
         ]);
     }

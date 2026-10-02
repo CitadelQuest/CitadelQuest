@@ -291,7 +291,7 @@ class SpiritConversationService
         }
     }
     
-    public function getConversationsBySpirit(string $spiritId): array
+    public function getConversationsBySpirit(string $spiritId, ?int $limit = null, int $offset = 0, ?string $search = null, bool $excludeS2s = false): array
     {
         $db = $this->getUserDb();
         
@@ -307,11 +307,15 @@ class SpiritConversationService
             // Non-fatal if pack doesn't exist yet
         }
 
+        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s);
+
         // Use LENGTH() to get byte size of messages column (works in SQLite)
-        $result = $db->executeQuery(
-            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE spirit_id = ? ORDER BY last_interaction DESC', 
-            [$spiritId]
-        );
+        $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE ' . $where . ' ORDER BY last_interaction DESC';
+        if ($limit !== null && $limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, $offset);
+        }
+
+        $result = $db->executeQuery($sql, $params);
         $results = $result->fetchAllAssociative();
         
         $conversations = [];
@@ -456,19 +460,69 @@ class SpiritConversationService
     }
 
     /**
-     * Get S2S conversations where the given Spirit is the initiator (caller).
-     * Returns lightweight conversation metadata including the callee Spirit name.
+     * Count conversations for a Spirit (for pagination), honouring the same
+     * search / S2S filters as getConversationsBySpirit().
      */
-    public function getS2sConversationsInitiatedBySpirit(string $spiritId): array
+    public function countConversationsBySpirit(string $spiritId, ?string $search = null, bool $excludeS2s = false): int
     {
         $db = $this->getUserDb();
 
-        $result = $db->executeQuery(
-            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
+        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s);
+
+        return (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM spirit_conversation WHERE ' . $where,
+            $params
+        )->fetchOne();
+    }
+
+    /**
+     * Build the shared WHERE clause + params for spirit conversation queries.
+     *
+     * @return array{0: string, 1: array}
+     */
+    private function buildConversationFilter(string $spiritId, ?string $search, bool $excludeS2s): array
+    {
+        $where = 'spirit_id = ?';
+        $params = [$spiritId];
+
+        // S2S conversations are shown in the dedicated S2S tab
+        if ($excludeS2s) {
+            $where .= " AND (origin IS NULL OR origin != 'spirit')";
+        }
+
+        $search = $search !== null ? trim($search) : '';
+        if ($search !== '') {
+            $where .= " AND title LIKE ? ESCAPE '\\'";
+            $params[] = '%' . $this->escapeLike($search) . '%';
+        }
+
+        return [$where, $params];
+    }
+
+    /**
+     * Escape LIKE wildcards in a user-supplied search term.
+     */
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /**
+     * Get S2S conversations where the given Spirit is the initiator (caller).
+     * Returns lightweight conversation metadata including the callee Spirit name.
+     */
+    public function getS2sConversationsInitiatedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0): array
+    {
+        $db = $this->getUserDb();
+
+        $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
              WHERE origin = ? AND initiator_spirit_id = ?
-             ORDER BY last_interaction DESC',
-            ['spirit', $spiritId]
-        );
+             ORDER BY last_interaction DESC';
+        if ($limit !== null && $limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, $offset);
+        }
+
+        $result = $db->executeQuery($sql, ['spirit', $spiritId]);
         $results = $result->fetchAllAssociative();
 
         $conversations = [];
@@ -524,16 +578,18 @@ class SpiritConversationService
      * Get S2S conversations where the given Spirit is the callee (received from other Spirits).
      * Returns lightweight conversation metadata including the caller Spirit name.
      */
-    public function getS2sConversationsReceivedBySpirit(string $spiritId): array
+    public function getS2sConversationsReceivedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0): array
     {
         $db = $this->getUserDb();
 
-        $result = $db->executeQuery(
-            'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
+        $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
              WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL
-             ORDER BY last_interaction DESC',
-            ['spirit', $spiritId]
-        );
+             ORDER BY last_interaction DESC';
+        if ($limit !== null && $limit > 0) {
+            $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, $offset);
+        }
+
+        $result = $db->executeQuery($sql, ['spirit', $spiritId]);
         $results = $result->fetchAllAssociative();
 
         $conversations = [];
@@ -584,7 +640,33 @@ class SpiritConversationService
 
         return $conversations;
     }
-    
+
+    /**
+     * Count S2S conversations initiated by the given Spirit (for pagination).
+     */
+    public function countS2sConversationsInitiatedBySpirit(string $spiritId): int
+    {
+        $db = $this->getUserDb();
+
+        return (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND initiator_spirit_id = ?',
+            ['spirit', $spiritId]
+        )->fetchOne();
+    }
+
+    /**
+     * Count S2S conversations received by the given Spirit (for pagination).
+     */
+    public function countS2sConversationsReceivedBySpirit(string $spiritId): int
+    {
+        $db = $this->getUserDb();
+
+        return (int) $db->executeQuery(
+            'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL',
+            ['spirit', $spiritId]
+        )->fetchOne();
+    }
+
     public function updateConversation(SpiritConversation $conversation): void
     {
         $db = $this->getUserDb();

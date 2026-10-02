@@ -52,13 +52,18 @@ export class SpiritChatApiService {
     }
     
     /**
-     * Get all conversations for a spirit
+     * Get a page of conversations for a spirit
      * @param {string} spiritId - The ID of the spirit
-     * @returns {Promise<Array>} - List of conversations
+     * @param {number} page - Page number (1-based)
+     * @param {number} perPage - Items per page
+     * @param {string} search - Optional title search
+     * @returns {Promise<Object>} - { conversations, pagination }
      */
-    async getConversations(spiritId) {
+    async getConversations(spiritId, page = 1, perPage = 10, search = '') {
         try {
-            const response = await fetch(`${this.baseUrl}/list/${spiritId}`);
+            const params = new URLSearchParams({ page, perPage });
+            if (search) params.set('search', search);
+            const response = await fetch(`${this.baseUrl}/list/${spiritId}?${params}`);
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'Failed to fetch conversations');

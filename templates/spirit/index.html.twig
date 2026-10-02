@@ -104,8 +104,8 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link px-3 py-1" id="tab-conversations" data-bs-toggle="tab" data-bs-target="#panel-conversations" type="button" role="tab">
                                 <i class="mdi mdi-forum me-1"></i>{{ 'spirit.tabs.conversations'|trans|default('Conversations') }}
-                                {% if conversations is defined and conversations|length > 0 %}
-                                    <span class="badge bg-dark bg-opacity-25 ms-1">{{ conversations|length }}</span>
+                                {% if conversationsCount is defined and conversationsCount > 0 %}
+                                    <span class="badge bg-dark bg-opacity-25 ms-1">{{ conversationsCount }}</span>
                                 {% endif %}
                             </button>
                         </li>
@@ -310,11 +310,13 @@
                                             <div id="spirit-s2s-conversations-outgoing" class="list-group list-group-flush rounded border border-secondary border-opacity-25">
                                                 <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
                                             </div>
+                                            <div id="spirit-s2s-pagination-outgoing" class="d-none"></div>
                                         </div>
                                         <div class="tab-pane fade" id="spirit-s2s-pane-incoming" role="tabpanel">
                                             <div id="spirit-s2s-conversations-incoming" class="list-group list-group-flush rounded border border-secondary border-opacity-25">
                                                 <div class="text-secondary small p-3">{{ 'ui.loading'|trans }}</div>
                                             </div>
+                                            <div id="spirit-s2s-pagination-incoming" class="d-none"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -461,28 +463,16 @@
                                 </div>
                             </div>
                             
-                            {# Conversations Tab #}
+                            {# Conversations Tab (paginated, loaded lazily via the API) #}
                             <div class="tab-pane fade" id="panel-conversations" role="tabpanel">
                                 <div id="conversations-list" class="rounded">
-                                    {% if conversations is defined and conversations|length > 0 %}
-                                        <ul class="list-group list-group-flush bg-dark bg-opacity-50 rounded">
-                                            {% for conversation in conversations %}
-                                                <li class="list-group-item bg-transparent border-secondary border-opacity-25 cursor-pointer conversation-item" data-conversation-id="{{ conversation.id }}">
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <div class="w-100">
-                                                            <i class="mdi mdi-message-outline me-2 text-cyber"></i><strong>{{ conversation.title }}</strong>
-                                                            <br>
-                                                            <small class="text-muted">{{ conversation.messagesCount }} {{ 'spirit.messages'|trans|default('messages') }}</small>
-                                                            <small class="text-muted float-end">{{ conversation.lastInteraction }}</small>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% else %}
-                                        <p class="text-muted small">{{ 'spirit.no_conversations'|trans|default('No conversations yet') }}</p>
-                                    {% endif %}
+                                    <div class="text-center p-3">
+                                        <div class="spinner-border text-cyber" role="status">
+                                            <span class="visually-hidden">{{ 'ui.loading'|trans }}</span>
+                                        </div>
+                                    </div>
                                 </div>
+                                <div id="spirit-conversations-pagination" class="d-none"></div>
                             </div>
                         </div>
                         
@@ -511,6 +501,9 @@
     |merge({'ui.save': 'Save'|trans})
     |merge({'ui.cancel': 'ui.cancel'|trans|default('Cancel')})
     |merge({'ui.close': 'ui.close'|trans|default('Close')})
+    |merge({'ui.previous': 'ui.previous'|trans|default('Previous')})
+    |merge({'ui.next': 'ui.next'|trans|default('Next')})
+    |merge({'ui.page': 'ui.page'|trans|default('Page')})
     |merge({'ui.copied': 'Copied to clipboard'|trans})
     |merge({'error.copy_failed': 'Failed to copy to clipboard'|trans})
     |merge({'spirit.prompt_builder.no_tools': 'No AI tools available'|trans})
