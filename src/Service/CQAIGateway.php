@@ -219,7 +219,7 @@ class CQAIGateway implements AiGatewayInterface
             ]);
             $statusCode = $statusResponse->getStatusCode();
             $statusContent = $statusResponse->getContent(false);
-            $statusJson = json_decode($statusContent, true) ?? [];
+            $statusJson = json_decode($statusContent, true, 512, JSON_INVALID_UTF8_SUBSTITUTE) ?? [];
 
             if ($statusCode >= 400) {
                 $err = $statusJson['error']['message'] ?? ($statusJson['error'] ?? $statusContent);
@@ -428,7 +428,7 @@ class CQAIGateway implements AiGatewayInterface
         ]);
 
         $responseContent = $response->getContent(false);
-        return json_decode($responseContent, true) ?? [];
+        return json_decode($responseContent, true, 512, JSON_INVALID_UTF8_SUBSTITUTE) ?? [];
     }
 
     /**

@@ -51,7 +51,7 @@ class AiWebhookService
             [
                 $jobId,
                 $status,
-                $response !== null ? json_encode($response) : null,
+                $response !== null ? json_encode($response, JSON_INVALID_UTF8_SUBSTITUTE) : null,
                 $error,
                 (new \DateTime())->format('Y-m-d H:i:s'),
             ]

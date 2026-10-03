@@ -912,8 +912,8 @@ class CQMemoryPackService
         $node->setDepth($depth);
         
         // Auto-generate summary if not provided
-        if (!$summary && strlen($content) > 100) {
-            $node->setSummary(substr($content, 0, 100) . '...');
+        if (!$summary && mb_strlen($content) > 100) {
+            $node->setSummary(mb_substr($content, 0, 100) . '...');
         }
         
         $db->executeStatement(
@@ -1483,8 +1483,8 @@ class CQMemoryPackService
         // Log consolidation action
         $this->logConsolidation('update', [$oldNode->getId(), $newNode->getId()], [
             'reason' => $reason,
-            'oldContent' => substr($oldNode->getContent(), 0, 100),
-            'newContent' => substr($newContent, 0, 100)
+            'oldContent' => mb_substr($oldNode->getContent(), 0, 100),
+            'newContent' => mb_substr($newContent, 0, 100)
         ]);
         
         return $newNode;
@@ -1522,7 +1522,7 @@ class CQMemoryPackService
         
         $this->logConsolidation('forget', [$nodeId], [
             'reason' => $reason,
-            'content' => substr($node->getContent(), 0, 100)
+            'content' => mb_substr($node->getContent(), 0, 100)
         ]);
         
         return true;

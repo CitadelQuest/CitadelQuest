@@ -1091,16 +1091,18 @@ PROMPT;
             return null;
         }
         
+        $content = AiJsonSanitizer::sanitize($content);
+
         // Try to extract JSON from the response
         // First, try direct parse
-        $decoded = json_decode($content, true);
+        $decoded = json_decode($content, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($decoded && isset($decoded['memories']) && is_array($decoded['memories'])) {
             return $decoded['memories'];
         }
         
         // Try to find JSON in markdown code block
         if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $decoded = json_decode($matches[1], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['memories']) && is_array($decoded['memories'])) {
                 return $decoded['memories'];
             }
@@ -1108,7 +1110,7 @@ PROMPT;
         
         // Try to find raw JSON object
         if (preg_match('/\{[\s\S]*"memories"[\s\S]*\}/', $content, $matches)) {
-            $decoded = json_decode($matches[0], true);
+            $decoded = json_decode($matches[0], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['memories']) && is_array($decoded['memories'])) {
                 return $decoded['memories'];
             }
@@ -1496,16 +1498,18 @@ PROMPT;
             return null;
         }
 
+        $content = AiJsonSanitizer::sanitize($content);
+
         // Try to extract JSON from the response
         // First, try direct parse
-        $decoded = json_decode($content, true);
+        $decoded = json_decode($content, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($decoded && isset($decoded['relationships']) && is_array($decoded['relationships'])) {
             return $decoded;
         }
 
         // Try to find JSON in markdown code block
         if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $decoded = json_decode($matches[1], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['relationships']) && is_array($decoded['relationships'])) {
                 return $decoded;
             }
@@ -1513,7 +1517,7 @@ PROMPT;
 
         // Try to find raw JSON object
         if (preg_match('/\{[\s\S]*"relationships"[\s\S]*\}/', $content, $matches)) {
-            $decoded = json_decode($matches[0], true);
+            $decoded = json_decode($matches[0], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['relationships']) && is_array($decoded['relationships'])) {
                 return $decoded;
             }
@@ -1887,15 +1891,17 @@ PROMPT;
             return null;
         }
 
+        $content = AiJsonSanitizer::sanitize($content);
+
         // Try direct parse
-        $decoded = json_decode($content, true);
+        $decoded = json_decode($content, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($decoded && array_key_exists('relationship', $decoded)) {
             return $decoded;
         }
 
         // Try markdown code block
         if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $decoded = json_decode($matches[1], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && array_key_exists('relationship', $decoded)) {
                 return $decoded;
             }
@@ -1903,7 +1909,7 @@ PROMPT;
 
         // Try raw JSON object
         if (preg_match('/\{[\s\S]*"relationship"[\s\S]*\}/', $content, $matches)) {
-            $decoded = json_decode($matches[0], true);
+            $decoded = json_decode($matches[0], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && array_key_exists('relationship', $decoded)) {
                 return $decoded;
             }
@@ -2728,6 +2734,8 @@ PROMPT;
             return null;
         }
 
+        $responseContent = AiJsonSanitizer::sanitize($responseContent);
+
         // Try to extract JSON from the response
         $json = $responseContent;
         
@@ -2738,12 +2746,12 @@ PROMPT;
         
         $json = trim($json);
         
-        $data = json_decode($json, true);
+        $data = json_decode($json, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         
         if (json_last_error() !== JSON_ERROR_NONE || !isset($data['blocks'])) {
             $this->logger->warning('Failed to parse content block extractor response', [
                 'error' => json_last_error_msg(),
-                'response' => substr($responseContent, 0, 500)
+                'response' => mb_substr($responseContent, 0, 500)
             ]);
             return null;
         }
@@ -3440,7 +3448,7 @@ PROMPT;
                 } else {
                     $pendingBlocks[] = [
                         'title' => $documentTitle,
-                        'summary' => substr($content, 0, 100),
+                        'summary' => mb_substr($content, 0, 100),
                         'start_line' => 1,
                         'end_line' => $totalLines,
                         'is_leaf' => true,

@@ -390,16 +390,18 @@ PROMPT;
             return null;
         }
         
+        $content = AiJsonSanitizer::sanitize($content);
+
         // Try to extract JSON from the response
         // First, try direct parse
-        $decoded = json_decode($content, true);
+        $decoded = json_decode($content, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($decoded && isset($decoded['positivePrompt'])) {
             return $decoded;
         }
         
         // Try to find JSON in markdown code block
         if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $content, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $decoded = json_decode($matches[1], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['positivePrompt'])) {
                 return $decoded;
             }
@@ -407,7 +409,7 @@ PROMPT;
         
         // Try to find raw JSON object
         if (preg_match('/\{[\s\S]*"positivePrompt"[\s\S]*\}/', $content, $matches)) {
-            $decoded = json_decode($matches[0], true);
+            $decoded = json_decode($matches[0], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['positivePrompt'])) {
                 return $decoded;
             }

@@ -1777,7 +1777,7 @@ PROMPT;
             
             // Parse arguments if string
             if (is_string($toolArgs)) {
-                $toolArgs = json_decode($toolArgs, true) ?? [];
+                $toolArgs = json_decode(AiJsonSanitizer::sanitize($toolArgs), true, 512, JSON_INVALID_UTF8_SUBSTITUTE) ?? [];
             }
             
             // Add Spirit slug for access control (used by file tools)
@@ -1818,7 +1818,7 @@ PROMPT;
             // Sanitize tool result: strip invalid UTF-8 and truncate huge outputs
             // so the next AI request message structure stays valid and small.
             $toolResult = $this->sanitizeToolResult($toolResult);
-            $encodedContent = json_encode($toolResult);
+            $encodedContent = json_encode($toolResult, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($encodedContent === false) {
                 $this->logger->warning('Tool result JSON encoding failed, falling back to safe placeholder', [
                     'tool' => $toolName,
@@ -1885,8 +1885,8 @@ PROMPT;
                 $value = '';
             }
             // Truncate huge outputs to keep AI context sane
-            if (strlen($value) > $maxStringLength) {
-                $value = substr($value, 0, $maxStringLength) . "\n\n[Content truncated due to length...]";
+            if (mb_strlen($value) > $maxStringLength) {
+                $value = mb_substr($value, 0, $maxStringLength) . "\n\n[Content truncated due to length...]";
             }
             return $value;
         }
@@ -3749,6 +3749,7 @@ PROMPT;
             
             if (!$parsed) {
                 $this->logger->warning('Subconsciousness sub-agent: failed to parse response', [
+                    'jsonError' => json_last_error_msg(),
                     'response' => mb_substr($responseContent, 0, 500)
                 ]);
                 // Return unchanged — fallback to Reflexes
@@ -4164,15 +4165,17 @@ PROMPT;
      */
     private function parseSubAgentResponse(string $responseContent): ?array
     {
+        $responseContent = AiJsonSanitizer::sanitize($responseContent);
+
         // Try direct parse
-        $decoded = json_decode($responseContent, true);
+        $decoded = json_decode($responseContent, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($decoded && isset($decoded['relevant'])) {
             return $decoded;
         }
         
         // Try to find JSON in markdown code block
         if (preg_match('/```(?:json)?\s*(\{[\s\S]*?\})\s*```/', $responseContent, $matches)) {
-            $decoded = json_decode($matches[1], true);
+            $decoded = json_decode($matches[1], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['relevant'])) {
                 return $decoded;
             }
@@ -4180,7 +4183,7 @@ PROMPT;
         
         // Try to find raw JSON object
         if (preg_match('/\{[\s\S]*"relevant"[\s\S]*\}/', $responseContent, $matches)) {
-            $decoded = json_decode($matches[0], true);
+            $decoded = json_decode($matches[0], true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
             if ($decoded && isset($decoded['relevant'])) {
                 return $decoded;
             }
