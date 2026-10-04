@@ -98,6 +98,13 @@
                                             </td> #}
                                             <td class="text-center">
                                                 <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-cyber optimize-db-btn" 
+                                                            data-user-id="{{ user.id }}" 
+                                                            data-username="{{ user.username }}"
+                                                            title="{{ 'admin.users.optimize_database'|trans }}">
+                                                        <i class="mdi mdi-database-sync"></i>
+                                                    </button>
+                                                    
                                                     <button type="button" class="btn btn-sm btn-outline-success user-info-btn" 
                                                             data-user-id="{{ user.id }}" 
                                                             title="{{ 'admin.users.view_info'|trans }}">
@@ -176,6 +183,8 @@
                 <span data-confirm-delete="{{ 'admin.users.confirm_delete'|trans }}"></span>
                 <span data-error-toggle-admin="{{ 'admin.users.error_toggle_admin'|trans }}"></span>
                 <span data-error-delete="{{ 'admin.users.error_delete'|trans }}"></span>
+                <span data-confirm-optimize-db="{{ 'admin.users.confirm_optimize_database'|trans }}"></span>
+                <span data-error-optimize-db="{{ 'admin.users.optimize_database_error'|trans }}"></span>
             </div>
         </div>
     </div>

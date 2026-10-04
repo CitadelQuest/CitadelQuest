@@ -966,6 +966,10 @@ admin:
         confirm_reset_password: 'Restablecer contraseña'
         confirm_reset_password_message: '¿Estás seguro de que quieres restablecer la contraseña de este usuario?'
         password_reset_success: 'Contraseña restablecida exitosamente para %username%'
+        optimize_database: 'Optimizar base de datos'
+        confirm_optimize_database: '¿Optimizar la base de datos del usuario %username%? Recuperará el espacio no utilizado.'
+        optimize_database_success: 'Base de datos optimizada para %username% (%saved% recuperados)'
+        optimize_database_error: 'No se pudo optimizar la base de datos del usuario'
 
     roles:
         admin: 'Administrador'

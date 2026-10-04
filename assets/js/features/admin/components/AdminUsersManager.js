@@ -10,6 +10,7 @@ export class AdminUsersManager {
         this.initSearchFilter();
         this.initUserActions();
         this.initPasswordReset();
+        this.initOptimizeDatabase();
         this.currentResetUserId = null;
         this.currentResetUsername = null;
     }
@@ -85,6 +86,61 @@ export class AdminUsersManager {
                 btn.addEventListener('click', () => this.showResetPasswordModal(userId, username));
             }
         });
+    }
+
+    /**
+     * Initialize optimize database buttons
+     */
+    initOptimizeDatabase() {
+        document.querySelectorAll('.optimize-db-btn').forEach(btn => {
+            const userId = btn.dataset.userId;
+            const username = btn.dataset.username;
+            if (userId) {
+                btn.addEventListener('click', () => this.optimizeDatabase(userId, username, btn));
+            }
+        });
+    }
+
+    /**
+     * Optimize a user's database (trim AI payloads, drop orphans, VACUUM)
+     * @param {string} userId - The user ID
+     * @param {string} username - The username
+     * @param {HTMLElement} btn - The clicked button
+     */
+    async optimizeDatabase(userId, username, btn) {
+        const confirmMessage = (document.querySelector('[data-confirm-optimize-db]')?.dataset.confirmOptimizeDb || 'Optimize the database for user %username%?').replace('%username%', username);
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        const icon = btn.querySelector('.mdi');
+
+        try {
+            btn.disabled = true;
+            icon.className = 'mdi mdi-loading mdi-spin';
+
+            const response = await fetch(`/administration/user/${userId}/optimize-database`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                window.toast.success(data.message);
+            } else {
+                window.toast.error(data.message || document.querySelector('[data-error-optimize-db]')?.dataset.errorOptimizeDb || 'Failed to optimize user database');
+            }
+        } catch (error) {
+            console.error('Error optimizing user database:', error);
+            window.toast.error(document.querySelector('[data-error-optimize-db]')?.dataset.errorOptimizeDb || 'Failed to optimize user database');
+        } finally {
+            btn.disabled = false;
+            icon.className = 'mdi mdi-database-sync';
+        }
     }
 
     /**

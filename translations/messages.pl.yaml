@@ -978,6 +978,10 @@ admin:
         confirm_reset_password: 'Resetuj hasło'
         confirm_reset_password_message: 'Czy na pewno chcesz zresetować hasło tego użytkownika?'
         password_reset_success: 'Hasło zresetowane pomyślnie dla %username%'
+        optimize_database: 'Optymalizuj bazę danych'
+        confirm_optimize_database: 'Zoptymalizować bazę danych użytkownika %username%? Odzyska to niewykorzystane miejsce.'
+        optimize_database_success: 'Baza danych użytkownika %username% została zoptymalizowana (odzyskano %saved%)'
+        optimize_database_error: 'Nie udało się zoptymalizować bazy danych użytkownika'
 
     roles:
         admin: 'Administrator'

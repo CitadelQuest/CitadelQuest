@@ -1008,6 +1008,10 @@ admin:
         confirm_reset_password: 'Resetovat heslo'
         confirm_reset_password_message: 'Opravdu chcete resetovat heslo pro tohoto uživatele?'
         password_reset_success: 'Heslo úspěšně resetováno pro uživatele %username%'
+        optimize_database: 'Optimalizovat databázi'
+        confirm_optimize_database: 'Optimalizovat databázi uživatele %username%? Uvolní to nevyužité místo.'
+        optimize_database_success: 'Databáze uživatele %username% byla optimalizována (uvolněno %saved%)'
+        optimize_database_error: 'Nepodařilo se optimalizovat databázi uživatele'
     
     roles:
         admin: 'Administrátor'

@@ -1020,6 +1020,10 @@ admin:
         confirm_reset_password: 'Reset Password'
         confirm_reset_password_message: 'Are you sure you want to reset the password for this user?'
         password_reset_success: 'Password reset successfully for %username%'
+        optimize_database: 'Optimize Database'
+        confirm_optimize_database: 'Optimize the database for user %username%? This will reclaim unused space.'
+        optimize_database_success: 'Database optimized for %username% (%saved% reclaimed)'
+        optimize_database_error: 'Failed to optimize user database'
     
     roles:
         admin: 'Admin'

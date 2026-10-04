@@ -978,6 +978,10 @@ admin:
         confirm_reset_password: 'Jelszó visszaállítása'
         confirm_reset_password_message: 'Biztosan vissza szeretnéd állítani ennek a felhasználónak a jelszavát?'
         password_reset_success: 'Jelszó sikeresen visszaállítva: %username%'
+        optimize_database: 'Adatbázis optimalizálása'
+        confirm_optimize_database: 'Optimalizálja %username% adatbázisát? Ez visszanyeri a fel nem használt helyet.'
+        optimize_database_success: '%username% adatbázisa optimalizálva (%saved% felszabadítva)'
+        optimize_database_error: 'Nem sikerült optimalizálni a felhasználó adatbázisát'
 
     roles:
         admin: 'Adminisztrátor'

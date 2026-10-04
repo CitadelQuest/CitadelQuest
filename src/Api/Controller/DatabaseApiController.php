@@ -3,7 +3,7 @@
 namespace App\Api\Controller;
 
 use App\Service\UserDatabaseManager;
-use App\Service\SpiritConversationService;
+use App\Service\UserDatabaseOptimizer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,7 +17,7 @@ class DatabaseApiController extends AbstractController
 {
     public function __construct(
         private UserDatabaseManager $userDatabaseManager,
-        private SpiritConversationService $spiritConversationService
+        private UserDatabaseOptimizer $userDatabaseOptimizer
     ) {
     }
 
@@ -34,39 +34,12 @@ class DatabaseApiController extends AbstractController
                 return new JsonResponse(['error' => 'Unauthorized'], 401);
             }
 
-            $db = $this->userDatabaseManager->getDatabaseConnection($user);
-            
-            // Get database size before vacuum
-            $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
-            $sizeBefore = file_exists($dbPath) ? filesize($dbPath) : 0;
+            $stats = $this->userDatabaseOptimizer->optimize($user);
 
-            // Remove messages from all spirit conversations (2 bulk queries)
-            $this->spiritConversationService->setMessagesRemovedFromAiServiceRequestAndResponse();
-
-            // Remove orphaned spirit_conversation_message records (from previously deleted conversations)
-            $orphanedMessagesDeleted = $this->spiritConversationService->deleteOrphanedMessages();
-
-            // Execute VACUUM
-            $startTime = microtime(true);
-            $db->executeStatement('VACUUM;');
-            $duration = round((microtime(true) - $startTime) * 1000, 2); // ms
-            
-            // Get database size after vacuum (clear stat cache first)
-            clearstatcache(true, $dbPath);
-            $sizeAfter = file_exists($dbPath) ? filesize($dbPath) : 0;
-            $spaceSaved = $sizeBefore - $sizeAfter;
-            
             return new JsonResponse([
                 'success' => true,
                 'message' => 'Database vacuumed successfully',
-                'stats' => [
-                    'duration_ms' => $duration,
-                    'size_before' => $this->formatBytes($sizeBefore),
-                    'size_after' => $this->formatBytes($sizeAfter),
-                    'space_saved' => $this->formatBytes($spaceSaved),
-                    'space_saved_bytes' => $spaceSaved,
-                    'orphaned_messages_deleted' => $orphanedMessagesDeleted
-                ]
+                'stats' => $stats
             ]);
         } catch (\Exception $e) {
             return new JsonResponse([

@@ -52,11 +52,12 @@ class SpiritConversationService
     }
     
     /**
-     * Get a fresh database connection for the current user
+     * Get a fresh database connection for the current user,
+     * or for an explicitly given user (e.g. admin maintenance operations).
      */
-    private function getUserDb()
+    private function getUserDb(?User $user = null)
     {
-        return $this->userDatabaseManager->getDatabaseConnection($this->user);
+        return $this->userDatabaseManager->getDatabaseConnection($user ?? $this->user);
     }
     
     public function createConversation(
@@ -1691,9 +1692,9 @@ PROMPT;
      *
      * @return int number of deleted orphaned messages
      */
-    public function deleteOrphanedMessages(): int
+    public function deleteOrphanedMessages(?User $user = null): int
     {
-        $db = $this->getUserDb();
+        $db = $this->getUserDb($user);
 
         // delete ai_service_response linked from orphaned messages
         $db->executeStatement(
@@ -1709,9 +1710,9 @@ PROMPT;
         );
     }
 
-    public function setMessagesRemovedFromAiServiceRequestAndResponse(?string $conversationId = null): void
+    public function setMessagesRemovedFromAiServiceRequestAndResponse(?string $conversationId = null, ?User $user = null): void
     {
-        $db = $this->getUserDb();
+        $db = $this->getUserDb($user);
         
         if ($conversationId) {
             // Update for specific conversation

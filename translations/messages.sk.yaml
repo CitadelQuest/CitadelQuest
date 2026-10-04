@@ -1012,6 +1012,10 @@ admin:
         confirm_reset_password: 'Resetovať heslo'
         confirm_reset_password_message: 'Naozaj chcete resetovať heslo pre tohto používateľa?'
         password_reset_success: 'Heslo úspešne resetované pre používateľa %username%'
+        optimize_database: 'Optimalizovať databázu'
+        confirm_optimize_database: 'Optimalizovať databázu používateľa %username%? Uvoľní to nevyužité miesto.'
+        optimize_database_success: 'Databáza používateľa %username% bola optimalizovaná (uvoľnených %saved%)'
+        optimize_database_error: 'Nepodarilo sa optimalizovať databázu používateľa'
     
     roles:
         admin: 'Administrátor'

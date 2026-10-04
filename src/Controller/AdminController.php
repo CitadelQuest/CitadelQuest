@@ -18,6 +18,7 @@ use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
 use App\Service\BackupManager;
 use App\Service\StorageService;
+use App\Service\UserDatabaseOptimizer;
 use App\CitadelVersion;
 
 #[Route('/administration')]
@@ -32,7 +33,8 @@ class AdminController extends AbstractController
         private readonly SystemSettingsService $systemSettingsService,
         private readonly PasswordResetService $passwordResetService,
         private readonly BackupManager $backupManager,
-        private readonly StorageService $storageService
+        private readonly StorageService $storageService,
+        private readonly UserDatabaseOptimizer $userDatabaseOptimizer
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -151,6 +153,28 @@ class AdminController extends AbstractController
             return $this->json([
                 'success' => false,
                 'message' => $this->translator->trans('admin.error.delete_failed')
+            ], 500);
+        }
+    }
+
+    #[Route('/user/{id}/optimize-database', name: 'app_admin_user_optimize_database', methods: ['POST'])]
+    public function optimizeUserDatabase(User $user): JsonResponse
+    {
+        try {
+            $stats = $this->userDatabaseOptimizer->optimize($user);
+
+            return $this->json([
+                'success' => true,
+                'stats' => $stats,
+                'message' => $this->translator->trans('admin.users.optimize_database_success', [
+                    '%username%' => $user->getUsername(),
+                    '%saved%' => $stats['space_saved'],
+                ])
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => $this->translator->trans('admin.users.optimize_database_error')
             ], 500);
         }
     }

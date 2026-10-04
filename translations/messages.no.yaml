@@ -966,6 +966,10 @@ admin:
         confirm_reset_password: 'Tilbakestill passord'
         confirm_reset_password_message: 'Er du sikker på at du vil tilbakestille passordet for denne brukeren?'
         password_reset_success: 'Passord tilbakestilt for %username%'
+        optimize_database: 'Optimaliser database'
+        confirm_optimize_database: 'Optimalisere databasen til %username%? Dette gjenvinner ubrukt plass.'
+        optimize_database_success: 'Database optimalisert for %username% (%saved% gjenopprettet)'
+        optimize_database_error: 'Kunne ikke optimalisere brukerdatabasen'
 
     roles:
         admin: 'Administrator'

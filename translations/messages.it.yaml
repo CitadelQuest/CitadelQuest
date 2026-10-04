@@ -966,6 +966,10 @@ admin:
         confirm_reset_password: 'Reimposta password'
         confirm_reset_password_message: 'Sei sicuro di voler reimpostare la password per questo utente?'
         password_reset_success: 'Password reimpostata con successo per %username%'
+        optimize_database: 'Ottimizza database'
+        confirm_optimize_database: 'Ottimizzare il database dell''utente %username%? Recupererà lo spazio inutilizzato.'
+        optimize_database_success: 'Database ottimizzato per %username% (%saved% recuperati)'
+        optimize_database_error: 'Impossibile ottimizzare il database dell''utente'
 
     roles:
         admin: 'Amministratore'
