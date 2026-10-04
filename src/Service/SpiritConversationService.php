@@ -1777,7 +1777,7 @@ PROMPT;
             
             // Parse arguments if string
             if (is_string($toolArgs)) {
-                $toolArgs = json_decode(AiJsonSanitizer::sanitize($toolArgs), true, 512, JSON_INVALID_UTF8_SUBSTITUTE) ?? [];
+                $toolArgs = json_decode(AiJsonSanitizer::repair($toolArgs), true, 512, JSON_INVALID_UTF8_SUBSTITUTE) ?? [];
             }
             
             // Add Spirit slug for access control (used by file tools)
@@ -3981,6 +3981,7 @@ Respond with ONLY a valid JSON object:
 5. If NO candidates are relevant, return empty relevant array and synthesis = "" with confidence = "low"
 6. Write synthesis in the same language as the user's message
 7. Both "relevant" and "expandedNodes" can contain neighbor IDs from the Relationships sections — the difference is priority: relevant = essential, expandedNodes = supplementary
+8. Escape every double quote inside a string value as \" — a raw, unescaped " inside a value breaks the JSON and the whole response is discarded
 <clean_system_prompt>
 PROMPT;
     }
@@ -4165,7 +4166,7 @@ PROMPT;
      */
     private function parseSubAgentResponse(string $responseContent): ?array
     {
-        $responseContent = AiJsonSanitizer::sanitize($responseContent);
+        $responseContent = AiJsonSanitizer::repair($responseContent);
 
         // Try direct parse
         $decoded = json_decode($responseContent, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);

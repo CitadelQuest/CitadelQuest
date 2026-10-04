@@ -316,6 +316,7 @@ For new `alibaba:qwen-image@2.0``:
 2. Choose the best model based on the style requested
 3. Adjust dimensions for the content (portrait: 832x1216, landscape: 1216x832, square: 1216x1216)
 4. Keep prompts concise but descriptive
+5. Escape every double quote inside a string value as \" — a raw, unescaped " inside a value breaks the JSON and the whole response is discarded
 <clean_system_prompt>
 PROMPT;
     }
@@ -390,7 +391,7 @@ PROMPT;
             return null;
         }
         
-        $content = AiJsonSanitizer::sanitize($content);
+        $content = AiJsonSanitizer::repair($content);
 
         // Try to extract JSON from the response
         // First, try direct parse

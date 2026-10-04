@@ -1091,7 +1091,7 @@ PROMPT;
             return null;
         }
         
-        $content = AiJsonSanitizer::sanitize($content);
+        $content = AiJsonSanitizer::repair($content);
 
         // Try to extract JSON from the response
         // First, try direct parse
@@ -1442,6 +1442,7 @@ Be selective - don't create weak relationships.
 5. Quality over quantity - fewer strong relationships is better than many weak ones
 6. If no meaningful relationships found, return empty relationships array
 7. Pay special attention to CONTRADICTS - these prevent "pattern-bastardisation"
+8. Escape every double quote inside a string value as \" — a raw, unescaped " inside a value breaks the JSON and the whole response is discarded
 <clean_system_prompt>
 PROMPT;
     }
@@ -1498,7 +1499,7 @@ PROMPT;
             return null;
         }
 
-        $content = AiJsonSanitizer::sanitize($content);
+        $content = AiJsonSanitizer::repair($content);
 
         // Try to extract JSON from the response
         // First, try direct parse
@@ -1822,6 +1823,7 @@ If NO meaningful relationship exists, return:
 4. Context should be concise but informative (under 100 characters)
 5. Return null for relationship if the connection is too weak or non-existent
 6. Pay special attention to CONTRADICTS - these prevent "pattern-bastardisation"
+7. Escape every double quote inside a string value as \" — a raw, unescaped " inside a value breaks the JSON and the whole response is discarded
 <clean_system_prompt>
 PROMPT;
     }
@@ -1891,7 +1893,7 @@ PROMPT;
             return null;
         }
 
-        $content = AiJsonSanitizer::sanitize($content);
+        $content = AiJsonSanitizer::repair($content);
 
         // Try direct parse
         $decoded = json_decode($content, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
@@ -2713,6 +2715,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation):
 5. Minimum 2 blocks, maximum 9 blocks (sections)
 6. If content is too small or atomic, return single block with is_leaf=true
 7. Tags should be lowercase, use hyphens for multi-word tags (e.g., "ai-development", "php-class", "january-2026")
+8. Escape every double quote inside a string value as \" — a raw, unescaped " inside a value breaks the JSON and the whole response is discarded
 
 ## Data Integrity (CRITICAL):
 - NEVER fabricate, guess, or hallucinate any information in titles, summaries, or tags.
@@ -2734,7 +2737,7 @@ PROMPT;
             return null;
         }
 
-        $responseContent = AiJsonSanitizer::sanitize($responseContent);
+        $responseContent = AiJsonSanitizer::repair($responseContent);
 
         // Try to extract JSON from the response
         $json = $responseContent;
