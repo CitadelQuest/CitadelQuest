@@ -8,7 +8,6 @@ use App\Entity\AiServiceResponse;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Symfony\Component\DependencyInjection\ParameterBag\ContainerBagInterface;
 
 /**
  * Service for AI Tool memory operations
@@ -51,7 +50,7 @@ class AIToolMemoryService
         private readonly TranslatorInterface $translator,
         private readonly AiToolSettingsService $aiToolSettingsService,
         private readonly AiToolService $aiToolService,
-        private readonly ContainerBagInterface $containerBag
+        private readonly BackgroundWorkerSpawner $spawner
     ) {
         $this->user = $security->getUser();
     }
@@ -62,20 +61,6 @@ class AIToolMemoryService
      */
     public function spawnMemoryJobWorker(string $jobId, array $targetPack): void
     {
-        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
-        if (!function_exists('exec') || in_array('exec', $disabled, true)) {
-            throw new \RuntimeException('PHP exec() is disabled; cannot spawn background worker.');
-        }
-
-        $projectDir = $this->containerBag->get('kernel.project_dir');
-        $env = $this->containerBag->get('kernel.environment');
-        $logFile = $projectDir . '/var/log/memory-worker.log';
-
-        $php = $this->resolvePhpBinary();
-        if ($php === null) {
-            throw new \RuntimeException('Could not locate a PHP CLI binary to run the memory worker.');
-        }
-
         $userId = $this->user?->getId();
         if (!$userId) {
             throw new \RuntimeException('No authenticated user — cannot spawn memory worker.');
@@ -103,106 +88,14 @@ class AIToolMemoryService
         // Pass the current request host to the CLI worker for webhook URL construction
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
 
-        $cmd = sprintf(
-            'nohup %s %s/bin/console app:memory-job-worker %s %s %s %s %s %s --env=%s >> %s 2>&1 &',
-            escapeshellarg($php),
-            $projectDir,
-            escapeshellarg((string) $userId),
-            escapeshellarg($jobId),
-            escapeshellarg($targetPack['projectId'] ?? 'general'),
-            escapeshellarg($targetPack['path'] ?? ''),
-            escapeshellarg($targetPack['name'] ?? ''),
-            escapeshellarg($host),
-            escapeshellarg($env),
-            escapeshellarg($logFile)
-        );
-
-        @file_put_contents(
-            $logFile,
-            sprintf(
-                "[%s] spawn memory-job job=%s user=%s pack=%s/%s sapi=%s php=%s host=%s\n  cmd: %s\n",
-                date('c'),
-                $jobId,
-                $userId,
-                $targetPack['path'] ?? '',
-                $targetPack['name'] ?? '',
-                PHP_SAPI,
-                $php,
-                $host,
-                $cmd
-            ),
-            FILE_APPEND
-        );
-
-        @exec($cmd);
-    }
-
-    /**
-     * Resolve the PHP CLI binary path.
-     * Under PHP-FPM/mod_php, PHP_BINARY points to php-fpm/apache, NOT the CLI.
-     */
-    private function resolvePhpBinary(): ?string
-    {
-        $candidates = [];
-
-        $envBinary = getenv('CQ_PHP_BINARY');
-        if ($envBinary) {
-            $candidates[] = $envBinary;
-        }
-
-        if (function_exists('exec')) {
-            $out = [];
-            $code = null;
-            @exec('command -v php 2>/dev/null', $out, $code);
-            if ($code === 0 && !empty($out[0])) {
-                $candidates[] = trim($out[0]);
-            }
-        }
-
-        if (defined('PHP_BINARY') && PHP_BINARY) {
-            $base = basename(PHP_BINARY);
-            if (str_contains($base, 'php') && !str_contains($base, 'fpm') && !str_contains($base, 'cgi')) {
-                $candidates[] = PHP_BINARY;
-            }
-        }
-
-        if (defined('PHP_MAJOR_VERSION') && defined('PHP_MINOR_VERSION')) {
-            $ver = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
-            $candidates[] = '/usr/local/bin/php' . $ver;
-            $candidates[] = '/usr/bin/php' . $ver;
-        }
-        if (defined('PHP_BINDIR') && PHP_BINDIR) {
-            $candidates[] = PHP_BINDIR . '/php';
-        }
-        $candidates[] = '/usr/local/bin/php';
-        $candidates[] = '/usr/bin/php';
-
-        foreach ($candidates as $candidate) {
-            if ($this->isCliPhpBinary($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Verify a binary is a usable PHP CLI by running `<bin> -v` and looking for "(cli)".
-     */
-    private function isCliPhpBinary(string $binary): bool
-    {
-        if ($binary === '' || !function_exists('exec')) {
-            return false;
-        }
-        if (str_contains($binary, '/') && !is_executable($binary)) {
-            return false;
-        }
-
-        $out = [];
-        $code = null;
-        @exec(escapeshellarg($binary) . ' -v 2>&1', $out, $code);
-
-        return $code === 0 && str_contains(implode(' ', $out), '(cli)');
+        $this->spawner->spawn('app:memory-job-worker', [
+            (string) $userId,
+            $jobId,
+            $targetPack['projectId'] ?? 'general',
+            $targetPack['path'] ?? '',
+            $targetPack['name'] ?? '',
+            $host,
+        ], 'memory-worker.log');
     }
 
     /**
