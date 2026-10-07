@@ -76,6 +76,13 @@ class BackupManager
             $connection = $this->userDatabaseManager->getDatabaseConnection($user);
             $connection->executeStatement('VACUUM INTO ' . $connection->quote($snapshotPath));
 
+            // Drop in-flight job rows from the snapshot so the archive never carries a
+            // job that can never complete (see clearInFlightJobs()).
+            $snapshot = new \PDO('sqlite:' . $snapshotPath);
+            $snapshot->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            $this->clearInFlightJobs(fn (string $sql) => $snapshot->exec($sql));
+            $snapshot = null;
+
             $zip = new \ZipArchive();
             if ($zip->open($backupFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \RuntimeException('Failed to create backup archive');
@@ -116,6 +123,33 @@ class BackupManager
                 unlink($backupFile);
             }
             throw new \RuntimeException('Backup creation failed: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Ephemeral job tables whose in-flight rows must never survive in a backup.
+     *
+     * A backup is taken while its own job row is still 'processing' (markProcessing
+     * runs before createBackup, markCompleted after), so the archive would otherwise
+     * capture a job that can never complete. Restoring it resurrects that row and the
+     * UI shows a stuck "Creating backup..." until the stale-job timeout. The same
+     * applies to a Spirit Chat turn captured mid-conversation.
+     */
+    private const IN_FLIGHT_JOB_TABLES = ['maintenance_job', 'spirit_chat_turn'];
+
+    /**
+     * Delete in-flight (pending/processing) job rows from a database.
+     *
+     * @param callable(string):void $run Executes a SQL statement against the target database
+     */
+    private function clearInFlightJobs(callable $run): void
+    {
+        foreach (self::IN_FLIGHT_JOB_TABLES as $table) {
+            try {
+                $run(sprintf("DELETE FROM %s WHERE status IN ('pending', 'processing')", $table));
+            } catch (\Throwable $e) {
+                // Table may not exist (very old database) — non-fatal.
+            }
         }
     }
 
@@ -195,6 +229,13 @@ class BackupManager
 
             // Run migrations to update schema if needed
             $this->userDatabaseManager->updateDatabaseSchema($user);
+
+            // A restored database can contain jobs that were in flight when the backup
+            // was taken (including the backup job itself). They can never complete now,
+            // so drop them — otherwise the UI shows a stuck "Creating backup..." or a
+            // Spirit conversation that never stops "thinking".
+            $connection = $this->userDatabaseManager->getDatabaseConnection($user);
+            $this->clearInFlightJobs(fn (string $sql) => $connection->executeStatement($sql));
 
         } catch (\Exception $e) {
             $this->logger->error('Backup restore failed: ' . $e->getMessage());
