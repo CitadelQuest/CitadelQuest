@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Service\BackupJobService;
 use App\Service\BackupManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -15,7 +16,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class BackupController extends AbstractController
 {
     public function __construct(
-        private BackupManager $backupManager
+        private BackupManager $backupManager,
+        private BackupJobService $backupJobService
     ) {}
 
     #[Route('/backup', name: 'app_backup_index')]
@@ -23,54 +25,107 @@ class BackupController extends AbstractController
     public function index(): Response
     {
         $backups = $this->backupManager->getUserBackups();
+
+        // If a background backup is still running (e.g. the page was reloaded mid-job),
+        // hand its id to the template so the UI can resume polling.
+        $activeJobId = null;
+        try {
+            $this->backupJobService->failStaleJobs();
+            $activeJobId = $this->backupJobService->findActive()['id'] ?? null;
+        } catch (\Throwable $e) {
+            // Non-fatal: the page must still render even if the job table is unavailable.
+        }
+
         return $this->render('backup/index.html.twig', [
-            'backups' => $backups
+            'backups' => $backups,
+            'activeBackupJobId' => $activeJobId,
         ]);
     }
 
+    /**
+     * Start a background backup job.
+     *
+     * The .citadel archive is built by a detached CLI worker (app:backup-create) so the
+     * request returns immediately and never hits Cloudflare's 100s proxy read timeout
+     * (HTTP 524) on large backups. The browser polls /backup/status/{jobId} afterwards.
+     */
     #[Route('/backup/create', name: 'app_backup_create', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function create(Request $request): JsonResponse
+    public function create(): JsonResponse
     {
-        $session = $request->getSession();
-        $lockKey = 'backup_in_progress_' . $this->getUser()->getId();
-
-        // Check if backup is already in progress
-        if ($session->has($lockKey)) {
-            return $this->json([
-                'error' => 'A backup is already in progress'
-            ], Response::HTTP_CONFLICT);
-        }
+        $userId = (string) $this->getUser()->getId();
 
         try {
-            // Set backup lock
-            $session->set($lockKey, true);
-            
-            $backupPath = $this->backupManager->createBackup();
-            
-            // Get backup file info
-            $filename = basename($backupPath);
-            $size = filesize($backupPath);
-            
-            // Remove backup lock
-            $session->remove($lockKey);
-            
-            return new JsonResponse([
+            $this->backupJobService->failStaleJobs();
+
+            // A backup is already running (e.g. started from another tab) — hand back its
+            // id so the caller can simply resume polling instead of starting a second job.
+            $active = $this->backupJobService->findActive();
+            if ($active) {
+                return $this->json([
+                    'alreadyRunning' => true,
+                    'jobId' => $active['id'],
+                    'status' => $active['status'],
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $jobId = $this->backupJobService->create();
+
+            try {
+                $this->spawnBackupWorker($userId, $jobId);
+            } catch (\Throwable $spawnError) {
+                // Could not start the background worker — fail the job now so the UI
+                // shows a clear error instead of polling a job that will never run.
+                $this->backupJobService->markFailed($jobId, 'Could not start background worker: ' . $spawnError->getMessage());
+                return $this->json([
+                    'error' => 'Could not start background processing. ' . $spawnError->getMessage(),
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            // Return immediately — the browser polls /backup/status/{jobId}.
+            return $this->json([
                 'success' => true,
-                'message' => 'Backup created successfully!',
-                'backup' => [
-                    'filename' => $filename,
-                    'size' => $size,
-                    'created_at' => date('Y-m-d H:i:s')
-                ]
+                'jobId' => $jobId,
+                'status' => BackupJobService::STATUS_PENDING,
             ]);
+
         } catch (\Exception $e) {
-            // Remove backup lock on error
-            $session->remove($lockKey);
-            
             return $this->json([
                 'error' => 'Backup creation failed: ' . $e->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Poll the status of a background backup job.
+     * Lightweight + fast — always returns well under Cloudflare's 100s window.
+     */
+    #[Route('/backup/status/{jobId}', name: 'app_backup_status', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function status(string $jobId): JsonResponse
+    {
+        try {
+            $job = $this->backupJobService->find($jobId);
+            if (!$job) {
+                return $this->json(['error' => 'Backup job not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $done = in_array($job['status'], [
+                BackupJobService::STATUS_COMPLETED,
+                BackupJobService::STATUS_FAILED,
+            ], true);
+
+            return $this->json([
+                'success' => true,
+                'status' => $job['status'],
+                'done' => $done,
+                'error' => $job['error'] ?? null,
+                'filename' => $job['filename'] ?? null,
+                'size' => isset($job['size']) ? (int) $job['size'] : null,
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -283,5 +338,134 @@ class BackupController extends AbstractController
         } catch (\Exception $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Spawn the detached background worker that creates a backup.
+     * The process is fully detached (nohup + background) so it outlives this HTTP request.
+     */
+    private function spawnBackupWorker(string $userId, string $jobId): void
+    {
+        // Ensure exec() is available (some hardened PHP setups disable it)
+        $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+        if (!function_exists('exec') || in_array('exec', $disabled, true)) {
+            throw new \RuntimeException('PHP exec() is disabled; cannot spawn background worker.');
+        }
+
+        $projectDir = $this->getParameter('kernel.project_dir');
+        $env = $this->getParameter('kernel.environment');
+        $logFile = $projectDir . '/var/log/backup-worker.log';
+
+        $php = $this->resolvePhpBinary();
+        if ($php === null) {
+            throw new \RuntimeException('Could not locate a PHP CLI binary to run the worker (php-fpm is not usable).');
+        }
+
+        $cmd = sprintf(
+            'nohup %s %s/bin/console app:backup-create %s %s --env=%s >> %s 2>&1 &',
+            escapeshellarg($php),
+            $projectDir,
+            escapeshellarg($userId),
+            escapeshellarg($jobId),
+            escapeshellarg($env),
+            escapeshellarg($logFile)
+        );
+
+        // Debug trace so we can see exactly what was launched (and from which SAPI)
+        @file_put_contents(
+            $logFile,
+            sprintf(
+                "[%s] spawn backup=%s user=%s sapi=%s php=%s\n  cmd: %s\n",
+                date('c'),
+                $jobId,
+                $userId,
+                PHP_SAPI,
+                $php,
+                $cmd
+            ),
+            FILE_APPEND
+        );
+
+        // exec returns immediately because the command is backgrounded with `&`
+        @exec($cmd);
+    }
+
+    /**
+     * Resolve the PHP **CLI** binary path.
+     *
+     * This is intentionally careful: under PHP-FPM (and mod_php) PHP_BINARY points to
+     * php-fpm / apache, NOT the CLI — running `php-fpm bin/console` just prints FPM usage.
+     * We therefore build a candidate list and validate each one by running `-v` and
+     * checking for the "(cli)" marker, so we never launch the FPM/CGI binary by mistake.
+     *
+     * Returns null if no working CLI binary can be found.
+     */
+    private function resolvePhpBinary(): ?string
+    {
+        $candidates = [];
+
+        // 1. Explicit override (set CQ_PHP_BINARY=/usr/bin/php to force it)
+        $envBinary = getenv('CQ_PHP_BINARY');
+        if ($envBinary) {
+            $candidates[] = $envBinary;
+        }
+
+        // 2. PATH-resolved CLI — matches what works in the user's shell (`php bin/console ...`)
+        if (function_exists('exec')) {
+            $out = [];
+            $code = null;
+            @exec('command -v php 2>/dev/null', $out, $code);
+            if ($code === 0 && !empty($out[0])) {
+                $candidates[] = trim($out[0]);
+            }
+        }
+
+        // 3. PHP_BINARY only if it is a real CLI binary (not php-fpm / php-cgi)
+        if (defined('PHP_BINARY') && PHP_BINARY) {
+            $base = basename(PHP_BINARY);
+            if (str_contains($base, 'php') && !str_contains($base, 'fpm') && !str_contains($base, 'cgi')) {
+                $candidates[] = PHP_BINARY;
+            }
+        }
+
+        // 4. Version-suffixed + common install locations
+        if (defined('PHP_MAJOR_VERSION') && defined('PHP_MINOR_VERSION')) {
+            $ver = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+            $candidates[] = '/usr/local/bin/php' . $ver;
+            $candidates[] = '/usr/bin/php' . $ver;
+        }
+        if (defined('PHP_BINDIR') && PHP_BINDIR) {
+            $candidates[] = PHP_BINDIR . '/php';
+        }
+        $candidates[] = '/usr/local/bin/php';
+        $candidates[] = '/usr/bin/php';
+
+        foreach ($candidates as $candidate) {
+            if ($this->isCliPhpBinary($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Verify a binary is a usable PHP CLI by running `<bin> -v` and looking for "(cli)".
+     */
+    private function isCliPhpBinary(string $binary): bool
+    {
+        if ($binary === '' || !function_exists('exec')) {
+            return false;
+        }
+        // Absolute/relative path must be executable; bare "php" relies on PATH
+        if (str_contains($binary, '/') && !is_executable($binary)) {
+            return false;
+        }
+
+        $out = [];
+        $code = null;
+        @exec(escapeshellarg($binary) . ' -v 2>&1', $out, $code);
+
+        return $code === 0 && str_contains(implode(' ', $out), '(cli)');
     }
 }

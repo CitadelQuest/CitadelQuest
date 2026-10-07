@@ -15,6 +15,8 @@ CitadelQuest includes a full backup system to protect your data. You can create,
    - User data files (everything in your File Browser)
 4. The backup appears in your backup list when complete
 
+> Backup creation runs as a background job on the server, so even large backups complete without timeout. You can safely close the page — the job keeps running and the backup will be waiting when you return.
+
 > Backups are stored as `.citadel` ZIP files on your server in your personal backup directory.
 
 ---

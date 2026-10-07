@@ -1,6 +1,9 @@
 // Using global window.toast service
 import { BackupUploader } from './BackupUploader';
 
+const POLL_INTERVAL = 2000;
+const MAX_POLL_ERRORS = 5;
+
 function getTranslations() {
     const container = document.querySelector('[data-translations]');
     const translationsAttr = container ? container.dataset.translations : null;
@@ -89,6 +92,55 @@ function handleRestoreBackup(event) {
     });
 }
 
+/**
+ * Poll a background backup job until it finishes.
+ * Resolves on completion (the page then reloads to show the new backup) and
+ * rejects on failure so the caller can reset the button and show the error.
+ */
+async function pollBackupJob(jobId, translations) {
+    let consecutiveErrors = 0;
+
+    while (true) {
+        let status;
+        try {
+            const response = await fetch(`/backup/status/${jobId}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                signal: AbortSignal.timeout(30000) // poll must be fast; abort stuck polls
+            });
+            status = await response.json();
+            consecutiveErrors = 0;
+        } catch (err) {
+            // Network/poll hiccup — retry a few times before giving up.
+            // The worker keeps running server-side regardless.
+            consecutiveErrors++;
+            if (consecutiveErrors >= MAX_POLL_ERRORS) {
+                throw new Error(translations.lost_connection || 'Lost connection while waiting for the backup. It may still be running — refresh to check.');
+            }
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+            continue;
+        }
+
+        if (!status.success) {
+            throw new Error(status.error || translations.failed_create || 'Backup failed');
+        }
+
+        if (status.done) {
+            if (status.status === 'completed') {
+                // Flag survives the reload so the success toast shows on the fresh page.
+                sessionStorage.setItem('cq_backup_created', '1');
+                window.location.reload();
+                return;
+            }
+            throw new Error(status.error || translations.failed_create || 'Backup failed');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+    }
+}
+
 export function initBackup() {
     const form = document.getElementById('backupForm');
     if (!form) return;
@@ -96,47 +148,74 @@ export function initBackup() {
     const btn = document.getElementById('createBackupBtn');
     if (!btn) return;
 
+    const translations = getTranslations();
     const originalBtnText = btn.innerHTML;
     let isProcessing = false;
+
+    const setProcessing = (on) => {
+        isProcessing = on;
+        btn.disabled = on;
+        btn.innerHTML = on
+            ? `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${translations.creating || 'Creating backup...'}`
+            : originalBtnText;
+    };
+
+    // Show the success toast that was deferred across the post-completion reload.
+    if (sessionStorage.getItem('cq_backup_created') === '1') {
+        sessionStorage.removeItem('cq_backup_created');
+        window.toast.success(translations.success || 'Backup created successfully');
+    }
+
+    const runJob = async (jobId) => {
+        setProcessing(true);
+        try {
+            await pollBackupJob(jobId, translations);
+        } catch (error) {
+            console.error('Backup failed:', error);
+            window.toast.error(error.message || translations.failed_create || 'Failed to create backup');
+            setProcessing(false);
+        }
+    };
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         if (isProcessing) return;
 
-        // Set button to loading state
-        isProcessing = true;
-        btn.disabled = true;
-        const translations = getTranslations();
-        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${translations.creating || 'Creating backup...'}`;
+        setProcessing(true);
 
         try {
-            // Create backup
+            // Start the background job — returns immediately, no Cloudflare 524.
             const response = await fetch(form.action, {
                 method: 'POST',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-            
             const data = await response.json();
-            
-            if (!response.ok || !data.success) {
+
+            // Another backup is already running — attach to it instead of erroring.
+            if (response.status === 409 && data.jobId) {
+                await runJob(data.jobId);
+                return;
+            }
+
+            if (!response.ok || !data.success || !data.jobId) {
                 throw new Error(data.error || translations.failed_create || 'Backup failed');
             }
-            
-            // Show success toast
-            window.toast.success(data.message || translations.backup_created || 'Backup created successfully!');
-            
-            // Reload page after showing message to display new backup in list
-            setTimeout(() => window.location.reload(), 1500);
+
+            await runJob(data.jobId);
         } catch (error) {
             console.error('Backup failed:', error);
             window.toast.error(error.message || translations.failed_create || 'Failed to create backup');
-            btn.innerHTML = originalBtnText;
-            btn.disabled = false;
-            isProcessing = false;
+            setProcessing(false);
         }
     });
+
+    // Resume polling a still-running job (e.g. after the page was reloaded mid-backup).
+    const activeJobId = form.dataset.activeJob;
+    if (activeJobId) {
+        runJob(activeJobId);
+    }
 
     // Add click handlers for delete buttons
     document.querySelectorAll('.delete-backup').forEach(button => {
@@ -151,7 +230,6 @@ export function initBackup() {
     // Initialize backup uploader
     const uploaderContainer = document.getElementById('backupUploaderContainer');
     if (uploaderContainer) {
-        const translations = getTranslations();
         new BackupUploader({
             containerId: 'backupUploaderContainer',
             translations: translations,

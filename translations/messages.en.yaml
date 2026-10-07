@@ -922,6 +922,7 @@ backup:
         failed_restore: 'Failed to restore backup'
         creating: 'Creating backup...'
         failed_create: 'Backup failed'
+        lost_connection: 'Lost connection while waiting for the backup. It may still be running — refresh to check.'
     upload:
         title: 'Upload Backup'
         drag_backup: 'Drag backup file here'

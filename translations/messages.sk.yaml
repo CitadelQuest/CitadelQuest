@@ -914,6 +914,7 @@ backup:
         failed_restore: 'Obnovenie zálohy zlyhalo'
         creating: 'Vytváram zálohu...'
         failed_create: 'Vytvorenie zálohy zlyhalo'
+        lost_connection: 'Spojenie prerušené pri čakaní na zálohu. Môže stále prebiehať — obnovte stránku.'
     upload:
         title: 'Nahrať zálohu'
         drag_backup: 'Pretiahnite súbor zálohy sem'

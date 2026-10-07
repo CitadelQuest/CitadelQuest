@@ -56,6 +56,10 @@ class BackupManager
         $username = $user->getUserIdentifier();
         $backupFile = sprintf('%s/' . self::BACKUP_FILENAME_FORMAT, $backupDir, $username, $timestamp);
 
+        // Random suffix so two createBackup() calls in the same second cannot clobber
+        // each other's snapshot (VACUUM INTO refuses to write over an existing file).
+        $snapshotPath = $backupFile . '.' . bin2hex(random_bytes(8)) . '.snapshot.db';
+
         try {
             $dbPath = $this->userDatabaseManager->getUserDatabaseFullPath($user);
             $userDataDir = $varDir . '/user_data/' . $user->getId();
@@ -64,13 +68,21 @@ class BackupManager
                 throw new \RuntimeException('User database not found');
             }
 
+            // Take a consistent snapshot of the live SQLite database. The DB runs in WAL
+            // mode, so copying the bare user.db file can miss recently committed data still
+            // sitting in the -wal file (and can tear if a write lands mid-copy). VACUUM INTO
+            // produces a single, consistent, compact copy.
+            @unlink($snapshotPath);
+            $connection = $this->userDatabaseManager->getDatabaseConnection($user);
+            $connection->executeStatement('VACUUM INTO ' . $connection->quote($snapshotPath));
+
             $zip = new \ZipArchive();
             if ($zip->open($backupFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
                 throw new \RuntimeException('Failed to create backup archive');
             }
 
-            // Add database file
-            $zip->addFile($dbPath, 'user.db');
+            // Add the consistent database snapshot
+            $zip->addFile($snapshotPath, 'user.db');
 
             // Add user_data directory if exists
             if (is_dir($userDataDir)) {
@@ -88,6 +100,7 @@ class BackupManager
             $zip->addFromString('migration_metadata.json', json_encode($metadata, JSON_PRETTY_PRINT));
 
             $zip->close();
+            @unlink($snapshotPath);
 
             if (!$this->verifyBackup($backupFile)) {
                 throw new \RuntimeException('Backup verification failed');
@@ -96,7 +109,10 @@ class BackupManager
             return $backupFile;
 
         } catch (\Exception $e) {
-            if (isset($backupFile) && file_exists($backupFile)) {
+            if (file_exists($snapshotPath)) {
+                @unlink($snapshotPath);
+            }
+            if (file_exists($backupFile)) {
                 unlink($backupFile);
             }
             throw new \RuntimeException('Backup creation failed: ' . $e->getMessage(), 0, $e);
