@@ -101,6 +101,7 @@
                                                     <button type="button" class="btn btn-sm btn-outline-cyber optimize-db-btn" 
                                                             data-user-id="{{ user.id }}" 
                                                             data-username="{{ user.username }}"
+                                                            data-active-job="{{ activeOptimizeJobs[user.id ~ ''] ?? '' }}"
                                                             title="{{ 'admin.users.optimize_database'|trans }}">
                                                         <i class="mdi mdi-database-sync"></i>
                                                     </button>

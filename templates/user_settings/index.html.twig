@@ -127,7 +127,7 @@
                                     </p>
                                 </div>
                                 <div class="d-flex align-items-center">
-                                    <button id="database-optimize" class="btn btn-sm btn-cyber" title="{{ 'settings.database.optimize_title'|trans({}, 'messages', app.request.locale)|default('Optimize database to reclaim unused space') }}">
+                                    <button id="database-optimize" class="btn btn-sm btn-cyber" data-active-job="{{ activeOptimizeJobId|default('') }}" title="{{ 'settings.database.optimize_title'|trans({}, 'messages', app.request.locale)|default('Optimize database to reclaim unused space') }}">
                                         <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
                                         <i class="mdi mdi-database-sync me-2"></i>{{ 'settings.database.optimize'|trans({}, 'messages', app.request.locale)|default('Optimize Database') }}
                                     </button>

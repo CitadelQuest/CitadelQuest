@@ -95,8 +95,14 @@ export class AdminUsersManager {
         document.querySelectorAll('.optimize-db-btn').forEach(btn => {
             const userId = btn.dataset.userId;
             const username = btn.dataset.username;
-            if (userId) {
-                btn.addEventListener('click', () => this.optimizeDatabase(userId, username, btn));
+            if (!userId) return;
+
+            btn.addEventListener('click', () => this.optimizeDatabase(userId, username, btn));
+
+            // Resume an in-flight optimization (e.g. after a page reload).
+            const activeJobId = btn.dataset.activeJob;
+            if (activeJobId) {
+                this.runOptimize(userId, btn, async () => activeJobId);
             }
         });
     }
@@ -113,12 +119,7 @@ export class AdminUsersManager {
             return;
         }
 
-        const icon = btn.querySelector('.mdi');
-
-        try {
-            btn.disabled = true;
-            icon.className = 'mdi mdi-loading mdi-spin';
-
+        await this.runOptimize(userId, btn, async () => {
             const response = await fetch(`/administration/user/${userId}/optimize-database`, {
                 method: 'POST',
                 headers: {
@@ -127,20 +128,90 @@ export class AdminUsersManager {
                 }
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
 
-            if (data.success) {
-                window.toast.success(data.message);
-            } else {
-                window.toast.error(data.message || document.querySelector('[data-error-optimize-db]')?.dataset.errorOptimizeDb || 'Failed to optimize user database');
+            // Already running (e.g. started in another tab) — attach to it.
+            if (response.status === 409 && data.jobId) {
+                return data.jobId;
             }
+
+            if (!response.ok || !data.success || !data.jobId) {
+                throw new Error(data.error || data.message || this.optimizeErrorText());
+            }
+
+            return data.jobId;
+        });
+    }
+
+    /**
+     * Run an optimization (fresh or resumed) with shared button state + result handling.
+     * @param {string} userId
+     * @param {HTMLElement} btn - The clicked button
+     * @param {Function} startFn - async () => jobId
+     */
+    async runOptimize(userId, btn, startFn) {
+        const icon = btn.querySelector('.mdi');
+        btn.disabled = true;
+        icon.className = 'mdi mdi-loading mdi-spin';
+
+        try {
+            const jobId = await startFn();
+            const status = await this.pollOptimize(userId, jobId);
+            window.toast.success(status.message || 'Database optimized successfully');
         } catch (error) {
             console.error('Error optimizing user database:', error);
-            window.toast.error(document.querySelector('[data-error-optimize-db]')?.dataset.errorOptimizeDb || 'Failed to optimize user database');
+            window.toast.error(error.message || this.optimizeErrorText());
         } finally {
             btn.disabled = false;
             icon.className = 'mdi mdi-database-sync';
         }
+    }
+
+    /**
+     * Poll a background optimization job until it finishes.
+     * @param {string} userId
+     * @param {string} jobId
+     */
+    async pollOptimize(userId, jobId) {
+        let consecutiveErrors = 0;
+
+        while (true) {
+            let status;
+            try {
+                const response = await fetch(`/administration/user/${userId}/optimize-database/status/${jobId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    signal: AbortSignal.timeout(30000)
+                });
+                status = await response.json();
+                consecutiveErrors = 0;
+            } catch (err) {
+                consecutiveErrors++;
+                if (consecutiveErrors >= 5) {
+                    throw new Error(this.optimizeErrorText());
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                continue;
+            }
+
+            if (!status.success) {
+                throw new Error(status.error || this.optimizeErrorText());
+            }
+
+            if (status.done) {
+                if (status.status === 'completed') {
+                    return status;
+                }
+                throw new Error(status.error || this.optimizeErrorText());
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+
+    optimizeErrorText() {
+        return document.querySelector('[data-error-optimize-db]')?.dataset.errorOptimizeDb || 'Failed to optimize user database';
     }
 
     /**

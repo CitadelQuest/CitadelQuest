@@ -29,6 +29,7 @@ Manage all users on your Citadel:
 - **View Info** — see detailed user information in a modal dialog
 - **Toggle Admin** — grant or revoke admin privileges (cannot remove your own admin role)
 - **Reset Password** — generate a new password for a user
+- **Optimize Database** — reclaim space in a user's database (trims stored AI payloads, drops orphans, runs VACUUM). Runs in the background, so it completes even for very large databases.
 - **Delete User** — remove a user and their data (cannot delete yourself or the last admin)
 
 ---

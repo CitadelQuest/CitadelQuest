@@ -3,8 +3,8 @@
 namespace App\Command;
 
 use App\Repository\UserRepository;
-use App\Service\BackupManager;
 use App\Service\MaintenanceJobService;
+use App\Service\UserDatabaseOptimizer;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -17,22 +17,23 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ServiceSubscriberInterface;
 
 /**
- * Background worker that creates one .citadel backup for a specific user.
+ * Background worker that optimizes one user database (trims stored AI payloads,
+ * drops orphaned spirit messages, runs VACUUM) for a specific user.
  *
- * Spawned detached from the /backup/create HTTP request so the long zip/verify
- * work runs with no execution time limit and outside Cloudflare's 100s proxy
- * window (which causes HTTP 524). The browser polls the maintenance job status
- * separately.
+ * Spawned detached from the /api/database/vacuum and
+ * /administration/user/{id}/optimize-database HTTP requests so the long VACUUM
+ * runs with no execution time limit and outside Cloudflare's 100s proxy window
+ * (which causes HTTP 524). The browser polls the maintenance job status separately.
  *
  * IMPORTANT: services are fetched lazily from the service-subscriber locator AFTER
  * the security token is set, so the whole dependency graph resolves the target user
  * correctly (many services read security->getUser() at construction time).
  */
 #[AsCommand(
-    name: 'app:backup-create',
-    description: 'Create a .citadel backup in the background for a given user',
+    name: 'app:db-optimize',
+    description: 'Optimize a user database in the background for a given user',
 )]
-class BackupCreateCommand extends Command implements ServiceSubscriberInterface
+class DbOptimizeCommand extends Command implements ServiceSubscriberInterface
 {
     public function __construct(
         private readonly ContainerInterface $container
@@ -46,7 +47,7 @@ class BackupCreateCommand extends Command implements ServiceSubscriberInterface
             TokenStorageInterface::class,
             UserRepository::class,
             MaintenanceJobService::class,
-            BackupManager::class,
+            UserDatabaseOptimizer::class,
         ];
     }
 
@@ -59,13 +60,13 @@ class BackupCreateCommand extends Command implements ServiceSubscriberInterface
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // No time limit — this is exactly why the backup runs here and not in a web request.
+        // No time limit — this is exactly why the optimization runs here and not in a web request.
         @set_time_limit(0);
 
         $userId = (string) $input->getArgument('userId');
         $jobId = (string) $input->getArgument('jobId');
 
-        $output->writeln(sprintf('[%s] app:backup-create START user=%s job=%s sapi=%s', date('c'), $userId, $jobId, PHP_SAPI));
+        $output->writeln(sprintf('[%s] app:db-optimize START user=%s job=%s sapi=%s', date('c'), $userId, $jobId, PHP_SAPI));
 
         // 1. Resolve and authenticate the target user BEFORE touching user-scoped services
         $userRepository = $this->container->get(UserRepository::class);
@@ -87,12 +88,17 @@ class BackupCreateCommand extends Command implements ServiceSubscriberInterface
         // 2. Now fetch user-scoped services (constructed after auth is set)
         /** @var MaintenanceJobService $jobService */
         $jobService = $this->container->get(MaintenanceJobService::class);
-        /** @var BackupManager $backupManager */
-        $backupManager = $this->container->get(BackupManager::class);
+        /** @var UserDatabaseOptimizer $optimizer */
+        $optimizer = $this->container->get(UserDatabaseOptimizer::class);
 
         $job = $jobService->find($jobId, $user);
         if (!$job) {
             $output->writeln('<error>Maintenance job not found: ' . $jobId . '</error>');
+            return Command::FAILURE;
+        }
+
+        if ($job['type'] !== MaintenanceJobService::TYPE_DB_OPTIMIZE) {
+            $output->writeln('<error>Unexpected job type: ' . $job['type'] . '</error>');
             return Command::FAILURE;
         }
 
@@ -104,18 +110,15 @@ class BackupCreateCommand extends Command implements ServiceSubscriberInterface
         $jobService->markProcessing($jobId, $user);
 
         try {
-            $backupPath = $backupManager->createBackup($user);
-            $jobService->markCompleted($jobId, [
-                'filename' => basename($backupPath),
-                'size' => (int) filesize($backupPath),
-            ], $user);
+            $stats = $optimizer->optimize($user);
+            $jobService->markCompleted($jobId, $stats, $user);
 
-            $output->writeln('<info>Backup ' . $jobId . ' completed: ' . basename($backupPath) . '</info>');
+            $output->writeln('<info>Optimize ' . $jobId . ' completed: saved ' . $stats['space_saved'] . '</info>');
             return Command::SUCCESS;
 
         } catch (\Throwable $e) {
             $jobService->markFailed($jobId, $e->getMessage(), $user);
-            $output->writeln('<error>Backup ' . $jobId . ' failed: ' . $e->getMessage() . '</error>');
+            $output->writeln('<error>Optimize ' . $jobId . ' failed: ' . $e->getMessage() . '</error>');
             $output->writeln('<error>  at ' . $e->getFile() . ':' . $e->getLine() . '</error>');
             $output->writeln($e->getTraceAsString());
             return Command::FAILURE;

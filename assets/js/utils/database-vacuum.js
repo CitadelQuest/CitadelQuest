@@ -1,7 +1,14 @@
 /**
  * Database Vacuum Utility
  * Handles async database vacuum operations
+ *
+ * Optimization runs as a background job on the server (detached CLI worker), so
+ * the request returns immediately and large databases never hit Cloudflare's
+ * 100s proxy read timeout. This utility starts the job and polls its status.
  */
+
+const POLL_INTERVAL = 2000;
+const MAX_POLL_ERRORS = 5;
 
 class DatabaseVacuum {
     constructor() {
@@ -11,9 +18,9 @@ class DatabaseVacuum {
     }
 
     /**
-     * Trigger async vacuum operation
+     * Start a background optimization and wait for it to finish.
      * @param {boolean} force - Force vacuum even if recently done
-     * @returns {Promise<object|null>}
+     * @returns {Promise<object>} { success, stats } or { success: false, error }
      */
     async vacuum(force = false) {
         // Check if already vacuuming
@@ -32,43 +39,88 @@ class DatabaseVacuum {
         }
 
         this.isVacuuming = true;
-        console.log('[DatabaseVacuum] Starting async vacuum...');
+        console.log('[DatabaseVacuum] Starting background optimization...');
 
         try {
             const response = await fetch('/api/database/vacuum', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
+
+            // Already running (e.g. started in another tab) — attach to it.
+            if (response.status === 409) {
+                const data = await response.json().catch(() => ({}));
+                if (data.jobId) {
+                    return await this.pollJob(data.jobId);
+                }
+                return { success: false, error: data.error || 'Another maintenance task is in progress.' };
+            }
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const result = await response.json();
-            
-            if (result.success) {
-                this.lastVacuum = Date.now();
-                console.log('[DatabaseVacuum] Vacuum completed:', result.stats);
-                
-                // Show toast if significant space was saved (>1MB)
-                if (result.stats.space_saved_bytes > 1048576) {
-                    if (window.toast) {
-                        //window.toast.success(`Database optimized! Saved ${result.stats.space_saved}`);
-                    }
-                }
-                
-                return result;
-            } else {
-                console.error('[DatabaseVacuum] Vacuum failed:', result.error);
-                return null;
+            const start = await response.json();
+            if (!start.success || !start.jobId) {
+                throw new Error(start.error || 'Failed to start database optimization');
             }
+
+            return await this.pollJob(start.jobId);
         } catch (error) {
             console.error('[DatabaseVacuum] Error during vacuum:', error);
-            return null;
+            return { success: false, error: error.message };
         } finally {
             this.isVacuuming = false;
+        }
+    }
+
+    /**
+     * Poll a background optimization job until it finishes.
+     * @param {string} jobId
+     * @returns {Promise<object>} { success, stats } or { success: false, error }
+     */
+    async pollJob(jobId) {
+        let consecutiveErrors = 0;
+
+        while (true) {
+            let status;
+            try {
+                const response = await fetch(`/api/database/vacuum/status/${jobId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    signal: AbortSignal.timeout(30000) // poll must be fast; abort stuck polls
+                });
+                status = await response.json();
+                consecutiveErrors = 0;
+            } catch (err) {
+                // Network/poll hiccup — retry a few times before giving up.
+                // The worker keeps running server-side regardless.
+                consecutiveErrors++;
+                if (consecutiveErrors >= MAX_POLL_ERRORS) {
+                    return { success: false, error: 'Lost connection while waiting for the database optimization.' };
+                }
+                await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+                continue;
+            }
+
+            if (!status.success) {
+                return { success: false, error: status.error || 'Failed to optimize database' };
+            }
+
+            if (status.done) {
+                if (status.status === 'completed') {
+                    this.lastVacuum = Date.now();
+                    console.log('[DatabaseVacuum] Optimization completed:', status.stats);
+                    return { success: true, stats: status.stats };
+                }
+                return { success: false, error: status.error || 'Failed to optimize database' };
+            }
+
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
         }
     }
 

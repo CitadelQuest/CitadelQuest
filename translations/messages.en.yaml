@@ -1025,6 +1025,7 @@ admin:
         confirm_optimize_database: 'Optimize the database for user %username%? This will reclaim unused space.'
         optimize_database_success: 'Database optimized for %username% (%saved% reclaimed)'
         optimize_database_error: 'Failed to optimize user database'
+        optimize_database_busy: 'Another maintenance task is in progress for this user. Please try again shortly.'
     
     roles:
         admin: 'Admin'

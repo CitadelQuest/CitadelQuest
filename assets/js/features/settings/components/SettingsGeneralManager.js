@@ -43,6 +43,12 @@ export class SettingsGeneralManager {
         
         if (this.databaseOptimizeBtn) {
             this.databaseOptimizeBtn.addEventListener('click', this.handleDatabaseOptimize.bind(this));
+
+            // Resume a still-running background optimization (e.g. after a page reload).
+            const activeJobId = this.databaseOptimizeBtn.dataset.activeJob;
+            if (activeJobId && window.databaseVacuum) {
+                this.runOptimize(() => window.databaseVacuum.pollJob(activeJobId));
+            }
         }
 
         window.addEventListener('hashchange', () => this.showSectionFromHash());
@@ -193,6 +199,20 @@ export class SettingsGeneralManager {
     }
     
     async handleDatabaseOptimize() {
+        // Use global databaseVacuum utility (force=true to bypass interval check)
+        if (!window.databaseVacuum) {
+            this.showToast('error', this.translations.database_error);
+            return;
+        }
+
+        await this.runOptimize(() => window.databaseVacuum.vacuum(true));
+    }
+
+    /**
+     * Run an optimization (fresh or resumed) with shared button state + result handling.
+     * @param {Function} run - async () => ({ success, stats, error })
+     */
+    async runOptimize(run) {
         if (!this.databaseOptimizeBtn) return;
         
         const spinner = this.databaseOptimizeBtn.querySelector('.spinner-border');
@@ -203,13 +223,8 @@ export class SettingsGeneralManager {
             this.databaseOptimizeBtn.disabled = true;
             spinner.classList.remove('d-none');
             icon.classList.add('d-none');
-            
-            // Use global databaseVacuum utility (force=true to bypass interval check)
-            if (!window.databaseVacuum) {
-                throw new Error('Database vacuum utility not available');
-            }
-            
-            const result = await window.databaseVacuum.vacuum(true);
+
+            const result = await run();
             
             if (result && result.success) {
                 // Update displayed size

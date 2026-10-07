@@ -19,7 +19,7 @@ The Settings page lets you configure your CitadelQuest experience — from login
 
 ### Database
 - **Database Size** — shows your personal database file size
-- **Optimize Database** — runs SQLite VACUUM to reclaim unused space and improve performance
+- **Optimize Database** — trims stored AI payloads, drops orphaned messages and runs SQLite VACUUM to reclaim unused space and improve performance. Runs as a background job, so it completes without timeout even on large databases.
 
 ### Account Migration
 Move your entire account to another CitadelQuest instance:

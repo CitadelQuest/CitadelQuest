@@ -9,6 +9,7 @@ use App\Service\AiGatewayService;
 use App\Service\AiServiceModelService;
 use App\Service\AiModelsSyncService;
 use App\Service\AiToolSettingsService;
+use App\Service\MaintenanceJobService;
 use App\Service\SpiritService;
 use App\Service\SettingsService;
 use App\Service\ProjectFileService;
@@ -40,7 +41,8 @@ class UserSettingsController extends AbstractController
         private readonly LoggerInterface $logger,
         private readonly StorageService $storageService,
         private readonly SpiritService $spiritService,
-        private readonly AiToolSettingsService $aiToolSettingsService
+        private readonly AiToolSettingsService $aiToolSettingsService,
+        private readonly MaintenanceJobService $maintenanceJobService
     ) {
     }
 
@@ -49,10 +51,19 @@ class UserSettingsController extends AbstractController
     {
         // Get user's settings
         $settings = $this->settingsService->getAllSettings();
-        
+
+        // Surface an in-flight optimization so the button shows progress even after a reload.
+        $activeOptimizeJobId = null;
+        try {
+            $activeOptimizeJobId = $this->maintenanceJobService->findActive(MaintenanceJobService::TYPE_DB_OPTIMIZE)['id'] ?? null;
+        } catch (\Throwable $e) {
+            // Non-fatal: the page must still render even if the job table is unavailable.
+        }
+
         return $this->render('user_settings/index.html.twig', [
             'settings' => $settings,
             'user' => $this->getUser(),
+            'activeOptimizeJobId' => $activeOptimizeJobId,
         ]);
     }
 

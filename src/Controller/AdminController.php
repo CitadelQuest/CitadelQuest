@@ -16,9 +16,10 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\HttpFoundation\RequestStack;
 use App\Service\SystemSettingsService;
 use App\Service\PasswordResetService;
+use App\Service\BackgroundWorkerSpawner;
 use App\Service\BackupManager;
+use App\Service\MaintenanceJobService;
 use App\Service\StorageService;
-use App\Service\UserDatabaseOptimizer;
 use App\CitadelVersion;
 
 #[Route('/administration')]
@@ -34,7 +35,8 @@ class AdminController extends AbstractController
         private readonly PasswordResetService $passwordResetService,
         private readonly BackupManager $backupManager,
         private readonly StorageService $storageService,
-        private readonly UserDatabaseOptimizer $userDatabaseOptimizer
+        private readonly MaintenanceJobService $maintenanceJobService,
+        private readonly BackgroundWorkerSpawner $spawner
     ) {}
 
     #[Route('/', name: 'app_admin_dashboard')]
@@ -72,14 +74,26 @@ class AdminController extends AbstractController
 
         // Compute total storage per user
         $userStorage = [];
+        $activeOptimizeJobs = [];
         foreach ($users as $user) {
             $storageInfo = $this->storageService->getTotalUserStorageSize($user);
             $userStorage[(string) $user->getId()] = $storageInfo['formatted'];
+
+            // Surface an in-flight optimization so the row shows progress even after a reload.
+            try {
+                $active = $this->maintenanceJobService->findActive(MaintenanceJobService::TYPE_DB_OPTIMIZE, $user);
+                if ($active) {
+                    $activeOptimizeJobs[(string) $user->getId()] = $active['id'];
+                }
+            } catch (\Throwable $e) {
+                // Skip users whose database is unavailable.
+            }
         }
-        
+
         return $this->render('admin/users.html.twig', [
             'users' => $users,
             'userStorage' => $userStorage,
+            'activeOptimizeJobs' => $activeOptimizeJobs,
         ]);
     }
 
@@ -157,25 +171,98 @@ class AdminController extends AbstractController
         }
     }
 
+    /**
+     * Start a background job that optimizes the given user's database.
+     *
+     * The work is done by a detached CLI worker (app:db-optimize) so the request
+     * returns immediately and never hits Cloudflare's 100s proxy read timeout
+     * (HTTP 524) on large databases. The browser polls the status route below.
+     */
     #[Route('/user/{id}/optimize-database', name: 'app_admin_user_optimize_database', methods: ['POST'])]
     public function optimizeUserDatabase(User $user): JsonResponse
     {
         try {
-            $stats = $this->userDatabaseOptimizer->optimize($user);
+            $this->maintenanceJobService->failStaleJobs($user);
+
+            // One maintenance job per user at a time (backup and optimize both touch
+            // the same database file).
+            $active = $this->maintenanceJobService->findActive(null, $user);
+            if ($active) {
+                if ($active['type'] === MaintenanceJobService::TYPE_DB_OPTIMIZE) {
+                    return $this->json([
+                        'alreadyRunning' => true,
+                        'jobId' => $active['id'],
+                        'status' => $active['status'],
+                    ], 409);
+                }
+                return $this->json([
+                    'error' => $this->translator->trans('admin.users.optimize_database_busy'),
+                ], 409);
+            }
+
+            $jobId = $this->maintenanceJobService->create(MaintenanceJobService::TYPE_DB_OPTIMIZE, [], $user);
+
+            try {
+                $this->spawner->spawn('app:db-optimize', [(string) $user->getId(), $jobId], 'db-optimize-worker.log');
+            } catch (\Throwable $spawnError) {
+                // Could not start the background worker — fail the job now so the UI
+                // shows a clear error instead of polling a job that will never run.
+                $this->maintenanceJobService->markFailed($jobId, 'Could not start background worker: ' . $spawnError->getMessage(), $user);
+                return $this->json([
+                    'success' => false,
+                    'message' => $this->translator->trans('admin.users.optimize_database_error')
+                ], 500);
+            }
 
             return $this->json([
                 'success' => true,
-                'stats' => $stats,
-                'message' => $this->translator->trans('admin.users.optimize_database_success', [
-                    '%username%' => $user->getUsername(),
-                    '%saved%' => $stats['space_saved'],
-                ])
+                'jobId' => $jobId,
+                'status' => MaintenanceJobService::STATUS_PENDING,
             ]);
         } catch (\Exception $e) {
             return $this->json([
                 'success' => false,
                 'message' => $this->translator->trans('admin.users.optimize_database_error')
             ], 500);
+        }
+    }
+
+    /**
+     * Poll the status of a background database optimization job for a given user.
+     * Lightweight + fast — always returns well under Cloudflare's 100s window.
+     */
+    #[Route('/user/{id}/optimize-database/status/{jobId}', name: 'app_admin_user_optimize_database_status', methods: ['GET'])]
+    public function optimizeUserDatabaseStatus(User $user, string $jobId): JsonResponse
+    {
+        try {
+            $job = $this->maintenanceJobService->find($jobId, $user);
+            if (!$job || $job['type'] !== MaintenanceJobService::TYPE_DB_OPTIMIZE) {
+                return $this->json(['error' => 'Optimize job not found'], 404);
+            }
+
+            $done = in_array($job['status'], [
+                MaintenanceJobService::STATUS_COMPLETED,
+                MaintenanceJobService::STATUS_FAILED,
+            ], true);
+
+            $response = [
+                'success' => true,
+                'status' => $job['status'],
+                'done' => $done,
+                'error' => $job['error'] ?? null,
+                'stats' => $job['result'] ?: null,
+            ];
+
+            if ($job['status'] === MaintenanceJobService::STATUS_COMPLETED) {
+                $response['message'] = $this->translator->trans('admin.users.optimize_database_success', [
+                    '%username%' => $user->getUsername(),
+                    '%saved%' => $job['result']['space_saved'] ?? '0 B',
+                ]);
+            }
+
+            return $this->json($response);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
         }
     }
 

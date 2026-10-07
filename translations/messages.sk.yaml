@@ -1017,6 +1017,7 @@ admin:
         confirm_optimize_database: 'Optimalizovať databázu používateľa %username%? Uvoľní to nevyužité miesto.'
         optimize_database_success: 'Databáza používateľa %username% bola optimalizovaná (uvoľnených %saved%)'
         optimize_database_error: 'Nepodarilo sa optimalizovať databázu používateľa'
+        optimize_database_busy: 'Pre tohto používateľa už prebieha iná úloha údržby. Skúste to prosím o chvíľu.'
     
     roles:
         admin: 'Administrátor'
