@@ -11,7 +11,7 @@ final class CitadelVersion
      * Current version of CitadelQuest
      * @var string
      */
-    public const VERSION = 'v0.7.98-beta'; // 2026-10-04
+    public const VERSION = 'v0.7.99-beta'; // 2026-10-07
 
     /**
      * Get the current version string
