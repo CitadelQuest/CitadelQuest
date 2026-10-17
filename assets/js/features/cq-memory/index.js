@@ -367,13 +367,13 @@ class CQMemoryExplorer {
                         body: JSON.stringify({ libraryPath })
                     });
                 } else {
-                    // Load from pack file - parse JSON encoded path+name
+                    // Load from pack file - parse JSON encoded path+name (+ optional projectId)
                     const packData = JSON.parse(this.currentPackPath);
                     response = await fetch('/api/memory/pack/open', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
-                            projectId: this.projectId,
+                            projectId: packData.projectId || this.projectId,
                             path: packData.path,
                             name: packData.name
                         })
@@ -871,7 +871,7 @@ class CQMemoryExplorer {
             if (this.currentPackPath && !this.currentPackPath.startsWith('lib:')) {
                 try {
                     const packData = JSON.parse(this.currentPackPath);
-                    requestBody.pack_project_id = this.projectId;
+                    requestBody.pack_project_id = packData.projectId || this.projectId;
                     requestBody.pack_path = packData.path;
                     requestBody.pack_name = packData.name;
                 } catch (e) {
@@ -1287,7 +1287,7 @@ class CQMemoryExplorer {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    projectId: this.projectId,
+                    projectId: packData.projectId || this.projectId,
                     path: packData.path,
                     name: packData.name,
                     query: query,
@@ -1597,8 +1597,8 @@ class CQMemoryExplorer {
                 this.rootPackName = pathData.rootPackName;
                 this.spiritNameSlug = pathData.spiritNameSlug;
             } else {
-                // No Spirit context - organized under /memory/
-                this.projectId = 'general';
+                // No Spirit context - organized under /memory/ in the active project
+                this.projectId = document.getElementById('active-project-id')?.value || window.cqActiveProjectId || 'general';
                 this.memoryPath = '/memory';
                 this.libsPath = '/memory/libs';
                 this.packsPath = '/memory/packs';
@@ -2843,8 +2843,13 @@ class CQMemoryExplorer {
                     const nodeCount = pack.totalNodes || 0;
                     const syncIcon = pack.sourceUrl ? ' \u2601' : '';
                     const shareIcon = pack.isShared ? ' \u25C0' : '';
-                    const label = `${pack.displayName || pack.name} (${nodeCount} ${trans.nodes || 'nodes'})${syncIcon}${shareIcon}`;
-                    const packValue = JSON.stringify({ path: pack.path, name: pack.name });
+                    const packProjectId = pack.projectId || this.projectId;
+                    const projectTag = packProjectId !== this.projectId ? ` [${packProjectId}]` : '';
+                    const label = `${pack.displayName || pack.name}${projectTag} (${nodeCount} ${trans.nodes || 'nodes'})${syncIcon}${shareIcon}`;
+                    const packValueObj = packProjectId !== this.projectId
+                        ? { projectId: packProjectId, path: pack.path, name: pack.name }
+                        : { path: pack.path, name: pack.name };
+                    const packValue = JSON.stringify(packValueObj);
                     html += `<option value='${this.escapeHtml(packValue)}'>${this.escapeHtml(label)}</option>`;
                 });
             }
@@ -2860,15 +2865,20 @@ class CQMemoryExplorer {
                 // Try to find matching pack option
                 try {
                     const lastPackData = JSON.parse(lastPack);
-                    const matchingPack = packsToShow.find(p => p.path === lastPackData.path && p.name === lastPackData.name);
+                    const lastPackProjectId = lastPackData.projectId || this.projectId;
+                    const matchingPack = packsToShow.find(p =>
+                        (p.projectId || this.projectId) === lastPackProjectId
+                        && p.path === lastPackData.path
+                        && p.name === lastPackData.name
+                    );
                     if (matchingPack) {
                         packSelector.value = lastPack;
                         this.currentPackPath = lastPack;
                         this.extractPanel.setTargetPack({
-                            projectId: this.projectId,
+                            projectId: lastPackProjectId,
                             path: lastPackData.path,
                             name: lastPackData.name
-                        }, this.projectId);
+                        }, lastPackProjectId);
                         this.extractPanel.setSyncedPack(!!matchingPack.sourceUrl);
                         this.updateShareButtonState(matchingPack);
                         selectedPack = true;
@@ -2878,7 +2888,11 @@ class CQMemoryExplorer {
 
             // Auto-select Spirit's root pack if no pack was restored
             if (!selectedPack && this.spiritId && this.packsPath && this.rootPackName && !this.selectedLibrary) {
-                const rootPack = packsToShow.find(p => p.path === this.packsPath && p.name === this.rootPackName);
+                const rootPack = packsToShow.find(p =>
+                    (p.projectId || this.projectId) === this.projectId
+                    && p.path === this.packsPath
+                    && p.name === this.rootPackName
+                );
                 if (rootPack) {
                     const rootPackValue = JSON.stringify({ path: rootPack.path, name: rootPack.name });
                     packSelector.value = rootPackValue;
@@ -2922,6 +2936,7 @@ class CQMemoryExplorer {
         for (const libPack of this.libraryPacks) {
             if (!(libPack.enabled ?? true)) continue;
             
+            const packProjectId = libPack.projectId || this.projectId;
             const packRefPath = libPack.path;
             let fullPackDir, packName;
             
@@ -2940,10 +2955,23 @@ class CQMemoryExplorer {
                 }
             }
             
-            // Find matching project pack
-            const match = this.availablePacks.find(p => p.path === fullPackDir && p.name === packName);
-            if (match) {
-                resolved.push(match);
+            if (packProjectId === this.projectId) {
+                // Find matching project pack in the active project
+                const match = this.availablePacks.find(p => p.path === fullPackDir && p.name === packName);
+                if (match) {
+                    resolved.push(match);
+                }
+            } else {
+                // Cross-project pack referenced by the library
+                resolved.push({
+                    projectId: packProjectId,
+                    path: fullPackDir,
+                    name: packName,
+                    displayName: libPack.name || packName.replace(/\.[^.]+$/, ''),
+                    description: libPack.description || '',
+                    totalNodes: libPack.nodes ?? 0,
+                    totalRelationships: libPack.relationships ?? 0,
+                });
             }
         }
         
@@ -2982,14 +3010,19 @@ class CQMemoryExplorer {
         // Update extract panel's target pack
         try {
             const packData = JSON.parse(packPath);
+            const targetProjectId = packData.projectId || this.projectId;
             this.extractPanel.setTargetPack({
-                projectId: this.projectId,
+                projectId: targetProjectId,
                 path: packData.path,
                 name: packData.name
-            }, this.projectId);
+            }, targetProjectId);
 
             // Detect synced/shared pack and disable extraction
-            const matchingPack = this.availablePacks.find(p => p.path === packData.path && p.name === packData.name);
+            const matchingPack = this.availablePacks.find(p =>
+                (p.projectId || this.projectId) === targetProjectId
+                && p.path === packData.path
+                && p.name === packData.name
+            );
             this.extractPanel.setSyncedPack(!!(matchingPack && matchingPack.sourceUrl));
             
             // Update Share button text based on share status

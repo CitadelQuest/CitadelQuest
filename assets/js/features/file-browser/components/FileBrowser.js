@@ -105,6 +105,7 @@ export class FileBrowser {
         // Required options
         this.containerId = options.containerId;
         this.projectId = options.projectId;
+        this.projectTitle = options.projectTitle || options.projectId;
         this.translations = options.translations || {};
 
         // Whether the "Extract to CQ Memory Pack" context menu action is available
@@ -112,8 +113,8 @@ export class FileBrowser {
         this.enableMemoryExtract = options.enableMemoryExtract !== false;
         
         // Initialize state
-        this.currentPath = localStorage.getItem('fileBrowserPath:' + window.location.pathname, '/') || '/';
-        localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+        this.currentPath = localStorage.getItem(this.getPathStorageKey(), '/') || '/';
+        localStorage.setItem(this.getPathStorageKey(), this.currentPath);
         this.selectedFile = null;
         this.files = [];
         this.breadcrumbs = [];
@@ -142,6 +143,7 @@ export class FileBrowser {
         this.contextMenu = new FileContextMenu({
             translations: this.translations,
             enableMemoryExtract: this.enableMemoryExtract,
+            isProtected: (item) => this.isSystemManagedPath(item.path, item.name),
             onCopy: (items) => this.handleCopyItems(items),
             onMove: (items) => this.handleMoveItems(items),
             onRename: (item) => this.handleRenameItem(item),
@@ -180,7 +182,7 @@ export class FileBrowser {
                 this.pendingFileSelect = JSON.parse(selectFileData);
                 // Override currentPath to the file's parent directory so tree expands there
                 this.currentPath = this.pendingFileSelect.path;
-                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                localStorage.setItem(this.getPathStorageKey(), this.currentPath);
             } catch (e) {
                 console.warn('Invalid fileBrowserSelectFile data:', e);
             }
@@ -197,6 +199,26 @@ export class FileBrowser {
         this.updateBreadcrumbs();
         
         // Initial directory preview will be handled by FileTreeView onInit callback
+    }
+
+    /**
+     * Whether a path is system-managed content — Spirit memory & skills under
+     * `/spirit` in any project. Managed by SpiritService / SpiritSkillService,
+     * not the File Browser, so delete/rename/move are disabled for it.
+     * @param {string} path - Parent path
+     * @param {string} name - Item name
+     */
+    isSystemManagedPath(path, name = '') {
+        const full = ((path === '/' || !path) ? '' : path) + '/' + name;
+        return full === '/spirit' || full.startsWith('/spirit/');
+    }
+
+    /**
+     * localStorage key for the current directory, scoped per project (and page),
+     * so switching workspaces never restores another project's path.
+     */
+    getPathStorageKey() {
+        return `fileBrowserPath:${this.projectId}:${window.location.pathname}`;
     }
     
     /**
@@ -227,10 +249,10 @@ export class FileBrowser {
         // Create breadcrumbs
         this.breadcrumbsRootLabel = document.createElement('div');
         this.breadcrumbsRootLabel.className = 'breadcrumb-item active cursor-pointer';
-        this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber">${this.projectId}</span><span class="text-muted ms-2" id="project-size-badge">...</span>`;
+        this.breadcrumbsRootLabel.innerHTML = `<span class="text-muted me-2"> <i class="mdi mdi-folder-refresh text-cyber" aria-hidden="true" style="font-size: 1.5rem"></i> Project:</span><span class="text-cyber" title="${this.escapeHtml(this.projectId)}">${this.escapeHtml(this.projectTitle)}</span><span class="text-muted ms-2" id="project-size-badge">...</span>`;
         this.breadcrumbsRootLabel.addEventListener('click', () => {
             // Refresh tree while preserving current expanded path
-            const savedPath = localStorage.getItem('fileBrowserPath:' + window.location.pathname) || '/';
+            const savedPath = localStorage.getItem(this.getPathStorageKey()) || '/';
             this.currentPath = savedPath;
             this.fileTreeView.setInitialExpandPath(savedPath);
             this.fileTreeView.refresh();
@@ -452,7 +474,7 @@ export class FileBrowser {
         this.breadcrumbsElement.querySelectorAll('.breadcrumb-path-part').forEach(el => {
             el.addEventListener('click', () => {
                 this.currentPath = el.dataset.path;
-                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                 this.fileTreeView.setInitialExpandPath(this.currentPath);
                 this.fileTreeView.refresh();
                 this.updateBreadcrumbs();
@@ -823,10 +845,11 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-folder-zip"></i> <span class="d-none d-md-inline small ms-1">${this.translations.create_zip || 'Create ZIP'}</span>
                     </button>
+                    ${this.isSystemManagedPath(directory.path, directory.name) ? '' : `
                     <button class="btn btn-sm btn-outline-danger mb-2" data-action="delete" data-file-id="${directory.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
-                    </button>
+                    </button>`}
                 </div>
             </div>
         `;
@@ -958,7 +981,7 @@ export class FileBrowser {
                 if (image) {
                     this.currentPath = image.path || this.currentPath;
                     this.updateBreadcrumbs();
-                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                 }
                 this.selectFile(fileId);
             }
@@ -1116,10 +1139,11 @@ export class FileBrowser {
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-pencil"></i> <span class="d-none d-md-inline small ms-1">${this.translations.edit || 'Edit'}</span>
                     </button>` : ''}
+                    ${this.isSystemManagedPath(file.path, file.name) ? '' : `
                     <button class="btn btn-sm btn-outline-danger mb-2" data-action="delete" data-file-id="${file.id}" 
                         style="padding: 0px 16px !important;">
                         <i class="mdi mdi-delete"></i> <span class="d-none d-md-inline small ms-1">${this.translations.delete || 'Delete'}</span>
-                    </button>
+                    </button>`}
                 </div>
             </div>
         `;
@@ -1334,6 +1358,11 @@ export class FileBrowser {
         
         if (!file) return;
         
+        if (this.isSystemManagedPath(file.path, file.name)) {
+            window.toast.error(this.translations.system_managed || 'System-managed content (Spirit memory & skills) cannot be deleted.');
+            return;
+        }
+
         const confirmMessage = file.isDirectory
             ? (this.translations.confirm_delete_directory || `Are you sure you want to delete the directory "${file.name}" and all its contents?`)
             : (this.translations.confirm_delete_file || `Are you sure you want to delete the file "${file.name}"?`);
@@ -1352,7 +1381,7 @@ export class FileBrowser {
                     this.currentPath = file.path;
                     
                     // Update localStorage with new current path
-                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                 }
                 
                 // Update breadcrumbs to reflect current path
@@ -1708,6 +1737,11 @@ export class FileBrowser {
      * @param {Array} items - Items to delete
      */
     async handleDeleteItems(items) {
+        if (items.some(item => this.isSystemManagedPath(item.path, item.name))) {
+            window.toast.error(this.translations.system_managed || 'System-managed content (Spirit memory & skills) cannot be deleted.');
+            return;
+        }
+
         const confirmMsg = items.length > 1
             ? `${this.translations.confirm_delete_multiple || 'Delete'} ${items.length} ${this.translations.items || 'items'}?`
             : `${this.translations.confirm_delete || 'Delete'} "${items[0].name}"?`;
@@ -1972,7 +2006,7 @@ export class FileBrowser {
                                 node.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                 this.currentPath = path;
                                 this.updateBreadcrumbs();
-                                localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                                localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                                 this.selectFile(node.dataset.id);
                                 return;
                             }
@@ -1988,7 +2022,7 @@ export class FileBrowser {
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage
-                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                     
                     // Select the file
                     this.selectFile(file.id);
@@ -1999,7 +2033,7 @@ export class FileBrowser {
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage
-                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                     
                     // Show directory preview
                     this.selectFile(directory.id);
@@ -2010,7 +2044,7 @@ export class FileBrowser {
                     this.updateBreadcrumbs();
                     
                     // Save current path to localStorage
-                    localStorage.setItem('fileBrowserPath:' + window.location.pathname, this.currentPath);
+                    localStorage.setItem(this.getPathStorageKey(), this.currentPath);
                 },
                 onContextMenu: (e, items) => {
                     // Update operation modal with tree data for folder autocomplete

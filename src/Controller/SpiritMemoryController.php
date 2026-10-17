@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Service\CQMemoryLibraryService;
+use App\Service\ProjectService;
 use App\Service\SpiritService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,7 +18,8 @@ class SpiritMemoryController extends AbstractController
 {
     public function __construct(
         private readonly SpiritService $spiritService,
-        private readonly CQMemoryLibraryService $libraryService
+        private readonly CQMemoryLibraryService $libraryService,
+        private readonly ProjectService $projectService
     ) {}
 
     /**
@@ -105,9 +107,18 @@ class SpiritMemoryController extends AbstractController
                 $memoryInfo['rootLibraryName']
             );
 
+            $packs = [];
+            foreach ($library['packs'] ?? [] as $packEntry) {
+                $packProjectId = $packEntry['projectId'] ?? $memoryInfo['projectId'];
+                $project = $this->projectService->findById($packProjectId);
+                $packEntry['projectId'] = $packProjectId;
+                $packEntry['projectTitle'] = $project ? $project->getTitle() : $packProjectId;
+                $packs[] = $packEntry;
+            }
+
             return new JsonResponse([
                 'success' => true,
-                'packs' => $library['packs'] ?? []
+                'packs' => $packs
             ]);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Failed to load library packs: ' . $e->getMessage()], 500);
@@ -115,7 +126,7 @@ class SpiritMemoryController extends AbstractController
     }
 
     /**
-     * Get all available CQ Memory Packs across the project
+     * Get all available CQ Memory Packs across all projects assigned to the Spirit
      */
     #[Route('/{spiritId}/memory/available-packs', name: 'spirit_memory_available_packs', methods: ['GET'])]
     public function getAvailablePacks(string $spiritId): JsonResponse
@@ -127,30 +138,38 @@ class SpiritMemoryController extends AbstractController
 
         try {
             $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-            $allPacks = $this->libraryService->findPacksInDirectory(
-                $memoryInfo['projectId'],
-                '/',
-                true
-            );
+            $activeProjectId = $memoryInfo['projectId'];
 
             $library = $this->libraryService->loadLibrary(
-                $memoryInfo['projectId'],
+                $activeProjectId,
                 $memoryInfo['memoryPath'],
                 $memoryInfo['rootLibraryName']
             );
-            $libraryPackPaths = array_map(
-                fn($p) => $p['path'],
+            $libraryPackKeys = array_map(
+                fn($p) => ($p['projectId'] ?? $activeProjectId) . ':' . $p['path'],
                 $library['packs'] ?? []
             );
 
-            foreach ($allPacks as &$pack) {
-                $pack['inLibrary'] = in_array(
-                    $pack['path'] . '/' . $pack['name'],
-                    $libraryPackPaths,
-                    true
-                );
+            // Include the active project first, then every other project assigned to this Spirit.
+            $assignedProjectIds = array_values(array_unique(array_merge(
+                [$activeProjectId],
+                $this->projectService->getProjectIdsForSpirit($spiritId)
+            )));
+
+            $allPacks = [];
+            foreach ($assignedProjectIds as $pid) {
+                $project = $this->projectService->findById($pid);
+                $projectTitle = $project ? $project->getTitle() : $pid;
+
+                $projectPacks = $this->libraryService->findPacksInDirectory($pid, '/', true);
+                foreach ($projectPacks as $pack) {
+                    $packKey = $pid . ':' . $pack['path'] . '/' . $pack['name'];
+                    $pack['projectId'] = $pid;
+                    $pack['projectTitle'] = $projectTitle;
+                    $pack['inLibrary'] = in_array($packKey, $libraryPackKeys, true);
+                    $allPacks[] = $pack;
+                }
             }
-            unset($pack);
 
             return new JsonResponse([
                 'success' => true,
@@ -175,6 +194,7 @@ class SpiritMemoryController extends AbstractController
         $data = json_decode($request->getContent(), true) ?? [];
         $packPath = $data['packPath'] ?? null;
         $packName = $data['packName'] ?? null;
+        $packProjectId = $data['packProjectId'] ?? null;
 
         if (!$packPath || !$packName) {
             return new JsonResponse(['error' => 'packPath and packName are required'], 400);
@@ -182,12 +202,17 @@ class SpiritMemoryController extends AbstractController
 
         try {
             $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+            $options = [];
+            if ($packProjectId) {
+                $options['projectId'] = $packProjectId;
+            }
             $library = $this->libraryService->addPackToLibrary(
                 $memoryInfo['projectId'],
                 $memoryInfo['memoryPath'],
                 $memoryInfo['rootLibraryName'],
                 $packPath,
-                $packName
+                $packName,
+                $options
             );
 
             return new JsonResponse([
@@ -213,6 +238,7 @@ class SpiritMemoryController extends AbstractController
 
         $data = json_decode($request->getContent(), true) ?? [];
         $packPath = $data['packPath'] ?? null;
+        $packProjectId = $data['packProjectId'] ?? null;
 
         if (!$packPath) {
             return new JsonResponse(['error' => 'packPath is required'], 400);
@@ -224,7 +250,8 @@ class SpiritMemoryController extends AbstractController
                 $memoryInfo['projectId'],
                 $memoryInfo['memoryPath'],
                 $memoryInfo['rootLibraryName'],
-                $packPath
+                $packPath,
+                $packProjectId
             );
 
             return new JsonResponse([

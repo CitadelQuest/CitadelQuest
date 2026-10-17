@@ -900,22 +900,27 @@ export class SpiritManager {
 
         this.memoryLibraryPacksList.innerHTML = packs.map(pack => {
             const packRelPath = pack.path || '';
+            const packProjectId = pack.projectId || '';
+            const packProjectTitle = pack.projectTitle || packProjectId;
             const fileName = packRelPath.split('/').pop() || '';
             const displayName = pack.name || pack.displayName || fileName.replace(/\.[^.]+$/, '');
             const nodes = pack.nodes ?? pack.totalNodes ?? 0;
             const relationships = pack.relationships ?? pack.totalRelationships ?? 0;
+            const projectBadge = packProjectId
+                ? `<span class="badge bg-dark bg-opacity-50 text-cyber font-monospace ms-2" title="${this.escapeHtml(packProjectId)}"><i class="mdi mdi-briefcase-outline me-1"></i>${this.escapeHtml(packProjectTitle)}</span>`
+                : '';
 
             return `
                 <div class="list-group-item bg-dark bg-opacity-25 text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center">
                     <div class="me-2 overflow-hidden">
-                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}</div>
+                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}${projectBadge}</div>
                         <div class="text-secondary small">
                             <i class="mdi mdi-circle-multiple me-1 text-cyber opacity-50"></i>${nodes}x ${this.translate('spirit.memory.nodes', 'nodes')}
                             <i class="mdi mdi-link-variant ms-2 me-1 text-cyber opacity-50"></i>${relationships}x ${this.translate('spirit.memory.relationships', 'relationships')}
                         </div>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-warning border-0" title="${this.translate('spirit.memory.remove_from_library', 'Remove from library')}"
-                            data-pack-path="${this.escapeHtml(packRelPath)}">
+                            data-pack-path="${this.escapeHtml(packRelPath)}" data-pack-project-id="${this.escapeHtml(packProjectId)}">
                         <i class="mdi mdi-book-remove-outline"></i>
                     </button>
                 </div>
@@ -925,7 +930,8 @@ export class SpiritManager {
         this.memoryLibraryPacksList.querySelectorAll('button[data-pack-path]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const packRelPath = btn.dataset.packPath;
-                if (packRelPath) this.removePackFromLibrary(packRelPath);
+                const packProjectId = btn.dataset.packProjectId || null;
+                if (packRelPath) this.removePackFromLibrary(packRelPath, packProjectId);
             });
         });
 
@@ -952,22 +958,27 @@ export class SpiritManager {
         this.memoryAvailablePacksList.innerHTML = packs.map(pack => {
             const packPath = pack.path || '';
             const packName = pack.name || '';
+            const packProjectId = pack.projectId || '';
+            const packProjectTitle = pack.projectTitle || packProjectId;
             const displayName = pack.displayName || packName.replace('.' + (pack.name?.split('.').pop() || ''), '') || packName;
             const nodes = pack.totalNodes ?? 0;
             const relationships = pack.totalRelationships ?? 0;
             const inLibrary = pack.inLibrary;
+            const projectBadge = packProjectId
+                ? `<span class="badge bg-dark bg-opacity-50 text-cyber font-monospace ms-2" title="${this.escapeHtml(packProjectId)}"><i class="mdi mdi-briefcase-outline me-1"></i>${this.escapeHtml(packProjectTitle)}</span>`
+                : '';
 
             return `
                 <div class="list-group-item bg-dark bg-opacity-25 text-light border-secondary border-opacity-10 d-flex justify-content-between align-items-center ${inLibrary ? 'opacity-75' : ''}">
                     <div class="me-2 overflow-hidden">
-                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}</div>
+                        <div class="small fw-medium text-truncate">${this.escapeHtml(displayName)}${projectBadge}</div>
                         <div class="text-secondary small">
                             <i class="mdi mdi-circle-multiple me-1 text-cyber opacity-50"></i>${nodes}x ${this.translate('spirit.memory.nodes', 'nodes')}
                             <i class="mdi mdi-link-variant ms-2 me-1 text-cyber opacity-50"></i>${relationships}x ${this.translate('spirit.memory.relationships', 'relationships')}
                         </div>
                     </div>
                     <button type="button" class="btn btn-sm ${inLibrary ? 'btn-outline-secondary' : 'btn-outline-success'} border-0" title="${this.translate('spirit.memory.add_to_library', 'Add to library')}"
-                            data-pack-path="${this.escapeHtml(packPath)}" data-pack-name="${this.escapeHtml(packName)}" ${inLibrary ? 'disabled' : ''}>
+                            data-pack-path="${this.escapeHtml(packPath)}" data-pack-name="${this.escapeHtml(packName)}" data-pack-project-id="${this.escapeHtml(packProjectId)}" ${inLibrary ? 'disabled' : ''}>
                         <i class="mdi ${inLibrary ? 'mdi-check' : 'mdi-book-plus-outline'}"></i>
                     </button>
                 </div>
@@ -978,7 +989,8 @@ export class SpiritManager {
             btn.addEventListener('click', () => {
                 const packPath = btn.dataset.packPath;
                 const packName = btn.dataset.packName;
-                if (packPath && packName) this.addPackToLibrary(packPath, packName);
+                const packProjectId = btn.dataset.packProjectId || null;
+                if (packPath && packName) this.addPackToLibrary(packPath, packName, packProjectId);
             });
         });
 
@@ -990,14 +1002,14 @@ export class SpiritManager {
     /**
      * Add a pack to the Spirit's memory library
      */
-    async addPackToLibrary(packPath, packName) {
+    async addPackToLibrary(packPath, packName, packProjectId = null) {
         if (!this.spirit?.id || !packPath || !packName) return;
 
         try {
             const response = await fetch(this.apiEndpoints.memoryAddPack.replace('{id}', this.spirit.id), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ packPath, packName })
+                body: JSON.stringify({ packPath, packName, packProjectId })
             });
 
             if (!response.ok) throw new Error('Failed to add pack');
@@ -1022,14 +1034,14 @@ export class SpiritManager {
     /**
      * Remove a pack from the Spirit's memory library
      */
-    async removePackFromLibrary(packRelPath) {
+    async removePackFromLibrary(packRelPath, packProjectId = null) {
         if (!this.spirit?.id || !packRelPath) return;
 
         try {
             const response = await fetch(this.apiEndpoints.memoryRemovePack.replace('{id}', this.spirit.id), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ packPath: packRelPath })
+                body: JSON.stringify({ packPath: packRelPath, packProjectId })
             });
 
             if (!response.ok) throw new Error('Failed to remove pack');

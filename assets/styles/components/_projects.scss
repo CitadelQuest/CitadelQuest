@@ -1,0 +1,36 @@
+// Projects (workspaces) component styles
+// Part of CitadelQuest project
+// See docs/features/CQ-PROJECT.md
+
+$project-accent: rgba(149, 236, 134, 0.2); // cyber color with opacity
+
+.project-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 1.5rem $project-accent;
+    }
+
+    .font-monospace {
+        font-size: 0.75rem;
+    }
+}
+
+// Project (workspace) dropdown in the navbar
+.project-icon-container {
+    .dropdown-toggle {
+        &::after {
+            vertical-align: middle;
+        }
+    }
+
+    #projects-list {
+        max-height: 60vh;
+        overflow-y: auto;
+
+        .dropdown-item {
+            white-space: normal;
+        }
+    }
+}

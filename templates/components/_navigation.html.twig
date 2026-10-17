@@ -14,6 +14,11 @@
         <!-- Navigation Items -->
         <ul class="nav align-items-center">
         {% if app.user %}
+            <!-- Project (workspace) dropdown -->
+            <li class="nav-item">
+                {{ include('components/_project_icon.html.twig') }}
+            </li>
+
             <!-- Spirit Icon -->
             <li class="nav-item">
                 {{ include('components/_spirit_icon.html.twig') }}

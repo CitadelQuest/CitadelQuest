@@ -135,27 +135,31 @@ class CQMemoryLibraryService
     public function addPackToLibrary(string $projectId, string $libraryPath, string $libraryName, string $packPath, string $packName, array $options = []): array
     {
         $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
+
+        $packProjectId = $options['projectId'] ?? $projectId;
         
-        // Check if pack is already in library
+        // Check if pack is already in library (same project + path)
         $packRelPath = $packPath . '/' . $packName;
         foreach ($library['packs'] as $pack) {
-            if ($pack['path'] === $packRelPath) {
+            $existingProjectId = $pack['projectId'] ?? $projectId;
+            if ($existingProjectId === $packProjectId && $pack['path'] === $packRelPath) {
                 throw new \RuntimeException("Pack already exists in library: {$packName}");
             }
         }
         
-        // Verify pack exists
-        $packFile = $this->projectFileService->findByPathAndName($projectId, $packPath, $packName);
+        // Verify pack exists in its project
+        $packFile = $this->projectFileService->findByPathAndName($packProjectId, $packPath, $packName);
         if (!$packFile) {
             throw new \RuntimeException("Pack file not found: {$packName}");
         }
         
-        $this->packService->open($projectId, $packPath, $packName);
+        $this->packService->open($packProjectId, $packPath, $packName);
         $packMetadata = $this->packService->getAllMetadata();
         $packStats = $this->packService->getStats();
         $this->packService->close();
         
         $packEntry = [
+            'projectId' => $packProjectId,
             'path' => $packRelPath,
             'enabled' => $options['enabled'] ?? true,
             'priority' => $options['priority'] ?? count($library['packs']) + 1,
@@ -180,13 +184,17 @@ class CQMemoryLibraryService
     /**
      * Remove a pack from a library
      */
-    public function removePackFromLibrary(string $projectId, string $libraryPath, string $libraryName, string $packPath): array
+    public function removePackFromLibrary(string $projectId, string $libraryPath, string $libraryName, string $packPath, ?string $packProjectId = null): array
     {
         $library = $this->loadLibrary($projectId, $libraryPath, $libraryName);
         
         $found = false;
-        $library['packs'] = array_filter($library['packs'], function($pack) use ($packPath, &$found) {
-            if ($pack['path'] === $packPath || basename($pack['path']) === basename($packPath)) {
+        $library['packs'] = array_filter($library['packs'], function($pack) use ($projectId, $packPath, $packProjectId, &$found) {
+            $entryProjectId = $pack['projectId'] ?? $projectId;
+            $projectMatches = $packProjectId === null || $entryProjectId === $packProjectId;
+            $pathMatches = $pack['path'] === $packPath || ($packProjectId === null && basename($pack['path']) === basename($packPath));
+
+            if ($projectMatches && $pathMatches) {
                 $found = true;
                 return false;
             }
@@ -227,11 +235,12 @@ class CQMemoryLibraryService
         $packsToRemove = [];
         
         foreach ($library['packs'] as $index => &$packEntry) {
+            $packProjectId = $packEntry['projectId'] ?? $projectId;
             $packRelPath = $packEntry['path'];
             $packDir = dirname($packRelPath);
             $packName = basename($packRelPath);
             
-            $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
+            $packFile = $this->projectFileService->findByPathAndName($packProjectId, $packDir, $packName);
             if (!$packFile) {
                 // Pack file no longer exists — mark for removal
                 $packsToRemove[] = $index;
@@ -241,7 +250,7 @@ class CQMemoryLibraryService
             }
             
             try {
-                $this->packService->open($projectId, $packDir, $packName);
+                $this->packService->open($packProjectId, $packDir, $packName);
                 $stats = $this->packService->getStats();
                 $this->packService->close();
                 
@@ -503,23 +512,25 @@ class CQMemoryLibraryService
             }
             
             // Parse pack path (stored as absolute project-relative path)
+            $packProjectId = $pack['projectId'] ?? $projectId;
             $packRelPath = $pack['path'];
             $packDir = dirname($packRelPath);
             $packName = basename($packRelPath);
             
-            $packFile = $this->projectFileService->findByPathAndName($projectId, $packDir, $packName);
+            $packFile = $this->projectFileService->findByPathAndName($packProjectId, $packDir, $packName);
             if (!$packFile) {
-                $this->logger->warning('Pack file not found', ['path' => $packDir, 'name' => $packName]);
+                $this->logger->warning('Pack file not found', ['projectId' => $packProjectId, 'path' => $packDir, 'name' => $packName]);
                 continue;
             }
             
             try {
-                $this->packService->open($projectId, $packDir, $packName);
+                $this->packService->open($packProjectId, $packDir, $packName);
                 $graphData = $this->packService->getGraphData();
                 $this->packService->close();
                 
-                $packId = md5($pack['path']);
+                $packId = md5($packProjectId . ':' . $pack['path']);
                 $packSources[$packId] = [
+                    'projectId' => $packProjectId,
                     'path' => $pack['path'],
                     'name' => $pack['name'] ?? $packName,
                     'priority' => $pack['priority'] ?? 999
@@ -574,12 +585,13 @@ class CQMemoryLibraryService
         $updatedCount = 0;
 
         foreach ($library['packs'] as $packEntry) {
+            $packProjectId = $packEntry['projectId'] ?? $projectId;
             $packRelPath = $packEntry['path'];
             $packDir = dirname($packRelPath);
             $packName = basename($packRelPath);
 
             try {
-                $this->packService->open($projectId, $packDir, $packName);
+                $this->packService->open($packProjectId, $packDir, $packName);
                 $sourceUrl = $this->packService->getSourceUrl();
                 $syncedAt = $this->packService->getSyncedAt();
                 $sourceCqContactId = $this->packService->getSourceCqContactId();
@@ -589,7 +601,7 @@ class CQMemoryLibraryService
                     continue;
                 }
 
-                if ($this->syncFromSourceURL($projectId, $packDir, $packName, $sourceUrl, $syncedAt, $sourceCqContactId)) {
+                if ($this->syncFromSourceURL($packProjectId, $packDir, $packName, $sourceUrl, $syncedAt, $sourceCqContactId)) {
                     $updatedCount++;
                 }
             } catch (\Exception $e) {

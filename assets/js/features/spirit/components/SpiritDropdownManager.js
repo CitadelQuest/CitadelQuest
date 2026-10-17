@@ -25,6 +25,7 @@ export class SpiritDropdownManager {
 
             const data = await response.json();
             this.spirits = data.spirits || [];
+            this.activeProjectId = data.activeProjectId || 'general';
             this.renderDropdown();
             //this.updateSpiritIcon();
         } catch (error) {
@@ -36,9 +37,11 @@ export class SpiritDropdownManager {
         if (!this.spiritsList) return;
 
         if (this.spirits.length === 0) {
+            // Deep-link straight into the project's Spirits picker on /projects
+            const projectId = encodeURIComponent(this.activeProjectId || 'general');
             this.spiritsList.innerHTML = `
-                <a class="dropdown-item text-muted" href="#">
-                    No spirits yet
+                <a class="dropdown-item text-muted" href="/projects?spirits=${projectId}">
+                    No Spirits in this project — assign some
                 </a>
             `;
             return;

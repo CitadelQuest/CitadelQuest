@@ -8,6 +8,7 @@ use App\Service\ProjectFileService;
 use App\Service\AnnoService;
 use App\Service\AIToolMemoryService;
 use App\Service\CQMemoryPackService;
+use App\Service\ProjectService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,7 +26,8 @@ class CQMemoryController extends AbstractController
         private readonly ProjectFileService $projectFileService,
         private readonly AnnoService $annoService,
         private readonly AIToolMemoryService $aiToolMemoryService,
-        private readonly CQMemoryPackService $packService
+        private readonly CQMemoryPackService $packService,
+        private readonly ProjectService $projectService
     ) {}
 
     #[Route('', name: 'cq_memory_explorer', methods: ['GET'])]
@@ -45,7 +47,8 @@ class CQMemoryController extends AbstractController
         return $this->render('cq-memory/explorer.html.twig', [
             'spirit' => $spirit,
             'spiritId' => $spiritId,
-            'libPath' => $libPath
+            'libPath' => $libPath,
+            'activeProjectId' => $this->projectService->getActiveProjectId(),
         ]);
     }
 
@@ -152,11 +155,18 @@ class CQMemoryController extends AbstractController
     public function getConversations(): JsonResponse
     {
         try {
+            $projectId = $this->projectService->getActiveProjectId();
+            $assignedIds = array_flip($this->projectService->getProjectSpiritIds($projectId));
+
             $spirits = $this->spiritService->findAll();
             $result = [];
 
             foreach ($spirits as $spirit) {
-                $conversations = $this->spiritConversationService->getConversationsBySpirit($spirit->getId());
+                if (!isset($assignedIds[$spirit->getId()])) {
+                    continue;
+                }
+
+                $conversations = $this->spiritConversationService->getConversationsBySpirit($spirit->getId(), null, 0, null, false, $projectId);
                 $convList = [];
                 foreach ($conversations as $conv) {
                     $convList[] = [

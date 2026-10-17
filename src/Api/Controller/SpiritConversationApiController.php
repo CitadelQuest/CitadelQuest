@@ -7,6 +7,7 @@ use App\Entity\MemoryJob;
 use App\Service\SpiritConversationService;
 use App\Service\SpiritService;
 use App\Service\SettingsService;
+use App\Service\ProjectService;
 use App\Service\AiServiceResponseService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,7 +33,8 @@ class SpiritConversationApiController extends AbstractController
         private readonly SettingsService $settingsService,
         private readonly AiServiceResponseService $aiServiceResponseService,
         private readonly AiServiceUseLogService $aiServiceUseLogService,
-        private readonly BackgroundWorkerSpawner $spawner)
+        private readonly BackgroundWorkerSpawner $spawner,
+        private readonly ProjectService $projectService)
     {
     }
 
@@ -87,9 +89,12 @@ class SpiritConversationApiController extends AbstractController
             $p = $this->resolvePagination($request);
             $search = trim((string) $request->query->get('search', '')) ?: null;
 
+            // Conversations are project-scoped (active workspace)
+            $projectId = $this->projectService->getActiveProjectId();
+
             // S2S conversations are shown in the dedicated S2S tab, so exclude them here
-            $total = $this->conversationService->countConversationsBySpirit($spiritId, $search, true);
-            $conversations = $this->conversationService->getConversationsBySpirit($spiritId, $p['perPage'], $p['offset'], $search, true);
+            $total = $this->conversationService->countConversationsBySpirit($spiritId, $search, true, $projectId);
+            $conversations = $this->conversationService->getConversationsBySpirit($spiritId, $p['perPage'], $p['offset'], $search, true, $projectId);
 
             return $this->json([
                 'conversations' => $conversations,
@@ -105,8 +110,9 @@ class SpiritConversationApiController extends AbstractController
     {
         try {
             $p = $this->resolvePagination($request);
-            $total = $this->conversationService->countS2sConversationsInitiatedBySpirit($spiritId);
-            $conversations = $this->conversationService->getS2sConversationsInitiatedBySpirit($spiritId, $p['perPage'], $p['offset']);
+            $projectId = $this->projectService->getActiveProjectId();
+            $total = $this->conversationService->countS2sConversationsInitiatedBySpirit($spiritId, $projectId);
+            $conversations = $this->conversationService->getS2sConversationsInitiatedBySpirit($spiritId, $p['perPage'], $p['offset'], $projectId);
 
             return $this->json([
                 'conversations' => $conversations,
@@ -122,8 +128,9 @@ class SpiritConversationApiController extends AbstractController
     {
         try {
             $p = $this->resolvePagination($request);
-            $total = $this->conversationService->countS2sConversationsReceivedBySpirit($spiritId);
-            $conversations = $this->conversationService->getS2sConversationsReceivedBySpirit($spiritId, $p['perPage'], $p['offset']);
+            $projectId = $this->projectService->getActiveProjectId();
+            $total = $this->conversationService->countS2sConversationsReceivedBySpirit($spiritId, $projectId);
+            $conversations = $this->conversationService->getS2sConversationsReceivedBySpirit($spiritId, $p['perPage'], $p['offset'], $projectId);
 
             return $this->json([
                 'conversations' => $conversations,

@@ -42,6 +42,12 @@ class ProjectFileService
     
     private const MAX_FILE_SIZE = 209715200; // 200MB
 
+    /** Reserved project id of the system/personal workspace. */
+    public const SYSTEM_PROJECT_ID = 'general';
+
+    /** Path prefix of system-managed content (Spirit memory & skills). */
+    public const SYSTEM_MANAGED_PREFIX = '/spirit';
+
     /**
      * File extensions (lowercase, without leading dot) that are treated as
      * plain-text source/config files — previewable & editable in File Browser.
@@ -199,6 +205,19 @@ class ProjectFileService
             'path' => $this->normalizePath(dirname($pathname)),
             'name' => basename($pathname),
         ];
+    }
+
+    /**
+     * Whether a path is system-managed content — Spirit memory & skills under
+     * `/spirit` in any project. Managed by SpiritService / SpiritSkillService,
+     * not the File Browser, so it must not be deleted/renamed/moved from there.
+     */
+    public function isSystemManagedPath(string $projectId, string $path, string $name = ''): bool
+    {
+        $fullPath = $this->normalizePath(rtrim($path, '/') . '/' . $name);
+
+        return $fullPath === self::SYSTEM_MANAGED_PREFIX
+            || str_starts_with($fullPath, self::SYSTEM_MANAGED_PREFIX . '/');
     }
     
     /**
@@ -1623,6 +1642,59 @@ class ProjectFileService
     }
     
     /**
+     * Delete every file of a project (database records + the whole project directory).
+     *
+     * Used by the cascade delete of a Project (workspace). Kept inside
+     * ProjectFileService so the database table stays the source of truth.
+     *
+     * @return int Number of project_file records removed
+     */
+    public function deleteProjectFiles(string $projectId): int
+    {
+        $userDb = $this->getUserDb();
+
+        $rows = $userDb->executeQuery(
+            'SELECT id FROM project_file WHERE project_id = ?',
+            [$projectId]
+        )->fetchAllAssociative();
+        $count = count($rows);
+
+        // Dependent rows. SQLite foreign-key cascades are not enforced by default,
+        // so clean them up explicitly.
+        $userDb->executeStatement(
+            'DELETE FROM project_file_version WHERE file_id IN (SELECT id FROM project_file WHERE project_id = ?)',
+            [$projectId]
+        );
+        $userDb->executeStatement(
+            'DELETE FROM project_file_remote WHERE project_file_id IN (SELECT id FROM project_file WHERE project_id = ?)',
+            [$projectId]
+        );
+
+        // imager_generation references project_file by id without a foreign key.
+        try {
+            $userDb->executeStatement(
+                'DELETE FROM imager_generation WHERE project_file_id IN (SELECT id FROM project_file WHERE project_id = ?)',
+                [$projectId]
+            );
+        } catch (\Exception $e) {
+            // Table may not exist on older databases — ignore.
+        }
+
+        $userDb->executeStatement(
+            'DELETE FROM project_file WHERE project_id = ?',
+            [$projectId]
+        );
+
+        // Remove the whole project directory (tracked files, thumbnails, .git and leftovers).
+        $dir = $this->getProjectDir($projectId);
+        if (is_dir($dir)) {
+            $this->removeFilesystemDirectory($dir);
+        }
+
+        return $count;
+    }
+    
+    /**
      * Get file versions
      */
     public function getFileVersions(string $fileId): array
@@ -1803,6 +1875,20 @@ class ProjectFileService
         )->fetchAssociative();
         
         return (int) ($result['total_size'] ?? 0);
+    }
+
+    /**
+     * Count of files (not directories) in a project
+     */
+    public function getProjectFileCount(string $projectId): int
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT COUNT(*) FROM project_file WHERE project_id = ? AND is_directory = 0',
+            [$projectId]
+        )->fetchOne();
+
+        return (int) $result;
     }
     
     /**

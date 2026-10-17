@@ -46,7 +46,8 @@ class SpiritConversationService
         private readonly AnnoService $annoService,
         private readonly SluggerInterface $slugger,
         private readonly SpiritSkillService $spiritSkillService,
-        private readonly SpiritCallContext $spiritCallContext
+        private readonly SpiritCallContext $spiritCallContext,
+        private readonly ProjectService $projectService
     ) {
         $this->user = $security->getUser();
     }
@@ -85,6 +86,20 @@ class SpiritConversationService
                 $conversation->getLastInteraction()->format('Y-m-d H:i:s')
             ]
         );
+
+        // Pair the conversation with the active project (workspace) so Spirit chat
+        // can filter conversations per project. Never fatal.
+        try {
+            $this->projectService->createProjectSpiritConversation(
+                $this->projectService->getActiveProjectId(),
+                $conversation->getId()
+            );
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to pair conversation with project', [
+                'conversationId' => $conversation->getId(),
+                'error' => $e->getMessage(),
+            ]);
+        }
         
         return $conversation;
     }
@@ -292,7 +307,7 @@ class SpiritConversationService
         }
     }
     
-    public function getConversationsBySpirit(string $spiritId, ?int $limit = null, int $offset = 0, ?string $search = null, bool $excludeS2s = false): array
+    public function getConversationsBySpirit(string $spiritId, ?int $limit = null, int $offset = 0, ?string $search = null, bool $excludeS2s = false, ?string $projectId = null): array
     {
         $db = $this->getUserDb();
         
@@ -308,7 +323,7 @@ class SpiritConversationService
             // Non-fatal if pack doesn't exist yet
         }
 
-        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s);
+        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s, $projectId);
 
         // Use LENGTH() to get byte size of messages column (works in SQLite)
         $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction, LENGTH(messages) as sizeInBytes FROM spirit_conversation WHERE ' . $where . ' ORDER BY last_interaction DESC';
@@ -464,11 +479,11 @@ class SpiritConversationService
      * Count conversations for a Spirit (for pagination), honouring the same
      * search / S2S filters as getConversationsBySpirit().
      */
-    public function countConversationsBySpirit(string $spiritId, ?string $search = null, bool $excludeS2s = false): int
+    public function countConversationsBySpirit(string $spiritId, ?string $search = null, bool $excludeS2s = false, ?string $projectId = null): int
     {
         $db = $this->getUserDb();
 
-        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s);
+        [$where, $params] = $this->buildConversationFilter($spiritId, $search, $excludeS2s, $projectId);
 
         return (int) $db->executeQuery(
             'SELECT COUNT(*) FROM spirit_conversation WHERE ' . $where,
@@ -481,10 +496,16 @@ class SpiritConversationService
      *
      * @return array{0: string, 1: array}
      */
-    private function buildConversationFilter(string $spiritId, ?string $search, bool $excludeS2s): array
+    private function buildConversationFilter(string $spiritId, ?string $search, bool $excludeS2s, ?string $projectId = null): array
     {
         $where = 'spirit_id = ?';
         $params = [$spiritId];
+
+        // Project (workspace) scoping — only conversations paired with this project.
+        if ($projectId !== null) {
+            $where .= ' AND id IN (SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?)';
+            $params[] = $projectId;
+        }
 
         // S2S conversations are shown in the dedicated S2S tab
         if ($excludeS2s) {
@@ -512,18 +533,25 @@ class SpiritConversationService
      * Get S2S conversations where the given Spirit is the initiator (caller).
      * Returns lightweight conversation metadata including the callee Spirit name.
      */
-    public function getS2sConversationsInitiatedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0): array
+    public function getS2sConversationsInitiatedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0, ?string $projectId = null): array
     {
         $db = $this->getUserDb();
 
         $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
-             WHERE origin = ? AND initiator_spirit_id = ?
-             ORDER BY last_interaction DESC';
+             WHERE origin = ? AND initiator_spirit_id = ?';
+        $params = ['spirit', $spiritId];
+
+        if ($projectId !== null) {
+            $sql .= ' AND id IN (SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?)';
+            $params[] = $projectId;
+        }
+
+        $sql .= ' ORDER BY last_interaction DESC';
         if ($limit !== null && $limit > 0) {
             $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, $offset);
         }
 
-        $result = $db->executeQuery($sql, ['spirit', $spiritId]);
+        $result = $db->executeQuery($sql, $params);
         $results = $result->fetchAllAssociative();
 
         $conversations = [];
@@ -579,18 +607,25 @@ class SpiritConversationService
      * Get S2S conversations where the given Spirit is the callee (received from other Spirits).
      * Returns lightweight conversation metadata including the caller Spirit name.
      */
-    public function getS2sConversationsReceivedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0): array
+    public function getS2sConversationsReceivedBySpirit(string $spiritId, ?int $limit = null, int $offset = 0, ?string $projectId = null): array
     {
         $db = $this->getUserDb();
 
         $sql = 'SELECT id, spirit_id, title, origin, initiator_spirit_id, created_at, last_interaction FROM spirit_conversation
-             WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL
-             ORDER BY last_interaction DESC';
+             WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL';
+        $params = ['spirit', $spiritId];
+
+        if ($projectId !== null) {
+            $sql .= ' AND id IN (SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?)';
+            $params[] = $projectId;
+        }
+
+        $sql .= ' ORDER BY last_interaction DESC';
         if ($limit !== null && $limit > 0) {
             $sql .= ' LIMIT ' . (int) $limit . ' OFFSET ' . max(0, $offset);
         }
 
-        $result = $db->executeQuery($sql, ['spirit', $spiritId]);
+        $result = $db->executeQuery($sql, $params);
         $results = $result->fetchAllAssociative();
 
         $conversations = [];
@@ -645,27 +680,37 @@ class SpiritConversationService
     /**
      * Count S2S conversations initiated by the given Spirit (for pagination).
      */
-    public function countS2sConversationsInitiatedBySpirit(string $spiritId): int
+    public function countS2sConversationsInitiatedBySpirit(string $spiritId, ?string $projectId = null): int
     {
         $db = $this->getUserDb();
 
-        return (int) $db->executeQuery(
-            'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND initiator_spirit_id = ?',
-            ['spirit', $spiritId]
-        )->fetchOne();
+        $sql = 'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND initiator_spirit_id = ?';
+        $params = ['spirit', $spiritId];
+
+        if ($projectId !== null) {
+            $sql .= ' AND id IN (SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?)';
+            $params[] = $projectId;
+        }
+
+        return (int) $db->executeQuery($sql, $params)->fetchOne();
     }
 
     /**
      * Count S2S conversations received by the given Spirit (for pagination).
      */
-    public function countS2sConversationsReceivedBySpirit(string $spiritId): int
+    public function countS2sConversationsReceivedBySpirit(string $spiritId, ?string $projectId = null): int
     {
         $db = $this->getUserDb();
 
-        return (int) $db->executeQuery(
-            'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL',
-            ['spirit', $spiritId]
-        )->fetchOne();
+        $sql = 'SELECT COUNT(*) FROM spirit_conversation WHERE origin = ? AND spirit_id = ? AND initiator_spirit_id IS NOT NULL';
+        $params = ['spirit', $spiritId];
+
+        if ($projectId !== null) {
+            $sql .= ' AND id IN (SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?)';
+            $params[] = $projectId;
+        }
+
+        return (int) $db->executeQuery($sql, $params)->fetchOne();
     }
 
     public function updateConversation(SpiritConversation $conversation): void
@@ -2300,7 +2345,7 @@ PROMPT;
         }
         
         // Projects section is always included (Spirit needs file browser access)
-        $systemPrompt .= $this->buildProjectsSection();
+        $systemPrompt .= $this->buildProjectsSection($spirit);
         
         if ($config['includeMemory']) {
             $systemPrompt .= $this->buildMemorySection($spirit);
@@ -2318,22 +2363,47 @@ PROMPT;
     }
     
     /**
-     * Build Projects section (always included)
-     * Contains: File Browser project info for Spirit file management
+     * Build the Projects section (always included).
+     * Lists all Projects (workspaces) and marks the active one, so the Spirit
+     * knows which `projectId` to pass to the File Browser tools.
      */
-    private function buildProjectsSection(): string
+    private function buildProjectsSection(Spirit $spirit): string
     {
+        $projects = $this->projectService->findAll();
+        if (empty($projects)) {
+            return '';
+        }
+
+        $activeProjectId = $this->projectService->getActiveProjectId();
+        // Spirit files live under /spirit/{SpiritNameSlug}/skill (convention-based).
+        $spiritNameSlug = htmlspecialchars((string) $this->slugger->slug($spirit->getName()), ENT_XML1);
+
+        $entries = [];
+        foreach ($projects as $project) {
+            $id = htmlspecialchars($project->getId(), ENT_XML1);
+            $title = htmlspecialchars($project->getTitle(), ENT_XML1);
+            $description = htmlspecialchars((string) ($project->getDescription() ?? ''), ENT_XML1);
+
+            $attrs = "id=\"{$id}\" title=\"{$title}\"";
+            if ($description !== '') {
+                $attrs .= " description=\"{$description}\"";
+            }
+
+            if ($project->getId() === $activeProjectId) {
+                $entries[] = "                <project {$attrs}>\n"
+                    . "                    Active project (your skills .md files for this project live under /spirit/{$spiritNameSlug}/skill/).\n"
+                    . "                </project>";
+            } else {
+                $entries[] = "                <project {$attrs}/>";
+            }
+        }
+
+        $active = htmlspecialchars($activeProjectId, ENT_XML1);
+        $list = implode("\n", $entries);
+
         return "
-            <projects>
-                <project-id>general</project-id>
-                <project-name>General (multi-purpose file browser) project</project-name>
-                <project-description>Project for multi-purpose file browser/manager use (mainly for Spirit to manage files on current CitadelQuest instance)</project-description>
-                <project-info>
-                    File Browser can be used by:
-                    - user (via File Browser GUI `/file-browser`) to manage files on their CitadelQuest instance.
-                    - Spirit (via File Browser Tools) to manage files on current CitadelQuest instance.
-                    - helping user in managing files on their CitadelQuest instance (in this `general` project)
-                </project-info>
+            <projects active=\"{$active}\">
+{$list}
             </projects>";
     }
     
@@ -2483,7 +2553,10 @@ PROMPT;
         // character class doesn't accidentally close the pattern.
         $pattern = '~cqfile://([^\s#<>"\'`]+)(?:#([^\s<>"\'`]+))?~';
 
-        return preg_replace_callback($pattern, function (array $m): string {
+        // Project-scoped: only files of the active project (workspace) are injected.
+        $activeProjectId = $this->projectService->getActiveProjectId();
+
+        return preg_replace_callback($pattern, function (array $m) use ($activeProjectId): string {
             $fileId = trim($m[1]);
             $hintedName = isset($m[2]) ? trim($m[2]) : '';
             if ($fileId === '') {
@@ -2496,9 +2569,14 @@ PROMPT;
                     return "[file not available: {$fileId}]";
                 }
 
+                if ($file->getProjectId() !== $activeProjectId) {
+                    return '';
+                }
+
                 $name = $file->getName();
-                // `path` = parent directory only ("/" for project root).
-                $path = $file->getPath() ?: '/';
+                $projectId = htmlspecialchars($file->getProjectId(), ENT_XML1);
+                // Full path including the filename (matches fileUpdate's `pathname` param).
+                $pathname = htmlspecialchars($file->getFullPath(), ENT_XML1);
                 $content = $this->projectFileService->getFileContent($fileId);
 
                 // ProjectFileService wraps non-text content in a data: URI.
@@ -2507,7 +2585,7 @@ PROMPT;
                 }
 
                 $contentStr = is_string($content) ? $content : '';
-                return "\n<file id=\"{$fileId}\" name=\"{$name}\" path=\"{$path}\">\n{$contentStr}\n</file>\n";
+                return "\n<file projectId=\"{$projectId}\" pathname=\"{$pathname}\">\n{$contentStr}\n</file>\n";
             } catch (\Throwable $e) {
                 $this->logger->warning('expandCqFileTokens failed for ' . $fileId . ': ' . $e->getMessage());
                 $label = $hintedName !== '' ? $hintedName : $fileId;
@@ -2541,9 +2619,15 @@ PROMPT;
         // Build spirits list when S2S is enabled for the current Spirit
         $spiritsBlock = '';
         if ($spirit !== null && $this->spiritService->getSpiritSetting($spirit->getId(), 's2s.enabled', '1') === '1') {
+            // S2S is project-scoped: a Spirit only sees fellow-Spirits of the active project.
+            $projectSpiritIds = array_flip($this->projectService->getProjectSpiritIds($this->projectService->getActiveProjectId()));
+
             $spiritEntries = [];
             foreach ($this->spiritService->findAll() as $other) {
                 if ($other->getId() === $spirit->getId()) {
+                    continue;
+                }
+                if (!isset($projectSpiritIds[$other->getId()])) {
                     continue;
                 }
                 if ($this->spiritService->getSpiritSetting($other->getId(), 's2s.callable', '1') !== '1') {
@@ -2747,10 +2831,12 @@ PROMPT;
             'inner-thoughts' => ['content' => $defaultContent, 'size' => 0, 'tokens' => 0, 'exists' => false],
             'knowledge-base' => ['content' => $defaultContent, 'size' => 0, 'tokens' => 0, 'exists' => false],
         ];
+
+        $projectId = $this->projectService->getActiveProjectId();
         
         // conversations.md
         try {
-            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'conversations.md');
+            $file = $this->projectFileService->findByPathAndName($projectId, $spiritMemoryDir, 'conversations.md');
             if ($file) {
                 $content = $this->projectFileService->getFileContent($file->getId(), true);
                 $files['conversations'] = [
@@ -2765,7 +2851,7 @@ PROMPT;
         
         // inner-thoughts.md
         try {
-            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'inner-thoughts.md');
+            $file = $this->projectFileService->findByPathAndName($projectId, $spiritMemoryDir, 'inner-thoughts.md');
             if ($file) {
                 $content = $this->projectFileService->getFileContent($file->getId(), true);
                 $files['inner-thoughts'] = [
@@ -2780,7 +2866,7 @@ PROMPT;
         
         // knowledge-base.md
         try {
-            $file = $this->projectFileService->findByPathAndName('general', $spiritMemoryDir, 'knowledge-base.md');
+            $file = $this->projectFileService->findByPathAndName($projectId, $spiritMemoryDir, 'knowledge-base.md');
             if ($file) {
                 $content = $this->projectFileService->getFileContent($file->getId(), true);
                 $files['knowledge-base'] = [
@@ -3303,6 +3389,7 @@ PROMPT;
                         continue;
                     }
                     $packsToSearch[] = [
+                        'projectId' => $packEntry['projectId'] ?? $memoryInfo['projectId'],
                         'path' => dirname($packPath),
                         'name' => basename($packPath),
                         'displayName' => $packEntry['name'] ?? basename($packPath, '.cqmpack'),
@@ -3318,6 +3405,7 @@ PROMPT;
             // Fallback: if no packs from library, use root pack
             if (empty($packsToSearch)) {
                 $packsToSearch[] = [
+                    'projectId' => $memoryInfo['projectId'],
                     'path' => $memoryInfo['packsPath'],
                     'name' => $memoryInfo['rootPackName'],
                     'displayName' => basename($memoryInfo['rootPackName'], '.cqmpack'),
@@ -3335,7 +3423,7 @@ PROMPT;
                 foreach ($packsToSearch as $packRef) {
                     try {
                         $this->packService->open(
-                            $memoryInfo['projectId'],
+                            $packRef['projectId'] ?? $memoryInfo['projectId'],
                             $packRef['path'],
                             $packRef['name']
                         );
@@ -3391,7 +3479,7 @@ PROMPT;
             foreach ($packsToSearch as $packRef) {
                 try {
                     $this->packService->open(
-                        $memoryInfo['projectId'],
+                        $packRef['projectId'] ?? $memoryInfo['projectId'],
                         $packRef['path'],
                         $packRef['name']
                     );

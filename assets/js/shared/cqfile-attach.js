@@ -1,6 +1,23 @@
 import { FileBrowserModal } from '../features/file-browser/components/FileBrowserModal';
 
 /**
+ * Resolve the active Project (workspace) id, so the file picker opens in the
+ * same workspace the user is working in. Falls back to 'general'.
+ */
+async function resolveActiveProjectId() {
+    if (window.cqActiveProjectId) {
+        return window.cqActiveProjectId;
+    }
+    try {
+        const response = await fetch('/api/project');
+        const data = await response.json();
+        return data.activeProjectId || 'general';
+    } catch (e) {
+        return 'general';
+    }
+}
+
+/**
  * Attach a "Pick file from File Browser" button to a textarea (or input).
  *
  * Opens the shared {@link FileBrowserModal} and inserts a
@@ -23,6 +40,7 @@ export function attachCqFileButton({
     textarea,
     button,
     translations = {},
+    projectId = null,
     tokenFormatter = (file) => `cqfile://${file.id}${file.name ? `#${file.name}` : ''}`,
     onInserted = null,
 } = {}) {
@@ -35,8 +53,10 @@ export function attachCqFileButton({
 
     const handler = async (ev) => {
         ev.preventDefault();
-        if (!modalInstance) {
-            modalInstance = new FileBrowserModal({ translations });
+        // Scope the picker to the active Project (workspace) for consistency.
+        const activeProjectId = projectId || await resolveActiveProjectId();
+        if (!modalInstance || modalInstance.projectId !== activeProjectId) {
+            modalInstance = new FileBrowserModal({ translations, projectId: activeProjectId });
         }
         const file = await modalInstance.open();
         if (!file) return;

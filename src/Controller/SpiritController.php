@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Service\SpiritService;
 use App\Service\AiServiceModelService;
 use App\Service\AiGatewayService;
+use App\Service\ProjectService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -18,7 +19,8 @@ class SpiritController extends AbstractController
         private readonly SpiritService $spiritService,
         private readonly AiServiceModelService $aiServiceModelService,
         private readonly AiGatewayService $aiGatewayService,
-        private readonly \App\Service\SpiritConversationService $spiritConversationService
+        private readonly \App\Service\SpiritConversationService $spiritConversationService,
+        private readonly ProjectService $projectService
     ) {}
 
     #[Route('', name: 'spirit_index')]
@@ -114,7 +116,13 @@ class SpiritController extends AbstractController
         // Conversation count for the tab badge. The (paginated) conversation list
         // itself is loaded lazily via the API when the Conversations tab opens.
         // S2S conversations are shown in the dedicated S2S tab, so exclude them.
-        $conversationsCount = $this->spiritConversationService->countConversationsBySpirit($id, null, true);
+        // Scoped to the active project, matching the list on the tab.
+        $conversationsCount = $this->spiritConversationService->countConversationsBySpirit(
+            $id,
+            null,
+            true,
+            $this->projectService->getActiveProjectId()
+        );
 
         $settings = $this->spiritService->getSpiritSettings($id);
         

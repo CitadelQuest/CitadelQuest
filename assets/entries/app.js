@@ -26,6 +26,10 @@ import 'bootstrap';
 // Import language switcher
 import { initLanguageSwitcher } from '../js/ui/language-switcher';
 
+// Project (workspace) navbar dropdown
+import { ProjectDropdownManager } from '../js/features/projects/ProjectDropdownManager';
+import { SpiritProjectsManager } from '../js/features/projects/SpiritProjectsManager';
+
 // Import notifications
 import '../js/shared/notifications';
 
@@ -60,6 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Initialize language switcher
     initLanguageSwitcher();
+
+    // Initialize the Project (workspace) navbar dropdown
+    new ProjectDropdownManager();
+
+    // Initialize Spirit ↔ Projects assignment (Spirits list pages)
+    new SpiritProjectsManager();
     // Enable tooltips everywhere
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {

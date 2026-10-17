@@ -5,6 +5,7 @@ namespace App\Api\Controller;
 use App\Service\SpiritService;
 use App\Service\SpiritConversationService;
 use App\Service\AiToolService;
+use App\Service\ProjectService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +21,8 @@ class SpiritApiController extends AbstractController
     public function __construct(
         private readonly SpiritService $spiritService,
         private readonly SpiritConversationService $spiritConversationService,
-        private readonly AiToolService $aiToolService
+        private readonly AiToolService $aiToolService,
+        private readonly ProjectService $projectService
     ) {
     }
 
@@ -49,10 +51,23 @@ class SpiritApiController extends AbstractController
     }
 
     #[Route('/list', name: 'app_api_spirits_list', methods: ['GET'])]
-    public function list(): JsonResponse
+    public function list(Request $request): JsonResponse
     {
         try {
-            $spirits = $this->spiritService->findAll();
+            // Spirits are project-scoped: only those assigned to the active project.
+            // `?all=1` returns every Spirit (used by the assignment pickers).
+            $activeProjectId = $this->projectService->getActiveProjectId();
+
+            if ($request->query->getBoolean('all', false)) {
+                $spirits = $this->spiritService->findAll();
+            } else {
+                $assignedIds = array_flip($this->projectService->getProjectSpiritIds($activeProjectId));
+
+                $spirits = array_values(array_filter(
+                    $this->spiritService->findAll(),
+                    fn($spirit) => isset($assignedIds[$spirit->getId()])
+                ));
+            }
 
             $spiritsData = [];
             foreach ($spirits as $spirit) {
@@ -68,9 +83,43 @@ class SpiritApiController extends AbstractController
                 $spiritsData[] = $spiritData;
             }
 
-            return $this->json(['spirits' => $spiritsData]);
+            return $this->json([
+                'spirits' => $spiritsData,
+                'activeProjectId' => $activeProjectId
+            ]);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}/projects', name: 'app_api_spirit_projects_get', methods: ['GET'])]
+    public function getProjectsForSpirit(string $id): JsonResponse
+    {
+        try {
+            return $this->json([
+                'success' => true,
+                'projectIds' => $this->projectService->getProjectIdsForSpirit($id),
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    #[Route('/{id}/projects', name: 'app_api_spirit_projects_update', methods: ['PUT'])]
+    public function updateProjectsForSpirit(string $id, Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true) ?? [];
+            $projectIds = is_array($data['projectIds'] ?? null) ? $data['projectIds'] : [];
+
+            $this->projectService->setSpiritProjects($id, $projectIds);
+
+            return $this->json([
+                'success' => true,
+                'projectIds' => $this->projectService->getProjectIdsForSpirit($id),
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
 

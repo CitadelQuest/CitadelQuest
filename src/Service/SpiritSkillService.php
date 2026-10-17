@@ -11,7 +11,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
  * SpiritSkillService — manages Spirit "Skills": file-based, dynamic persistent
  * context documents for a Spirit.
  *
- * Convention-based structure (under projectId 'general'):
+ * Convention-based structure (project-scoped under the active projectId):
  *   /spirit/{slug}/skill/active/{skillNameSlug}.md      → injected into system prompt
  *   /spirit/{slug}/skill/available/{skillNameSlug}.md   → dormant, not injected
  *
@@ -30,7 +30,16 @@ class SpiritSkillService
         private ProjectFileService $projectFileService,
         private SluggerInterface $slugger,
         private LoggerInterface $logger,
+        private ProjectService $projectService,
     ) {}
+
+    /**
+     * Resolve the project ID to use for Spirit skills (active workspace).
+     */
+    private function resolveProjectId(?string $projectId = null): string
+    {
+        return $projectId ?? $this->projectService->getActiveProjectId();
+    }
 
     /**
      * Ensure the skill directory structure exists for a Spirit.
@@ -38,8 +47,9 @@ class SpiritSkillService
      *
      * @return array{projectId:string, spiritNameSlug:string, skillPath:string, activePath:string, availablePath:string}
      */
-    public function initSpiritSkills(Spirit $spirit): array
+    public function initSpiritSkills(Spirit $spirit, ?string $projectId = null): array
     {
+        $projectId = $this->resolveProjectId($projectId);
         $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
         $skillPath = '/spirit/' . $spiritNameSlug . '/skill';
         $activePath = $skillPath . '/' . self::STATE_ACTIVE;
@@ -55,19 +65,20 @@ class SpiritSkillService
             ];
 
             foreach ($dirs as [$parentPath, $dirName]) {
-                if (!$this->projectFileService->findByPathAndName(self::PROJECT_ID, $parentPath, $dirName)) {
-                    $this->projectFileService->createDirectory(self::PROJECT_ID, $parentPath, $dirName);
+                if (!$this->projectFileService->findByPathAndName($projectId, $parentPath, $dirName)) {
+                    $this->projectFileService->createDirectory($projectId, $parentPath, $dirName);
                 }
             }
         } catch (\Throwable $e) {
             $this->logger->warning('Failed to initialize Spirit skills', [
                 'spiritId' => $spirit->getId(),
+                'projectId' => $projectId,
                 'error' => $e->getMessage(),
             ]);
         }
 
         return [
-            'projectId' => self::PROJECT_ID,
+            'projectId' => $projectId,
             'spiritNameSlug' => $spiritNameSlug,
             'skillPath' => $skillPath,
             'activePath' => $activePath,
@@ -80,24 +91,24 @@ class SpiritSkillService
      *
      * @return array{active: array<int,array>, available: array<int,array>}
      */
-    public function listSkills(Spirit $spirit): array
+    public function listSkills(Spirit $spirit, ?string $projectId = null): array
     {
-        $paths = $this->initSpiritSkills($spirit);
+        $paths = $this->initSpiritSkills($spirit, $projectId);
 
         return [
-            'active' => $this->listSkillsInPath($paths['activePath']),
-            'available' => $this->listSkillsInPath($paths['availablePath']),
+            'active' => $this->listSkillsInPath($paths['projectId'], $paths['activePath']),
+            'available' => $this->listSkillsInPath($paths['projectId'], $paths['availablePath']),
         ];
     }
 
     /**
      * @return array<int,array{id:string, name:string, displayName:string, size:int, updatedAt:string}>
      */
-    private function listSkillsInPath(string $path): array
+    private function listSkillsInPath(string $projectId, string $path): array
     {
         $skills = [];
         try {
-            $files = $this->projectFileService->listFiles(self::PROJECT_ID, $path);
+            $files = $this->projectFileService->listFiles($projectId, $path);
             foreach ($files as $file) {
                 if ($file->isDirectory()) {
                     continue;
@@ -116,6 +127,7 @@ class SpiritSkillService
             }
         } catch (\Throwable $e) {
             $this->logger->warning('Failed to list Spirit skills', [
+                'projectId' => $projectId,
                 'path' => $path,
                 'error' => $e->getMessage(),
             ]);
@@ -136,20 +148,20 @@ class SpiritSkillService
     /**
      * Create a new skill file in the given state folder (default: available).
      */
-    public function createSkill(Spirit $spirit, string $name, string $content = '', string $state = self::STATE_AVAILABLE): ProjectFile
+    public function createSkill(Spirit $spirit, string $name, string $content = '', string $state = self::STATE_AVAILABLE, ?string $projectId = null): ProjectFile
     {
-        $paths = $this->initSpiritSkills($spirit);
+        $paths = $this->initSpiritSkills($spirit, $projectId);
         $targetPath = $state === self::STATE_ACTIVE ? $paths['activePath'] : $paths['availablePath'];
 
         $fileName = $this->buildSkillFileName($name);
 
         // Avoid overwriting an existing skill with the same slug
-        if ($this->projectFileService->findByPathAndName(self::PROJECT_ID, $targetPath, $fileName)) {
+        if ($this->projectFileService->findByPathAndName($paths['projectId'], $targetPath, $fileName)) {
             throw new \RuntimeException('A skill with this name already exists');
         }
 
         return $this->projectFileService->createFile(
-            self::PROJECT_ID,
+            $paths['projectId'],
             $targetPath,
             $fileName,
             $content,
@@ -187,7 +199,7 @@ class SpiritSkillService
             throw new \RuntimeException('Skill not found');
         }
 
-        $paths = $this->initSpiritSkills($spirit);
+        $paths = $this->initSpiritSkills($spirit, $file->getProjectId());
         $targetPath = $state === self::STATE_ACTIVE ? $paths['activePath'] : $paths['availablePath'];
 
         // Already in target folder — nothing to do
@@ -195,7 +207,7 @@ class SpiritSkillService
             return $file;
         }
 
-        $this->projectFileService->moveFile(self::PROJECT_ID, $file, [
+        $this->projectFileService->moveFile($paths['projectId'], $file, [
             'path' => $targetPath,
             'name' => $file->getName(),
         ]);
@@ -210,14 +222,16 @@ class SpiritSkillService
      *
      * Returns an empty string when the Spirit has no active skills.
      */
-    public function buildActiveSkillsSection(Spirit $spirit): string
+    public function buildActiveSkillsSection(Spirit $spirit, ?string $projectId = null): string
     {
-        $paths = $this->initSpiritSkills($spirit);
-        $active = $this->listSkillsInPath($paths['activePath']);
+        $paths = $this->initSpiritSkills($spirit, $projectId);
+        $active = $this->listSkillsInPath($paths['projectId'], $paths['activePath']);
 
         if (empty($active)) {
             return '';
         }
+
+        $projectAttr = htmlspecialchars($paths['projectId'], ENT_XML1);
 
         $blocks = '';
         foreach ($active as $skill) {
@@ -230,7 +244,7 @@ class SpiritSkillService
                 continue; // skip binary, skills are markdown text
             }
             $filePath = rtrim($paths['activePath'], '/') . '/' . $skill['name'];
-            $blocks .= "\n<skill name=\"{$skill['displayName']}\" file=\"cqfile://{$skill['id']}#{$skill['name']}\" path=\"{$filePath}\">\n"
+            $blocks .= "\n<skill name=\"{$skill['displayName']}\" projectId=\"{$projectAttr}\" pathname=\"{$filePath}\">\n"
                 . $content
                 . "\n</skill>\n";
         }
@@ -242,7 +256,7 @@ class SpiritSkillService
         return "
 
             <spirit-skills>
-                (internal note: The following are your active Skills — dynamic persistent context documents that live in your File Browser under `{$paths['activePath']}`. Each skill is a Markdown file you carry across every conversation. Treat them as your accumulated, verified know-how.
+                (internal note: The following are your active Skills — dynamic persistent context documents that live in your File Browser under `{$paths['activePath']}` (projectId `{$projectAttr}`). Each skill is a Markdown file you carry across every conversation in this project. Treat them as your accumulated, verified know-how.
                 The complete current content of each active skill is shown below, so you already see its full state. Whenever you learn something new, useful and repeatable during a conversation — a command, parameter, workflow, gotcha, or the user explicitly asks you to remember it — update the relevant skill file directly using the `fileUpdate` AI Tool. Keep skills accurate, concise and copy-paste ready. Do NOT store one-off/temporary state here.)
                 {$blocks}
             </spirit-skills>";
@@ -258,7 +272,7 @@ class SpiritSkillService
         $name = preg_replace('/\.' . preg_quote(self::FILE_EXTENSION, '/') . '$/i', '', $name);
         $slug = (string) $this->slugger->slug($name);
         if ($slug === '') {
-            $slug = 'skill-' . substr(bin2hex(random_bytes(4)), 0, 6);
+            throw new \InvalidArgumentException('Invalid skill name');
         }
         return $slug . '.' . self::FILE_EXTENSION;
     }

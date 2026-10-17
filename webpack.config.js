@@ -38,6 +38,7 @@ Encore
     .addEntry('admin-migrations', './assets/entries/admin-migrations.js')
     .addEntry('admin-system-backups', './assets/entries/admin-system-backups.js')
     .addEntry('file_browser', './assets/entries/file_browser.js')
+    .addEntry('projects', './assets/entries/projects.js')
     .addEntry('dashboard-badges', './assets/js/features/dashboard/dashboard-badges.js')
     .addEntry('database-vacuum', './assets/js/utils/database-vacuum.js')
     .addEntry('cq-memory', './assets/entries/cq-memory.js')

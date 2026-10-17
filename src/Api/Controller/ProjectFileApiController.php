@@ -9,6 +9,9 @@ use App\Service\AIToolMemoryService;
 use App\Service\AnnoService;
 use App\Service\CQMemoryLibraryService;
 use App\Service\CQMemoryPackService;
+use App\Service\ProjectService;
+use App\Service\SpiritService;
+use App\Service\SpiritSkillService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -33,6 +36,9 @@ class ProjectFileApiController extends AbstractController
         private readonly AnnoService $annoService,
         private readonly CQMemoryLibraryService $libraryService,
         private readonly CQMemoryPackService $packService,
+        private readonly ProjectService $projectService,
+        private readonly SpiritService $spiritService,
+        private readonly SpiritSkillService $spiritSkillService,
         private readonly Security $security,
         private readonly LoggerInterface $logger
     ) {
@@ -447,12 +453,26 @@ class ProjectFileApiController extends AbstractController
     public function delete(string $fileId): JsonResponse
     {
         try {
+            $file = $this->projectFileService->findById($fileId);
+
+            if (!$file) {
+                throw new NotFoundHttpException('File not found');
+            }
+
+            // System-managed content (Spirit memory & skills) is off-limits in the File Browser.
+            if ($this->projectFileService->isSystemManagedPath($file->getProjectId(), $file->getPath(), $file->getName())) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'System-managed content (Spirit memory & skills) cannot be deleted.'
+                ], 403);
+            }
+
             $result = $this->projectFileService->delete($fileId);
-            
+
             if (!$result) {
                 throw new NotFoundHttpException('File not found');
             }
-            
+
             return $this->json([
                 'success' => true
             ]);
@@ -503,6 +523,7 @@ class ProjectFileApiController extends AbstractController
     {
         try {
             $this->projectFileService->ensureProjectDirectoryStructure($projectId);
+            $this->ensureProjectSpiritsInfrastructure($projectId);
             
             return $this->json([
                 'success' => true
@@ -522,6 +543,8 @@ class ProjectFileApiController extends AbstractController
     public function getProjectTree(string $projectId): JsonResponse
     {
         try {
+            $this->ensureProjectSpiritsInfrastructure($projectId);
+
             $tree = $this->projectFileService->showProjectTree($projectId);
 
             $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
@@ -546,6 +569,33 @@ class ProjectFileApiController extends AbstractController
                 'success' => false,
                 'error' => $e->getMessage()
             ], 400);
+        }
+    }
+
+    /**
+     * Ensure `/spirit/{slug}/memory` and `/spirit/{slug}/skill` structures exist
+     * in this project for every Spirit assigned to it. Idempotent.
+     */
+    private function ensureProjectSpiritsInfrastructure(string $projectId): void
+    {
+        try {
+            $assignedIds = array_flip($this->projectService->getProjectSpiritIds($projectId));
+            if (empty($assignedIds)) {
+                return;
+            }
+
+            foreach ($this->spiritService->findAll() as $spirit) {
+                if (!isset($assignedIds[$spirit->getId()])) {
+                    continue;
+                }
+                $this->spiritService->initSpiritMemory($spirit, $projectId);
+                $this->spiritSkillService->initSpiritSkills($spirit, $projectId);
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('ensureProjectSpiritsInfrastructure failed', [
+                'projectId' => $projectId,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -673,6 +723,15 @@ class ProjectFileApiController extends AbstractController
                     ], 400);
                 }
                 $params['source'] = $data['source'];
+
+                // System-managed content (Spirit memory & skills) cannot be renamed/moved/deleted.
+                if (in_array($operation, ['rename_move', 'delete'])
+                    && $this->projectFileService->isSystemManagedPath($projectId, $data['source']['path'], $data['source']['name'])) {
+                    return $this->json([
+                        'success' => false,
+                        'error' => 'System-managed content (Spirit memory & skills) cannot be modified.'
+                    ], 403);
+                }
             }
 
             // Destination required for copy, rename_move

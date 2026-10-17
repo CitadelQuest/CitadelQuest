@@ -18,12 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Get data attributes from container
     const projectId = container.dataset.projectId;
+    const projectTitle = container.dataset.projectTitle || projectId;
     const translations = JSON.parse(container.dataset.translations || '{}');
     
     // Initialize file browser
     const fileBrowser = new FileBrowser({
         containerId: 'file-browser-container',
         projectId: projectId,
+        projectTitle: projectTitle,
         translations: translations
     });
     

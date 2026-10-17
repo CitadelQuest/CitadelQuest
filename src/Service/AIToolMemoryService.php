@@ -652,7 +652,7 @@ HTML;
                     continue;
                 }
                 $packsToSearch[] = [
-                    'projectId' => $memoryInfo['projectId'],
+                    'projectId' => $packEntry['projectId'] ?? $memoryInfo['projectId'],
                     'path' => dirname($packPath),
                     'name' => basename($packPath),
                 ];
@@ -3804,6 +3804,7 @@ PROMPT;
      *       "xxx.cqmpack"    → specific pack: root nodes + their children
      *       memoryNodeID     → specific node: its descendant subtree
      *   - maxDepth: int (optional, default 0 (root nodes only)) — max child depth to show
+     *   - projectId: string (optional) — project ID to map (defaults to active project)
      */
     public function memoryMap(array $arguments): array
     {
@@ -3827,7 +3828,11 @@ PROMPT;
                 return ['success' => false, 'error' => 'Spirit not found'];
             }
 
-            $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
+            $requestedProjectId = isset($arguments['projectId']) && trim((string) $arguments['projectId']) !== ''
+                ? trim((string) $arguments['projectId'])
+                : null;
+
+            $memoryInfo = $this->spiritService->initSpiritMemory($spirit, $requestedProjectId);
             $projectId = $memoryInfo['projectId'];
             $memoryPath = $memoryInfo['memoryPath'];
 
@@ -3857,6 +3862,7 @@ PROMPT;
 
             return [
                 'success' => true,
+                'projectId' => $projectId,
                 'map' => $ascii,
                 'packCount' => $counts['packs'] ?? 0,
                 'rootNodeCount' => $counts['rootNodes'] ?? 0,
@@ -3881,6 +3887,7 @@ PROMPT;
      *   - memoryId: string (required) — memory node UUID
      *   - includeContent: bool (optional, default true) — include full node content
      *   - cqmpackPath: string (optional) — pack path (e.g. "/memory/packs/Foo.cqmpack") to search in non-library packs
+     *   - projectId: string (optional) — project ID to search in (defaults to active project + Spirit's library packs)
      */
     public function memoryReadNode(array $arguments): array
     {
@@ -3899,6 +3906,10 @@ PROMPT;
                 return ['success' => false, 'error' => 'No Spirit found'];
             }
 
+            $requestedProjectId = isset($arguments['projectId']) && trim((string) $arguments['projectId']) !== ''
+                ? trim((string) $arguments['projectId'])
+                : null;
+
             $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
 
             // If cqmpackPath is provided, add the specified pack to the search list
@@ -3907,8 +3918,8 @@ PROMPT;
             if (!empty($cqmpackPath)) {
                 $spirit = $this->spiritService->findById($spiritId);
                 if ($spirit) {
-                    $memoryInfo = $this->spiritService->initSpiritMemory($spirit);
-                    $projectId = $memoryInfo['projectId'];
+                    $memoryInfo = $this->spiritService->initSpiritMemory($spirit, $requestedProjectId);
+                    $projectId = $requestedProjectId ?? $memoryInfo['projectId'];
 
                     // Find the pack file in the project
                     $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
@@ -3922,6 +3933,16 @@ PROMPT;
                             break;
                         }
                     }
+                }
+            } elseif ($requestedProjectId !== null) {
+                // If projectId is explicitly passed without cqmpackPath, also search all packs in that project
+                $packFiles = $this->libraryService->findPackFilesInDirectory($requestedProjectId, '/', true);
+                foreach ($packFiles as $pf) {
+                    $packsToSearch[] = [
+                        'projectId' => $requestedProjectId,
+                        'path' => $pf['path'],
+                        'name' => $pf['name'],
+                    ];
                 }
             }
 
@@ -4095,11 +4116,15 @@ PROMPT;
             if (empty($packPath)) {
                 continue;
             }
+            $packProjectId = $packEntry['projectId'] ?? $projectId;
             $packDir = dirname($packPath);
             $packName = basename($packPath);
 
-            $packTree = $this->buildPackTreeFromRef($projectId, $packDir, $packName, $maxDepth);
+            $packTree = $this->buildPackTreeFromRef($packProjectId, $packDir, $packName, $maxDepth);
             if ($packTree) {
+                if ($packProjectId !== $projectId) {
+                    $packTree['label'] .= " [projectId: {$packProjectId}]";
+                }
                 $packChildren[] = $packTree;
             }
         }
@@ -4117,11 +4142,20 @@ PROMPT;
      */
     private function buildPackMap(string $projectId, string $packName, int $maxDepth, ?string $spiritId, array $memoryInfo): ?array
     {
-        // Try to find the pack file in the project
+        // Try to find the pack file in the specified project
         $packFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/', true);
         foreach ($packFiles as $pf) {
             if ($pf['name'] === $packName || basename($pf['name']) === basename($packName)) {
                 return $this->buildPackTreeFromRef($projectId, $pf['path'], $pf['name'], $maxDepth);
+            }
+        }
+
+        // Also check cross-project packs in the Spirit's library
+        if ($spiritId) {
+            foreach ($this->getSpiritLibraryPacks($spiritId) as $packRef) {
+                if ($packRef['name'] === $packName || basename($packRef['name']) === basename($packName)) {
+                    return $this->buildPackTreeFromRef($packRef['projectId'], $packRef['path'], $packRef['name'], $maxDepth);
+                }
             }
         }
 
@@ -4174,6 +4208,15 @@ PROMPT;
     private function buildNodeSubtreeMap(string $projectId, string $nodeId, int $maxDepth, ?string $spiritId, array $memoryInfo): ?array
     {
         $packsToSearch = $this->getSpiritLibraryPacks($spiritId);
+
+        // Also include packs from the specified projectId (in case an explicit projectId was passed)
+        foreach ($this->libraryService->findPackFilesInDirectory($projectId, '/', true) as $pf) {
+            $packsToSearch[] = [
+                'projectId' => $projectId,
+                'path' => $pf['path'],
+                'name' => $pf['name'],
+            ];
+        }
 
         foreach ($packsToSearch as $packRef) {
             try {

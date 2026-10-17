@@ -15,7 +15,7 @@ export class MemoryExtractPanel {
         
         // Pack target for extraction (set by parent)
         this.targetPack = null;
-        this.projectId = 'general';
+        this.projectId = document.getElementById('active-project-id')?.value || window.cqActiveProjectId || 'general';
         
         // Job tracking (status display only — step processing handled by CLI worker)
         this.currentJobId = null;
@@ -1038,8 +1038,8 @@ export class MemoryExtractPanel {
         if (!fileInput) return;
 
         try {
-            // Fetch project tree from 'general' project
-            const response = await fetch('/api/project-file/general/tree');
+            // Fetch project tree from the active project
+            const response = await fetch(`/api/project-file/${encodeURIComponent(this.projectId)}/tree`);
 
             if (!response.ok) {
                 console.error('Failed to load project files');

@@ -5,20 +5,38 @@ namespace App\Service;
 use App\Entity\Project;
 use App\Entity\ProjectSpirit;
 use App\Entity\ProjectSpiritConversation;
-use App\Entity\ProjectTool;
 use App\Entity\ProjectCqContact;
 use App\Entity\User;
 use App\Service\UserDatabaseManager;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
+/**
+ * Manages Projects (workspaces).
+ *
+ * A project `id` is a short, human-readable, immutable slug (e.g. 'general',
+ * 'brovolenka-quest') and is used everywhere as `projectId` — filesystem paths,
+ * `project_file.project_id`, URLs and `settings.active_project_id`.
+ *
+ * See docs/features/CQ-PROJECT.md.
+ */
 class ProjectService
 {
+    /** Reserved id of the always-present, non-deletable system project. */
+    public const GENERAL_PROJECT_ID = 'general';
+
+    /** Max length of a project id (matches project.id VARCHAR(64)). */
+    private const MAX_ID_LENGTH = 64;
+
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
-        private readonly Security $security
+        private readonly Security $security,
+        private readonly ProjectFileService $projectFileService,
+        private readonly SluggerInterface $slugger,
+        private readonly SettingsService $settingsService
     ) {
     }
-    
+
     /**
      * Get a fresh database connection for the current user
      */
@@ -29,29 +47,32 @@ class ProjectService
         return $this->userDatabaseManager->getDatabaseConnection($user);
     }
 
+    // ---------------------------------------------------------------------
+    // Project
+    // ---------------------------------------------------------------------
+
     public function createProject(
         string $title,
-        string $slug,
         ?string $description = null,
         bool $isPublic = false,
-        bool $isActive = true,
+        bool $isArchived = false,
         ?string $srcUrl = null
     ): Project {
-        $project = new Project($title, $slug, $description, $isPublic, $isActive, $srcUrl);
+        $id = $this->generateUniqueId($title);
+        $project = new Project($id, $title, $description, $isPublic, $isArchived, false, $srcUrl);
 
-        // Store in user's database
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
             'INSERT INTO project (
-                id, title, slug, description, is_public, is_active, src_url, created_at, updated_at
+                id, title, description, is_public, is_archived, is_system, src_url, created_at, updated_at
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $project->getId(),
                 $project->getTitle(),
-                $project->getSlug(),
                 $project->getDescription(),
                 $project->isPublic() ? 1 : 0,
-                $project->isActive() ? 1 : 0,
+                $project->isArchived() ? 1 : 0,
+                $project->isSystem() ? 1 : 0,
                 $project->getSrcUrl(),
                 $project->getCreatedAt()->format('Y-m-d H:i:s'),
                 $project->getUpdatedAt()->format('Y-m-d H:i:s')
@@ -59,6 +80,41 @@ class ProjectService
         );
 
         return $project;
+    }
+
+    /**
+     * Derive a unique, url/filesystem-safe id from a title.
+     * Reserved ids (e.g. 'general') are never handed out to user projects.
+     */
+    public function generateUniqueId(string $title): string
+    {
+        $base = strtolower($this->slugger->slug($title)->toString());
+        $base = trim($base, '-');
+        if ($base === '') {
+            $base = 'project';
+        }
+        $base = substr($base, 0, self::MAX_ID_LENGTH);
+
+        $candidate = $base;
+        $suffix = 2;
+        while ($candidate === self::GENERAL_PROJECT_ID || $this->idExists($candidate)) {
+            $suffixStr = '-' . $suffix;
+            $candidate = substr($base, 0, self::MAX_ID_LENGTH - strlen($suffixStr)) . $suffixStr;
+            $suffix++;
+        }
+
+        return $candidate;
+    }
+
+    public function idExists(string $id): bool
+    {
+        $userDb = $this->getUserDb();
+        $result = $userDb->executeQuery(
+            'SELECT 1 FROM project WHERE id = ?',
+            [$id]
+        )->fetchOne();
+
+        return $result !== false;
     }
 
     public function findById(string $id): ?Project
@@ -76,34 +132,55 @@ class ProjectService
         return Project::fromArray($result);
     }
 
-    public function findBySlug(string $slug): ?Project
+    public function getGeneralProject(): ?Project
     {
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeQuery(
-            'SELECT * FROM project WHERE slug = ?',
-            [$slug]
-        )->fetchAssociative();
-
-        if (!$result) {
-            return null;
-        }
-
-        return Project::fromArray($result);
+        return $this->findById(self::GENERAL_PROJECT_ID);
     }
 
-    public function findAll(bool $activeOnly = true): array
+    /**
+     * The currently-selected workspace (settings.active_project_id), falling back
+     * to 'general' when unset or stale. Safe in CLI/background contexts (no user).
+     */
+    public function getActiveProjectId(): string
+    {
+        try {
+            $activeId = $this->settingsService->getSettingValue('active_project_id', self::GENERAL_PROJECT_ID)
+                ?: self::GENERAL_PROJECT_ID;
+
+            if ($activeId !== self::GENERAL_PROJECT_ID && !$this->findById($activeId)) {
+                return self::GENERAL_PROJECT_ID;
+            }
+
+            return $activeId;
+        } catch (\Exception $e) {
+            return self::GENERAL_PROJECT_ID;
+        }
+    }
+
+    /**
+     * Set the active project (single source of truth).
+     */
+    public function setActiveProjectId(string $projectId): void
+    {
+        if (!$this->findById($projectId)) {
+            throw new \RuntimeException('Project not found');
+        }
+
+        $this->settingsService->setSetting('active_project_id', $projectId);
+    }
+
+    public function findAll(bool $includeArchived = false): array
     {
         $userDb = $this->getUserDb();
         $sql = 'SELECT * FROM project';
         $params = [];
-        
-        if ($activeOnly) {
-            $sql .= ' WHERE is_active = ?';
-            $params[] = 1;
+
+        if (!$includeArchived) {
+            $sql .= ' WHERE is_archived = 0';
         }
-        
-        $sql .= ' ORDER BY created_at DESC';
-        
+
+        $sql .= ' ORDER BY is_system DESC, title ASC';
+
         $results = $userDb->executeQuery($sql, $params)->fetchAllAssociative();
 
         return array_map(fn($data) => Project::fromArray($data), $results);
@@ -112,18 +189,17 @@ class ProjectService
     public function updateProject(Project $project): bool
     {
         $project->updateUpdatedAt();
-        
+
         $userDb = $this->getUserDb();
         $result = $userDb->executeStatement(
-            'UPDATE project SET 
-                title = ?, slug = ?, description = ?, is_public = ?, is_active = ?, src_url = ?, updated_at = ?
+            'UPDATE project SET
+                title = ?, description = ?, is_public = ?, is_archived = ?, src_url = ?, updated_at = ?
              WHERE id = ?',
             [
                 $project->getTitle(),
-                $project->getSlug(),
                 $project->getDescription(),
                 $project->isPublic() ? 1 : 0,
-                $project->isActive() ? 1 : 0,
+                $project->isArchived() ? 1 : 0,
                 $project->getSrcUrl(),
                 $project->getUpdatedAt()->format('Y-m-d H:i:s'),
                 $project->getId()
@@ -133,28 +209,50 @@ class ProjectService
         return $result > 0;
     }
 
+    /**
+     * Delete a project and everything in it (files + assignments).
+     *
+     * System projects (e.g. 'general') cannot be deleted.
+     */
     public function deleteProject(string $id): bool
     {
-        $userDb = $this->getUserDb();
-        $result = $userDb->executeStatement(
-            'DELETE FROM project WHERE id = ?',
-            [$id]
-        );
+        if ($id === self::GENERAL_PROJECT_ID) {
+            throw new \RuntimeException('The General project cannot be deleted.');
+        }
 
-        // Vacuum the database
-        //$userDb->executeStatement('VACUUM;');
+        $project = $this->findById($id);
+        if (!$project) {
+            return false;
+        }
+
+        if ($project->isSystem()) {
+            throw new \RuntimeException('System projects cannot be deleted.');
+        }
+
+        // Cascade: remove all files (database records + the whole project directory).
+        $this->projectFileService->deleteProjectFiles($id);
+
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement('DELETE FROM project_spirit WHERE project_id = ?', [$id]);
+        $userDb->executeStatement('DELETE FROM project_spirit_conversation WHERE project_id = ?', [$id]);
+        $userDb->executeStatement('DELETE FROM project_cq_contact WHERE project_id = ?', [$id]);
+
+        $result = $userDb->executeStatement('DELETE FROM project WHERE id = ?', [$id]);
 
         return $result > 0;
     }
 
-    // ProjectSpirit management
+    // ---------------------------------------------------------------------
+    // ProjectSpirit — which Spirits belong to a project
+    // ---------------------------------------------------------------------
+
     public function addSpiritToProject(string $projectId, string $spiritId): ProjectSpirit
     {
         $projectSpirit = new ProjectSpirit($projectId, $spiritId);
 
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
-            'INSERT INTO project_spirit (id, project_id, spirit_id) VALUES (?, ?, ?)',
+            'INSERT OR IGNORE INTO project_spirit (id, project_id, spirit_id) VALUES (?, ?, ?)',
             [
                 $projectSpirit->getId(),
                 $projectSpirit->getProjectId(),
@@ -187,48 +285,77 @@ class ProjectService
         return array_map(fn($data) => ProjectSpirit::fromArray($data), $results);
     }
 
-    // ProjectSpiritConversation management
-    public function createProjectSpiritConversation(
-        string $projectId,
-        string $spiritConversationId,
-        ?string $category = null,
-        ?string $systemPromptInstructions = null,
-        ?string $taskList = null,
-        ?string $taskListStatus = null,
-        ?string $taskListResult = null,
-        ?string $frontendData = null,
-        bool $autorun = false
-    ): ProjectSpiritConversation {
-        $conversation = new ProjectSpiritConversation(
-            $projectId,
-            $spiritConversationId,
-            $category,
-            $systemPromptInstructions,
-            $taskList,
-            $taskListStatus,
-            $taskListResult,
-            $frontendData,
-            $autorun
-        );
+    /**
+     * @return string[] Spirit ids assigned to the given project
+     */
+    public function getProjectSpiritIds(string $projectId): array
+    {
+        $userDb = $this->getUserDb();
+        return $userDb->executeQuery(
+            'SELECT spirit_id FROM project_spirit WHERE project_id = ?',
+            [$projectId]
+        )->fetchFirstColumn();
+    }
+
+    /**
+     * Replace the set of Spirits assigned to a project.
+     *
+     * @param string[] $spiritIds
+     */
+    public function setProjectSpirits(string $projectId, array $spiritIds): void
+    {
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement('DELETE FROM project_spirit WHERE project_id = ?', [$projectId]);
+
+        foreach (array_unique($spiritIds) as $spiritId) {
+            $this->addSpiritToProject($projectId, (string) $spiritId);
+        }
+    }
+
+    /**
+     * @return string[] Project ids a Spirit belongs to
+     */
+    public function getProjectIdsForSpirit(string $spiritId): array
+    {
+        $userDb = $this->getUserDb();
+        return $userDb->executeQuery(
+            'SELECT project_id FROM project_spirit WHERE spirit_id = ?',
+            [$spiritId]
+        )->fetchFirstColumn();
+    }
+
+    /**
+     * Replace the set of projects a Spirit belongs to.
+     *
+     * @param string[] $projectIds
+     */
+    public function setSpiritProjects(string $spiritId, array $projectIds): void
+    {
+        $userDb = $this->getUserDb();
+        $userDb->executeStatement('DELETE FROM project_spirit WHERE spirit_id = ?', [$spiritId]);
+
+        foreach (array_unique($projectIds) as $projectId) {
+            $this->addSpiritToProject((string) $projectId, $spiritId);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // ProjectSpiritConversation — pair a conversation to its project
+    // ---------------------------------------------------------------------
+
+    public function createProjectSpiritConversation(string $projectId, string $spiritConversationId): ProjectSpiritConversation
+    {
+        $conversation = new ProjectSpiritConversation($projectId, $spiritConversationId);
 
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
-            'INSERT INTO project_spirit_conversation (
-                id, project_id, spirit_conversation_id, category, system_prompt_instructions,
-                task_list, task_list_status, task_list_result, frontend_data, autorun,
-                created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO project_spirit_conversation (
+                id, project_id, spirit_conversation_id, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?)',
             [
                 $conversation->getId(),
                 $conversation->getProjectId(),
                 $conversation->getSpiritConversationId(),
-                $conversation->getCategory(),
-                $conversation->getSystemPromptInstructions(),
-                $conversation->getTaskList(),
-                $conversation->getTaskListStatus(),
-                $conversation->getTaskListResult(),
-                $conversation->getFrontendData(),
-                $conversation->isAutorun() ? 1 : 0,
                 $conversation->getCreatedAt()->format('Y-m-d H:i:s'),
                 $conversation->getUpdatedAt()->format('Y-m-d H:i:s')
             ]
@@ -248,54 +375,54 @@ class ProjectService
         return array_map(fn($data) => ProjectSpiritConversation::fromArray($data), $results);
     }
 
-    // ProjectTool management
-    public function addToolToProject(string $projectId, string $toolId): ProjectTool
+    /**
+     * @return string[] Conversation ids belonging to the given project
+     */
+    public function getProjectConversationIds(string $projectId): array
     {
-        $projectTool = new ProjectTool($projectId, $toolId);
-
         $userDb = $this->getUserDb();
-        $userDb->executeStatement(
-            'INSERT INTO project_tool (id, project_id, tool_id) VALUES (?, ?, ?)',
-            [
-                $projectTool->getId(),
-                $projectTool->getProjectId(),
-                $projectTool->getToolId()
-            ]
-        );
-
-        return $projectTool;
+        return $userDb->executeQuery(
+            'SELECT spirit_conversation_id FROM project_spirit_conversation WHERE project_id = ?',
+            [$projectId]
+        )->fetchFirstColumn();
     }
 
-    public function removeToolFromProject(string $projectId, string $toolId): bool
+    public function removeConversationFromProject(string $projectId, string $spiritConversationId): bool
     {
         $userDb = $this->getUserDb();
         $result = $userDb->executeStatement(
-            'DELETE FROM project_tool WHERE project_id = ? AND tool_id = ?',
-            [$projectId, $toolId]
+            'DELETE FROM project_spirit_conversation WHERE project_id = ? AND spirit_conversation_id = ?',
+            [$projectId, $spiritConversationId]
         );
 
         return $result > 0;
     }
 
-    public function getProjectTools(string $projectId): array
+    /**
+     * Whether a conversation belongs to the given project.
+     */
+    public function isConversationInProject(string $spiritConversationId, string $projectId): bool
     {
         $userDb = $this->getUserDb();
-        $results = $userDb->executeQuery(
-            'SELECT * FROM project_tool WHERE project_id = ?',
-            [$projectId]
-        )->fetchAllAssociative();
+        $result = $userDb->executeQuery(
+            'SELECT 1 FROM project_spirit_conversation WHERE project_id = ? AND spirit_conversation_id = ?',
+            [$projectId, $spiritConversationId]
+        )->fetchOne();
 
-        return array_map(fn($data) => ProjectTool::fromArray($data), $results);
+        return $result !== false;
     }
 
-    // ProjectCqContact management
+    // ---------------------------------------------------------------------
+    // ProjectCqContact — reserved for the future federation phase
+    // ---------------------------------------------------------------------
+
     public function addContactToProject(string $projectId, string $cqContactId): ProjectCqContact
     {
         $projectContact = new ProjectCqContact($projectId, $cqContactId);
 
         $userDb = $this->getUserDb();
         $userDb->executeStatement(
-            'INSERT INTO project_cq_contact (id, project_id, cq_contact_id) VALUES (?, ?, ?)',
+            'INSERT OR IGNORE INTO project_cq_contact (id, project_id, cq_contact_id) VALUES (?, ?, ?)',
             [
                 $projectContact->getId(),
                 $projectContact->getProjectId(),

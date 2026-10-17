@@ -32,6 +32,7 @@ class SpiritService
         private CQMemoryLibraryService $libraryService,
         private TranslatorInterface $translator,
         private SettingsService $settingsService,
+        private ProjectService $projectService,
     ) {}
     
     /**
@@ -140,9 +141,9 @@ class SpiritService
      * 
      * @return array Memory path info: projectId, memoryPath, packsPath, rootLibraryName, rootPackName
      */
-    public function initSpiritMemory(Spirit $spirit): array
+    public function initSpiritMemory(Spirit $spirit, ?string $projectId = null): array
     {
-        $projectId = 'general';
+        $projectId = $projectId ?? $this->projectService->getActiveProjectId();
         $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
         
         $memoryPath = '/spirit/' . $spiritNameSlug . '/memory';
@@ -304,6 +305,20 @@ class SpiritService
 
         // Log the creation interaction
         $this->logInteraction($spirit->getId(), 'creation', 10, 'Spirit created');
+
+        // Assign the new Spirit to the active project (workspace) so it is
+        // immediately available where it was created.
+        try {
+            $this->projectService->addSpiritToProject(
+                $this->projectService->getActiveProjectId(),
+                $spirit->getId()
+            );
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to assign new Spirit to project', [
+                'spiritId' => $spirit->getId(),
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return $spirit;
     }
@@ -674,6 +689,12 @@ class SpiritService
                 [$spiritId]
             );
 
+            // Delete project assignments
+            $db->executeStatement(
+                'DELETE FROM project_spirit WHERE spirit_id = ?',
+                [$spiritId]
+            );
+
             // Delete the spirit
             $db->executeStatement(
                 'DELETE FROM spirits WHERE id = ?',
@@ -687,11 +708,13 @@ class SpiritService
             throw $e;
         }
 
-        // delete also project_file (Spirit directory)
-        $spiritNameSlug = $this->slugger->slug($spirit->getName());
-        $memoryDir = $this->projectFileService->findByPathAndName('general', '/spirit/', $spiritNameSlug);
-        if ($memoryDir) {
-            $this->projectFileService->delete($memoryDir->getId());            
+        // Delete the Spirit's directory (/spirit/{slug}) across every project.
+        $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
+        foreach ($this->projectService->findAll(true) as $project) {
+            $memoryDir = $this->projectFileService->findByPathAndName($project->getId(), '/spirit', $spiritNameSlug);
+            if ($memoryDir) {
+                $this->projectFileService->delete($memoryDir->getId());
+            }
         }
     }
 

@@ -1,0 +1,26 @@
+{% if app.user %}
+<div class="project-icon-container">
+    <div class="dropdown">
+        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="projectDropdown" role="button"
+           data-bs-toggle="dropdown" aria-expanded="false" title="{{ 'project.switch'|trans|default('Switch project') }}">
+            <i class="mdi mdi-briefcase-outline"></i>
+            <span class="d-none d-lg-inline ms-2" id="projectDropdownLabel">{{ 'project.title'|trans|default('Projects') }}</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end glass-panel glass-panel-glow" aria-labelledby="projectDropdown">
+            <li>
+                <a class="dropdown-item nav-link ps-3" href="{{ path('app_projects') }}">
+                    <i class="mdi mdi-briefcase-multiple me-3 text-cyber"></i>{{ 'project.manage'|trans|default('Manage Projects') }}
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li id="projects-list">
+                <div class="dropdown-item text-center">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endif %}

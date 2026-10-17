@@ -23,7 +23,8 @@ class UpdatesService
         private readonly CqContactService $cqContactService,
         private readonly AIToolMemoryService $aiToolMemoryService,
         private readonly CQMemoryPackService $packService,
-        private readonly CQMemoryLibraryService $libraryService
+        private readonly CQMemoryLibraryService $libraryService,
+        private readonly ProjectService $projectService
     ) {
         $this->user = $security->getUser();
     }
@@ -388,14 +389,16 @@ class UpdatesService
         ];
 
         try {
-            // Discover all packs (lightweight, no opens)
-            $allPackFiles = $this->libraryService->findPackFilesInDirectory('general', '/');
+            $projectId = $this->projectService->getActiveProjectId();
+
+            // Discover all packs in the active project (lightweight, no opens)
+            $allPackFiles = $this->libraryService->findPackFilesInDirectory($projectId, '/');
 
             foreach ($allPackFiles as $packFile) {
                 $packKey = $packFile['path'] . '/' . $packFile['name'];
 
                 try {
-                    $this->packService->open('general', $packFile['path'], $packFile['name']);
+                    $this->packService->open($projectId, $packFile['path'], $packFile['name']);
 
                     // Safety net: purge foreign jobs from synced/remote packs.
                     $sourceUrl = $this->packService->getSourceUrl();
@@ -507,7 +510,7 @@ class UpdatesService
                     if (!empty($completedJobs) && empty($activeJobs)) {
                         try {
                             $this->libraryService->syncLibraryForPack(
-                                'general',
+                                $projectId,
                                 $packFile['path'],
                                 $packFile['name']
                             );

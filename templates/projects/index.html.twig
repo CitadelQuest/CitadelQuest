@@ -1,0 +1,175 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.title'|trans|default('Projects') }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('projects') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('projects') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-xxl mt-0" id="projects-page" data-translations="{{ translations|e('html_attr') }}">
+
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1 class="mb-0"><i class="mdi mdi-briefcase-outline me-2"></i>{{ 'project.title'|trans|default('Projects') }}</h1>
+            <p class="text-muted mb-0">{{ 'project.page_description'|trans|default('Your workspaces — separate files, Spirits and conversations.') }}</p>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" id="project-new-btn">
+            <i class="mdi mdi-plus"></i> {{ 'project.new_project'|trans|default('New Project') }}
+        </button>
+    </div>
+
+    <div class="row g-3" id="projects-grid">
+        {% for card in cards %}
+            {% set p = card.project %}
+            <div class="col-12 col-md-6 col-lg-4">
+                <div class="glass-panel p-3 h-100 project-card"
+                     data-project-id="{{ p.id }}"
+                     data-project-title="{{ p.title|e('html_attr') }}"
+                     data-project-description="{{ p.description|e('html_attr') }}"
+                     data-project-system="{{ p.system ? '1' : '0' }}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="d-flex align-items-center">
+                            <i class="mdi mdi-briefcase text-cyber me-2" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <div class="fw-bold">{{ p.title }}</div>
+                                <div class="small text-muted font-monospace">{{ p.id }}</div>
+                            </div>
+                        </div>
+                        <div class="text-nowrap">
+                            {% if p.id == activeProjectId %}
+                                <span class="badge bg-success bg-opacity-25 text-success">{{ 'project.active'|trans|default('Active') }}</span>
+                            {% endif %}
+                            {% if p.system %}
+                                <span class="badge bg-secondary bg-opacity-25 text-light">{{ 'project.system'|trans|default('System') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if p.description %}
+                        <div class="small text-muted mt-2">{{ p.description }}</div>
+                    {% endif %}
+
+                    <div class="small text-muted mt-2">
+                        <i class="mdi mdi-file-outline me-1"></i>{{ card.fileCount }} {{ 'project.files'|trans|default('files') }}
+                        <span class="mx-2">·</span>
+                        <i class="mdi mdi-ghost-outline me-1"></i>{{ card.spiritCount }} {{ 'project.spirits'|trans|default('spirits') }}
+                        <span class="mx-2">·</span>
+                        <i class="mdi mdi-weight me-1"></i>{{ card.totalSize }}
+                        <span class="mx-2">·</span>
+                        <i class="mdi mdi-calendar-blank-outline me-1"></i>{{ p.createdAt|date('Y-m-d') }}
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_file_browser_project', { projectId: p.id }) }}">
+                            <i class="mdi mdi-folder-open-outline"></i> {{ 'file_browser.page_title'|trans|default('File Browser') }}
+                        </a>
+                        <button class="btn btn-sm btn-outline-secondary" data-action="spirits" title="{{ 'project.spirits_manage'|trans|default('Spirits') }}">
+                            <i class="mdi mdi-ghost-outline"></i>
+                        </button>
+                        {% if p.id != activeProjectId %}
+                            <button class="btn btn-sm btn-outline-cyber" data-action="activate">
+                                <i class="mdi mdi-check-circle-outline"></i> {{ 'project.active'|trans|default('Active') }}
+                            </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-secondary" data-action="edit">
+                            <i class="mdi mdi-pencil-outline"></i>
+                        </button>
+                        {% if not p.system %}
+                            <button class="btn btn-sm btn-outline-danger" data-action="delete">
+                                <i class="mdi mdi-delete-outline"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="glass-panel p-4 text-center text-muted">{{ 'project.empty'|trans|default('No projects yet.') }}</div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# Create / Edit modal #}
+<div class="modal fade" id="projectFormModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title" id="projectFormModalTitle">{{ 'project.new_project'|trans|default('New Project') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label" for="project-form-title">{{ 'project.field_title'|trans|default('Title') }}</label>
+                    <input type="text" class="form-control" id="project-form-title" maxlength="255"
+                           placeholder="{{ 'project.field_title_placeholder'|trans|default('e.g. Brovolenka Quest') }}">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label" for="project-form-description">{{ 'project.field_description'|trans|default('Description') }}</label>
+                    <textarea class="form-control" id="project-form-description" rows="3"
+                              placeholder="{{ 'project.field_description_placeholder'|trans|default('What is this workspace for? (optional)') }}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">{{ 'project.cancel'|trans|default('Cancel') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="project-form-save">{{ 'project.save'|trans|default('Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Spirits assignment modal #}
+<div class="modal fade" id="projectSpiritsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="mdi mdi-ghost-outline me-2"></i>{{ 'project.spirits_title'|trans|default('Spirits in this project') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted font-monospace" id="project-spirits-project-name"></p>
+                <div id="project-spirits-list">
+                    <div class="text-center p-3">
+                        <div class="spinner-border spinner-border-sm text-cyber" role="status"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">{{ 'project.cancel'|trans|default('Cancel') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="project-spirits-save">{{ 'project.save'|trans|default('Save') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Delete confirmation modal (typed confirmation) #}
+<div class="modal fade" id="projectDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger"><i class="mdi mdi-alert-outline me-2"></i>{{ 'project.delete_project'|trans|default('Delete Project') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">{{ 'project.delete_warning'|trans|default('This permanently deletes the project and all its files. This cannot be undone.') }}</p>
+                <p class="small text-muted mb-2">
+                    <span id="project-delete-confirm-hint">{{ 'project.delete_confirm_hint'|trans|default('Type the project ID to confirm:') }}</span>
+                    <code id="project-delete-id-label"></code>
+                </p>
+                <input type="text" class="form-control font-monospace" id="project-delete-confirm-input" autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">{{ 'project.cancel'|trans|default('Cancel') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="project-delete-confirm-btn" disabled>{{ 'project.delete'|trans|default('Delete') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

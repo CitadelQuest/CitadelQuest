@@ -18,6 +18,7 @@ export class FileContextMenu {
         this.onDelete = options.onDelete || (() => {});
         this.onExtractToMemoryPack = options.onExtractToMemoryPack || (() => {});
         this.enableMemoryExtract = options.enableMemoryExtract !== false;
+        this.isProtected = options.isProtected || (() => false);
         
         this.menuElement = null;
         this.currentItems = [];
@@ -84,6 +85,7 @@ export class FileContextMenu {
         // Build menu items
         let menuHtml = '';
         const hasRemote = items.some(item => item.isRemote);
+        const hasProtected = items.some(item => this.isProtected(item));
         
         // Selection info
         if (count > 1) {
@@ -91,6 +93,16 @@ export class FileContextMenu {
                 <div class="context-menu-header px-3 py-1 text-muted small border-bottom border-secondary mb-1">
                     <i class="mdi mdi-checkbox-multiple-marked-outline me-1"></i>
                     ${count} ${this.translations.items_selected || 'items selected'}
+                </div>
+            `;
+        }
+
+        // System-managed content (Spirit memory & skills) info
+        if (hasProtected) {
+            menuHtml += `
+                <div class="context-menu-header px-3 py-1 text-warning small border-bottom border-secondary mb-1">
+                    <i class="mdi mdi-shield-lock-outline me-1"></i>
+                    ${this.translations.system_managed || 'System-managed (Spirit memory & skills)'}
                 </div>
             `;
         }
@@ -113,16 +125,18 @@ export class FileContextMenu {
             </div>
         `;
         
-        // Move option (always available — remote sync link preserved via file ID)
-        menuHtml += `
-            <div class="context-menu-item" data-action="move">
-                <i class="mdi mdi-folder-move me-2"></i>
-                ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
-            </div>
-        `;
+        // Move option (hidden for system-managed content; remote sync link preserved via file ID)
+        if (!hasProtected) {
+            menuHtml += `
+                <div class="context-menu-item" data-action="move">
+                    <i class="mdi mdi-folder-move me-2"></i>
+                    ${this.translations.move || 'Move'}${count > 1 ? ` (${count})` : ''}
+                </div>
+            `;
+        }
         
-        // Rename option (only for single selection, hidden for remote files)
-        if (isSingle && !hasRemote) {
+        // Rename option (only for single selection, hidden for remote & system-managed items)
+        if (isSingle && !hasRemote && !hasProtected) {
             menuHtml += `
                 <div class="context-menu-item" data-action="rename">
                     <i class="mdi mdi-rename-box me-2"></i>
@@ -156,16 +170,16 @@ export class FileContextMenu {
             `;
         }
 
-        // Separator
-        menuHtml += '<div class="context-menu-separator my-1 border-top border-secondary"></div>';
-        
-        // Delete option (always available)
-        menuHtml += `
-            <div class="context-menu-item context-menu-item-danger" data-action="delete">
-                <i class="mdi mdi-delete me-2"></i>
-                ${this.translations.delete || 'Delete'}${count > 1 ? ` (${count})` : ''}
-            </div>
-        `;
+        // Separator + Delete option (hidden for system-managed content)
+        if (!hasProtected) {
+            menuHtml += '<div class="context-menu-separator my-1 border-top border-secondary"></div>';
+            menuHtml += `
+                <div class="context-menu-item context-menu-item-danger" data-action="delete">
+                    <i class="mdi mdi-delete me-2"></i>
+                    ${this.translations.delete || 'Delete'}${count > 1 ? ` (${count})` : ''}
+                </div>
+            `;
+        }
         
         this.menuElement.innerHTML = menuHtml;
         

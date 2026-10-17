@@ -13,6 +13,8 @@ import * as bootstrap from 'bootstrap';
 export class FileBrowserModal {
     constructor(options = {}) {
         this.translations = options.translations || {};
+        this.projectId = options.projectId || 'general';
+        this.projectTitle = options.projectTitle || this.projectId;
         this.fileBrowser = null;
         this.modalEl = null;
         this.bsModal = null;
@@ -98,7 +100,8 @@ export class FileBrowserModal {
         if (!this.fileBrowser) {
             this.fileBrowser = new FileBrowser({
                 containerId: 'fileBrowserModalContainer',
-                projectId: 'general',
+                projectId: this.projectId,
+                projectTitle: this.projectTitle,
                 translations: this.translations,
                 enableMemoryExtract: false,
             });

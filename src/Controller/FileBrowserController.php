@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Service\ProjectService;
+use App\Service\SettingsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -9,18 +11,65 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Controller for the general multi-purpose File Browser
+ * Controller for the general multi-purpose File Browser.
+ *
+ * The File Browser always shows the active Project (workspace):
+ *  - `/file-browser`              → the active project (settings.active_project_id)
+ *  - `/file-browser/{projectId}`  → that project, and it becomes the active one
+ *
+ * See docs/features/CQ-PROJECT.md.
  */
 #[IsGranted('ROLE_USER')]
 class FileBrowserController extends AbstractController
 {
     /**
-     * Show the file browser
+     * Show the file browser for the active project.
      */
     #[Route('/file-browser', name: 'app_file_browser')]
-    public function index(TranslatorInterface $translator): Response
+    public function index(
+        TranslatorInterface $translator,
+        ProjectService $projectService,
+        SettingsService $settingsService
+    ): Response {
+        $activeProjectId = $settingsService->getSettingValue('active_project_id', ProjectService::GENERAL_PROJECT_ID)
+            ?: ProjectService::GENERAL_PROJECT_ID;
+
+        $project = $projectService->findById($activeProjectId);
+        if (!$project) {
+            $project = $projectService->findById(ProjectService::GENERAL_PROJECT_ID);
+        }
+
+        return $this->renderBrowser($translator, $project);
+    }
+
+    /**
+     * Show the file browser for an explicit project (and make it the active one).
+     */
+    #[Route('/file-browser/{projectId}', name: 'app_file_browser_project')]
+    public function project(
+        string $projectId,
+        TranslatorInterface $translator,
+        ProjectService $projectService,
+        SettingsService $settingsService
+    ): Response {
+        $project = $projectService->findById($projectId);
+        if (!$project) {
+            throw $this->createNotFoundException('Project not found');
+        }
+
+        // Keep the active workspace in sync with the URL (single source of truth).
+        if ($settingsService->getSettingValue('active_project_id') !== $project->getId()) {
+            $settingsService->setSetting('active_project_id', $project->getId());
+        }
+
+        return $this->renderBrowser($translator, $project);
+    }
+
+    /**
+     * Render the file browser for a project.
+     */
+    private function renderBrowser(TranslatorInterface $translator, $project): Response
     {
-        // Get translations for the file browser
         $translations = [
             'new_folder' => $translator->trans('file_browser.new_folder'),
             'new_file' => $translator->trans('file_browser.new_file'),
@@ -99,11 +148,13 @@ class FileBrowserController extends AbstractController
             'status_active' => $translator->trans('cq_share.field_status_active'),
             'cancel' => $translator->trans('ui.cancel'),
             'save' => $translator->trans('cq_share.save'),
+            'system_managed' => $translator->trans('file_browser.system_managed'),
         ];
 
         return $this->render('file_browser/index.html.twig', [
             'translations' => json_encode($translations),
-            'project_id' => 'general', // Using a fixed project ID for the general multi-purpose file browser
+            'project_id' => $project->getId(),
+            'project_title' => $project->getTitle(),
         ]);
     }
 }
