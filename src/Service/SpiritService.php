@@ -143,7 +143,7 @@ class SpiritService
      */
     public function initSpiritMemory(Spirit $spirit, ?string $projectId = null): array
     {
-        $projectId = $projectId ?? $this->projectService->getActiveProjectId();
+        $projectId = $this->projectService->resolveProjectIdForSpirit($spirit->getId(), $projectId);
         $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
         
         $memoryPath = '/spirit/' . $spiritNameSlug . '/memory';

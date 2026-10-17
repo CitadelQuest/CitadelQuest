@@ -34,11 +34,11 @@ class SpiritSkillService
     ) {}
 
     /**
-     * Resolve the project ID to use for Spirit skills (active workspace).
+     * Resolve the project ID to use for Spirit skills (always a project the Spirit belongs to).
      */
-    private function resolveProjectId(?string $projectId = null): string
+    private function resolveProjectId(Spirit $spirit, ?string $projectId = null): string
     {
-        return $projectId ?? $this->projectService->getActiveProjectId();
+        return $this->projectService->resolveProjectIdForSpirit($spirit->getId(), $projectId);
     }
 
     /**
@@ -49,7 +49,7 @@ class SpiritSkillService
      */
     public function initSpiritSkills(Spirit $spirit, ?string $projectId = null): array
     {
-        $projectId = $this->resolveProjectId($projectId);
+        $projectId = $this->resolveProjectId($spirit, $projectId);
         $spiritNameSlug = (string) $this->slugger->slug($spirit->getName());
         $skillPath = '/spirit/' . $spiritNameSlug . '/skill';
         $activePath = $skillPath . '/' . self::STATE_ACTIVE;

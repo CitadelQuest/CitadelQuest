@@ -1834,6 +1834,33 @@ PROMPT;
             // Add Spirit ID for memory tools context (IMPORTANT: ensures correct spirit association)
             if ($spiritId) {
                 $toolArgs['spiritId'] = $spiritId;
+
+                // Enforce Spirit project access: a Spirit can only operate on projects it is assigned to.
+                $allowedProjects = $this->projectService->getProjectIdsForSpirit($spiritId);
+                if (empty($allowedProjects)) {
+                    $allowedProjects = [ProjectService::GENERAL_PROJECT_ID];
+                }
+                $spiritActiveProjectId = $this->projectService->resolveProjectIdForSpirit($spiritId);
+
+                if (isset($toolArgs['projectId']) && trim((string) $toolArgs['projectId']) !== '') {
+                    $requestedProjectId = trim((string) $toolArgs['projectId']);
+                    if (!in_array($requestedProjectId, $allowedProjects, true)) {
+                        $results[] = [
+                            'tool_call_id' => $toolCall['id'] ?? null,
+                            'role' => 'tool',
+                            'name' => $toolName,
+                            'content' => json_encode([
+                                'success' => false,
+                                'error' => "Access denied: Spirit does not have access to project '{$requestedProjectId}'. Assigned projects: " . implode(', ', $allowedProjects),
+                            ]),
+                            '_frontendData' => null,
+                            '_imagesForAi' => [],
+                        ];
+                        continue;
+                    }
+                } elseif (in_array($toolName, ['fileManage', 'fileUpdate', 'fileSearch', 'gitOperation', 'gitSetCredentials', 'runCommand', 'createPDF', 'fetchURL', 'screenshotURL'], true)) {
+                    $toolArgs['projectId'] = $spiritActiveProjectId;
+                }
             }
             
             // Execute tool
@@ -2364,17 +2391,32 @@ PROMPT;
     
     /**
      * Build the Projects section (always included).
-     * Lists all Projects (workspaces) and marks the active one, so the Spirit
-     * knows which `projectId` to pass to the File Browser tools.
+     * Lists the Projects (workspaces) assigned to this Spirit and marks its active
+     * one, so the Spirit knows which `projectId` to pass to the File Browser tools.
      */
     private function buildProjectsSection(Spirit $spirit): string
     {
-        $projects = $this->projectService->findAll();
+        $allProjects = $this->projectService->findAll();
+        if (empty($allProjects)) {
+            return '';
+        }
+
+        $assignedIds = array_flip($this->projectService->getProjectIdsForSpirit($spirit->getId()));
+        $projects = array_values(array_filter(
+            $allProjects,
+            fn($p) => isset($assignedIds[$p->getId()])
+        ));
+
+        if (empty($projects)) {
+            $general = $this->projectService->getGeneralProject();
+            $projects = $general ? [$general] : [];
+        }
+
         if (empty($projects)) {
             return '';
         }
 
-        $activeProjectId = $this->projectService->getActiveProjectId();
+        $activeProjectId = $this->projectService->resolveProjectIdForSpirit($spirit->getId());
         // Spirit files live under /spirit/{SpiritNameSlug}/skill (convention-based).
         $spiritNameSlug = htmlspecialchars((string) $this->slugger->slug($spirit->getName()), ENT_XML1);
 
@@ -2514,7 +2556,7 @@ PROMPT;
         // the referenced file's actual content. Lets users curate Spirit
         // knowledge from project files (notes, rule-sets, code, …) instead
         // of pasting walls of text into the prompt.
-        $customPrompt = $this->expandCqFileTokens($customPrompt);
+        $customPrompt = $this->expandCqFileTokens($customPrompt, $spirit);
 
         // Inject active Spirit Skills (dynamic persistent context documents).
         // Always included when the Spirit has active skills.
@@ -2541,7 +2583,7 @@ PROMPT;
      *  - Missing / unreadable files → `[file not available: <id>]`.
      *  - Non-token text is returned unchanged.
      */
-    private function expandCqFileTokens(string $text): string
+    private function expandCqFileTokens(string $text, ?Spirit $spirit = null): string
     {
         if ($text === '' || strpos($text, 'cqfile://') === false) {
             return $text;
@@ -2553,8 +2595,10 @@ PROMPT;
         // character class doesn't accidentally close the pattern.
         $pattern = '~cqfile://([^\s#<>"\'`]+)(?:#([^\s<>"\'`]+))?~';
 
-        // Project-scoped: only files of the active project (workspace) are injected.
-        $activeProjectId = $this->projectService->getActiveProjectId();
+        // Project-scoped: only files of the Spirit's active project (workspace) are injected.
+        $activeProjectId = $spirit
+            ? $this->projectService->resolveProjectIdForSpirit($spirit->getId())
+            : $this->projectService->getActiveProjectId();
 
         return preg_replace_callback($pattern, function (array $m) use ($activeProjectId): string {
             $fileId = trim($m[1]);

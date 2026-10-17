@@ -28,6 +28,14 @@ class ProjectService
     /** Max length of a project id (matches project.id VARCHAR(64)). */
     private const MAX_ID_LENGTH = 64;
 
+    /**
+     * Transient per-turn project context stack (used during S2S consultations so
+     * a callee Spirit executes in its own assigned project rather than the caller's).
+     *
+     * @var string[]
+     */
+    private array $projectContextStack = [];
+
     public function __construct(
         private readonly UserDatabaseManager $userDatabaseManager,
         private readonly Security $security,
@@ -138,11 +146,16 @@ class ProjectService
     }
 
     /**
-     * The currently-selected workspace (settings.active_project_id), falling back
-     * to 'general' when unset or stale. Safe in CLI/background contexts (no user).
+     * The currently-selected workspace (settings.active_project_id), or the top of
+     * the transient S2S project context stack when inside a cross-project spiritCall.
+     * Falls back to 'general' when unset or stale. Safe in CLI/background contexts.
      */
     public function getActiveProjectId(): string
     {
+        if (!empty($this->projectContextStack)) {
+            return (string) end($this->projectContextStack);
+        }
+
         try {
             $activeId = $this->settingsService->getSettingValue('active_project_id', self::GENERAL_PROJECT_ID)
                 ?: self::GENERAL_PROJECT_ID;
@@ -154,6 +167,71 @@ class ProjectService
             return $activeId;
         } catch (\Exception $e) {
             return self::GENERAL_PROJECT_ID;
+        }
+    }
+
+    /**
+     * Push a transient project context (e.g. for the duration of an S2S turn).
+     */
+    public function pushProjectContext(string $projectId): void
+    {
+        $this->projectContextStack[] = $projectId;
+    }
+
+    /**
+     * Pop the most recently pushed transient project context.
+     */
+    public function popProjectContext(): void
+    {
+        array_pop($this->projectContextStack);
+    }
+
+    /**
+     * Resolve the effective project for a specific Spirit:
+     * - If $preferredProjectId is given and the Spirit belongs to it, use it.
+     * - Otherwise if the current active project is one of the Spirit's projects, use it.
+     * - Otherwise fall back to the Spirit's first assigned project (or 'general').
+     *
+     * Ensures a Spirit never runs in or initializes files inside a project it is
+     * not assigned to.
+     */
+    public function resolveProjectIdForSpirit(string $spiritId, ?string $preferredProjectId = null): string
+    {
+        try {
+            $assignedIds = $this->getProjectIdsForSpirit($spiritId);
+        } catch (\Exception $e) {
+            $assignedIds = [];
+        }
+
+        if (empty($assignedIds)) {
+            return self::GENERAL_PROJECT_ID;
+        }
+
+        if ($preferredProjectId !== null && in_array($preferredProjectId, $assignedIds, true)) {
+            return $preferredProjectId;
+        }
+
+        $activeId = $this->getActiveProjectId();
+        if (in_array($activeId, $assignedIds, true)) {
+            return $activeId;
+        }
+
+        if (in_array(self::GENERAL_PROJECT_ID, $assignedIds, true)) {
+            return self::GENERAL_PROJECT_ID;
+        }
+
+        return $assignedIds[0];
+    }
+
+    /**
+     * Whether a Spirit is assigned to the given project.
+     */
+    public function isSpiritInProject(string $spiritId, string $projectId): bool
+    {
+        try {
+            return in_array($projectId, $this->getProjectIdsForSpirit($spiritId), true);
+        } catch (\Exception $e) {
+            return $projectId === self::GENERAL_PROJECT_ID;
         }
     }
 

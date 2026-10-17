@@ -75,7 +75,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
 
     /**
      * Spirit management tool with operations pattern.
-     * Operations: listSpirits, listConversations, getConversation
+     * Operations: listSpirits, listAllSpirits, listConversations, getConversation
      */
     public function spiritManage(array $arguments): array
     {
@@ -85,7 +85,8 @@ class AIToolSpiritService implements ServiceSubscriberInterface
         }
 
         return match ($operation) {
-            'listSpirits' => $this->handleListSpirits($arguments),
+            'listSpirits' => $this->handleListSpirits($arguments, true),
+            'listAllSpirits' => $this->handleListSpirits($arguments, false),
             'listConversations' => $this->handleListConversations($arguments),
             'getConversation' => $this->handleGetConversation($arguments),
             default => ['success' => false, 'error' => "Unknown spiritManage operation: {$operation}"],
@@ -93,9 +94,11 @@ class AIToolSpiritService implements ServiceSubscriberInterface
     }
 
     /**
-     * Operation: listSpirits — list fellow Spirits the caller may consult.
+     * Operation: listSpirits / listAllSpirits — list fellow Spirits the caller may consult.
+     * - listSpirits ($activeProjectOnly = true): fellow Spirits in the active project
+     * - listAllSpirits ($activeProjectOnly = false): all fellow Spirits across all projects on the Citadel
      */
-    private function handleListSpirits(array $arguments): array
+    private function handleListSpirits(array $arguments, bool $activeProjectOnly = true): array
     {
         $callerId = $arguments['spiritId'] ?? null;
         if (!$callerId) {
@@ -103,8 +106,9 @@ class AIToolSpiritService implements ServiceSubscriberInterface
         }
 
         $allowed = $this->getAllowedSpiritIds($callerId);
-        // S2S is project-scoped: only fellow Spirits of the active project are consultable.
-        $projectSpiritIds = array_flip($this->projectService()->getProjectSpiritIds($this->projectService()->getActiveProjectId()));
+        $projectSpiritIds = $activeProjectOnly
+            ? array_flip($this->projectService()->getProjectSpiritIds($this->projectService()->getActiveProjectId()))
+            : null;
 
         $spirits = [];
         foreach ($this->spiritService->findAll() as $spirit) {
@@ -112,7 +116,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             if ($id === $callerId) {
                 continue; // never list self
             }
-            if (!isset($projectSpiritIds[$id])) {
+            if ($projectSpiritIds !== null && !isset($projectSpiritIds[$id])) {
                 continue; // not part of the active project
             }
             if ($this->spiritService->getSpiritSetting($id, 's2s.callable', '1') !== '1') {
@@ -121,12 +125,16 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             if ($allowed !== null && !in_array($id, $allowed, true)) {
                 continue; // not in caller's allow-list
             }
-            $spirits[] = [
+            $entry = [
                 'spiritId' => $id,
                 'name' => $spirit->getName(),
                 'specialty' => $this->spiritService->getSpiritSetting($id, 's2s.specialty') ?: '',
                 'color' => $this->spiritService->getSpiritColor($id),
             ];
+            if (!$activeProjectOnly) {
+                $entry['projects'] = $this->projectService()->getProjectIdsForSpirit($id);
+            }
+            $spirits[] = $entry;
         }
 
         return [
@@ -176,11 +184,9 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             }
         }
 
-        // Get both initiated and received S2S conversations for the caller,
-        // scoped to the active project (S2S is project-scoped).
-        $projectId = $this->projectService()->getActiveProjectId();
-        $initiated = $this->conversationService()->getS2sConversationsInitiatedBySpirit($callerId, null, 0, $projectId);
-        $received = $this->conversationService()->getS2sConversationsReceivedBySpirit($callerId, null, 0, $projectId);
+        // Get both initiated and received S2S conversations for the caller across all projects.
+        $initiated = $this->conversationService()->getS2sConversationsInitiatedBySpirit($callerId);
+        $received = $this->conversationService()->getS2sConversationsReceivedBySpirit($callerId);
 
         $conversations = [];
         $messageService = $this->messageService();
@@ -274,11 +280,6 @@ class AIToolSpiritService implements ServiceSubscriberInterface
 
         if (!$conversation->isSpiritToSpirit()) {
             return ['success' => false, 'error' => 'This conversation is not a Spirit-to-Spirit conversation.'];
-        }
-
-        // S2S is project-scoped: only conversations of the active project are readable.
-        if (!$this->projectService()->isConversationInProject($conversationId, $this->projectService()->getActiveProjectId())) {
-            return ['success' => false, 'error' => 'This conversation belongs to another project.'];
         }
 
         $messageService = $this->messageService();
@@ -393,11 +394,25 @@ class AIToolSpiritService implements ServiceSubscriberInterface
         }
 
         try {
+            $callerProjectId = $this->projectService()->resolveProjectIdForSpirit($callerId);
+            $calleeProjectId = $this->projectService()->resolveProjectIdForSpirit($calleeId);
+
             $conversation = $this->conversationService()->getOrCreateS2SConversation(
                 $callerId,
                 $calleeId,
                 $conversationId
             );
+
+            // Pair the S2S conversation with both the caller's and callee's projects
+            // so it appears in both Spirits' S2S tabs within their respective projects.
+            try {
+                $this->projectService()->createProjectSpiritConversation($callerProjectId, $conversation->getId());
+                if ($calleeProjectId !== $callerProjectId) {
+                    $this->projectService()->createProjectSpiritConversation($calleeProjectId, $conversation->getId());
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal
+            }
 
             // Write the caller's request as a 'user' message in the callee's thread.
             $callerMessage = $this->messageService()->createMessage(
@@ -420,6 +435,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             }
 
             $this->spiritCallContext->enter($calleeId);
+            $this->projectService()->pushProjectContext($calleeProjectId);
             try {
                 // The callee runs with its OWN per-Spirit reasoning effort (null → gateway default).
                 $calleeReasoningEffort = $this->spiritService->getSpiritSetting($calleeId, 'reasoningEffort');
@@ -435,6 +451,7 @@ class AIToolSpiritService implements ServiceSubscriberInterface
                     $calleeReasoningEffort
                 );
             } finally {
+                $this->projectService()->popProjectContext();
                 $this->spiritCallContext->leave();
             }
 
@@ -515,9 +532,6 @@ class AIToolSpiritService implements ServiceSubscriberInterface
         $targetId = $arguments['targetSpiritId'] ?? null;
         $targetName = isset($arguments['targetSpiritName']) ? trim((string) $arguments['targetSpiritName']) : null;
 
-        // S2S is project-scoped: only fellow Spirits of the active project can be consulted.
-        $projectSpiritIds = array_flip($this->projectService()->getProjectSpiritIds($this->projectService()->getActiveProjectId()));
-
         if ($targetId) {
             $spirit = $this->spiritService->getSpirit($targetId);
             if (!$spirit) {
@@ -526,24 +540,18 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             if ($spirit->getId() === $callerId) {
                 return ['ok' => false, 'error' => 'A Spirit cannot consult itself.'];
             }
-            if (!isset($projectSpiritIds[$spirit->getId()])) {
-                return ['ok' => false, 'error' => 'Spirit "' . $spirit->getName() . '" is not part of the active project and cannot be consulted.'];
-            }
             return ['ok' => true, 'id' => $spirit->getId(), 'name' => $spirit->getName()];
         }
 
         if ($targetName) {
             $matches = [];
             foreach ($this->spiritService->findAll() as $spirit) {
-                if (!isset($projectSpiritIds[$spirit->getId()])) {
-                    continue; // not part of the active project
-                }
                 if (mb_strtolower($spirit->getName()) === mb_strtolower($targetName)) {
                     $matches[] = $spirit;
                 }
             }
             if (count($matches) === 0) {
-                return ['ok' => false, 'error' => 'No Spirit named "' . $targetName . '" found in this project. Use spiritManage (op: listSpirits) to see who you can consult.'];
+                return ['ok' => false, 'error' => 'No Spirit named "' . $targetName . '" found. Use spiritManage (op: listAllSpirits) to see who you can consult.'];
             }
             if (count($matches) > 1) {
                 return ['ok' => false, 'error' => 'Multiple Spirits named "' . $targetName . '"; specify targetSpiritId instead.'];
@@ -555,11 +563,11 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             return ['ok' => true, 'id' => $spirit->getId(), 'name' => $spirit->getName()];
         }
 
-        return ['ok' => false, 'error' => 'Provide targetSpiritId or targetSpiritName. Use spiritManage (op: listSpirits) to discover fellow Spirits.'];
+        return ['ok' => false, 'error' => 'Provide targetSpiritId or targetSpiritName. Use spiritManage (op: listSpirits or listAllSpirits) to discover fellow Spirits.'];
     }
 
     /**
-     * Expandable badge listing the fellow Spirits discovered by spiritManage (op: listSpirits).
+     * Expandable badge listing the fellow Spirits discovered by spiritManage (op: listSpirits / listAllSpirits).
      */
     private function buildListSpiritsBadge(array $spirits): string
     {
@@ -575,9 +583,17 @@ class AIToolSpiritService implements ServiceSubscriberInterface
             $specialty = htmlspecialchars($spirit['specialty'], ENT_QUOTES);
             $color = htmlspecialchars($spirit['color'] ?? '#95ec86', ENT_QUOTES);
             $specialtyHtml = $specialty !== '' ? '<div class="small opacity-75">' . $specialty . '</div>' : '';
+            $projectsHtml = '';
+            if (!empty($spirit['projects']) && is_array($spirit['projects'])) {
+                $badges = array_map(
+                    fn($p) => '<span class="badge bg-secondary bg-opacity-25 text-cyber font-monospace ms-1">' . htmlspecialchars((string) $p, ENT_QUOTES) . '</span>',
+                    $spirit['projects']
+                );
+                $projectsHtml = implode('', $badges);
+            }
             $items .= '<li class="list-group-item bg-dark text-light border-secondary py-1 px-2 d-flex align-items-center gap-2">'
                 . '<i class="mdi mdi-ghost" style="color:' . $color . ';"></i>'
-                . '<div><div class="fw-bold small">' . $name . '</div>' . $specialtyHtml . '</div>'
+                . '<div><div class="fw-bold small">' . $name . $projectsHtml . '</div>' . $specialtyHtml . '</div>'
                 . '</li>';
         }
 
