@@ -333,6 +333,13 @@ spirit:
         packs: 'balíčky'
         nodes: 'uzly'
         relationships: 'vztahy'
+        library_packs: 'Paměťové balíčky Spirita v knihovně'
+        available_packs: 'Všechny dostupné paměťové balíčky'
+        add_to_library: 'Přidat do knihovny'
+        remove_from_library: 'Odebrat z knihovny'
+        no_library_packs: 'V knihovně nejsou žádné balíčky'
+        no_available_packs: 'Nejsou dostupné žádné balíčky'
+        filter_packs: 'Filtrovat balíčky...'
         type: 'Typ Paměti Spirita'
         type_saved: 'Typ paměti aktualizován'
         type_none: 'Bez paměti'
@@ -705,6 +712,11 @@ dashboard:
         enabled: 'Notifikace povoleny!'
         denied: 'Notifikace zamítnuty. Můžete je povolit v nastavení prohlížeče.'
 
+error:
+    loading_memory_packs: 'Nepodařilo se načíst paměťové balíčky'
+    adding_memory_pack: 'Nepodařilo se přidat balíček do knihovny'
+    removing_memory_pack: 'Nepodařilo se odebrat balíček z knihovny'
+
 cq_memory:
     page_title: 'CQ Paměť'
 
@@ -910,6 +922,7 @@ backup:
         failed_restore: 'Obnovení zálohy selhalo'
         creating: 'Vytvářím zálohu...'
         failed_create: 'Vytvoření zálohy selhalo'
+        lost_connection: 'Spojení bylo přerušeno při čekání na zálohu. Může stále probíhat — obnovte stránku.'
     upload:
         title: 'Nahrát zálohu'
         drag_backup: 'Přetáhněte soubor zálohy sem'
@@ -1012,6 +1025,7 @@ admin:
         confirm_optimize_database: 'Optimalizovat databázi uživatele %username%? Uvolní to nevyužité místo.'
         optimize_database_success: 'Databáze uživatele %username% byla optimalizována (uvolněno %saved%)'
         optimize_database_error: 'Nepodařilo se optimalizovat databázi uživatele'
+        optimize_database_busy: 'Pro tohoto uživatele již probíhá jiná úloha údržby. Zkuste to prosím za chvíli.'
     
     roles:
         admin: 'Administrátor'
@@ -1070,7 +1084,7 @@ admin:
         clear_confirm_title: 'Potvrdit vymazání logu'
         clear_confirm_message: 'Opravdu chcete vymazat tento log soubor?'
         clear_backup_info: 'Před vymazáním bude vytvořena záloha souboru.'
-        showing_lines: 'Zobrazuji %filtered% z %total% řádků'
+        filtered_results: 'Zobrazuji %filtered% z %total% řádků'
         total_lines: 'Celkem %total% řádků'
     
     system_backups:
@@ -1440,6 +1454,7 @@ cq_chat:
     select_contact_placeholder: 'Vyberte kontakt pro chat'
     select_contact_required: 'Prosím vyberte kontakt'
     create_chat: 'Vytvořit chat'
+    start_chat: 'Zahájit chat'
     
     # Chat details
     chat_details: 'Detaily chatu'
@@ -1496,7 +1511,6 @@ feed:
     followers: 'Sledující'
     following_feed: 'Sledované'
     followers_feed: 'Sledující'
-    loading: 'Načítám...'
     no_following: 'Zatím nikoho nesledujete'
     no_followers: 'Zatím nemáte žádné sledující'
     new_content: ''

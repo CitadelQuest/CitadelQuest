@@ -241,6 +241,14 @@ spirit:
         type: 'Typ'
         experience_gained: 'Získané skúsenosti'
         created_at: 'Čas'
+        no_interactions: 'Zatiaľ žiadne interakcie.'
+    ability:
+        title: 'Schopnosti'
+        name: 'Názov'
+        type: 'Typ'
+        unlocked: 'Odomknuté'
+        unlocked_at: 'Odomknuté o'
+        no_abilities: 'Zatiaľ žiadne schopnosti.'
         unlock_success: 'Schopnosť odomknutá!'
         unlock_error: 'Nepodarilo sa odomknúť schopnosť. Skúste to prosím znova.'
     menu:
@@ -1076,7 +1084,7 @@ admin:
         clear_confirm_title: 'Potvrdiť vymazanie logu'
         clear_confirm_message: 'Naozaj chcete vymazať tento log súbor?'
         clear_backup_info: 'Pred vymazaním bude vytvorená záloha súboru.'
-        showing_lines: 'Zobrazujem %filtered% z %total% riadkov'
+        filtered_results: 'Zobrazujem %filtered% z %total% riadkov'
         total_lines: 'Celkom %total% riadkov'
     
     system_backups:
@@ -1446,6 +1454,7 @@ cq_chat:
     select_contact_placeholder: 'Vyberte kontakt pre chat'
     select_contact_required: 'Prosím vyberte kontakt'
     create_chat: 'Vytvoriť chat'
+    start_chat: 'Začať chat'
     
     # Chat details
     chat_details: 'Detaily chatu'
@@ -1502,7 +1511,6 @@ feed:
     followers: 'Sledovatelia'
     following_feed: 'Sledované'
     followers_feed: 'Sledovatelia'
-    loading: 'Načítavam...'
     no_following: 'Zatiaľ nikoho nesledujete'
     no_followers: 'Zatiaľ nemáte žiadnych sledovateľov'
     new_content: ''
