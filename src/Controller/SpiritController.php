@@ -50,10 +50,12 @@ class SpiritController extends AbstractController
         
         $spiritId = $this->spiritService->getUserSpirit()->getId();
         $settings = $this->spiritService->getSpiritSettings($spiritId);
+        $spiritInActiveProject = $this->projectService->isSpiritInProject($spiritId, $this->projectService->getActiveProjectId());
         
         return $this->render('spirit/index.html.twig', [
             'spiritId' => $spiritId,
             'aiModels' => $textModels,
+            'spiritInActiveProject' => $spiritInActiveProject,
             'spirit' => ['id' => $spiritId, 'settings' => $settings]
         ]);
     }
@@ -125,6 +127,7 @@ class SpiritController extends AbstractController
         );
 
         $settings = $this->spiritService->getSpiritSettings($id);
+        $spiritInActiveProject = $this->projectService->isSpiritInProject($id, $this->projectService->getActiveProjectId());
         
         return $this->render('spirit/index.html.twig', [
             'spiritId' => $id,
@@ -132,6 +135,7 @@ class SpiritController extends AbstractController
             'allSpirits' => $allSpirits,
             'interactions' => $interactionsData,
             'conversationsCount' => $conversationsCount,
+            'spiritInActiveProject' => $spiritInActiveProject,
             'spirit' => ['id' => $id, 'settings' => $settings]
         ]);
     }

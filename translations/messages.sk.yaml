@@ -1654,3 +1654,4 @@ project:
     projects_info: 'Vyberte, do ktorých projektov (pracovných priestorov) tento Spirit patrí. V chate so Spiritom a v S2S sa zobrazujú iba Spiriti aktívneho projektu.'
     projects_saved: 'Projekty aktualizované'
     projects_empty: 'Zatiaľ žiadne projekty.'
+    not_in_active_project: 'Tento Spirit nie je v aktívnom projekte'

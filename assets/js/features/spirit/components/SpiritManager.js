@@ -177,9 +177,10 @@ export class SpiritManager {
             });
         }
         
-        // Spirit icon click - open Spirit Chat modal
+        // Spirit icon click - open Spirit Chat modal (disabled when the Spirit
+        // is not part of the current active project)
         const spiritAvatar = document.getElementById('spiritChatAvatar');
-        if (spiritAvatar) {
+        if (spiritAvatar && spiritAvatar.dataset.chatDisabled !== '1') {
             spiritAvatar.addEventListener('click', () => {
                 this.openSpiritChat();
             });

@@ -1662,3 +1662,4 @@ project:
     projects_info: 'Choose which Projects (workspaces) this Spirit belongs to. Only Spirits of the active project appear in Spirit chat and S2S.'
     projects_saved: 'Projects updated'
     projects_empty: 'No projects yet.'
+    not_in_active_project: 'This Spirit is not in the active project'

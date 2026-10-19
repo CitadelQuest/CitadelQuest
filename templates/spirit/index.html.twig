@@ -28,7 +28,9 @@
                         <div class="row align-items-center">
                             <div class="col-md-4 col-lg-3 text-center mb-3 mb-md-0">
                                 <div class="spirit-avatar-container big mx-auto">
-                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary cursor-pointer">
+                                    {% set canChat = spiritInActiveProject is not defined or spiritInActiveProject %}
+                                    <div id="spiritChatAvatar" class="spirit-avatar d-flex align-items-center justify-content-center text-secondary {{ canChat ? 'cursor-pointer' : 'opacity-50' }}"
+                                         {% if not canChat %}data-chat-disabled="1" title="{{ 'project.not_in_active_project'|trans|default('This Spirit is not in the active project') }}"{% endif %}>
                                         <i class="mdi mdi-ghost spirit-detail-icon"></i>
                                     </div>
                                 </div>
@@ -51,6 +53,7 @@
                                 </div>
                             </div>
                             <div class="col-md-4 col-lg-4">
+                                {% if spiritInActiveProject is not defined or spiritInActiveProject %}
                                 <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-md-end">
                                     <button type="button" id="spirit-sidebar-chat-btn" class="btn btn-sm btn-cyber">
                                         <i class="mdi mdi-message-text me-2"></i>{{ 'spirit.sidebar.chat'|trans|default('Chat with Spirit') }}
@@ -59,6 +62,7 @@
                                         <i class="mdi mdi-message-plus me-2"></i>{{ 'spirit.chat.new_conversation'|trans }}
                                     </button>
                                 </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
