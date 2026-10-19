@@ -49,7 +49,7 @@ class AIToolFileService
                 return [
                     'success' => false,
                     'error' => 'File not found',
-                    '_frontendData' => $this->buildUpdateErrorFrontendData($arguments, 'File not found')
+                    '_frontendData' => $this->buildUpdateErrorFrontendData($arguments['projectId'] ?? '', $arguments, 'File not found')
                 ];
             }
             
@@ -98,7 +98,7 @@ class AIToolFileService
                 'success' => true,
                 'file' => $updatedFile->jsonSerialize(),
                 'operations_applied' => count($updates),
-                '_frontendData' => $this->buildUpdateFrontendData($updatedFile, $updates, $syntaxChecks)
+                '_frontendData' => $this->buildUpdateFrontendData($arguments['projectId'], $updatedFile, $updates, $syntaxChecks)
             ];
             
             if (!empty($syntaxChecks)) {
@@ -114,7 +114,7 @@ class AIToolFileService
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                '_frontendData' => $this->buildUpdateErrorFrontendData($arguments, $e->getMessage())
+                '_frontendData' => $this->buildUpdateErrorFrontendData($arguments['projectId'] ?? '', $arguments, $e->getMessage())
             ];
         }
     }
@@ -235,7 +235,7 @@ class AIToolFileService
                     'files' => [],
                     'count' => 0,
                     'message' => 'No files found matching "' . $arguments['query'] . '"',
-                    '_frontendData' => $this->buildSearchFrontendData($arguments['query'], [])
+                    '_frontendData' => $this->buildSearchFrontendData($arguments['projectId'], $arguments['query'], [])
                 ];
             }
             
@@ -243,7 +243,7 @@ class AIToolFileService
                 'success' => true,
                 'files' => array_map(fn($f) => $f->jsonSerialize(), $files),
                 'count' => count($files),
-                '_frontendData' => $this->buildSearchFrontendData($arguments['query'], $files)
+                '_frontendData' => $this->buildSearchFrontendData($arguments['projectId'], $arguments['query'], $files)
             ];
         } catch (\Exception $e) {
             return [
@@ -320,7 +320,7 @@ class AIToolFileService
                 'success' => false,
                 'error' => $e->getMessage(),
                 'operation' => $opName,
-                '_frontendData' => $this->buildManageErrorFrontendData($opName, $target, $e->getMessage())
+                '_frontendData' => $this->buildManageErrorFrontendData($arguments['projectId'] ?? '', $opName, $target, $e->getMessage())
             ];
         }
     }
@@ -339,13 +339,13 @@ class AIToolFileService
                 'success' => true,
                 'operation' => 'createDirectory',
                 'directory' => $directory->jsonSerialize(),
-                '_frontendData' => $this->buildDirectoryFrontendData($path, $name)
+                '_frontendData' => $this->buildDirectoryFrontendData($projectId, $path, $name)
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                '_frontendData' => $this->buildManageErrorFrontendData('createDirectory', rtrim($path, '/') . '/' . $name, $e->getMessage())
+                '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'createDirectory', rtrim($path, '/') . '/' . $name, $e->getMessage())
             ];
         }
     }
@@ -365,13 +365,13 @@ class AIToolFileService
                 'operation' => 'list',
                 'path' => $path,
                 'files' => array_map(fn($file) => $file->jsonSerialize(), $files),
-                '_frontendData' => $this->buildListFrontendData($path, $files)
+                '_frontendData' => $this->buildListFrontendData($projectId, $path, $files)
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                '_frontendData' => $this->buildManageErrorFrontendData('list', $path, $e->getMessage())
+                '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'list', $path, $e->getMessage())
             ];
         }
     }
@@ -401,7 +401,7 @@ class AIToolFileService
                     return [
                         'success'       => false,
                         'error'         => "Path not found: {$path}",
-                        '_frontendData' => $this->buildManageErrorFrontendData('tree', $path, "Path not found: {$path}"),
+                        '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'tree', $path, "Path not found: {$path}"),
                     ];
                 }
                 // Treat the found directory as a new root for display
@@ -428,7 +428,7 @@ class AIToolFileService
             return [
                 'success'       => false,
                 'error'         => $e->getMessage(),
-                '_frontendData' => $this->buildManageErrorFrontendData('tree', $projectId, $e->getMessage()),
+                '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'tree', $projectId, $e->getMessage()),
             ];
         }
     }
@@ -582,11 +582,24 @@ class AIToolFileService
     }
 
     /**
+     * Render the project (workspace) badge shown in front of file paths in tool cards.
+     */
+    private function buildProjectBadge(string $projectId): string
+    {
+        if ($projectId === '') {
+            return '';
+        }
+        $projectEsc = htmlspecialchars($projectId);
+
+        return "<span class=\"badge bg-dark bg-opacity-75 text-cyber font-monospace me-2\" title=\"Project\"><i class=\"mdi mdi-briefcase me-1\"></i>{$projectEsc}</span>";
+    }
+
+    /**
      * Build frontend HTML card for the tree operation.
      */
     private function buildTreeFrontendData(string $projectId, string $text, array $counts): string
     {
-        $projectEsc = htmlspecialchars($projectId);
+        $projectBadge = $this->buildProjectBadge($projectId);
         $dirCount   = $counts['dirs'];
         $fileCount  = $counts['files'];
         $treeEsc    = htmlspecialchars($text);
@@ -598,7 +611,7 @@ class AIToolFileService
         <strong>tree</strong>
         <span class="ms-2 text-muted">$dirCount dirs, $fileCount files</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$projectEsc</code></div>
+    <div class="small text-muted mt-1">$projectBadge</div>
     <pre class="small text-cyber bg-dark bg-opacity-75 rounded p-2 mt-2 mb-0" style="max-height:300px; overflow-y:auto; line-height:1.4;">$treeEsc</pre>
 </div>
 HTML;
@@ -624,7 +637,7 @@ HTML;
                 return [
                     'success' => false,
                     'error' => 'File not found',
-                    '_frontendData' => $this->buildManageErrorFrontendData('read', $fileDisplay, 'File not found')
+                    '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'read', $fileDisplay, 'File not found')
                 ];
             }
             
@@ -632,7 +645,7 @@ HTML;
                 return [
                     'success' => false,
                     'error' => 'Cannot get content of a directory',
-                    '_frontendData' => $this->buildManageErrorFrontendData('read', $fileDisplay, 'Cannot get content of a directory')
+                    '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'read', $fileDisplay, 'Cannot get content of a directory')
                 ];
             }
             
@@ -709,7 +722,7 @@ HTML;
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                '_frontendData' => $this->buildManageErrorFrontendData('read', rtrim($path, '/') . '/' . $name, $e->getMessage())
+                '_frontendData' => $this->buildManageErrorFrontendData($projectId, 'read', rtrim($path, '/') . '/' . $name, $e->getMessage())
             ];
         }
     }
@@ -724,6 +737,7 @@ HTML;
         $mimeType = htmlspecialchars($file->getMimeType() ?? 'application/octet-stream');
         $size = is_string($content) ? mb_strlen($content) : 0;
         $editLink = $this->buildFileEditLink($file);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         $header = <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2 mb-0">
@@ -732,7 +746,7 @@ HTML;
         <strong>File read</strong>
         <span class="ms-2 text-muted">$size chars</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code>$editLink</div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$headerPath/$headerName</code>$editLink</div>
     <div class="d-none small text-muted"><i class="mdi mdi-tag-outline me-1"></i>$mimeType</div>
 </div>
 HTML;
@@ -862,10 +876,11 @@ HTML;
     /**
      * Build frontend data for fileSearch results
      */
-    private function buildSearchFrontendData(string $query, array $files): string
+    private function buildSearchFrontendData(string $projectId, string $query, array $files): string
     {
         $displayQuery = htmlspecialchars($query);
         $count = count($files);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         if ($count === 0) {
             return <<<HTML
@@ -875,7 +890,7 @@ HTML;
         <strong>fileSearch</strong>
         <span class="ms-2 text-muted"><i class="mdi mdi-information-outline me-1"></i>No matches</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
 </div>
 HTML;
         }
@@ -897,7 +912,7 @@ HTML;
         <strong>fileSearch</strong>
         <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i>$count match(es)</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-magnify me-1"></i><code>$displayQuery</code></div>
     <div class="mt-2">$items$more</div>
 </div>
 HTML;
@@ -906,11 +921,12 @@ HTML;
     /**
      * Build frontend data for fileUpdate results
      */
-    private function buildUpdateFrontendData($file, array $updates, array $syntaxChecks = []): string
+    private function buildUpdateFrontendData(string $projectId, $file, array $updates, array $syntaxChecks = []): string
     {
         $name = htmlspecialchars($file->getName());
         $path = htmlspecialchars($file->getPath());
         $count = count($updates);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         $details = [];
         foreach ($updates as $u) {
@@ -969,7 +985,7 @@ HTML;
         <strong>fileUpdate</strong>
         <span class="ms-2 text-success"><i class="mdi mdi-check-circle me-1"></i></span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code>$editLink</div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$path/$name</code>$editLink</div>
     <div class="mt-2">$detailsHtml</div>
     $syntaxHtml
 </div>
@@ -1024,13 +1040,14 @@ HTML;
     /**
      * Build frontend data for fileUpdate failure
      */
-    private function buildUpdateErrorFrontendData(array $arguments, string $error): string
+    private function buildUpdateErrorFrontendData(string $projectId, array $arguments, string $error): string
     {
         $op = htmlspecialchars($arguments['operation'] ?? 'unknown');
         $path = htmlspecialchars($arguments['path'] ?? '');
         $name = htmlspecialchars($arguments['name'] ?? '');
         $fileDisplay = trim($path . '/' . $name, '/');
         $errorMsg = htmlspecialchars($error);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -1040,7 +1057,7 @@ HTML;
         <span class="ms-2 text-danger"><i class="mdi mdi-alert-circle me-1"></i>Failed</span>
         <span class="ms-2 text-muted">$op</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$fileDisplay</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$fileDisplay</code></div>
     <div class="small text-danger mt-1"><i class="mdi mdi-alert-outline me-1"></i>$errorMsg</div>
 </div>
 HTML;
@@ -1049,11 +1066,12 @@ HTML;
     /**
      * Build frontend data for failed fileManage operations
      */
-    private function buildManageErrorFrontendData(string $operation, string $target, string $error): string
+    private function buildManageErrorFrontendData(string $projectId, string $operation, string $target, string $error): string
     {
         $opEsc = htmlspecialchars($operation);
         $targetEsc = htmlspecialchars($target);
         $errorMsg = htmlspecialchars($error);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         $iconMap = [
             'read'            => 'mdi-file-document-outline',
@@ -1066,9 +1084,9 @@ HTML;
         ];
         $icon = $iconMap[$operation] ?? 'mdi-file-cog-outline';
 
-        $targetLine = $target !== ''
-            ? "<div class='small text-muted mt-1'><i class='mdi mdi-file-outline me-1'></i><code>$targetEsc</code></div>"
-            : '';
+        $targetLine = "<div class='small text-muted mt-1'>$projectBadge"
+            . ($target !== '' ? "<i class='mdi mdi-file-outline me-1'></i><code>$targetEsc</code>" : '')
+            . "</div>";
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -1170,9 +1188,10 @@ HTML;
     /**
      * Build frontend data for createDirectory
      */
-    private function buildDirectoryFrontendData(string $path, string $name): string
+    private function buildDirectoryFrontendData(string $projectId, string $path, string $name): string
     {
         $displayPath = htmlspecialchars(rtrim($path, '/') . '/' . $name);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         return <<<HTML
 <div class="bg-dark bg-opacity-50 rounded p-2">
@@ -1180,7 +1199,7 @@ HTML;
         <i class="mdi mdi-folder-plus text-cyber me-2"></i>
         <strong>Directory created</strong>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
 </div>
 HTML;
     }
@@ -1188,10 +1207,11 @@ HTML;
     /**
      * Build frontend data for list operation
      */
-    private function buildListFrontendData(string $path, array $files): string
+    private function buildListFrontendData(string $projectId, string $path, array $files): string
     {
         $displayPath = htmlspecialchars($path);
         $count = count($files);
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         $dirs = 0;
         $regular = 0;
@@ -1219,7 +1239,7 @@ HTML;
         <strong>list</strong>
         <span class="ms-2 text-muted">$count item(s)</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-folder-outline me-1"></i><code>$displayPath</code></div>
     <div class="small mt-1">
         <span class="text-info"><i class="mdi mdi-folder me-1"></i>$dirs dirs</span>
         <span class="text-success ms-2"><i class="mdi mdi-file me-1"></i>$regular files</span>
@@ -1232,10 +1252,11 @@ HTML;
     /**
      * Build frontend data for create/copy/rename_move/delete operations
      */
-    private function buildFileOperationFrontendData(string $operation, array $params, ?array $result = null, array $syntaxChecks = []): string
+    private function buildFileOperationFrontendData(string $projectId, string $operation, array $params, ?array $result = null, array $syntaxChecks = []): string
     {
         $source = $params['source'] ?? null;
         $dest = $params['destination'] ?? null;
+        $projectBadge = $this->buildProjectBadge($projectId);
 
         $sourceDisplay = $source ? htmlspecialchars(rtrim($source['path'], '/') . '/' . $source['name']) : '';
         $destDisplay = $dest ? htmlspecialchars(rtrim($dest['path'], '/') . '/' . $dest['name']) : '';
@@ -1267,7 +1288,7 @@ HTML;
         <strong>File created</strong>
         <span class="ms-2 text-success">+$contentLen chars</span>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code>$editLink</div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$destDisplay</code>$editLink</div>
     $syntaxHtml
 </div>
 HTML;
@@ -1283,7 +1304,7 @@ HTML;
         <i class="mdi mdi-content-copy text-cyber me-2"></i>
         <strong>File copied</strong>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
     <div class="small text-muted"><i class="mdi mdi-arrow-right me-1"></i><code>$destDisplay</code></div>
 </div>
 HTML;
@@ -1295,7 +1316,7 @@ HTML;
         <i class="mdi mdi-file-move-outline text-cyber me-2"></i>
         <strong>File renamed/moved</strong>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
     <div class="small text-muted"><i class="mdi mdi-arrow-right me-1"></i><code>$destDisplay</code></div>
 </div>
 HTML;
@@ -1307,7 +1328,7 @@ HTML;
         <i class="mdi mdi-delete-outline text-danger me-2"></i>
         <strong>File deleted</strong>
     </div>
-    <div class="small text-muted mt-1"><i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
+    <div class="small text-muted mt-1">$projectBadge<i class="mdi mdi-file-outline me-1"></i><code>$sourceDisplay</code></div>
 </div>
 HTML;
 
@@ -1400,7 +1421,7 @@ HTML;
             'success' => true,
             'operation' => $operation,
             'result' => $result,
-            '_frontendData' => $this->buildFileOperationFrontendData($operation, $params, $result, $syntaxChecks)
+            '_frontendData' => $this->buildFileOperationFrontendData($projectId, $operation, $params, $result, $syntaxChecks)
         ];
 
         if (!empty($syntaxChecks)) {
