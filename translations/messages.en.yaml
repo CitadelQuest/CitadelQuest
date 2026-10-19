@@ -1634,7 +1634,7 @@ project:
     manage: 'Manage Projects'
     switch: 'Switch project'
     field_title: 'Title'
-    field_title_placeholder: 'e.g. Brovolenka Quest'
+    field_title_placeholder: 'e.g. Marketing'
     field_description: 'Description'
     field_description_placeholder: 'What is this workspace for? (optional)'
     field_public: 'Public'

@@ -15,7 +15,7 @@ use Symfony\Component\String\Slugger\SluggerInterface;
  * Manages Projects (workspaces).
  *
  * A project `id` is a short, human-readable, immutable slug (e.g. 'general',
- * 'brovolenka-quest') and is used everywhere as `projectId` — filesystem paths,
+ * 'marketing') and is used everywhere as `projectId` — filesystem paths,
  * `project_file.project_id`, URLs and `settings.active_project_id`.
  *
  * See docs/features/CQ-PROJECT.md.

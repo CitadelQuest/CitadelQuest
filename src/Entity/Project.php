@@ -6,7 +6,7 @@ use JsonSerializable;
 
 /**
  * A Project (workspace). `id` is the short, human-readable, immutable slug
- * (e.g. 'general', 'brovolenka-quest') and is used everywhere as `projectId`.
+ * (e.g. 'general', 'marketing') and is used everywhere as `projectId`.
  */
 class Project implements JsonSerializable
 {

@@ -4,7 +4,7 @@
  * CQ-PROJECT — Phase A foundation.
  *
  * A "Project" is a workspace. `project.id` is now the short human-readable slug
- * (e.g. 'general', 'brovolenka-quest') used everywhere as `projectId`; there is no
+ * (e.g. 'general', 'marketing') used everywhere as `projectId`; there is no
  * UUID and no separate `slug` column anymore.
  *
  * The `project`/`project_spirit*` tables were created back in

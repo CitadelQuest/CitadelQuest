@@ -1620,7 +1620,7 @@ project:
     manage: 'Spravovat projekty'
     switch: 'Přepnout projekt'
     field_title: 'Název'
-    field_title_placeholder: 'např. Brovolenka Quest'
+    field_title_placeholder: 'např. Marketing'
     field_description: 'Popis'
     field_description_placeholder: 'K čemu slouží tento pracovní prostor? (volitelné)'
     field_public: 'Veřejný'

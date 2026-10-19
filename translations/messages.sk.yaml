@@ -1626,7 +1626,7 @@ project:
     manage: 'Spravovať projekty'
     switch: 'Prepnúť projekt'
     field_title: 'Názov'
-    field_title_placeholder: 'napr. Brovolenka Quest'
+    field_title_placeholder: 'napr. Marketing'
     field_description: 'Popis'
     field_description_placeholder: 'Na čo slúži tento pracovný priestor? (voliteľné)'
     field_public: 'Verejný'
