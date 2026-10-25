@@ -1,5 +1,5 @@
 import * as bootstrap from 'bootstrap';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../../shared/safe-markdown';
 import { MemoryGraphView } from '../../cq-memory/MemoryGraphView';
 import { FileBrowserModal } from '../../file-browser/components/FileBrowserModal';
 import { getFileEditModal } from '../../../shared/file-edit-modal';
@@ -25,7 +25,7 @@ export class ShareGroupsManager {
         this.fileBrowserModal = null;
         this.dragSrcEl = null;
         this.activeFilterGroupId = null; // null = show all
-        this.md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+        this.md = createMarkdown({ html: true, linkify: true, typographer: true });
         this.graphViews = [];
         this.showContentPreview = localStorage.getItem('shareGroups_showPreview') !== '0';
 

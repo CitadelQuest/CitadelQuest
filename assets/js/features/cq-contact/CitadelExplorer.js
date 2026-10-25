@@ -1,5 +1,5 @@
 import { MemoryGraphView } from '../cq-memory/MemoryGraphView';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown, escapeHtml } from '../../shared/safe-markdown';
 import * as bootstrap from 'bootstrap';
 import { renderSharePreviewBlock } from '../../shared/share-preview';
 
@@ -33,7 +33,7 @@ export class CitadelExplorer {
         this.addToLibPackPath = null;
         this.addToLibPackName = null;
 
-        this.md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+        this.md = createMarkdown({ html: true, linkify: true, typographer: true });
         this._originalTitle = document.title;
 
         this.init();
@@ -233,7 +233,7 @@ export class CitadelExplorer {
             const fullPhotoUrl = proxyPhotoUrl + (proxyPhotoUrl.includes('?') ? '&full=1' : '?full=1');
             photoHtml = `
                 <a href="#" class="explorer-photo-trigger" style="cursor: pointer;">
-                <img src="${proxyPhotoUrl}" alt="${p.username}"
+                <img src="${escapeHtml(proxyPhotoUrl)}" alt="${escapeHtml(p.username)}"
                      class="rounded border border-0 border-success"
                      style="width: 125px; height: 125px; object-fit: cover;"
                      onerror="this.style.display='none'; this.nextElementSibling?.classList.remove('d-none');">
@@ -247,11 +247,11 @@ export class CitadelExplorer {
                     <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content glass-panel border-0" style="background: transparent;">
                             <div class="modal-header border-0 pb-0">
-                                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-box me-2"></i>${p.username || ''}</h5>
+                                <h5 class="modal-title text-cyber"><i class="mdi mdi-account-box me-2"></i>${escapeHtml(p.username || '')}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body text-center p-4">
-                                <img src="${fullPhotoUrl}" alt="${p.username}" class="rounded border border-2 border-primary img-fluid">
+                                <img src="${escapeHtml(fullPhotoUrl)}" alt="${escapeHtml(p.username)}" class="rounded border border-2 border-primary img-fluid">
                             </div>
                         </div>
                     </div>

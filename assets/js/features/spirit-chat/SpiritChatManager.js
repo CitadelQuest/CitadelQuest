@@ -2,7 +2,7 @@ import { SpiritChatApiService } from './SpiritChatApiService';
 import { updatesService } from '../../services/UpdatesService';
 import * as bootstrap from 'bootstrap';
 //import { marked } from 'marked';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../shared/safe-markdown';
 import * as animation from '../../shared/animation';
 import { ImageShowcase } from '../../shared/image-showcase';
 import { formatDate, formatShortDate, formatTime, getCitadelLocale } from '../../shared/date-utils';
@@ -2129,7 +2129,7 @@ export class SpiritChatManager {
             return '';
         }
 
-        let md = new MarkdownIt({
+        let md = createMarkdown({
             html: true,  // ← This enables HTML parsing
             linkify: true, // Optional: converts URLs to links
             typographer: true // Optional: improves typography (e.g., quotes, dashes)

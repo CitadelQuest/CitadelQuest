@@ -4,7 +4,7 @@ import { ImageShowcase } from '../../shared/image-showcase.js';
 import { formatDate as cqFormatDate, formatTime as cqFormatTime } from '../../shared/date-utils.js';
 import { pushNotificationService } from '../pwa/PushNotifications.js';
 import * as bootstrap from 'bootstrap';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../shared/safe-markdown.js';
 
 /**
  * CQ Chat Modal Manager
@@ -242,10 +242,10 @@ export class CqChatModalManager {
                         ${lastMessageTime ? `<small class="text-muted opacity-75">${lastMessageTime}</small>` : ''}
                         <div class="d-flex align-items-center">
                             ${groupIcon}
-                            <strong class="${hasUnread ? 'text-cyber' : ''}">${contactName}</strong><span class="opacity-50 small">${contactDomain}</span>
+                            <strong class="${hasUnread ? 'text-cyber' : ''}">${this.escapeHtml(contactName)}</strong><span class="opacity-50 small">${this.escapeHtml(contactDomain)}</span>
                             ${hasUnread ? `<span class="badge bg-cyber text-dark ms-2">${chat.unreadCount}</span>` : ''}
                         </div>
-                        <small class="text-muted text-truncate d-block" style="max-width: 250px;">${lastMessage}</small>
+                        <small class="text-muted text-truncate d-block" style="max-width: 250px;">${this.escapeHtml(lastMessage)}</small>
                     </div>
                 </div>
             `;
@@ -302,14 +302,14 @@ export class CqChatModalManager {
             const isMultiGroup = isGroup && (chat.memberCount || 0) > 1;
             if (isGroup) {
                 const groupIcon = isMultiGroup ? '<i class="mdi mdi-account-multiple text-light me-2"></i>' : '';
-                this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${chat.title}</span>`;
+                this.modalTitle.innerHTML = `${groupIcon}<span class="fw-bold">${this.escapeHtml(chat.title)}</span>`;
                 
                 // Render members list (include host contact for non-host users)
                 this.renderMembers(chat.members || [], chat.hostContact || null);
             } else {
                 const contactName = chat.contact?.cqContactUsername || chat.contact?.name || 'Unknown';
                 const contactDomain = chat.contact?.cqContactDomain || '';
-                this.modalTitle.innerHTML = contactDomain ? `<span class="fw-bold">${contactName}</span><span class="opacity-50">@${contactDomain}</span>` : contactName;
+                this.modalTitle.innerHTML = contactDomain ? `<span class="fw-bold">${this.escapeHtml(contactName)}</span><span class="opacity-50">@${this.escapeHtml(contactDomain)}</span>` : this.escapeHtml(contactName);
                 
                 // Hide members for direct chats
                 this.hideMembersContainer();
@@ -732,7 +732,7 @@ export class CqChatModalManager {
         let nameDisplay;
         if (isOutgoing) {
             const userPhotoUrl = `/${userName}/photo?icon=1`;
-            nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-2 pb-1 mb-2 border-0 border-bottom border-1 border-secondary border-opacity-50"><small class="text-cyber">${userName}</small><img src="${userPhotoUrl}" class="rounded" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
+            nameDisplay = `<div class="text-end d-flex align-items-center justify-content-end gap-2 pb-1 mb-2 border-0 border-bottom border-1 border-secondary border-opacity-50"><small class="text-cyber">${this.escapeHtml(userName)}</small><img src="${this.escapeHtml(userPhotoUrl)}" class="rounded" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}</div>`;
         } else {
             // For real contacts use API endpoint, for non-friend placeholders use public photo URL
             const isRealContact = contactId && !contactId.startsWith('nf_');
@@ -740,11 +740,11 @@ export class CqChatModalManager {
                 ? `/api/cq-contact/${contactId}/profile-photo?icon=1` 
                 : (contactDomain && contactName ? `https://${contactDomain}/${contactName}/photo?icon=1` : '');
             const photoImg = contactPhotoUrl 
-                ? `<img src="${contactPhotoUrl}" class="rounded me-1 border-1 border-light border-opacity-25" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
+                ? `<img src="${this.escapeHtml(contactPhotoUrl)}" class="rounded me-1 border-1 border-light border-opacity-25" style="width:${photoSize}px;height:${photoSize}px;object-fit:cover;" ${photoFallback}>${fallbackIcon}`
                 : `<div class="rounded border border-secondary d-flex align-items-center justify-content-center" style="width:${photoSize}px;height:${photoSize}px;background:rgba(255,255,255,0.05);"><i class="mdi mdi-account text-cyber opacity-75" style="font-size:${photoSize/2}px;"></i></div>`;
             const contactUrl = contactDomain && contactName ? `https://${contactDomain}/${contactName}` : '';
-            const copyLinkIcon = contactUrl ? `<a href="#" class="text-decoration-none opacity-25 ps-2" style="font-size:10px;" title="${contactUrl}" onclick="event.preventDefault();navigator.clipboard.writeText('${contactUrl}');window.toast&&window.toast.success('URL copied');"><i class="mdi mdi-link-variant"></i></a>` : '';
-            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2 pb-1 border-0 border-bottom border-1 border-secondary border-opacity-10">${photoImg}<span class="d-flex flex-column" style="line-height:0.9rem;"><small class="text-cyber">${contactName}</small><small class="opacity-25" style="font-size:0.65rem;">${contactDomain}</small></span>${copyLinkIcon}</div>`;
+            const copyLinkIcon = contactUrl ? `<a href="#" class="text-decoration-none opacity-25 ps-2" style="font-size:10px;" title="${this.escapeHtml(contactUrl)}" onclick="event.preventDefault();navigator.clipboard.writeText(${this.escapeHtml(JSON.stringify(contactUrl))});window.toast&&window.toast.success('URL copied');"><i class="mdi mdi-link-variant"></i></a>` : '';
+            nameDisplay = `<div class="d-flex align-items-center gap-1 mb-2 pb-1 border-0 border-bottom border-1 border-secondary border-opacity-10">${photoImg}<span class="d-flex flex-column" style="line-height:0.9rem;"><small class="text-cyber">${this.escapeHtml(contactName)}</small><small class="opacity-25" style="font-size:0.65rem;">${this.escapeHtml(contactDomain)}</small></span>${copyLinkIcon}</div>`;
         }
         
         // Render attachments (images)
@@ -1098,7 +1098,7 @@ export class CqChatModalManager {
                 const publicPhotoUrl = domain && username ? `https://${domain}/${username}/photo?icon=1` : '';
                 const photoUrl = isRealContact ? `/api/cq-contact/${cId}/profile-photo?icon=1` : publicPhotoUrl;
                 const cPhoto = photoUrl ? `<img src="${photoUrl}" class="rounded me-1" style="width:${ps}px;height:${ps}px;object-fit:cover;" ${pFallback}>${pIcon}` : `<i class="mdi mdi-account me-1"></i>`;
-                html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${domain}/${username}">${cPhoto}${username}</span>`;
+                html += `<span class="badge bg-secondary d-inline-flex align-items-center" title="${this.escapeHtml(domain)}/${this.escapeHtml(username)}">${cPhoto}${this.escapeHtml(username)}</span>`;
             }
         });
         
@@ -1122,7 +1122,7 @@ export class CqChatModalManager {
     renderMarkdown(content) {
         if (!content) return '';
         
-        const md = new MarkdownIt({
+        const md = createMarkdown({
             html: false,       // Disable HTML tags in source (security)
             linkify: true,     // Convert URLs to links
             typographer: true, // Smart quotes, dashes
@@ -1183,11 +1183,11 @@ export class CqChatModalManager {
             // Render contact checkboxes
             this.groupMembersList.innerHTML = activeContacts.map(contact => `
                 <div class="form-check mb-2">
-                    <input class="form-check-input" type="checkbox" value="${contact.id}" 
-                           id="groupMember${contact.id}" data-contact-name="${contact.cqContactDomain}/${contact.cqContactUsername}">
-                    <label class="form-check-label" for="groupMember${contact.id}">
-                        <span class="text-cyber_ fw-bold">${contact.cqContactUsername}</span>
-                        <span class="text-muted small ms-1">${contact.cqContactDomain}</span>
+                    <input class="form-check-input" type="checkbox" value="${this.escapeHtml(contact.id)}" 
+                           id="groupMember${this.escapeHtml(contact.id)}" data-contact-name="${this.escapeHtml(contact.cqContactDomain)}/${this.escapeHtml(contact.cqContactUsername)}">
+                    <label class="form-check-label" for="groupMember${this.escapeHtml(contact.id)}">
+                        <span class="text-cyber_ fw-bold">${this.escapeHtml(contact.cqContactUsername)}</span>
+                        <span class="text-muted small ms-1">${this.escapeHtml(contact.cqContactDomain)}</span>
                     </label>
                 </div>
             `).join('');
@@ -1449,8 +1449,8 @@ export class CqChatModalManager {
      */
     escapeHtml(html) {
         const div = document.createElement('div');
-        div.textContent = html;
-        return div.innerHTML;
+        div.textContent = html ?? '';
+        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
 }
 

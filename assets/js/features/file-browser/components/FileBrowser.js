@@ -8,7 +8,7 @@ import { ImageGallery } from './ImageGallery';
 import { GitPanel } from './GitPanel';
 import * as animation from '../../../shared/animation';
 import * as bootstrap from 'bootstrap';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../../shared/safe-markdown';
 import { ImageShowcase } from '../../../shared/image-showcase';
 import { formatDate, formatTime } from '../../../shared/date-utils';
 import { getFileEditModal } from '../../../shared/file-edit-modal';
@@ -1216,7 +1216,7 @@ export class FileBrowser {
         // Text/code files
         else if (this.isTextFile(extension, file.name)) {
             if (extension === 'md' || extension === 'anno') {
-                let md = new MarkdownIt({
+                let md = createMarkdown({
                     html: true,  // ← This enables HTML parsing
                     linkify: true, // Optional: converts URLs to links
                     typographer: true // Optional: improves typography (e.g., quotes, dashes)

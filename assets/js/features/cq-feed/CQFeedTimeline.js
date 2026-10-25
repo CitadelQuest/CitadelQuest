@@ -1,4 +1,4 @@
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../shared/safe-markdown';
 import { getCitadelLocale } from '../../shared/date-utils';
 import { CQProfileIcons } from '../cq-contact/CQProfileIcons.js';
 
@@ -31,7 +31,7 @@ export class CQFeedTimeline {
         // Timeline feed filter (set by clicking feed badge)
         this.activeFeedFilter = null; // { feedUrl, feedTitle, feedScope }
 
-        this.md = new MarkdownIt({ html: false, breaks: true, linkify: true, typographer: true });
+        this.md = createMarkdown({ html: false, breaks: true, linkify: true, typographer: true });
     }
 
     t(key, fallback) {

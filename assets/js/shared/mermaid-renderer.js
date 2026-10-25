@@ -14,8 +14,9 @@ export function initMermaid(theme = 'dark') {
         theme: theme,
         securityLevel: 'strict',
         fontFamily: 'inherit',
+        htmlLabels: true,
         // Render at natural size; CSS controls overflow/scrolling.
-        flowchart: { useMaxWidth: false, htmlLabels: true },
+        flowchart: { useMaxWidth: false },
         sequence: { useMaxWidth: false },
         gantt: { useMaxWidth: false },
         class: { useMaxWidth: false },

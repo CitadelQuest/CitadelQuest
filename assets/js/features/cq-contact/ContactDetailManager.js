@@ -1,5 +1,5 @@
 import * as bootstrap from 'bootstrap';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown, escapeHtml } from '../../shared/safe-markdown';
 import { renderSharePreviewBlock } from '../../shared/share-preview';
 
 /**
@@ -19,7 +19,7 @@ export class ContactDetailManager {
         // Download status cache
         this.downloadStatus = {};
         this.showShareContent = false;
-        this.md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+        this.md = createMarkdown({ html: false, linkify: true, typographer: true });
 
         // Add to Library state
         this.addToLibPackPath = null;
@@ -58,7 +58,7 @@ export class ContactDetailManager {
             if (photoEl && profile.photo_url) {
                 const proxyUrl = `/api/cq-contact/${this.contact.id}/profile-photo`;
                 photoEl.innerHTML = `
-                    <img src="${proxyUrl}" alt="${profile.username || ''}"
+                    <img src="${proxyUrl}" alt="${escapeHtml(profile.username || '')}"
                          class="rounded-circle border border-2 border-success"
                          style="width: 64px; height: 64px; object-fit: cover;"
                          onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon')?.classList.remove('d-none');">

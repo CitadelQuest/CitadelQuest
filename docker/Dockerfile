@@ -20,13 +20,14 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     libzip-dev \
     libicu-dev \
+    && apt-get install -y --only-upgrade libbrotli1 \
     && docker-php-ext-configure gd --with-jpeg --with-webp \
     && docker-php-ext-install pdo pdo_sqlite mbstring exif pcntl bcmath gd zip intl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20.x + npm (NodeSource) — needed for Spirit runCommand (npm install, build, …)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Install Node.js 24.x LTS + npm (NodeSource) — needed for Spirit runCommand (npm install, build, …)
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -34,7 +35,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Install puppeteer-core + pngjs globally (needed by bin/obscura-screenshot.cjs)
 # puppeteer-core: CDP client for viewport/screenshot control
 # pngjs: pure-JS PNG stitching for segmented capture of tall pages
-RUN npm install -g puppeteer-core@24 pngjs
+RUN npm install -g puppeteer-core@25 pngjs
 
 # Install Obscura (headless browser for AI screenshot/fetch tools)
 # Static binary, no Chromium/Node.js required, ~57MB

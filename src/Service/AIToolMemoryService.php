@@ -762,7 +762,7 @@ HTML;
                 $count = $result['storedCount'] ?? 0;
                 $this->notificationService->createNotification(
                     $this->user,
-                    $this->translator->trans('notifications.memory.extraction_complete_title') . '<br/>' . $docName,
+                    $this->translator->trans('notifications.memory.extraction_complete_title') . "\n" . $docName,
                     $this->translator->trans('notifications.memory.extraction_complete_message', ['%count%' => $count]),
                     'success',
                     '/memory'

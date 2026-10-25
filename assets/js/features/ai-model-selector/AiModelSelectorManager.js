@@ -5,6 +5,7 @@
 import * as bootstrap from 'bootstrap';
 import { marked } from 'marked';
 import { getCitadelLocale } from '../../shared/date-utils';
+import { sanitizeHtml } from '../../shared/safe-markdown';
 
 export class AiModelSelectorManager {
     constructor() {
@@ -358,7 +359,7 @@ export class AiModelSelectorManager {
                         <h6 class="text-cyber mb-2">
                             <i class="mdi mdi-information-outline me-2"></i>Description
                         </h6>
-                        <div class="text-secondary mb-0 model-description">${marked.parse(model.description)}</div>
+                        <div class="text-secondary mb-0 model-description">${sanitizeHtml(marked.parse(model.description))}</div>
                     </div>
                 </div>
 

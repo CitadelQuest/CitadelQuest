@@ -2,7 +2,7 @@ import { MemoryGraphView } from './MemoryGraphView';
 import { MemoryExtractPanel } from './MemoryExtractPanel';
 import { updatesService } from '../../services/UpdatesService';
 import { formatDateTimeSplit, getCitadelLocale } from '../../shared/date-utils';
-import MarkdownIt from 'markdown-it';
+import { createMarkdown } from '../../shared/safe-markdown';
 import * as bootstrap from 'bootstrap';
 
 /**
@@ -19,7 +19,7 @@ class CQMemoryExplorer {
         this.manualPollingActive = false;
         this.manualPollingTimeout = null;
         
-        this.md = new MarkdownIt({ html: false, breaks: true, linkify: true });
+        this.md = createMarkdown({ html: false, breaks: true, linkify: true });
         
         // Pack management state
         this.currentPackPath = null;
